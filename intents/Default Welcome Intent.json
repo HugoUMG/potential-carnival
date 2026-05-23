@@ -7,7 +7,12 @@
     {
       "resetContexts": false,
       "action": "input.welcome",
-      "affectedContexts": [],
+      "affectedContexts": [
+        {
+          "name": "pregunta_1",
+          "lifespan": 2
+        }
+      ],
       "parameters": [],
       "messages": [
         {
@@ -16,9 +21,7 @@
           "textToSpeech": "",
           "lang": "es",
           "speech": [
-            "¡Hola!",
-            "¡Hey!",
-            "¡Buenos días!"
+            "Bienvenido al sistema de orientación vocacional.\n\nResponderás preguntas usando:\n\n0 = No me gusta\n1 = Me gusta un poco\n2 = Me gusta mucho\n\nComencemos.\n\nPregunta 1:\n¿Te gusta usar computadoras?"
           ],
           "condition": ""
         }
