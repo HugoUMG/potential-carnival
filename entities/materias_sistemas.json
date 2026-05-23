@@ -1,0 +1,9 @@
+{
+  "id": "70747be8-fea0-4502-ae70-b91565a3d093",
+  "name": "materias_sistemas",
+  "isOverridable": true,
+  "isEnum": false,
+  "isRegexp": false,
+  "automatedExpansion": false,
+  "allowFuzzyExtraction": false
+}

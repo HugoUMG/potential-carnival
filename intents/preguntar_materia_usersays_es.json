@@ -1,0 +1,105 @@
+[
+  {
+    "id": "eeefef78-cf53-4fc9-a629-81119796f3b1",
+    "data": [
+      {
+        "text": "¿Cómo aprendo ",
+        "userDefined": false
+      },
+      {
+        "text": "Programación Web",
+        "meta": "@materias_sistemas",
+        "alias": "materias_sistemas",
+        "userDefined": false
+      },
+      {
+        "text": "?",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  },
+  {
+    "id": "6a40555e-2dec-469d-bd1a-e74d330d1aec",
+    "data": [
+      {
+        "text": "Tengo dudas de ",
+        "userDefined": false
+      },
+      {
+        "text": "Redes",
+        "meta": "@materias_sistemas",
+        "alias": "materias_sistemas",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  },
+  {
+    "id": "4e7a5f52-9c57-4947-99c3-438d0d4379a5",
+    "data": [
+      {
+        "text": "Explícame ",
+        "userDefined": false
+      },
+      {
+        "text": "Inteligencia Artificial",
+        "meta": "@materias_sistemas",
+        "alias": "materias_sistemas",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  },
+  {
+    "id": "3d932ce0-bbc7-45e3-8bb4-4ac915f49118",
+    "data": [
+      {
+        "text": "Necesito ayuda con ",
+        "userDefined": false
+      },
+      {
+        "text": "Bases de Datos",
+        "meta": "@materias_sistemas",
+        "alias": "materias_sistemas",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  },
+  {
+    "id": "8c8fdeda-8ed0-4161-8f2b-e9e22645e1c7",
+    "data": [
+      {
+        "text": "¿Qué me puedes decir sobre ",
+        "userDefined": false
+      },
+      {
+        "text": "Estructura de Datos",
+        "meta": "@materias_sistemas",
+        "alias": "materias_sistemas",
+        "userDefined": false
+      },
+      {
+        "text": "?",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  }
+]

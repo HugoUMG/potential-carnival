@@ -1,0 +1,84 @@
+[
+  {
+    "id": "f93c8931-f43d-440f-9a17-c2aab4e53d71",
+    "data": [
+      {
+        "text": "Soy el ingeniero ",
+        "userDefined": false
+      },
+      {
+        "text": "Roberto",
+        "meta": "@sys.music-artist",
+        "alias": "music-artist",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  },
+  {
+    "id": "14ac0ef4-0e6e-4d1e-ba92-ed1bb3a4e26f",
+    "data": [
+      {
+        "text": "Puedes llamarme ",
+        "userDefined": false
+      },
+      {
+        "text": "María",
+        "meta": "@sys.person",
+        "alias": "person",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  },
+  {
+    "id": "33efab5c-f9aa-4d96-b2b9-f4cd217501ab",
+    "data": [
+      {
+        "text": "Mi",
+        "meta": "@sys.unit-length-name",
+        "alias": "unit-length-name",
+        "userDefined": false
+      },
+      {
+        "text": " nombre es ",
+        "userDefined": false
+      },
+      {
+        "text": "Luis",
+        "meta": "@sys.music-artist",
+        "alias": "music-artist",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  },
+  {
+    "id": "b5c862ca-9ec6-4ce2-89cb-84a13ed3cbeb",
+    "data": [
+      {
+        "text": "Yo soy ",
+        "userDefined": false
+      },
+      {
+        "text": "Ana",
+        "meta": "@sys.person",
+        "alias": "person",
+        "userDefined": false
+      }
+    ],
+    "isTemplate": false,
+    "count": 0,
+    "lang": "es",
+    "updated": 0
+  }
+]
