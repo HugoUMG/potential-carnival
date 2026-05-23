@@ -1,0 +1,9 @@
+{
+  "id": "77777777-7777-7777-7777-777777777777",
+  "name": "confirmacion",
+  "isOverridable": true,
+  "isEnum": false,
+  "isRegexp": false,
+  "automatedExpansion": false,
+  "allowFuzzyExtraction": false
+}
