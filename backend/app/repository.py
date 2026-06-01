@@ -18,7 +18,11 @@ class SQLiteRepository:
     def authenticate(self, username: str, password: str, role: UserRole) -> PublicUser | None:
         with get_connection() as connection:
             row = connection.execute(
-                "SELECT id, name, email, username, role FROM users WHERE username = ? AND password_hash = ? AND role = ?",
+                """
+                SELECT id, name, email, username, role
+                FROM users
+                WHERE LOWER(username) = LOWER(?) AND password_hash = ? AND role = ?
+                """,
                 (username, password, role.value),
             ).fetchone()
         return self._user_from_row(row) if row else None
@@ -26,6 +30,9 @@ class SQLiteRepository:
     def create_student(self, payload: StudentCreate) -> PublicUser:
         user_id = str(uuid4())
         with get_connection() as connection:
+            existing = connection.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (payload.username,)).fetchone()
+            if existing:
+                raise ValueError("El usuario ya existe")
             connection.execute(
                 "INSERT INTO users (id, name, username, password_hash, role) VALUES (?, ?, ?, ?, 'student')",
                 (user_id, payload.name, payload.username, payload.password),
