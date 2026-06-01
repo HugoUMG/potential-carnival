@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import type {
   ActivityDefinition,
   ActivityRendererProps,
@@ -208,6 +209,6 @@ export const activityRegistry = {
     create: () => ({ id: nextId('imagequestion'), type: 'imagequestion', image: 'https://placehold.co/900x500', prompt: 'Describe lo que ves.' }),
     Renderer: ImageQuestionRenderer,
   },
-} satisfies Record<WorksheetActivity['type'], ActivityDefinition>;
+} satisfies { [Type in WorksheetActivity['type']]: ActivityDefinition<Extract<WorksheetActivity, { type: Type }>> };
 
 export const activityDefinitions = Object.values(activityRegistry);

@@ -1,19 +1,24 @@
+import { Save } from 'lucide-react';
 import { activityDefinitions } from './activityRegistry';
 import type { Worksheet, WorksheetActivity } from '../types';
 
 interface WorksheetEditorProps {
   worksheet: Worksheet;
   selectedActivity?: WorksheetActivity;
+  scriptDraft: string;
+  isSaving?: boolean;
+  message?: string;
   onAddActivity: (activity: WorksheetActivity) => void;
-  onSelectActivity: (activity: WorksheetActivity) => void;
   onScriptChange: (script: string) => void;
+  onSaveScript: () => void;
 }
 
-export function WorksheetEditor({ worksheet, selectedActivity, onAddActivity, onSelectActivity, onScriptChange }: WorksheetEditorProps) {
+export function WorksheetEditor({ worksheet, selectedActivity, scriptDraft, isSaving, message, onAddActivity, onScriptChange, onSaveScript }: WorksheetEditorProps) {
   return (
-    <div className="grid gap-5 xl:grid-cols-[250px_1fr_280px]">
+    <div className="grid gap-5 xl:grid-cols-[240px_1fr_280px]">
       <section className="rounded-3xl bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Biblioteca de actividades</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Biblioteca rápida</p>
+        <p className="mt-1 text-sm text-slate-500">Haz clic para agregar bloques al lienzo de prueba.</p>
         <div className="mt-4 grid gap-3">
           {activityDefinitions.map((definition) => (
             <button
@@ -33,46 +38,33 @@ export function WorksheetEditor({ worksheet, selectedActivity, onAddActivity, on
       <section className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Lienzo de la hoja</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Crear evaluación con script</p>
             <h2 className="text-2xl font-bold text-slate-900">{worksheet.title}</h2>
+            <p className="mt-1 text-sm text-slate-500">Pega o escribe WorksheetScript y guárdalo en la base de datos.</p>
           </div>
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">{worksheet.activities.length} actividades</span>
-        </div>
-
-        <div className="mt-5 grid gap-3">
-          {worksheet.activities.map((activity, index) => {
-            const definition = activityDefinitions.find((item) => item.type === activity.type);
-            return (
-              <button
-                key={activity.id}
-                className={`rounded-2xl border p-4 text-left transition ${selectedActivity?.id === activity.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:border-blue-200'}`}
-                type="button"
-                onClick={() => onSelectActivity(activity)}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bloque {index + 1}</p>
-                    <h3 className="font-semibold text-slate-900">{definition?.icon} {definition?.label}</h3>
-                  </div>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500">{activity.type}</span>
-                </div>
-              </button>
-            );
-          })}
         </div>
 
         <label className="mt-6 block">
           <span className="text-sm font-semibold text-slate-700">WorksheetScript</span>
           <textarea
-            className="mt-2 min-h-80 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-            value={worksheet.scriptContent}
+            className="mt-2 min-h-96 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            value={scriptDraft}
             onChange={(event) => onScriptChange(event.target.value)}
           />
         </label>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-500">Al guardar, el backend valida el script y almacena la evaluación de forma permanente en SQLite.</p>
+          <button className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" type="button" disabled={isSaving} onClick={onSaveScript}>
+            <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : 'Guardar evaluación'}
+          </button>
+        </div>
+        {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm font-medium text-blue-700">{message}</p>}
       </section>
 
       <section className="rounded-3xl bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Propiedades</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Vista JSON</p>
         {selectedActivity ? (
           <div className="mt-4 space-y-4">
             <div>
@@ -86,7 +78,7 @@ export function WorksheetEditor({ worksheet, selectedActivity, onAddActivity, on
             <pre className="overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">{JSON.stringify(selectedActivity, null, 2)}</pre>
           </div>
         ) : (
-          <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Selecciona una actividad del lienzo para revisar su configuración JSON reutilizable.</p>
+          <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Selecciona una actividad de la biblioteca para revisar su JSON reutilizable.</p>
         )}
       </section>
     </div>

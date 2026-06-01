@@ -2,7 +2,17 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .ai import generate_worksheet_script
-from .models import AiGenerateRequest, Worksheet, WorksheetCreate, WorksheetJson, WorksheetResponse, WorksheetResponseCreate
+from .database import initialize_database
+from .models import (
+    AiGenerateRequest,
+    LoginRequest,
+    LoginResponse,
+    Worksheet,
+    WorksheetCreate,
+    WorksheetJson,
+    WorksheetResponse,
+    WorksheetResponseCreate,
+)
 from .parser import WorksheetScriptError, parse_worksheet_script
 from .repository import repository
 
@@ -17,9 +27,22 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def startup() -> None:
+    initialize_database()
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"estado": "correcto"}
+
+
+@app.post("/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest) -> LoginResponse:
+    user = repository.authenticate(payload.email, payload.password, payload.role)
+    if not user:
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    return LoginResponse(user=user, access_token=f"demo-token-{user.id}")
 
 
 @app.post("/worksheets", response_model=Worksheet)
@@ -47,8 +70,18 @@ def ai_generate(payload: AiGenerateRequest) -> Worksheet:
 
 
 @app.get("/worksheets", response_model=list[Worksheet])
-def list_worksheets(created_by: str | None = None) -> list[Worksheet]:
-    return repository.list_worksheets(created_by=created_by)
+def list_worksheets(created_by: str | None = None, published: bool | None = None) -> list[Worksheet]:
+    return repository.list_worksheets(created_by=created_by, published=published)
+
+
+@app.get("/students/{student_id}/worksheets", response_model=list[Worksheet])
+def list_student_worksheets(student_id: str) -> list[Worksheet]:
+    return repository.list_worksheets(published=True)
+
+
+@app.get("/students/{student_id}/responses", response_model=list[WorksheetResponse])
+def list_student_responses(student_id: str) -> list[WorksheetResponse]:
+    return repository.list_responses(student_id=student_id)
 
 
 @app.get("/worksheets/{worksheet_id}", response_model=Worksheet)
@@ -62,6 +95,14 @@ def get_worksheet(worksheet_id: str) -> Worksheet:
 @app.post("/worksheets/{worksheet_id}/publish", response_model=Worksheet)
 def publish_worksheet(worksheet_id: str) -> Worksheet:
     worksheet = repository.publish_worksheet(worksheet_id)
+    if not worksheet:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    return worksheet
+
+
+@app.post("/worksheets/{worksheet_id}/unpublish", response_model=Worksheet)
+def unpublish_worksheet(worksheet_id: str) -> Worksheet:
+    worksheet = repository.unpublish_worksheet(worksheet_id)
     if not worksheet:
         raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
     return worksheet
@@ -90,7 +131,7 @@ def submit_response(payload: WorksheetResponseCreate) -> WorksheetResponse:
 def list_responses(worksheet_id: str) -> list[WorksheetResponse]:
     if not repository.get_worksheet(worksheet_id):
         raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
-    return repository.list_responses(worksheet_id)
+    return repository.list_responses(worksheet_id=worksheet_id)
 
 
 def _score_response(worksheet: Worksheet, answers: dict[str, object]) -> float | None:

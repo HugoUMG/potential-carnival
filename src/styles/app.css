@@ -59,3 +59,9 @@ select {
   color: #2563eb;
   box-shadow: 0 8px 24px rgb(15 23 42 / 0.08);
 }
+
+.dashboard-action-active {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+}

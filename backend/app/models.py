@@ -20,6 +20,25 @@ class User(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class PublicUser(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: UserRole
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+    role: UserRole
+
+
+class LoginResponse(BaseModel):
+    user: PublicUser
+    access_token: str
+    token_type: str = "demo"
+
+
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     type: Literal[
@@ -66,6 +85,10 @@ class WorksheetCreate(BaseModel):
     created_by: str
 
 
+class WorksheetUpdateScript(BaseModel):
+    script_content: str
+
+
 class AiGenerateRequest(BaseModel):
     prompt: str
     created_by: str
@@ -75,6 +98,7 @@ class WorksheetResponseCreate(BaseModel):
     worksheet_id: str
     student_name: str
     answers_json: dict[str, Any]
+    student_id: str | None = None
 
 
 class WorksheetResponse(BaseModel):
@@ -84,3 +108,4 @@ class WorksheetResponse(BaseModel):
     answers_json: dict[str, Any]
     score: float | None = None
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    student_id: str | None = None
