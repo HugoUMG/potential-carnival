@@ -61,6 +61,7 @@ export const sampleWorksheet: Worksheet = {
   description: 'Práctica A1 de verbos modales con actividades interactivas mixtas.',
   level: 'A1',
   status: 'draft',
+  archived: false,
   scriptContent: sampleScript,
   createdBy: 'Docente de demostración',
   createdAt: '2026-06-01T09:00:00.000Z',

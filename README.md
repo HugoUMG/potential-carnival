@@ -12,10 +12,11 @@ Aplicación full-stack para que un **profesor** cree evaluaciones con `Worksheet
 
 ## Usuarios demo
 
-| Rol | Correo | Contraseña |
-| --- | --- | --- |
-| Profesor | `profesor@demo.com` | `profesor123` |
-| Estudiante | `estudiante@demo.com` | `estudiante123` |
+| Rol | Usuario | Correo | Contraseña |
+| --- | --- | --- | --- |
+| Admin | `admin` | `admin@demo.com` | `admin123` |
+| Profesor | `profesor` | `profesor@demo.com` | `profesor123` |
+| Estudiante | `estudiante` | — | `estudiante123` |
 
 > En producción estas contraseñas deben cambiarse por hashes reales y JWT completo. Para comenzar, el login demo permite probar el flujo completo.
 
@@ -103,6 +104,7 @@ Cada evaluación se guarda con:
 - `script_content`: el texto original de WorksheetScript.
 - `json_content`: el resultado parseado y validado en JSON.
 - `published`: `0` si es borrador, `1` si está habilitada para estudiantes.
+- `archived`: `1` si el profesor la archivó para ocultarla del menú activo y del portal del estudiante.
 - `created_by`: ID del profesor que la creó.
 
 El esquema completo está en `db/schema.sql`.
@@ -250,6 +252,13 @@ Al crear una evaluación el profesor puede elegir:
 - `5 intentos`.
 
 El valor se guarda en `worksheets.max_attempts`. Si el estudiante supera el límite, el backend rechaza el envío.
+
+### Archivar, desarchivar y borrar evaluaciones
+
+Desde **Evaluaciones guardadas**, el profesor puede:
+
+- **Archivar** una evaluación para quitarla del menú activo sin eliminarla. Mientras está archivada, el estudiante no ve la hoja ni sus respuestas; al desarchivarla, las respuestas vuelven a estar disponibles según el estado publicado/deshabilitado.
+- **Borrar** una evaluación de forma permanente. Esto elimina también sus respuestas guardadas.
 
 ### Respuestas permanentes y revisión
 

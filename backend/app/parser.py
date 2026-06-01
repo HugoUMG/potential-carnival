@@ -78,18 +78,24 @@ def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
     return blocks
 
 
+def _key_pattern(key: str) -> str:
+    return rf"{key}\s*\"?"
+
+
 def _get_scalar(body: str, key: str, default: str | None = None) -> str | None:
-    multiline = re.search(rf"^\s*{key}:\s*\"\"\"(.*?)\"\"\"", body, re.MULTILINE | re.DOTALL)
+    key_pattern = _key_pattern(key)
+    multiline = re.search(rf'^\s*{key_pattern}:\s*"""(.*?)"""', body, re.MULTILINE | re.DOTALL)
     if multiline:
         return multiline.group(1).strip()
-    match = re.search(rf"^\s*{key}:\s*(.+)$", body, re.MULTILINE)
+    match = re.search(rf"^\s*{key_pattern}:\s*(.+)$", body, re.MULTILINE)
     if match:
         return _strip_quotes(match.group(1))
     return default
 
 
 def _get_list(body: str, key: str) -> list[str]:
-    match = re.search(rf"^\s*{key}:\s*\n((?:\s*-\s*.+\n?)+)", body, re.MULTILINE)
+    key_pattern = _key_pattern(key)
+    match = re.search(rf"^\s*{key_pattern}:\s*\n((?:\s*-\s*.+\n?)+)", body, re.MULTILINE)
     if not match:
         return []
     return [_strip_quotes(line.split("-", 1)[1]) for line in match.group(1).splitlines() if line.strip().startswith("-")]
