@@ -39,6 +39,9 @@ class SQLiteRepository:
         self._ensure_username_available(payload.username)
         user_id = str(uuid4())
         with get_connection() as connection:
+            existing = connection.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (payload.username,)).fetchone()
+            if existing:
+                raise ValueError("El usuario ya existe")
             connection.execute(
                 "INSERT INTO users (id, name, username, password_hash, role) VALUES (?, ?, ?, ?, 'student')",
                 (user_id, payload.name, payload.username, payload.password),
