@@ -14,7 +14,8 @@ class UserRole(str, Enum):
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str
-    email: str
+    email: str | None = None
+    username: str
     password_hash: str
     role: UserRole
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -23,14 +24,21 @@ class User(BaseModel):
 class PublicUser(BaseModel):
     id: str
     name: str
-    email: str
+    username: str
     role: UserRole
+    email: str | None = None
 
 
 class LoginRequest(BaseModel):
-    email: str
+    username: str
     password: str
     role: UserRole
+
+
+class StudentCreate(BaseModel):
+    name: str
+    username: str
+    password: str
 
 
 class LoginResponse(BaseModel):
@@ -41,15 +49,7 @@ class LoginResponse(BaseModel):
 
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
-    type: Literal[
-        "fillblank",
-        "multiplechoice",
-        "textbox",
-        "matching",
-        "speaking",
-        "reading",
-        "imagequestion",
-    ]
+    type: Literal["fillblank", "multiplechoice", "textbox", "matching", "speaking", "reading", "imagequestion"]
     text: str | None = None
     question: str | None = None
     options: list[str] | None = None
@@ -78,20 +78,34 @@ class Worksheet(BaseModel):
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     published: bool = False
+    max_attempts: int | None = None
 
 
 class WorksheetCreate(BaseModel):
     script_content: str
     created_by: str
-
-
-class WorksheetUpdateScript(BaseModel):
-    script_content: str
+    max_attempts: int | None = None
 
 
 class AiGenerateRequest(BaseModel):
     prompt: str
     created_by: str
+
+
+class AnswerReview(BaseModel):
+    activity_id: str
+    status: Literal["correct", "incorrect"]
+    comment: str = ""
+
+
+class AnswerDetail(BaseModel):
+    activity_id: str
+    activity_type: str
+    prompt: str
+    student_answer: Any = None
+    correct_answer: Any = None
+    status: Literal["correct", "incorrect", "pending"]
+    teacher_comment: str = ""
 
 
 class WorksheetResponseCreate(BaseModel):
@@ -106,6 +120,9 @@ class WorksheetResponse(BaseModel):
     worksheet_id: str
     student_name: str
     answers_json: dict[str, Any]
+    details: list[AnswerDetail] = Field(default_factory=list)
     score: float | None = None
+    correct_count: int = 0
+    pending_count: int = 0
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     student_id: str | None = None

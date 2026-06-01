@@ -1,12 +1,14 @@
-import { BookOpenCheck, Database, LogOut, PlusCircle, UserRoundCheck } from 'lucide-react';
+import { BookOpenCheck, ClipboardCheck, Database, LogOut, PlusCircle, UserPlus, UserRoundCheck } from 'lucide-react';
 import type { UsuarioSesion } from '../services/api';
+
+export type TeacherMenu = 'crear' | 'evaluaciones' | 'estudiantes' | 'revision';
 
 interface TeacherDashboardProps {
   user: UsuarioSesion;
   totalWorksheets: number;
   publishedCount: number;
-  selectedMenu: 'crear' | 'evaluaciones';
-  onSelectMenu: (menu: 'crear' | 'evaluaciones') => void;
+  selectedMenu: TeacherMenu;
+  onSelectMenu: (menu: TeacherMenu) => void;
   onLogout: () => void;
 }
 
@@ -14,18 +16,18 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
   const menuItems = [
     { id: 'crear' as const, label: 'Crear evaluación', icon: PlusCircle },
     { id: 'evaluaciones' as const, label: 'Evaluaciones guardadas', icon: BookOpenCheck },
+    { id: 'estudiantes' as const, label: 'Crear estudiante', icon: UserPlus },
+    { id: 'revision' as const, label: 'Revisión', icon: ClipboardCheck },
   ];
 
   return (
     <aside className="rounded-3xl bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
-        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-600 text-white">
-          <UserRoundCheck size={24} />
-        </span>
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-600 text-white"><UserRoundCheck size={24} /></span>
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Menú profesor</p>
           <h2 className="text-lg font-bold text-slate-900">{user.name}</h2>
-          <p className="text-sm text-slate-500">{user.email}</p>
+          <p className="text-sm text-slate-500">@{user.username}</p>
         </div>
       </div>
 
@@ -33,12 +35,7 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
-            <button
-              key={item.id}
-              className={`dashboard-action ${selectedMenu === item.id ? 'dashboard-action-active' : ''}`}
-              type="button"
-              onClick={() => onSelectMenu(item.id)}
-            >
+            <button key={item.id} className={`dashboard-action ${selectedMenu === item.id ? 'dashboard-action-active' : ''}`} type="button" onClick={() => onSelectMenu(item.id)}>
               <Icon size={18} /> {item.label}
             </button>
           );
@@ -46,19 +43,10 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
       </div>
 
       <div className="mt-6 rounded-2xl bg-slate-50 p-4">
-        <div className="mb-3 flex items-center gap-2 text-slate-800">
-          <Database size={18} />
-          <h3 className="font-semibold">Base de datos</h3>
-        </div>
+        <div className="mb-3 flex items-center gap-2 text-slate-800"><Database size={18} /><h3 className="font-semibold">Base de datos</h3></div>
         <div className="grid gap-3">
-          <div className="flex items-center justify-between rounded-xl bg-white p-3">
-            <span className="text-sm text-slate-500">Evaluaciones</span>
-            <strong className="text-slate-900">{totalWorksheets}</strong>
-          </div>
-          <div className="flex items-center justify-between rounded-xl bg-white p-3">
-            <span className="text-sm text-slate-500">Habilitadas</span>
-            <strong className="text-emerald-600">{publishedCount}</strong>
-          </div>
+          <div className="flex items-center justify-between rounded-xl bg-white p-3"><span className="text-sm text-slate-500">Evaluaciones</span><strong>{totalWorksheets}</strong></div>
+          <div className="flex items-center justify-between rounded-xl bg-white p-3"><span className="text-sm text-slate-500">Habilitadas</span><strong className="text-emerald-600">{publishedCount}</strong></div>
         </div>
       </div>
 

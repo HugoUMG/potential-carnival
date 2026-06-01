@@ -5,8 +5,21 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 export interface UsuarioSesion {
   id: string;
   name: string;
-  email: string;
+  username: string;
   role: 'teacher' | 'student';
+  email?: string | null;
+}
+
+type EstadoDetalle = 'correct' | 'incorrect' | 'pending';
+
+export interface DetalleRespuesta {
+  activity_id: string;
+  activity_type: string;
+  prompt: string;
+  student_answer: unknown;
+  correct_answer: unknown;
+  status: EstadoDetalle;
+  teacher_comment: string;
 }
 
 interface BackendActivity {
@@ -30,21 +43,22 @@ interface BackendWorksheet {
   title: string;
   description: string;
   script_content: string;
-  json_content: {
-    title: string;
-    description: string;
-    activities: BackendActivity[];
-  };
+  json_content: { title: string; description: string; activities: BackendActivity[] };
   created_by: string;
   created_at: string;
   published: boolean;
+  max_attempts?: number | null;
 }
 
 export interface RespuestaEstudiante {
   id: string;
   worksheet_id: string;
   student_name: string;
+  answers_json: StudentAnswers;
+  details: DetalleRespuesta[];
   score: number | null;
+  correct_count: number;
+  pending_count: number;
   submitted_at: string;
   student_id?: string | null;
 }
@@ -52,10 +66,7 @@ export interface RespuestaEstudiante {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Error inesperado' }));
@@ -94,28 +105,26 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     activities: worksheet.json_content.activities.map(normalizeActivity),
     createdBy: worksheet.created_by,
     createdAt: worksheet.created_at,
-    analytics: {
-      completionRate: 0,
-      averageScore: 0,
-      attempts: 0,
-      mostMissedQuestions: [],
-    },
+    maxAttempts: worksheet.max_attempts ?? null,
+    analytics: { completionRate: 0, averageScore: 0, attempts: 0, mostMissedQuestions: [] },
   };
 }
 
-export async function login(email: string, password: string, role: UsuarioSesion['role']): Promise<UsuarioSesion> {
-  const data = await request<{ user: UsuarioSesion }>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password, role }),
-  });
+export async function login(username: string, password: string, role: UsuarioSesion['role']): Promise<UsuarioSesion> {
+  const data = await request<{ user: UsuarioSesion }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password, role }) });
   return data.user;
 }
 
-export async function createWorksheet(scriptContent: string, createdBy: string): Promise<Worksheet> {
-  const worksheet = await request<BackendWorksheet>('/worksheets', {
-    method: 'POST',
-    body: JSON.stringify({ script_content: scriptContent, created_by: createdBy }),
-  });
+export async function createStudent(name: string, username: string, password: string): Promise<UsuarioSesion> {
+  return request<UsuarioSesion>('/students', { method: 'POST', body: JSON.stringify({ name, username, password }) });
+}
+
+export async function listStudents(): Promise<UsuarioSesion[]> {
+  return request<UsuarioSesion[]>('/students');
+}
+
+export async function createWorksheet(scriptContent: string, createdBy: string, maxAttempts: number | null): Promise<Worksheet> {
+  const worksheet = await request<BackendWorksheet>('/worksheets', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, created_by: createdBy, max_attempts: maxAttempts }) });
   return normalizeWorksheet(worksheet);
 }
 
@@ -135,17 +144,17 @@ export async function publishWorksheet(worksheetId: string, enabled: boolean): P
 }
 
 export async function submitResponse(worksheet: Worksheet, user: UsuarioSesion, answers: StudentAnswers): Promise<RespuestaEstudiante> {
-  return request<RespuestaEstudiante>('/responses', {
-    method: 'POST',
-    body: JSON.stringify({
-      worksheet_id: worksheet.id,
-      student_id: user.id,
-      student_name: user.name,
-      answers_json: answers,
-    }),
-  });
+  return request<RespuestaEstudiante>('/responses', { method: 'POST', body: JSON.stringify({ worksheet_id: worksheet.id, student_id: user.id, student_name: user.name, answers_json: answers }) });
 }
 
 export async function listStudentResponses(studentId: string): Promise<RespuestaEstudiante[]> {
   return request<RespuestaEstudiante[]>(`/students/${studentId}/responses`);
+}
+
+export async function listWorksheetResponses(worksheetId: string): Promise<RespuestaEstudiante[]> {
+  return request<RespuestaEstudiante[]>(`/worksheets/${worksheetId}/responses`);
+}
+
+export async function reviewAnswer(responseId: string, activityId: string, status: 'correct' | 'incorrect', comment: string): Promise<RespuestaEstudiante> {
+  return request<RespuestaEstudiante>(`/responses/${responseId}/review`, { method: 'POST', body: JSON.stringify({ activity_id: activityId, status, comment }) });
 }

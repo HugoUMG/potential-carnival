@@ -78,6 +78,7 @@ export interface Worksheet {
   createdBy: string;
   createdAt: string;
   analytics: WorksheetAnalytics;
+  maxAttempts?: number | null;
 }
 
 export interface WorksheetAnalytics {

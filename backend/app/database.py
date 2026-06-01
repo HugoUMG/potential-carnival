@@ -25,6 +25,20 @@ def get_connection() -> sqlite3.Connection:
     return connection
 
 
+def _add_column_if_missing(connection: sqlite3.Connection, table: str, definition: str) -> None:
+    column_name = definition.split()[0]
+    existing_columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}
+    if column_name not in existing_columns:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {definition}")
+
+
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        _add_column_if_missing(connection, "users", "username TEXT")
+        _add_column_if_missing(connection, "worksheets", "max_attempts INTEGER")
+        _add_column_if_missing(connection, "worksheet_responses", "details_json TEXT NOT NULL DEFAULT '[]'")
+        _add_column_if_missing(connection, "worksheet_responses", "correct_count INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(connection, "worksheet_responses", "pending_count INTEGER NOT NULL DEFAULT 0")
+        connection.execute("UPDATE users SET username = 'profesor' WHERE id = 'teacher-demo' AND username IS NULL")
+        connection.execute("UPDATE users SET username = 'estudiante' WHERE id = 'student-demo' AND username IS NULL")

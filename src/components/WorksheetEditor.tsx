@@ -6,14 +6,16 @@ interface WorksheetEditorProps {
   worksheet: Worksheet;
   selectedActivity?: WorksheetActivity;
   scriptDraft: string;
+  maxAttemptsDraft: string;
   isSaving?: boolean;
   message?: string;
   onAddActivity: (activity: WorksheetActivity) => void;
   onScriptChange: (script: string) => void;
+  onMaxAttemptsChange: (value: string) => void;
   onSaveScript: () => void;
 }
 
-export function WorksheetEditor({ worksheet, selectedActivity, scriptDraft, isSaving, message, onAddActivity, onScriptChange, onSaveScript }: WorksheetEditorProps) {
+export function WorksheetEditor({ worksheet, selectedActivity, scriptDraft, maxAttemptsDraft, isSaving, message, onAddActivity, onScriptChange, onMaxAttemptsChange, onSaveScript }: WorksheetEditorProps) {
   return (
     <div className="grid gap-5 xl:grid-cols-[240px_1fr_280px]">
       <section className="rounded-3xl bg-white p-5 shadow-sm">
@@ -52,6 +54,23 @@ export function WorksheetEditor({ worksheet, selectedActivity, scriptDraft, isSa
             value={scriptDraft}
             onChange={(event) => onScriptChange(event.target.value)}
           />
+        </label>
+
+
+        <label className="mt-4 block max-w-xs">
+          <span className="text-sm font-semibold text-slate-700">Intentos permitidos</span>
+          <select
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            value={maxAttemptsDraft}
+            onChange={(event) => onMaxAttemptsChange(event.target.value)}
+          >
+            <option value="unlimited">Ilimitada</option>
+            <option value="1">1 intento</option>
+            <option value="2">2 intentos</option>
+            <option value="3">3 intentos</option>
+            <option value="4">4 intentos</option>
+            <option value="5">5 intentos</option>
+          </select>
         </label>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

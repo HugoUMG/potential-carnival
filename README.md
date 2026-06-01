@@ -224,3 +224,48 @@ python -m pytest backend/tests
 python -m compileall backend/app backend/tests
 npm run build
 ```
+
+## Flujo agregado: estudiantes, intentos y revisión docente
+
+### Crear usuarios de estudiantes
+
+Desde el panel del profesor abre **Crear estudiante**. El estudiante se guarda con:
+
+- `name`: nombre visible del estudiante.
+- `username`: usuario de acceso.
+- `password_hash`: contraseña demo para desarrollo.
+- `role`: `student`.
+
+No se requiere correo electrónico para estudiantes.
+
+### Límite de intentos por evaluación
+
+Al crear una evaluación el profesor puede elegir:
+
+- `Ilimitada`.
+- `1 intento`.
+- `2 intentos`.
+- `3 intentos`.
+- `4 intentos`.
+- `5 intentos`.
+
+El valor se guarda en `worksheets.max_attempts`. Si el estudiante supera el límite, el backend rechaza el envío.
+
+### Respuestas permanentes y revisión
+
+Cada envío del estudiante queda guardado en `worksheet_responses`, incluso si después la evaluación se deshabilita. El registro incluye:
+
+- nombre del estudiante;
+- fecha de envío;
+- puntuación;
+- número de aciertos;
+- número de respuestas pendientes;
+- respuestas originales en `answers_json`;
+- detalle por actividad en `details_json`.
+
+Las actividades con respuesta automática (`fillblank` y `multiplechoice`) se marcan como:
+
+- verde: correcta;
+- rojo: incorrecta.
+
+Las actividades escritas o abiertas (`textbox`, `speaking`, `reading`, `imagequestion`, etc.) quedan en amarillo como pendientes. En **Revisión**, el profesor puede marcar cada pendiente con check o equis y puede añadir un comentario opcional para el estudiante.
