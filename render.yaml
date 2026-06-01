@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: constructor-hojas-api
+    runtime: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: constructor-hojas-db
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "480"
+      - key: FRONTEND_ORIGINS
+        sync: false
+      - key: SEED_DEMO_USERS
+        value: "false"
+
+  - type: web
+    name: constructor-hojas-web
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: constructor-hojas-db
+    databaseName: worksheet_builder
+    user: worksheet_user

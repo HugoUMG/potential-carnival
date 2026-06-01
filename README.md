@@ -7,8 +7,8 @@ Aplicación full-stack para que un **profesor** cree evaluaciones con `Worksheet
 - Hay **dos accesos separados**: profesor y estudiante.
 - El profesor puede pegar un script, guardarlo como evaluación y habilitarlo.
 - El estudiante solo ve evaluaciones habilitadas y puede enviar respuestas.
-- Las evaluaciones y respuestas se almacenan en **SQLite** para desarrollo local.
-- El script SQL de la base de datos está en `db/schema.sql`.
+- Las evaluaciones y respuestas se almacenan en **SQLite** para desarrollo local o **PostgreSQL** cuando `DATABASE_URL` está configurada.
+- Los scripts SQL de base de datos están en `db/schema.sql` y `db/schema.postgres.sql`.
 
 ## Usuarios demo
 
@@ -18,20 +18,21 @@ Aplicación full-stack para que un **profesor** cree evaluaciones con `Worksheet
 | Profesor | `profesor` | `profesor@demo.com` | `profesor123` |
 | Estudiante | `estudiante` | — | `estudiante123` |
 
-> En producción estas contraseñas deben cambiarse por hashes reales y JWT completo. Para comenzar, el login demo permite probar el flujo completo.
+> En SQLite local se pueden sembrar usuarios demo automáticamente. En producción usa `SEED_DEMO_USERS=false`, crea usuarios reales y configura `JWT_SECRET_KEY`.
 
 ## Arquitectura
 
 - **Frontend:** React, Vite, TypeScript y estilos con utilidades tipo TailwindCSS.
 - **Backend:** FastAPI con modelos Pydantic y parser de WorksheetScript.
 - **Base de datos local:** SQLite en `data/worksheet_builder.db`.
-- **Script de base de datos:** `db/schema.sql`.
+- **Base de datos producción:** PostgreSQL mediante `DATABASE_URL`.
+- **Scripts de base de datos:** `db/schema.sql` y `db/schema.postgres.sql`.
 - **Inicializador:** `scripts/init_db.py`.
 
 ## Flujo principal
 
 ```text
-Profesor inicia sesión → pega WorksheetScript → backend valida → SQLite guarda evaluación → profesor habilita → estudiante inicia sesión → estudiante responde → SQLite guarda registros
+Profesor inicia sesión → pega WorksheetScript → backend valida → SQLite/PostgreSQL guarda evaluación → profesor habilita → estudiante inicia sesión → estudiante responde → SQLite/PostgreSQL guarda registros
 ```
 
 ## Cómo crear hojas de trabajo / evaluaciones
@@ -185,6 +186,29 @@ Abre:
 http://localhost:5173
 ```
 
+
+## Despliegue y PostgreSQL
+
+El repositorio incluye archivos para dejar preparada la subida a Render y la migración a PostgreSQL:
+
+- `render.yaml`: blueprint con backend FastAPI, frontend estático y PostgreSQL.
+- `.env.example`: variables necesarias para local/producción.
+- `db/schema.postgres.sql`: estructura PostgreSQL con `JSONB`, `BOOLEAN` y relaciones.
+- `docs/POSTGRESQL.md`: guía de estructura PostgreSQL y migración desde SQLite.
+- `docs/RENDER_DEPLOY.md`: pasos de despliegue y variables que deben completarse.
+
+Variables principales:
+
+```bash
+DATABASE_URL=postgresql://usuario:password@host:5432/worksheet_builder
+JWT_SECRET_KEY=un-secreto-largo-y-aleatorio
+FRONTEND_ORIGINS=https://tu-frontend.onrender.com
+VITE_API_URL=https://tu-backend.onrender.com
+SEED_DEMO_USERS=false
+```
+
+Si `DATABASE_URL` no existe, el backend usa SQLite local. Si existe, usa PostgreSQL automáticamente.
+
 ## Actividades incluidas
 
 - Completar espacios.
@@ -199,16 +223,19 @@ http://localhost:5173
 
 ```text
 potential-carnival/
-├─ db/schema.sql                 # Tablas y usuarios demo
-├─ scripts/init_db.py             # Inicializador de SQLite
+├─ db/schema.sql                 # Tablas SQLite para desarrollo
+├─ db/schema.postgres.sql        # Tablas PostgreSQL para producción
+├─ docs/                          # Guías de Render y PostgreSQL
+├─ render.yaml                    # Blueprint de Render
+├─ scripts/init_db.py             # Inicializador de SQLite/PostgreSQL
 ├─ data/                          # Base SQLite local generada
 ├─ src/                           # Frontend React
 │  ├─ components/                  # Login, editor, dashboard y renderer
 │  ├─ services/api.ts              # Cliente HTTP hacia FastAPI
 │  └─ types.ts                     # Tipos TypeScript
 ├─ backend/
-│  ├─ app/                         # API FastAPI, parser, modelos, SQLite
-│  └─ tests/                       # Pruebas del parser
+│  ├─ app/                         # API FastAPI, parser, modelos, SQLite/PostgreSQL
+│  └─ tests/                       # Pruebas del parser y seguridad
 └─ package.json
 ```
 
@@ -216,7 +243,7 @@ potential-carnival/
 
 - Las palabras clave de `WorksheetScript` se mantienen en inglés (`worksheet`, `fillblank`, `multiplechoice`, etc.) porque forman parte del lenguaje interno.
 - El contenido visible para profesor y estudiante está en español.
-- SQLite es suficiente para comenzar en local. Para producción, la misma estructura puede migrarse a PostgreSQL.
+- SQLite es suficiente para comenzar en local. Para producción, el backend ya soporta PostgreSQL con `DATABASE_URL` y el schema `db/schema.postgres.sql`.
 - La generación con IA sigue siendo un stub inicial; el flujo de base de datos y habilitación ya queda preparado.
 
 ## Comandos de verificación

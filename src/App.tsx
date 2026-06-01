@@ -17,6 +17,8 @@ import {
   listTeacherWorksheets,
   listWorksheetResponses,
   login,
+  logout,
+  getCurrentSession,
   publishWorksheet,
   reviewAnswer,
   submitResponse,
@@ -102,7 +104,7 @@ function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
 }
 
 export default function App() {
-  const [user, setUser] = useState<UsuarioSesion | null>(null);
+  const [user, setUser] = useState<UsuarioSesion | null>(() => getCurrentSession());
   const [adminMenu, setAdminMenu] = useState<TeacherMenu>('crear');
   const [worksheets, setWorksheets] = useState<Worksheet[]>([sampleWorksheet]);
   const [activeWorksheet, setActiveWorksheet] = useState<Worksheet>(sampleWorksheet);
@@ -257,7 +259,7 @@ export default function App() {
 
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto flex max-w-7xl justify-between px-4 py-4"><div><h1 className="text-xl font-bold">Portal del estudiante</h1><p className="text-sm text-slate-500">Hola, {user.name} (@{user.username}).</p></div><button className="rounded-2xl border px-4 py-2" onClick={() => setUser(null)}>Cerrar sesión</button></div></nav>
+        <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto flex max-w-7xl justify-between px-4 py-4"><div><h1 className="text-xl font-bold">Portal del estudiante</h1><p className="text-sm text-slate-500">Hola, {user.name} (@{user.username}).</p></div><button className="rounded-2xl border px-4 py-2" onClick={() => { logout(); setUser(null); }}>Cerrar sesión</button></div></nav>
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
           <aside className="rounded-3xl bg-white p-5 shadow-sm">
             <h2 className="font-bold">Evaluaciones</h2>
@@ -300,7 +302,7 @@ export default function App() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto max-w-7xl px-4 py-4"><h1 className="text-xl font-bold">Panel del profesor</h1><p className="text-sm text-slate-500">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p></div></nav>
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
-        <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} onSelectMenu={setAdminMenu} onLogout={() => setUser(null)} />
+        <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} onSelectMenu={setAdminMenu} onLogout={() => { logout(); setUser(null); }} />
         {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} isSaving={isSaving} message={message} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onSaveScript={saveScript} />}
         {adminMenu === 'estudiantes' && <section className="rounded-3xl bg-white p-5 shadow-sm"><h2 className="text-2xl font-bold">Crear estudiante</h2><div className="mt-4 grid gap-3 sm:grid-cols-3"><input className="rounded-2xl border p-3" placeholder="Nombre" value={studentForm.name} onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })} /><input className="rounded-2xl border p-3" placeholder="Usuario" value={studentForm.username} onChange={(e) => setStudentForm({ ...studentForm, username: e.target.value })} /><input className="rounded-2xl border p-3" placeholder="Contraseña" value={studentForm.password} onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })} /></div><button className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white" onClick={createNewStudent}>Guardar estudiante</button>{message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}<h3 className="mt-6 font-bold">Estudiantes</h3>{students.map((student) => <div key={student.id} className="mt-2 rounded-xl bg-slate-50 p-3">{student.name} · @{student.username}</div>)}</section>}
         {adminMenu === 'evaluaciones' && (

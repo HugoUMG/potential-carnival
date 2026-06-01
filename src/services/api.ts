@@ -1,6 +1,7 @@
 import type { StudentAnswers, Worksheet, WorksheetActivity } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+const AUTH_STORAGE_KEY = 'worksheet_auth_session';
 
 export interface UsuarioSesion {
   id: string;
@@ -8,6 +9,7 @@ export interface UsuarioSesion {
   username: string;
   role: 'admin' | 'teacher' | 'student';
   email?: string | null;
+  accessToken?: string;
 }
 
 type EstadoDetalle = 'correct' | 'incorrect' | 'pending';
@@ -64,10 +66,30 @@ export interface RespuestaEstudiante {
   student_id?: string | null;
 }
 
+function getStoredSession(): UsuarioSesion | null {
+  const rawSession = window.localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!rawSession) return null;
+  try {
+    return JSON.parse(rawSession) as UsuarioSesion;
+  } catch {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    return null;
+  }
+}
+
+export function getCurrentSession(): UsuarioSesion | null {
+  return getStoredSession();
+}
+
+export function logout(): void {
+  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getStoredSession()?.accessToken;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options?.headers },
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Error inesperado' }));
@@ -114,8 +136,10 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
 }
 
 export async function login(username: string, password: string, role: UsuarioSesion['role']): Promise<UsuarioSesion> {
-  const data = await request<{ user: UsuarioSesion }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password, role }) });
-  return data.user;
+  const data = await request<{ user: UsuarioSesion; access_token: string; token_type: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+  const session = { ...data.user, accessToken: data.access_token };
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+  return session;
 }
 
 export async function createStudent(name: string, username: string, password: string): Promise<UsuarioSesion> {

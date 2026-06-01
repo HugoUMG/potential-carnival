@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'teacher', 'student')),
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS worksheets (
@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS worksheets (
   title TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   script_content TEXT NOT NULL,
-  json_content TEXT NOT NULL,
+  json_content JSONB NOT NULL,
   created_by TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  published INTEGER NOT NULL DEFAULT 0,
-  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  published BOOLEAN NOT NULL DEFAULT FALSE,
+  archived BOOLEAN NOT NULL DEFAULT FALSE,
   max_attempts INTEGER,
   FOREIGN KEY (created_by) REFERENCES users(id)
 );
@@ -27,12 +27,12 @@ CREATE TABLE IF NOT EXISTS worksheet_responses (
   worksheet_id TEXT NOT NULL,
   student_id TEXT,
   student_name TEXT NOT NULL,
-  answers_json TEXT NOT NULL,
-  details_json TEXT NOT NULL DEFAULT '[]',
-  score REAL,
+  answers_json JSONB NOT NULL,
+  details_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  score DOUBLE PRECISION,
   correct_count INTEGER NOT NULL DEFAULT 0,
   pending_count INTEGER NOT NULL DEFAULT 0,
-  submitted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (worksheet_id) REFERENCES worksheets(id) ON DELETE CASCADE,
   FOREIGN KEY (student_id) REFERENCES users(id)
 );
