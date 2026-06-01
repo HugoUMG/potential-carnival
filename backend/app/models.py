@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class UserRole(str, Enum):
+    admin = "admin"
     teacher = "teacher"
     student = "student"
 
@@ -39,6 +40,13 @@ class StudentCreate(BaseModel):
     name: str
     username: str
     password: str
+
+
+class TeacherCreate(BaseModel):
+    name: str
+    username: str
+    password: str
+    email: str | None = None
 
 
 class LoginResponse(BaseModel):
@@ -78,6 +86,7 @@ class Worksheet(BaseModel):
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     published: bool = False
+    archived: bool = False
     max_attempts: int | None = None
 
 

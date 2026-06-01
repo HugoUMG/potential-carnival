@@ -6,7 +6,7 @@ export interface UsuarioSesion {
   id: string;
   name: string;
   username: string;
-  role: 'teacher' | 'student';
+  role: 'admin' | 'teacher' | 'student';
   email?: string | null;
 }
 
@@ -47,6 +47,7 @@ interface BackendWorksheet {
   created_by: string;
   created_at: string;
   published: boolean;
+  archived: boolean;
   max_attempts?: number | null;
 }
 
@@ -72,6 +73,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     const error = await response.json().catch(() => ({ detail: 'Error inesperado' }));
     throw new Error(error.detail ?? 'Error inesperado');
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -101,6 +103,7 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     description: worksheet.description,
     level: 'A1',
     status: worksheet.published ? 'published' : 'draft',
+    archived: worksheet.archived,
     scriptContent: worksheet.script_content,
     activities: worksheet.json_content.activities.map(normalizeActivity),
     createdBy: worksheet.created_by,
@@ -119,8 +122,16 @@ export async function createStudent(name: string, username: string, password: st
   return request<UsuarioSesion>('/students', { method: 'POST', body: JSON.stringify({ name, username, password }) });
 }
 
+export async function createTeacher(name: string, username: string, password: string, email?: string): Promise<UsuarioSesion> {
+  return request<UsuarioSesion>('/teachers', { method: 'POST', body: JSON.stringify({ name, username, password, email: email || null }) });
+}
+
 export async function listStudents(): Promise<UsuarioSesion[]> {
   return request<UsuarioSesion[]>('/students');
+}
+
+export async function listTeachers(): Promise<UsuarioSesion[]> {
+  return request<UsuarioSesion[]>('/teachers');
 }
 
 export async function createWorksheet(scriptContent: string, createdBy: string, maxAttempts: number | null): Promise<Worksheet> {
@@ -128,8 +139,9 @@ export async function createWorksheet(scriptContent: string, createdBy: string, 
   return normalizeWorksheet(worksheet);
 }
 
-export async function listTeacherWorksheets(createdBy: string): Promise<Worksheet[]> {
-  const worksheets = await request<BackendWorksheet[]>(`/worksheets?created_by=${createdBy}`);
+export async function listTeacherWorksheets(createdBy?: string): Promise<Worksheet[]> {
+  const path = createdBy ? `/worksheets?created_by=${createdBy}` : '/worksheets';
+  const worksheets = await request<BackendWorksheet[]>(path);
   return worksheets.map(normalizeWorksheet);
 }
 
@@ -141,6 +153,15 @@ export async function listStudentWorksheets(studentId: string): Promise<Workshee
 export async function publishWorksheet(worksheetId: string, enabled: boolean): Promise<Worksheet> {
   const worksheet = await request<BackendWorksheet>(`/worksheets/${worksheetId}/${enabled ? 'publish' : 'unpublish'}`, { method: 'POST' });
   return normalizeWorksheet(worksheet);
+}
+
+export async function archiveWorksheet(worksheetId: string, archived: boolean): Promise<Worksheet> {
+  const worksheet = await request<BackendWorksheet>(`/worksheets/${worksheetId}/${archived ? 'archive' : 'unarchive'}`, { method: 'POST' });
+  return normalizeWorksheet(worksheet);
+}
+
+export async function deleteWorksheet(worksheetId: string): Promise<void> {
+  await request<void>(`/worksheets/${worksheetId}`, { method: 'DELETE' });
 }
 
 export async function submitResponse(worksheet: Worksheet, user: UsuarioSesion, answers: StudentAnswers): Promise<RespuestaEstudiante> {

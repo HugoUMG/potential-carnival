@@ -13,6 +13,7 @@ from .models import (
     LoginResponse,
     PublicUser,
     StudentCreate,
+    TeacherCreate,
     Worksheet,
     WorksheetCreate,
     WorksheetJson,
@@ -64,6 +65,19 @@ def list_students() -> list[PublicUser]:
     return repository.list_students()
 
 
+@app.post("/teachers", response_model=PublicUser)
+def create_teacher(payload: TeacherCreate) -> PublicUser:
+    try:
+        return repository.create_teacher(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=409, detail="No se pudo crear el profesor. Verifica que el usuario no exista.") from exc
+
+
+@app.get("/teachers", response_model=list[PublicUser])
+def list_teachers() -> list[PublicUser]:
+    return repository.list_teachers()
+
+
 @app.post("/worksheets", response_model=Worksheet)
 def create_worksheet(payload: WorksheetCreate) -> Worksheet:
     try:
@@ -90,21 +104,21 @@ def ai_generate(payload: AiGenerateRequest) -> Worksheet:
 
 
 @app.get("/worksheets", response_model=list[Worksheet])
-def list_worksheets(created_by: str | None = None, published: bool | None = None) -> list[Worksheet]:
-    return repository.list_worksheets(created_by=created_by, published=published)
+def list_worksheets(created_by: str | None = None, published: bool | None = None, archived: bool | None = None) -> list[Worksheet]:
+    return repository.list_worksheets(created_by=created_by, published=published, archived=archived)
 
 
 @app.get("/students/{student_id}/worksheets", response_model=list[Worksheet])
 def list_student_worksheets(student_id: str) -> list[Worksheet]:
-    answered_ids = {response.worksheet_id for response in repository.list_responses(student_id=student_id)}
-    published = repository.list_worksheets(published=True)
-    answered_unpublished = [worksheet for worksheet in repository.list_worksheets() if worksheet.id in answered_ids and not worksheet.published]
+    answered_ids = {response.worksheet_id for response in repository.list_responses(student_id=student_id, include_archived=False)}
+    published = repository.list_worksheets(published=True, archived=False)
+    answered_unpublished = [worksheet for worksheet in repository.list_worksheets(archived=False) if worksheet.id in answered_ids and not worksheet.published]
     return published + answered_unpublished
 
 
 @app.get("/students/{student_id}/responses", response_model=list[WorksheetResponse])
 def list_student_responses(student_id: str) -> list[WorksheetResponse]:
-    return repository.list_responses(student_id=student_id)
+    return repository.list_responses(student_id=student_id, include_archived=False)
 
 
 @app.get("/worksheets/{worksheet_id}", response_model=Worksheet)
@@ -131,11 +145,35 @@ def unpublish_worksheet(worksheet_id: str) -> Worksheet:
     return worksheet
 
 
+@app.post("/worksheets/{worksheet_id}/archive", response_model=Worksheet)
+def archive_worksheet(worksheet_id: str) -> Worksheet:
+    worksheet = repository.archive_worksheet(worksheet_id)
+    if not worksheet:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    return worksheet
+
+
+@app.post("/worksheets/{worksheet_id}/unarchive", response_model=Worksheet)
+def unarchive_worksheet(worksheet_id: str) -> Worksheet:
+    worksheet = repository.unarchive_worksheet(worksheet_id)
+    if not worksheet:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    return worksheet
+
+
+@app.delete("/worksheets/{worksheet_id}", status_code=204)
+def delete_worksheet(worksheet_id: str) -> None:
+    if not repository.delete_worksheet(worksheet_id):
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+
+
 @app.post("/responses", response_model=WorksheetResponse)
 def submit_response(payload: WorksheetResponseCreate) -> WorksheetResponse:
     worksheet = repository.get_worksheet(payload.worksheet_id)
     if not worksheet:
         raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    if worksheet.archived or not worksheet.published:
+        raise HTTPException(status_code=403, detail="Esta hoja de trabajo no está disponible")
     if worksheet.max_attempts is not None and payload.student_id:
         attempts = repository.count_student_attempts(worksheet.id, payload.student_id)
         if attempts >= worksheet.max_attempts:

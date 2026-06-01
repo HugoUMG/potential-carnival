@@ -25,20 +25,57 @@ def get_connection() -> sqlite3.Connection:
     return connection
 
 
+def _table_exists(connection: sqlite3.Connection, table: str) -> bool:
+    return connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone() is not None
+
+
 def _add_column_if_missing(connection: sqlite3.Connection, table: str, definition: str) -> None:
+    if not _table_exists(connection, table):
+        return
     column_name = definition.split()[0]
     existing_columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}
     if column_name not in existing_columns:
         connection.execute(f"ALTER TABLE {table} ADD COLUMN {definition}")
 
 
+def _ensure_admin_role_supported(connection: sqlite3.Connection) -> None:
+    table = connection.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").fetchone()
+    if not table or "'admin'" in (table["sql"] or ""):
+        return
+    connection.execute("ALTER TABLE users RENAME TO users_legacy")
+    connection.execute(
+        """
+        CREATE TABLE users (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT UNIQUE,
+          username TEXT UNIQUE,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL CHECK (role IN ('admin', 'teacher', 'student')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO users (id, name, email, username, password_hash, role, created_at)
+        SELECT id, name, email, username, password_hash, role, created_at FROM users_legacy
+        """
+    )
+    connection.execute("DROP TABLE users_legacy")
+
+
 def initialize_database() -> None:
     with get_connection() as connection:
+        _ensure_admin_role_supported(connection)
+        _add_column_if_missing(connection, "worksheets", "archived INTEGER NOT NULL DEFAULT 0")
         connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
         _add_column_if_missing(connection, "users", "username TEXT")
         _add_column_if_missing(connection, "worksheets", "max_attempts INTEGER")
+        _add_column_if_missing(connection, "worksheets", "archived INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(connection, "worksheet_responses", "details_json TEXT NOT NULL DEFAULT '[]'")
         _add_column_if_missing(connection, "worksheet_responses", "correct_count INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(connection, "worksheet_responses", "pending_count INTEGER NOT NULL DEFAULT 0")
+        connection.execute("UPDATE users SET username = 'admin' WHERE id = 'admin-demo' AND username IS NULL")
         connection.execute("UPDATE users SET username = 'profesor' WHERE id = 'teacher-demo' AND username IS NULL")
         connection.execute("UPDATE users SET username = 'estudiante' WHERE id = 'student-demo' AND username IS NULL")

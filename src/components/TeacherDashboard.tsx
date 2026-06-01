@@ -1,7 +1,7 @@
-import { BookOpenCheck, ClipboardCheck, Database, LogOut, PlusCircle, UserPlus, UserRoundCheck } from 'lucide-react';
+import { BookOpenCheck, ClipboardCheck, Database, LogOut, PlusCircle, UserCog, UserPlus, UserRoundCheck } from 'lucide-react';
 import type { UsuarioSesion } from '../services/api';
 
-export type TeacherMenu = 'crear' | 'evaluaciones' | 'estudiantes' | 'revision';
+export type TeacherMenu = 'crear' | 'evaluaciones' | 'estudiantes' | 'profesores' | 'revision';
 
 interface TeacherDashboardProps {
   user: UsuarioSesion;
@@ -17,6 +17,7 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
     { id: 'crear' as const, label: 'Crear evaluación', icon: PlusCircle },
     { id: 'evaluaciones' as const, label: 'Evaluaciones guardadas', icon: BookOpenCheck },
     { id: 'estudiantes' as const, label: 'Crear estudiante', icon: UserPlus },
+    ...(user.role === 'admin' ? [{ id: 'profesores' as const, label: 'Crear profesor', icon: UserCog }] : []),
     { id: 'revision' as const, label: 'Revisión', icon: ClipboardCheck },
   ];
 
@@ -25,7 +26,7 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
       <div className="flex items-center gap-3">
         <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-600 text-white"><UserRoundCheck size={24} /></span>
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Menú profesor</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Menú {user.role === 'admin' ? 'admin' : 'profesor'}</p>
           <h2 className="text-lg font-bold text-slate-900">{user.name}</h2>
           <p className="text-sm text-slate-500">@{user.username}</p>
         </div>

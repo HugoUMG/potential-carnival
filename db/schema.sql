@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE,
   username TEXT UNIQUE,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('teacher', 'student')),
+  role TEXT NOT NULL CHECK (role IN ('admin', 'teacher', 'student')),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS worksheets (
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   published INTEGER NOT NULL DEFAULT 0,
+  archived INTEGER NOT NULL DEFAULT 0,
   max_attempts INTEGER,
   FOREIGN KEY (created_by) REFERENCES users(id)
 );
@@ -38,10 +39,12 @@ CREATE TABLE IF NOT EXISTS worksheet_responses (
 
 CREATE INDEX IF NOT EXISTS idx_worksheets_created_by ON worksheets(created_by);
 CREATE INDEX IF NOT EXISTS idx_worksheets_published ON worksheets(published);
+CREATE INDEX IF NOT EXISTS idx_worksheets_archived ON worksheets(archived);
 CREATE INDEX IF NOT EXISTS idx_responses_worksheet_id ON worksheet_responses(worksheet_id);
 CREATE INDEX IF NOT EXISTS idx_responses_student_id ON worksheet_responses(student_id);
 
 INSERT OR IGNORE INTO users (id, name, email, username, password_hash, role)
 VALUES
+  ('admin-demo', 'Administrador Demo', 'admin@demo.com', 'admin', 'admin123', 'admin'),
   ('teacher-demo', 'Profesor Demo', 'profesor@demo.com', 'profesor', 'profesor123', 'teacher'),
   ('student-demo', 'Estudiante Demo', NULL, 'estudiante', 'estudiante123', 'student');
