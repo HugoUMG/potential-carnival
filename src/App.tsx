@@ -216,6 +216,9 @@ export default function App() {
       if (!latestResponses.has(response.worksheet_id)) latestResponses.set(response.worksheet_id, response);
       return latestResponses;
     }, new Map<string, RespuestaEstudiante>());
+    const activeResponse = responseByWorksheet.get(activeWorksheet.id);
+    const isActiveWorksheetPublished = activeWorksheet.status === 'published';
+
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
         <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto flex max-w-7xl justify-between px-4 py-4"><div><h1 className="text-xl font-bold">Portal del estudiante</h1><p className="text-sm text-slate-500">Hola, {user.name} (@{user.username}).</p></div><button className="rounded-2xl border px-4 py-2" onClick={() => setUser(null)}>Cerrar sesión</button></div></nav>
@@ -231,9 +234,22 @@ export default function App() {
             </div>
           </aside>
           <section>
-            {worksheets.length > 0 && <WorksheetRenderer worksheet={activeWorksheet} answers={answers} onAnswerChange={updateAnswer} />}
+            {worksheets.length > 0 && isActiveWorksheetPublished && <WorksheetRenderer worksheet={activeWorksheet} answers={answers} onAnswerChange={updateAnswer} />}
+            {worksheets.length > 0 && !isActiveWorksheetPublished && (
+              <div className="mx-auto max-w-4xl rounded-3xl border border-red-200 bg-red-50 p-6 text-red-700 shadow-sm">
+                <h2 className="text-xl font-extrabold">Esta hoja de trabajo fue deshabilitada por tu profesor.</h2>
+                <p className="mt-2 text-sm font-semibold">Ya no puedes ver ni volver a responder esta hoja, pero tus respuestas guardadas permanecen disponibles.</p>
+                {activeResponse && (
+                  <div className="mt-5 rounded-2xl bg-white/80 p-4 text-slate-700">
+                    <p className="text-sm font-bold text-slate-900">Último intento enviado: {new Date(activeResponse.submitted_at).toLocaleString()}</p>
+                    <p className="mt-1 text-sm font-semibold">Nota: {activeResponse.score ?? 'pendiente'} · Aciertos: {activeResponse.correct_count}</p>
+                    <ResponseDetails response={activeResponse} />
+                  </div>
+                )}
+              </div>
+            )}
             {message && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">{message}</p>}
-            {worksheets.length > 0 && activeWorksheet.status === 'published' && <div className="mx-auto mt-6 flex max-w-4xl justify-end"><button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white" onClick={sendAnswers}><Send className="mr-2 inline" size={18} /> Enviar respuestas</button></div>}
+            {worksheets.length > 0 && isActiveWorksheetPublished && <div className="mx-auto mt-6 flex max-w-4xl justify-end"><button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white" onClick={sendAnswers}><Send className="mr-2 inline" size={18} /> Enviar respuestas</button></div>}
           </section>
         </div>
       </main>
