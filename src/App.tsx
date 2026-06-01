@@ -36,12 +36,12 @@ export default function App() {
   function simulateAiGeneration() {
     setWorksheet((current) => ({
       ...current,
-      title: 'AI Generated: Present Continuous Practice',
-      description: 'Generated from a teacher prompt and stored as WorksheetScript plus JSON.',
-      scriptContent: `${current.scriptContent}\n\nfillblank {\n  text: "She ____ reading now."\n  answer: "is"\n}`,
+      title: 'Generado por IA: práctica del presente continuo',
+      description: 'Generado desde una instrucción docente y almacenado como WorksheetScript más JSON.',
+      scriptContent: `${current.scriptContent}\n\nfillblank {\n  text: "Ella ____ leyendo ahora."\n  answer: "is"\n}`,
       activities: [
         ...current.activities,
-        { id: `ai-${Date.now()}`, type: 'fillblank', text: 'She ____ reading now.', answer: 'is' },
+        { id: `ai-${Date.now()}`, type: 'fillblank', text: 'Ella ____ leyendo ahora.', answer: 'is' },
       ],
     }));
   }
@@ -55,16 +55,16 @@ export default function App() {
               <GraduationCap />
             </span>
             <div>
-              <h1 className="text-xl font-bold">AI Worksheet Builder</h1>
-              <p className="text-sm text-slate-500">WorksheetScript → JSON → React activities</p>
+              <h1 className="text-xl font-bold">Constructor de hojas con IA</h1>
+              <p className="text-sm text-slate-500">WorksheetScript → JSON → actividades React</p>
             </div>
           </div>
           <div className="flex rounded-2xl bg-slate-100 p-1">
             <button className={`mode-tab ${viewMode === 'teacher' ? 'mode-tab-active' : ''}`} type="button" onClick={() => setViewMode('teacher')}>
-              <PencilRuler size={16} /> Teacher
+              <PencilRuler size={16} /> Docente
             </button>
             <button className={`mode-tab ${viewMode === 'student' ? 'mode-tab-active' : ''}`} type="button" onClick={() => setViewMode('student')}>
-              <MonitorSmartphone size={16} /> Student
+              <MonitorSmartphone size={16} /> Estudiante
             </button>
           </div>
         </div>
@@ -87,7 +87,7 @@ export default function App() {
             <WorksheetRenderer worksheet={worksheet} answers={answers} onAnswerChange={updateAnswer} />
             <div className="mx-auto mt-6 flex max-w-4xl justify-end">
               <button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white shadow-lg shadow-emerald-100 transition hover:bg-emerald-600" type="button">
-                Submit responses
+                Enviar respuestas
               </button>
             </div>
           </div>

@@ -2,16 +2,16 @@ from backend.app.parser import parse_worksheet_script
 
 
 SCRIPT = '''worksheet {
-title: "Present Continuous Practice"
-description: "A1 grammar review"
+title: "Práctica del presente continuo"
+description: "Repaso de gramática A1"
 
 fillblank {
-  text: "I ____ studying English."
+  text: "Yo ____ estudiando inglés."
   answer: "am"
 }
 
 multiplechoice {
-  question: "Choose the correct answer."
+  question: "Elige la respuesta correcta."
   options:
   - am
   - is
@@ -20,13 +20,13 @@ multiplechoice {
 }
 
 reading {
-  title: "My School"
+  title: "Mi escuela"
   content:
   """
-  This is my school.
+  Esta es mi escuela.
   """
   questions:
-  - What is the text about?
+  - ¿De qué trata el texto?
 }
 }'''
 
@@ -34,9 +34,9 @@ reading {
 def test_parse_worksheet_script_to_json():
     worksheet = parse_worksheet_script(SCRIPT)
 
-    assert worksheet.title == "Present Continuous Practice"
-    assert worksheet.description == "A1 grammar review"
+    assert worksheet.title == "Práctica del presente continuo"
+    assert worksheet.description == "Repaso de gramática A1"
     assert len(worksheet.activities) == 3
     assert worksheet.activities[0].type == "fillblank"
     assert worksheet.activities[1].options == ["am", "is", "are"]
-    assert worksheet.activities[2].content == "This is my school."
+    assert worksheet.activities[2].content == "Esta es mi escuela."

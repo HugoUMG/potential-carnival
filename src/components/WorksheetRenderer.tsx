@@ -30,11 +30,11 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index }: {
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-lg">{definition.icon}</span>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Activity {index + 1}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Actividad {index + 1}</p>
             <h2 className="font-semibold text-slate-900">{definition.label}</h2>
           </div>
         </div>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Interactive</span>
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Interactiva</span>
       </div>
       <Renderer activity={activity} value={answer} readonly={readonly} onChange={onAnswerChange} />
     </section>
@@ -56,7 +56,7 @@ export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange
           </div>
           <div className="rounded-2xl bg-white/15 p-4 text-center backdrop-blur">
             <p className="text-3xl font-bold">{progress}%</p>
-            <p className="text-sm text-blue-50">complete</p>
+            <p className="text-sm text-blue-50">completado</p>
           </div>
         </div>
         <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/20">

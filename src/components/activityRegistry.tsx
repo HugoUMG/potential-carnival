@@ -25,7 +25,7 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
       <input
         className={inputClass}
         disabled={readonly}
-        placeholder="Type the missing word"
+        placeholder="Escribe la palabra que falta"
         value={asString(value)}
         onChange={(event) => onChange(activity.id, event.target.value)}
       />
@@ -62,7 +62,7 @@ function TextBoxRenderer({ activity, value, readonly, onChange }: ActivityRender
       <textarea
         className={`${inputClass} min-h-28 resize-y`}
         disabled={readonly}
-        placeholder="Write your answer"
+        placeholder="Escribe tu respuesta"
         value={asString(value)}
         onChange={(event) => onChange(activity.id, event.target.value)}
       />
@@ -75,7 +75,7 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
 
   return (
     <div>
-      <p className="text-base font-medium text-slate-800">Match each item with its meaning.</p>
+      <p className="text-base font-medium text-slate-800">Relaciona cada elemento con su significado.</p>
       <div className="mt-4 grid gap-3">
         {activity.left.map((leftItem) => (
           <label key={leftItem} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_2fr] sm:items-center">
@@ -86,7 +86,7 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
               value={selections[leftItem] ?? ''}
               onChange={(event) => onChange(activity.id, { ...selections, [leftItem]: event.target.value })}
             >
-              <option value="">Select match</option>
+              <option value="">Selecciona una relación</option>
               {activity.right.map((rightItem) => (
                 <option key={rightItem} value={rightItem}>
                   {rightItem}
@@ -104,11 +104,11 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
   return (
     <label className="block">
       <span className="text-base font-medium text-slate-800">{activity.prompt}</span>
-      <p className="mt-1 text-sm text-slate-500">Audio recording can be added later; collect a spoken-response note for now.</p>
+      <p className="mt-1 text-sm text-slate-500">La grabación de audio se puede agregar más adelante; por ahora escribe notas de la respuesta oral.</p>
       <textarea
         className={`${inputClass} min-h-24 resize-y`}
         disabled={readonly}
-        placeholder="Student speaking notes"
+        placeholder="Notas de expresión oral del estudiante"
         value={asString(value)}
         onChange={(event) => onChange(activity.id, event.target.value)}
       />
@@ -143,7 +143,7 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
 function ImageQuestionRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ImageQuestionActivity>) {
   return (
     <div>
-      <img className="mb-4 h-56 w-full rounded-2xl object-cover" src={activity.image} alt="Worksheet visual prompt" />
+      <img className="mb-4 h-56 w-full rounded-2xl object-cover" src={activity.image} alt="Imagen de apoyo de la actividad" />
       <TextBoxRenderer activity={{ ...activity, type: 'textbox' }} value={value} readonly={readonly} onChange={onChange} />
     </div>
   );
@@ -154,58 +154,58 @@ const nextId = (type: string) => `${type}-${crypto.randomUUID()}`;
 export const activityRegistry = {
   fillblank: {
     type: 'fillblank',
-    label: 'Fill Blank',
-    description: 'Students type a missing word or phrase.',
+    label: 'Completar espacios',
+    description: 'El estudiante escribe una palabra o frase faltante.',
     icon: '✏️',
-    create: () => ({ id: nextId('fillblank'), type: 'fillblank', text: 'I ____ ready.', answer: 'am' }),
+    create: () => ({ id: nextId('fillblank'), type: 'fillblank', text: 'Yo ____ listo.', answer: 'am' }),
     Renderer: FillBlankRenderer,
   },
   multiplechoice: {
     type: 'multiplechoice',
-    label: 'Multiple Choice',
-    description: 'Students choose one correct option.',
+    label: 'Opción múltiple',
+    description: 'El estudiante elige una opción correcta.',
     icon: '✅',
-    create: () => ({ id: nextId('multiplechoice'), type: 'multiplechoice', question: 'Choose the correct answer.', options: ['am', 'is', 'are'], answer: 'am' }),
+    create: () => ({ id: nextId('multiplechoice'), type: 'multiplechoice', question: 'Elige la respuesta correcta.', options: ['am', 'is', 'are'], answer: 'am' }),
     Renderer: MultipleChoiceRenderer,
   },
   textbox: {
     type: 'textbox',
-    label: 'Text Box',
-    description: 'Long-form writing response.',
+    label: 'Caja de texto',
+    description: 'Respuesta escrita extensa.',
     icon: '📝',
-    create: () => ({ id: nextId('textbox'), type: 'textbox', prompt: 'Describe your house.' }),
+    create: () => ({ id: nextId('textbox'), type: 'textbox', prompt: 'Describe tu casa.' }),
     Renderer: TextBoxRenderer,
   },
   matching: {
     type: 'matching',
-    label: 'Matching',
-    description: 'Pair words with meanings.',
+    label: 'Relacionar',
+    description: 'Une palabras con significados.',
     icon: '🔗',
-    create: () => ({ id: nextId('matching'), type: 'matching', left: ['dog', 'cat'], right: ['animal that barks', 'animal that meows'] }),
+    create: () => ({ id: nextId('matching'), type: 'matching', left: ['perro', 'gato'], right: ['animal que ladra', 'animal que maúlla'] }),
     Renderer: MatchingRenderer,
   },
   speaking: {
     type: 'speaking',
-    label: 'Speaking',
-    description: 'Prompt for oral production.',
+    label: 'Expresión oral',
+    description: 'Consigna para producción oral.',
     icon: '🎙️',
-    create: () => ({ id: nextId('speaking'), type: 'speaking', prompt: 'Talk about your family.' }),
+    create: () => ({ id: nextId('speaking'), type: 'speaking', prompt: 'Habla sobre tu familia.' }),
     Renderer: SpeakingRenderer,
   },
   reading: {
     type: 'reading',
-    label: 'Reading',
-    description: 'Text passage plus questions.',
+    label: 'Lectura',
+    description: 'Texto de lectura con preguntas.',
     icon: '📖',
-    create: () => ({ id: nextId('reading'), type: 'reading', title: 'My School', content: 'This is my school.', questions: ['What is the text about?'] }),
+    create: () => ({ id: nextId('reading'), type: 'reading', title: 'Mi escuela', content: 'Esta es mi escuela.', questions: ['¿De qué trata el texto?'] }),
     Renderer: ReadingRenderer,
   },
   imagequestion: {
     type: 'imagequestion',
-    label: 'Image Question',
-    description: 'Visual prompt with written answer.',
+    label: 'Pregunta con imagen',
+    description: 'Consigna visual con respuesta escrita.',
     icon: '🖼️',
-    create: () => ({ id: nextId('imagequestion'), type: 'imagequestion', image: 'https://placehold.co/900x500', prompt: 'Describe what you see.' }),
+    create: () => ({ id: nextId('imagequestion'), type: 'imagequestion', image: 'https://placehold.co/900x500', prompt: 'Describe lo que ves.' }),
     Renderer: ImageQuestionRenderer,
   },
 } satisfies Record<WorksheetActivity['type'], ActivityDefinition>;

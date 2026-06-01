@@ -17,7 +17,7 @@ SUPPORTED_BLOCKS = {
 
 
 class WorksheetScriptError(ValueError):
-    """Raised when WorksheetScript cannot be parsed into validated worksheet JSON."""
+    """Se lanza cuando WorksheetScript no se puede convertir en JSON validado de hoja de trabajo."""
 
 
 def _strip_quotes(value: str) -> str:
@@ -32,7 +32,7 @@ def _strip_quotes(value: str) -> str:
 def _extract_block(source: str, keyword: str) -> str:
     match = re.search(rf"\b{keyword}\s*{{", source)
     if not match:
-        raise WorksheetScriptError(f"Missing required {keyword} block")
+        raise WorksheetScriptError(f"Falta el bloque requerido {keyword}")
 
     start = match.end()
     depth = 1
@@ -47,7 +47,7 @@ def _extract_block(source: str, keyword: str) -> str:
                 return source[start:cursor]
         cursor += 1
 
-    raise WorksheetScriptError(f"Unclosed {keyword} block")
+    raise WorksheetScriptError(f"Bloque {keyword} sin cerrar")
 
 
 def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
@@ -72,7 +72,7 @@ def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
                 depth -= 1
             index += 1
         if depth:
-            raise WorksheetScriptError(f"Unclosed {activity_type} block")
+            raise WorksheetScriptError(f"Bloque {activity_type} sin cerrar")
         blocks.append((activity_type, source[body_start : index - 1]))
         cursor = index
     return blocks
@@ -109,16 +109,16 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         return ActivityData(**common, title=_get_scalar(body, "title"), content=_get_scalar(body, "content"), questions=_get_list(body, "questions"))
     if activity_type == "imagequestion":
         return ActivityData(**common, image=_get_scalar(body, "image"), prompt=_get_scalar(body, "prompt"))
-    raise WorksheetScriptError(f"Unsupported activity type: {activity_type}")
+    raise WorksheetScriptError(f"Tipo de actividad no compatible: {activity_type}")
 
 
 def parse_worksheet_script(script: str) -> WorksheetData:
     worksheet_body = _extract_block(script, "worksheet")
     title = _get_scalar(worksheet_body, "title")
     if not title:
-        raise WorksheetScriptError("Worksheet title is required")
+        raise WorksheetScriptError("El título de la hoja es obligatorio")
     description = _get_scalar(worksheet_body, "description", "") or ""
     activities = [parse_activity(activity_type, body) for activity_type, body in _find_activity_blocks(worksheet_body)]
     if not activities:
-        raise WorksheetScriptError("At least one activity is required")
+        raise WorksheetScriptError("Se requiere al menos una actividad")
     return WorksheetData(title=title, description=description, activities=activities)

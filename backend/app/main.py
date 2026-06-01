@@ -6,7 +6,7 @@ from .models import AiGenerateRequest, Worksheet, WorksheetCreate, WorksheetJson
 from .parser import WorksheetScriptError, parse_worksheet_script
 from .repository import repository
 
-app = FastAPI(title="AI Worksheet Builder API", version="1.0.0")
+app = FastAPI(title="API del constructor de hojas con IA", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,7 +19,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"estado": "correcto"}
 
 
 @app.post("/worksheets", response_model=Worksheet)
@@ -55,7 +55,7 @@ def list_worksheets(created_by: str | None = None) -> list[Worksheet]:
 def get_worksheet(worksheet_id: str) -> Worksheet:
     worksheet = repository.get_worksheet(worksheet_id)
     if not worksheet:
-        raise HTTPException(status_code=404, detail="Worksheet not found")
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
     return worksheet
 
 
@@ -63,7 +63,7 @@ def get_worksheet(worksheet_id: str) -> Worksheet:
 def publish_worksheet(worksheet_id: str) -> Worksheet:
     worksheet = repository.publish_worksheet(worksheet_id)
     if not worksheet:
-        raise HTTPException(status_code=404, detail="Worksheet not found")
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
     return worksheet
 
 
@@ -71,7 +71,7 @@ def publish_worksheet(worksheet_id: str) -> Worksheet:
 def duplicate_worksheet(worksheet_id: str) -> Worksheet:
     worksheet = repository.duplicate_worksheet(worksheet_id)
     if not worksheet:
-        raise HTTPException(status_code=404, detail="Worksheet not found")
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
     return worksheet
 
 
@@ -79,7 +79,7 @@ def duplicate_worksheet(worksheet_id: str) -> Worksheet:
 def submit_response(payload: WorksheetResponseCreate) -> WorksheetResponse:
     worksheet = repository.get_worksheet(payload.worksheet_id)
     if not worksheet:
-        raise HTTPException(status_code=404, detail="Worksheet not found")
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
 
     score = _score_response(worksheet, payload.answers_json)
     response = WorksheetResponse(**payload.model_dump(), score=score)
@@ -89,7 +89,7 @@ def submit_response(payload: WorksheetResponseCreate) -> WorksheetResponse:
 @app.get("/worksheets/{worksheet_id}/responses", response_model=list[WorksheetResponse])
 def list_responses(worksheet_id: str) -> list[WorksheetResponse]:
     if not repository.get_worksheet(worksheet_id):
-        raise HTTPException(status_code=404, detail="Worksheet not found")
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
     return repository.list_responses(worksheet_id)
 
 

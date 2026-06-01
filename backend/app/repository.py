@@ -4,7 +4,7 @@ from .models import Worksheet, WorksheetResponse
 
 
 class InMemoryRepository:
-    """Repository interface placeholder that can be swapped for PostgreSQL persistence."""
+    """Interfaz de repositorio temporal que se puede reemplazar por persistencia en PostgreSQL."""
 
     def __init__(self) -> None:
         self.worksheets: dict[str, Worksheet] = {}
@@ -33,7 +33,7 @@ class InMemoryRepository:
         worksheet = self.get_worksheet(worksheet_id)
         if not worksheet:
             return None
-        duplicate = worksheet.model_copy(update={"id": str(uuid4()), "title": f"{worksheet.title} (Copy)", "published": False})
+        duplicate = worksheet.model_copy(update={"id": str(uuid4()), "title": f"{worksheet.title} (Copia)", "published": False})
         self.add_worksheet(duplicate)
         return duplicate
 

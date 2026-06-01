@@ -13,7 +13,7 @@ export function WorksheetEditor({ worksheet, selectedActivity, onAddActivity, on
   return (
     <div className="grid gap-5 xl:grid-cols-[250px_1fr_280px]">
       <section className="rounded-3xl bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Activity library</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Biblioteca de actividades</p>
         <div className="mt-4 grid gap-3">
           {activityDefinitions.map((definition) => (
             <button
@@ -33,10 +33,10 @@ export function WorksheetEditor({ worksheet, selectedActivity, onAddActivity, on
       <section className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Worksheet canvas</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Lienzo de la hoja</p>
             <h2 className="text-2xl font-bold text-slate-900">{worksheet.title}</h2>
           </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">{worksheet.activities.length} activities</span>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">{worksheet.activities.length} actividades</span>
         </div>
 
         <div className="mt-5 grid gap-3">
@@ -51,7 +51,7 @@ export function WorksheetEditor({ worksheet, selectedActivity, onAddActivity, on
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Block {index + 1}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Bloque {index + 1}</p>
                     <h3 className="font-semibold text-slate-900">{definition?.icon} {definition?.label}</h3>
                   </div>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500">{activity.type}</span>
@@ -72,21 +72,21 @@ export function WorksheetEditor({ worksheet, selectedActivity, onAddActivity, on
       </section>
 
       <section className="rounded-3xl bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Properties</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Propiedades</p>
         {selectedActivity ? (
           <div className="mt-4 space-y-4">
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Activity ID</p>
+              <p className="text-xs uppercase tracking-wide text-slate-400">ID de actividad</p>
               <p className="font-mono text-sm text-slate-700">{selectedActivity.id}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-slate-400">Type</p>
+              <p className="text-xs uppercase tracking-wide text-slate-400">Tipo</p>
               <p className="font-semibold capitalize text-slate-900">{selectedActivity.type}</p>
             </div>
             <pre className="overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">{JSON.stringify(selectedActivity, null, 2)}</pre>
           </div>
         ) : (
-          <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Select an activity on the canvas to inspect its reusable JSON configuration.</p>
+          <p className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Selecciona una actividad del lienzo para revisar su configuración JSON reutilizable.</p>
         )}
       </section>
     </div>

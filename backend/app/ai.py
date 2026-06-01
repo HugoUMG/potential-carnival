@@ -1,18 +1,18 @@
 def generate_worksheet_script(prompt: str) -> str:
-    """Deterministic placeholder for an LLM call that must return WorksheetScript, not HTML."""
+    """Marcador determinista para una llamada a un LLM que debe devolver WorksheetScript, no HTML."""
 
-    safe_topic = prompt.strip().rstrip('.') or "English practice"
+    safe_topic = prompt.strip().rstrip('.') or "práctica de inglés"
     return f'''worksheet {{
-title: "AI Worksheet: {safe_topic[:60]}"
-description: "Generated from teacher prompt: {safe_topic}"
+title: "Hoja generada por IA: {safe_topic[:60]}"
+description: "Generada desde la instrucción docente: {safe_topic}"
 
 fillblank {{
-  text: "I ____ practicing English today."
+  text: "Yo ____ practicando inglés hoy."
   answer: "am"
 }}
 
 multiplechoice {{
-  question: "Choose the correct learning goal."
+  question: "Elige el objetivo de aprendizaje correcto."
   options:
   - I can practice English.
   - I can to practice English.
@@ -21,6 +21,6 @@ multiplechoice {{
 }}
 
 speaking {{
-  prompt: "Talk for one minute about {safe_topic[:80]}."
+  prompt: "Habla durante un minuto sobre {safe_topic[:80]}."
 }}
 }}'''
