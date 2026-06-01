@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, Check, GraduationCap, LockKeyhole, MonitorSmartphone, PencilRuler, Send, X } from 'lucide-react';
+import { BookOpen, Check, GraduationCap, LockKeyhole, Send, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { TeacherDashboard, type TeacherMenu } from './components/TeacherDashboard';
@@ -23,8 +23,6 @@ import {
 import type { StudentAnswer, StudentAnswers, Worksheet, WorksheetActivity } from './types';
 import './styles/app.css';
 
-const teacherDemo = { username: 'profesor', password: 'profesor123' };
-const studentDemo = { username: 'estudiante', password: 'estudiante123' };
 
 function statusBadge(status: DetalleRespuesta['status']) {
   if (status === 'correct') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -33,16 +31,10 @@ function statusBadge(status: DetalleRespuesta['status']) {
 }
 
 function LoginPanel({ onLogin }: { onLogin: (user: UsuarioSesion) => void }) {
-  const [role, setRole] = useState<UsuarioSesion['role']>('teacher');
-  const [username, setUsername] = useState(teacherDemo.username);
-  const [password, setPassword] = useState(teacherDemo.password);
+  const [role, setRole] = useState<UsuarioSesion['role']>('student');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
-
-  function selectRole(nextRole: UsuarioSesion['role']) {
-    setRole(nextRole);
-    setUsername(nextRole === 'teacher' ? teacherDemo.username : studentDemo.username);
-    setPassword(nextRole === 'teacher' ? teacherDemo.password : studentDemo.password);
-  }
 
   async function handleLogin() {
     setMessage('');
@@ -55,22 +47,35 @@ function LoginPanel({ onLogin }: { onLogin: (user: UsuarioSesion) => void }) {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900">
-      <section className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+      <div className="mx-auto flex max-w-6xl justify-end">
+        <button
+          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 shadow-sm transition hover:border-blue-300 hover:text-blue-700"
+          type="button"
+          onClick={() => {
+            setRole(role === 'teacher' ? 'student' : 'teacher');
+            setUsername('');
+            setPassword('');
+            setMessage('');
+          }}
+        >
+          {role === 'teacher' ? 'Entrar como estudiante' : 'Entrar como profesor'}
+        </button>
+      </div>
+      <section className="mx-auto mt-8 grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700"><GraduationCap size={18} /> Constructor de evaluaciones con IA</span>
-          <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-slate-950 md:text-6xl">Dos accesos simples: profesor y estudiante.</h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">El profesor crea estudiantes, guarda evaluaciones permanentes, define intentos y revisa respuestas escritas. El estudiante ve sus evaluaciones, notas y correcciones aunque la hoja se deshabilite después.</p>
+          <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-blue-700"><GraduationCap size={18} /> Plataforma educativa</span>
+          <h1 className="mt-6 text-5xl font-black uppercase tracking-tight text-slate-950 md:text-7xl">English Worksheet Platform</h1>
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">Un entorno profesional para asignar, resolver y revisar actividades de inglés de forma organizada.</p>
         </div>
         <div className="rounded-3xl bg-white p-6 shadow-xl shadow-slate-200/70">
-          <div className="mb-5 flex rounded-2xl bg-slate-100 p-1">
-            <button className={`mode-tab flex-1 ${role === 'teacher' ? 'mode-tab-active' : ''}`} type="button" onClick={() => selectRole('teacher')}><PencilRuler size={16} /> Profesor</button>
-            <button className={`mode-tab flex-1 ${role === 'student' ? 'mode-tab-active' : ''}`} type="button" onClick={() => selectRole('student')}><MonitorSmartphone size={16} /> Estudiante</button>
+          <div className="mb-5">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Acceso {role === 'teacher' ? 'docente' : 'estudiante'}</p>
+            <h2 className="mt-1 text-2xl font-extrabold text-slate-950">{role === 'teacher' ? 'Panel del profesor' : 'Portal del estudiante'}</h2>
           </div>
           <label className="block"><span className="text-sm font-semibold text-slate-700">Usuario</span><input className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" value={username} onChange={(event) => setUsername(event.target.value)} /></label>
           <label className="mt-4 block"><span className="text-sm font-semibold text-slate-700">Contraseña</span><input className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700" type="button" onClick={handleLogin}><LockKeyhole size={18} /> Entrar como {role === 'teacher' ? 'profesor' : 'estudiante'}</button>
+          <button className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700" type="button" onClick={handleLogin}><LockKeyhole size={18} /> Entrar</button>
           {message && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{message}</p>}
-          <p className="mt-5 rounded-2xl bg-slate-50 p-3 text-sm text-slate-500">Demo: profesor/profesor123 y estudiante/estudiante123.</p>
         </div>
       </section>
     </main>
@@ -207,7 +212,13 @@ export default function App() {
   if (!user) return <LoginPanel onLogin={setUser} />;
 
   if (user.role === 'student') {
-    const responseByWorksheet = new Map(responses.map((response) => [response.worksheet_id, response]));
+    const responseByWorksheet = responses.reduce((latestResponses, response) => {
+      if (!latestResponses.has(response.worksheet_id)) latestResponses.set(response.worksheet_id, response);
+      return latestResponses;
+    }, new Map<string, RespuestaEstudiante>());
+    const activeResponse = responseByWorksheet.get(activeWorksheet.id);
+    const isActiveWorksheetPublished = activeWorksheet.status === 'published';
+
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
         <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto flex max-w-7xl justify-between px-4 py-4"><div><h1 className="text-xl font-bold">Portal del estudiante</h1><p className="text-sm text-slate-500">Hola, {user.name} (@{user.username}).</p></div><button className="rounded-2xl border px-4 py-2" onClick={() => setUser(null)}>Cerrar sesión</button></div></nav>
@@ -223,9 +234,22 @@ export default function App() {
             </div>
           </aside>
           <section>
-            {worksheets.length > 0 && <WorksheetRenderer worksheet={activeWorksheet} answers={answers} onAnswerChange={updateAnswer} />}
+            {worksheets.length > 0 && isActiveWorksheetPublished && <WorksheetRenderer worksheet={activeWorksheet} answers={answers} onAnswerChange={updateAnswer} />}
+            {worksheets.length > 0 && !isActiveWorksheetPublished && (
+              <div className="mx-auto max-w-4xl rounded-3xl border border-red-200 bg-red-50 p-6 text-red-700 shadow-sm">
+                <h2 className="text-xl font-extrabold">Esta hoja de trabajo fue deshabilitada por tu profesor.</h2>
+                <p className="mt-2 text-sm font-semibold">Ya no puedes ver ni volver a responder esta hoja, pero tus respuestas guardadas permanecen disponibles.</p>
+                {activeResponse && (
+                  <div className="mt-5 rounded-2xl bg-white/80 p-4 text-slate-700">
+                    <p className="text-sm font-bold text-slate-900">Último intento enviado: {new Date(activeResponse.submitted_at).toLocaleString()}</p>
+                    <p className="mt-1 text-sm font-semibold">Nota: {activeResponse.score ?? 'pendiente'} · Aciertos: {activeResponse.correct_count}</p>
+                    <ResponseDetails response={activeResponse} />
+                  </div>
+                )}
+              </div>
+            )}
             {message && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">{message}</p>}
-            {worksheets.length > 0 && activeWorksheet.status === 'published' && <div className="mx-auto mt-6 flex max-w-4xl justify-end"><button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white" onClick={sendAnswers}><Send className="mr-2 inline" size={18} /> Enviar respuestas</button></div>}
+            {worksheets.length > 0 && isActiveWorksheetPublished && <div className="mx-auto mt-6 flex max-w-4xl justify-end"><button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white" onClick={sendAnswers}><Send className="mr-2 inline" size={18} /> Enviar respuestas</button></div>}
           </section>
         </div>
       </main>
