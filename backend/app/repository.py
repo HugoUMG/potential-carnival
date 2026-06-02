@@ -134,6 +134,44 @@ class WorksheetRepository:
             rows = connection.execute("SELECT id, name, email, username, role FROM users WHERE role IN ('admin', 'teacher') ORDER BY role, name").fetchall()
         return [self._user_from_row(row) for row in rows]
 
+    def delete_student(self, student_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT id FROM users WHERE id = {placeholder} AND role = 'student'",
+                (student_id,),
+            ).fetchone()
+            if not row:
+                return False
+            connection.execute(
+                f"UPDATE worksheet_responses SET student_id = NULL WHERE student_id = {placeholder}",
+                (student_id,),
+            )
+            connection.execute(
+                f"DELETE FROM users WHERE id = {placeholder} AND role = 'student'",
+                (student_id,),
+            )
+        return True
+
+    def delete_teacher(self, teacher_id: str, replacement_owner_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT id FROM users WHERE id = {placeholder} AND role = 'teacher'",
+                (teacher_id,),
+            ).fetchone()
+            if not row:
+                return False
+            connection.execute(
+                f"UPDATE worksheets SET created_by = {placeholder} WHERE created_by = {placeholder}",
+                (replacement_owner_id, teacher_id),
+            )
+            connection.execute(
+                f"DELETE FROM users WHERE id = {placeholder} AND role = 'teacher'",
+                (teacher_id,),
+            )
+        return True
+
     def add_worksheet(self, worksheet: Worksheet) -> Worksheet:
         with get_connection() as connection:
             connection.execute(

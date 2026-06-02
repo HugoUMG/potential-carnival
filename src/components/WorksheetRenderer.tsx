@@ -50,7 +50,7 @@ export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange
       <header className="mb-6 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-500 p-6 text-white shadow-lg">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <span className="rounded-full bg-white/20 px-3 py-1 text-sm font-semibold">{worksheet.level}</span>
+            <span className="rounded-full bg-white/20 px-3 py-1 text-sm font-semibold">Worksheet</span>
             <h1 className="mt-4 text-3xl font-bold">{worksheet.title}</h1>
             <p className="mt-2 max-w-2xl text-blue-50">{worksheet.description}</p>
           </div>

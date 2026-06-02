@@ -7,7 +7,6 @@ import type {
   MatchingActivity,
   MultipleChoiceActivity,
   ReadingActivity,
-  SpeakingActivity,
   StudentAnswer,
   TextBoxActivity,
   WorksheetActivity,
@@ -71,6 +70,17 @@ function TextBoxRenderer({ activity, value, readonly, onChange }: ActivityRender
   );
 }
 
+
+function hashString(value: string): number {
+  return [...value].reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
+}
+
+function getShuffledMatches(activity: MatchingActivity): string[] {
+  const shuffled = [...activity.right].sort((first, second) => hashString(`${activity.id}:${first}`) - hashString(`${activity.id}:${second}`));
+  const keptOriginalOrder = shuffled.every((rightItem, index) => rightItem === activity.right[index]);
+  return keptOriginalOrder && shuffled.length > 1 ? [...shuffled.slice(1), shuffled[0]] : shuffled;
+}
+
 function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MatchingActivity>) {
   const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? value : {};
 
@@ -88,7 +98,7 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
               onChange={(event) => onChange(activity.id, { ...selections, [leftItem]: event.target.value })}
             >
               <option value="">Select a match</option>
-              {activity.right.map((rightItem) => (
+              {getShuffledMatches(activity).map((rightItem) => (
                 <option key={rightItem} value={rightItem}>
                   {rightItem}
                 </option>
@@ -98,22 +108,6 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
         ))}
       </div>
     </div>
-  );
-}
-
-function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<SpeakingActivity>) {
-  return (
-    <label className="block">
-      <span className="text-base font-medium text-slate-800">{activity.prompt}</span>
-      <p className="mt-1 text-sm text-slate-500">Audio recording will be available later. For now, write speaking notes.</p>
-      <textarea
-        className={`${inputClass} min-h-24 resize-y`}
-        disabled={readonly}
-        placeholder="Student speaking notes"
-        value={asString(value)}
-        onChange={(event) => onChange(activity.id, event.target.value)}
-      />
-    </label>
   );
 }
 
@@ -184,14 +178,6 @@ export const activityRegistry = {
     icon: '🔗',
     create: () => ({ id: nextId('matching'), type: 'matching', left: ['dog', 'cat'], right: ['animal that barks', 'animal that meows'] }),
     Renderer: MatchingRenderer,
-  },
-  speaking: {
-    type: 'speaking',
-    label: 'Speaking',
-    description: 'Prompt for oral production.',
-    icon: '🎙️',
-    create: () => ({ id: nextId('speaking'), type: 'speaking', prompt: 'Talk about your family.' }),
-    Renderer: SpeakingRenderer,
   },
   reading: {
     type: 'reading',

@@ -71,3 +71,38 @@ reading {
         "How much money does Maria have in her wallet?",
         "Does Maria buy milk?",
     ]
+
+
+def test_matching_keeps_entered_pair_order():
+    script = '''worksheet {
+title: "Future matching"
+
+matching {
+  left:
+  - will + base verb
+  - won't
+  - Will + subject + base verb?
+  - probably / maybe
+  right:
+  - Affirmative structure
+  - Contraction of will not
+  - Question structure
+  - Used to soften predictions
+}
+}'''
+
+    worksheet = parse_worksheet_script(script)
+    matching = worksheet.activities[0]
+
+    assert matching.left == [
+        "will + base verb",
+        "won't",
+        "Will + subject + base verb?",
+        "probably / maybe",
+    ]
+    assert matching.right == [
+        "Affirmative structure",
+        "Contraction of will not",
+        "Question structure",
+        "Used to soften predictions",
+    ]

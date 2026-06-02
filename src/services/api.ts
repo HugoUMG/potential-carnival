@@ -1,4 +1,4 @@
-import type { StudentAnswers, Worksheet, WorksheetActivity } from '../types';
+import type { ActivityType, StudentAnswers, Worksheet, WorksheetActivity } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const AUTH_STORAGE_KEY = 'worksheet_auth_session';
@@ -26,7 +26,7 @@ export interface DetalleRespuesta {
 
 interface BackendActivity {
   id: string;
-  type: WorksheetActivity['type'];
+  type: ActivityType | 'speaking';
   text?: string | null;
   question?: string | null;
   options?: string[] | null;
@@ -110,7 +110,7 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
     case 'matching':
       return { id: activity.id, type: 'matching', left: activity.left ?? [], right: activity.right ?? [] };
     case 'speaking':
-      return { id: activity.id, type: 'speaking', prompt: activity.prompt ?? '' };
+      return { id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' };
     case 'reading':
       return { id: activity.id, type: 'reading', title: activity.title ?? '', content: activity.content ?? '', questions: activity.questions ?? [] };
     case 'imagequestion':
@@ -156,6 +156,14 @@ export async function listStudents(): Promise<UsuarioSesion[]> {
 
 export async function listTeachers(): Promise<UsuarioSesion[]> {
   return request<UsuarioSesion[]>('/teachers');
+}
+
+export async function deleteStudent(studentId: string): Promise<void> {
+  await request<void>(`/students/${studentId}`, { method: 'DELETE' });
+}
+
+export async function deleteTeacher(teacherId: string): Promise<void> {
+  await request<void>(`/teachers/${teacherId}`, { method: 'DELETE' });
 }
 
 export async function createWorksheet(scriptContent: string, createdBy: string, maxAttempts: number | null): Promise<Worksheet> {
