@@ -9,6 +9,8 @@ import {
   createStudent,
   createTeacher,
   createWorksheet,
+  deleteStudent,
+  deleteTeacher,
   deleteWorksheet,
   listStudentResponses,
   listStudents,
@@ -235,6 +237,29 @@ export default function App() {
     }
   }
 
+
+  async function removeStudent(student: UsuarioSesion) {
+    if (!window.confirm(`¿Eliminar definitivamente al estudiante "${student.name}"? Sus respuestas históricas conservarán el nombre, pero se desvincularán de su usuario.`)) return;
+    try {
+      await deleteStudent(student.id);
+      setStudents((current) => current.filter((item) => item.id !== student.id));
+      setMessage('Estudiante eliminado correctamente.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el estudiante.');
+    }
+  }
+
+  async function removeTeacher(teacher: UsuarioSesion) {
+    if (!window.confirm(`¿Eliminar definitivamente al profesor "${teacher.name}"? Sus evaluaciones se reasignarán al administrador actual.`)) return;
+    try {
+      await deleteTeacher(teacher.id);
+      setTeachers((current) => current.filter((item) => item.id !== teacher.id));
+      setMessage('Profesor eliminado correctamente.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el profesor.');
+    }
+  }
+
   async function loadWorksheetResponses(worksheet: Worksheet) {
     setActiveWorksheet(worksheet);
     setResponses(await listWorksheetResponses(worksheet.id));
@@ -304,7 +329,27 @@ export default function App() {
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
         <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} onSelectMenu={setAdminMenu} onLogout={() => { logout(); setUser(null); }} />
         {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} isSaving={isSaving} message={message} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onSaveScript={saveScript} />}
-        {adminMenu === 'estudiantes' && <section className="rounded-3xl bg-white p-5 shadow-sm"><h2 className="text-2xl font-bold">Crear estudiante</h2><div className="mt-4 grid gap-3 sm:grid-cols-3"><input className="rounded-2xl border p-3" placeholder="Nombre" value={studentForm.name} onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })} /><input className="rounded-2xl border p-3" placeholder="Usuario" value={studentForm.username} onChange={(e) => setStudentForm({ ...studentForm, username: e.target.value })} /><input className="rounded-2xl border p-3" placeholder="Contraseña" value={studentForm.password} onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })} /></div><button className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white" onClick={createNewStudent}>Guardar estudiante</button>{message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}<h3 className="mt-6 font-bold">Estudiantes</h3>{students.map((student) => <div key={student.id} className="mt-2 rounded-xl bg-slate-50 p-3">{student.name} · @{student.username}</div>)}</section>}
+        {adminMenu === 'estudiantes' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <h2 className="text-2xl font-bold">Crear estudiante</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <input className="rounded-2xl border p-3" placeholder="Nombre" value={studentForm.name} onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })} />
+              <input className="rounded-2xl border p-3" placeholder="Usuario" value={studentForm.username} onChange={(e) => setStudentForm({ ...studentForm, username: e.target.value })} />
+              <input className="rounded-2xl border p-3" placeholder="Contraseña" value={studentForm.password} onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })} />
+            </div>
+            <button className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white" onClick={createNewStudent}>Guardar estudiante</button>
+            {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}
+            <h3 className="mt-6 font-bold">Estudiantes</h3>
+            <div className="mt-3 grid gap-2">
+              {students.map((student) => (
+                <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
+                  <span>{student.name} · @{student.username}</span>
+                  <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeStudent(student)}><Trash2 className="mr-1 inline" size={15} /> Eliminar</button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         {adminMenu === 'evaluaciones' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex justify-between gap-3">
@@ -360,8 +405,64 @@ export default function App() {
             </div>
           </section>
         )}
-        {user.role === 'admin' && adminMenu === 'profesores' && <section className="rounded-3xl bg-white p-5 shadow-sm"><h2 className="text-2xl font-bold">Crear profesor</h2><div className="mt-4 grid gap-3 sm:grid-cols-4"><input className="rounded-2xl border p-3" placeholder="Nombre" value={teacherForm.name} onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })} /><input className="rounded-2xl border p-3" placeholder="Usuario" value={teacherForm.username} onChange={(e) => setTeacherForm({ ...teacherForm, username: e.target.value })} /><input className="rounded-2xl border p-3" placeholder="Contraseña" value={teacherForm.password} onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })} /><input className="rounded-2xl border p-3" placeholder="Correo opcional" value={teacherForm.email} onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })} /></div><button className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white" onClick={createNewTeacher}>Guardar profesor</button>{message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}<h3 className="mt-6 font-bold">Profesores y administradores</h3>{teachers.map((teacher) => <div key={teacher.id} className="mt-2 rounded-xl bg-slate-50 p-3">{teacher.name} · @{teacher.username} · {teacher.role === 'admin' ? 'Admin' : 'Profesor'}</div>)}</section>}
-        {adminMenu === 'revision' && <section className="rounded-3xl bg-white p-5 shadow-sm"><h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2><p className="text-sm text-slate-500">Nombre, fecha, puntuación, aciertos y pendientes permanecen guardados aunque la evaluación se deshabilite.</p><div className="mt-5 grid gap-4">{responses.map((response) => <article key={response.id} className="rounded-2xl border p-4"><h3 className="font-bold">{response.student_name}</h3><p className="text-sm text-slate-500">Fecha: {new Date(response.submitted_at).toLocaleString()} · Puntuación: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>{response.details.map((detail) => { const key = `${response.id}-${detail.activity_id}`; return <div key={detail.activity_id} className={`mt-3 rounded-xl border p-3 ${statusBadge(detail.status)}`}><strong>{detail.prompt}</strong><p>Respuesta: {JSON.stringify(detail.student_answer ?? '')}</p>{detail.status === 'pending' && <div className="mt-2 grid gap-2"><textarea className="rounded-xl border p-2" placeholder="Comentario opcional para el estudiante" value={reviewComments[key] ?? ''} onChange={(e) => setReviewComments({ ...reviewComments, [key]: e.target.value })} /><div className="flex gap-2"><button className="rounded-xl bg-emerald-600 px-3 py-2 text-white" onClick={() => review(response, detail, 'correct')}><Check size={16} /></button><button className="rounded-xl bg-red-600 px-3 py-2 text-white" onClick={() => review(response, detail, 'incorrect')}><X size={16} /></button></div></div>}{detail.teacher_comment && <p>Comentario: {detail.teacher_comment}</p>}</div>; })}</article>)}{!responses.length && <p className="rounded-2xl bg-slate-50 p-5">Esta evaluación aún no tiene respuestas.</p>}</div></section>}
+        {user.role === 'admin' && adminMenu === 'profesores' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <h2 className="text-2xl font-bold">Crear profesor</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+              <input className="rounded-2xl border p-3" placeholder="Nombre" value={teacherForm.name} onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })} />
+              <input className="rounded-2xl border p-3" placeholder="Usuario" value={teacherForm.username} onChange={(e) => setTeacherForm({ ...teacherForm, username: e.target.value })} />
+              <input className="rounded-2xl border p-3" placeholder="Contraseña" value={teacherForm.password} onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })} />
+              <input className="rounded-2xl border p-3" placeholder="Correo opcional" value={teacherForm.email} onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })} />
+            </div>
+            <button className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white" onClick={createNewTeacher}>Guardar profesor</button>
+            {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}
+            <h3 className="mt-6 font-bold">Profesores y administradores</h3>
+            <div className="mt-3 grid gap-2">
+              {teachers.map((teacher) => (
+                <div key={teacher.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
+                  <span>{teacher.name} · @{teacher.username} · {teacher.role === 'admin' ? 'Admin' : 'Profesor'}</span>
+                  {teacher.role === 'teacher' && <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeTeacher(teacher)}><Trash2 className="mr-1 inline" size={15} /> Eliminar</button>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+        {adminMenu === 'revision' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2>
+            <p className="text-sm text-slate-500">Nombre, fecha, puntuación, aciertos y pendientes permanecen guardados aunque la evaluación se deshabilite. Las respuestas incorrectas de fill in the blank se pueden corregir manualmente por errores de escritura.</p>
+            <div className="mt-5 grid gap-4">
+              {responses.map((response) => (
+                <article key={response.id} className="rounded-2xl border p-4">
+                  <h3 className="font-bold">{response.student_name}</h3>
+                  <p className="text-sm text-slate-500">Fecha: {new Date(response.submitted_at).toLocaleString()} · Puntuación: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>
+                  {response.details.map((detail) => {
+                    const key = `${response.id}-${detail.activity_id}`;
+                    const canReview = detail.status === 'pending' || (detail.activity_type === 'fillblank' && detail.status === 'incorrect');
+                    return (
+                      <div key={detail.activity_id} className={`mt-3 rounded-xl border p-3 ${statusBadge(detail.status)}`}>
+                        <strong>{detail.prompt}</strong>
+                        <p>Respuesta: {JSON.stringify(detail.student_answer ?? '')}</p>
+                        {detail.correct_answer !== null && <p>Correcta: {JSON.stringify(detail.correct_answer)}</p>}
+                        {canReview && (
+                          <div className="mt-2 grid gap-2">
+                            <textarea className="rounded-xl border p-2" placeholder="Comentario opcional para el estudiante" value={reviewComments[key] ?? ''} onChange={(e) => setReviewComments({ ...reviewComments, [key]: e.target.value })} />
+                            <div className="flex gap-2">
+                              <button className="rounded-xl bg-emerald-600 px-3 py-2 text-white" type="button" onClick={() => review(response, detail, 'correct')}><Check size={16} /></button>
+                              <button className="rounded-xl bg-red-600 px-3 py-2 text-white" type="button" onClick={() => review(response, detail, 'incorrect')}><X size={16} /></button>
+                            </div>
+                          </div>
+                        )}
+                        {detail.teacher_comment && <p>Comentario: {detail.teacher_comment}</p>}
+                      </div>
+                    );
+                  })}
+                </article>
+              ))}
+              {!responses.length && <p className="rounded-2xl bg-slate-50 p-5">Esta evaluación aún no tiene respuestas.</p>}
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );

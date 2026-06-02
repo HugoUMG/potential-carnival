@@ -34,10 +34,6 @@ matching {
   - habilidad en el futuro
 }
 
-speaking {
-  prompt: "Habla sobre una habilidad que podías hacer cuando eras niño y una habilidad que podrás hacer el próximo año."
-}
-
 reading {
   title: "Nuevas habilidades"
   content:
@@ -86,11 +82,6 @@ export const sampleWorksheet: Worksheet = {
       type: 'matching',
       left: ['can', 'could', 'will be able to'],
       right: ['habilidad actual', 'habilidad en el pasado', 'habilidad en el futuro'],
-    },
-    {
-      id: 'a5',
-      type: 'speaking',
-      prompt: 'Habla sobre una habilidad que podías hacer cuando eras niño y una habilidad que podrás hacer el próximo año.',
     },
     {
       id: 'a6',

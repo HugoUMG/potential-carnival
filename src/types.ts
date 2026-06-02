@@ -5,7 +5,6 @@ export type ActivityType =
   | 'multiplechoice'
   | 'textbox'
   | 'matching'
-  | 'speaking'
   | 'reading'
   | 'imagequestion';
 
@@ -40,11 +39,6 @@ export interface MatchingActivity extends BaseActivity {
   right: string[];
 }
 
-export interface SpeakingActivity extends BaseActivity {
-  type: 'speaking';
-  prompt: string;
-}
-
 export interface ReadingActivity extends BaseActivity {
   type: 'reading';
   title: string;
@@ -63,7 +57,6 @@ export type WorksheetActivity =
   | MultipleChoiceActivity
   | TextBoxActivity
   | MatchingActivity
-  | SpeakingActivity
   | ReadingActivity
   | ImageQuestionActivity;
 

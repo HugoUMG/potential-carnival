@@ -136,6 +136,20 @@ def list_teachers(_: PublicUser = Depends(require_admin)) -> list[PublicUser]:
     return repository.list_teachers()
 
 
+@app.delete("/students/{student_id}", status_code=204)
+def delete_student(student_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    if not repository.delete_student(student_id):
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+
+
+@app.delete("/teachers/{teacher_id}", status_code=204)
+def delete_teacher(teacher_id: str, current_user: PublicUser = Depends(require_admin)) -> None:
+    if teacher_id == current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes eliminar tu propio usuario administrador")
+    if not repository.delete_teacher(teacher_id, current_user.id):
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+
+
 @app.post("/worksheets", response_model=Worksheet)
 def create_worksheet(payload: WorksheetCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Worksheet:
     try:
@@ -306,8 +320,25 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
         if activity.type in {"fillblank", "multiplechoice"} and activity.answer:
             is_correct = str(student_answer or "").strip().lower() == activity.answer.strip().lower()
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
-        else:
-            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending"))
+            continue
+        if activity.type == "matching" and activity.left and activity.right:
+            selected_matches = student_answer if isinstance(student_answer, dict) else {}
+            for index, left_item in enumerate(activity.left):
+                correct_match = activity.right[index] if index < len(activity.right) else None
+                selected_match = selected_matches.get(left_item)
+                is_correct = selected_match == correct_match
+                details.append(
+                    AnswerDetail(
+                        activity_id=f"{activity.id}:{index}",
+                        activity_type=activity.type,
+                        prompt=str(left_item),
+                        student_answer=selected_match,
+                        correct_answer=correct_match,
+                        status="correct" if is_correct else "incorrect",
+                    )
+                )
+            continue
+        details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending"))
     return details
 
 
