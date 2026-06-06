@@ -42,3 +42,36 @@ CREATE INDEX IF NOT EXISTS idx_worksheets_published ON worksheets(published);
 CREATE INDEX IF NOT EXISTS idx_worksheets_archived ON worksheets(archived);
 CREATE INDEX IF NOT EXISTS idx_responses_worksheet_id ON worksheet_responses(worksheet_id);
 CREATE INDEX IF NOT EXISTS idx_responses_student_id ON worksheet_responses(student_id);
+
+CREATE TABLE IF NOT EXISTS classrooms (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS classroom_students (
+  classroom_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (classroom_id, student_id),
+  FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS classroom_worksheets (
+  classroom_id TEXT NOT NULL,
+  worksheet_id TEXT NOT NULL,
+  assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (classroom_id, worksheet_id),
+  FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (worksheet_id) REFERENCES worksheets(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_classrooms_created_by ON classrooms(created_by);
+CREATE INDEX IF NOT EXISTS idx_classroom_students_student_id ON classroom_students(student_id);
+CREATE INDEX IF NOT EXISTS idx_classroom_worksheets_worksheet_id ON classroom_worksheets(worksheet_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_responses_unique_attempt
+ON worksheet_responses (worksheet_id, student_id)
+WHERE student_id IS NOT NULL;

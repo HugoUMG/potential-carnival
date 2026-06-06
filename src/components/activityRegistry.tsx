@@ -7,10 +7,12 @@ import type {
   MatchingActivity,
   MultipleChoiceActivity,
   ReadingActivity,
+  ListeningActivity,
   StudentAnswer,
   TextBoxActivity,
   WorksheetActivity,
 } from '../types';
+import { RichText } from './RichText';
 
 const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
 
@@ -19,24 +21,48 @@ function asString(value: StudentAnswer | undefined): string {
 }
 
 function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<FillBlankActivity>) {
+  const parts = activity.text.split('_____');
+  const expected = Array.isArray(activity.answer) ? activity.answer : [activity.answer];
+  const values = Array.isArray(value) ? value : [asString(value)];
+  const updateBlank = (index: number, nextValue: string) => {
+    const nextValues = [...values];
+    nextValues[index] = nextValue;
+    onChange(activity.id, parts.length > 2 ? nextValues : nextValue);
+  };
+
+  if (parts.length === 1) {
+    return (
+      <label className="block">
+        <RichText className="text-base font-medium text-slate-800" text={activity.text} />
+        <input className={inputClass} disabled={readonly} placeholder="Type the missing word" value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
+      </label>
+    );
+  }
+
   return (
-    <label className="block">
-      <span className="text-base font-medium text-slate-800">{activity.text}</span>
-      <input
-        className={inputClass}
-        disabled={readonly}
-        placeholder="Type the missing word"
-        value={asString(value)}
-        onChange={(event) => onChange(activity.id, event.target.value)}
-      />
-    </label>
+    <div className="text-base font-medium leading-10 text-slate-800 whitespace-pre-line">
+      {parts.map((part, index) => (
+        <span key={`${activity.id}-${index}`}>
+          {part}
+          {index < parts.length - 1 && (
+            <input
+              className="mx-1 inline-block rounded-lg border border-slate-300 px-2 py-1 text-sm align-middle outline-none focus:border-blue-500"
+              disabled={readonly}
+              style={{ width: `${Math.max(80, Math.min(160, (expected[index]?.length ?? 8) * 12))}px` }}
+              value={values[index] ?? ''}
+              onChange={(event) => updateBlank(index, event.target.value)}
+            />
+          )}
+        </span>
+      ))}
+    </div>
   );
 }
 
 function MultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultipleChoiceActivity>) {
   return (
     <fieldset>
-      <legend className="text-base font-medium text-slate-800">{activity.question}</legend>
+      <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {activity.options.map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
@@ -58,7 +84,7 @@ function MultipleChoiceRenderer({ activity, value, readonly, onChange }: Activit
 function TextBoxRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<TextBoxActivity>) {
   return (
     <label className="block">
-      <span className="text-base font-medium text-slate-800">{activity.prompt}</span>
+      <RichText className="text-base font-medium text-slate-800" text={activity.prompt} />
       <textarea
         className={`${inputClass} min-h-28 resize-y`}
         disabled={readonly}
@@ -117,11 +143,11 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
   return (
     <article>
       <h3 className="text-lg font-semibold text-slate-900">{activity.title}</h3>
-      <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700">{activity.content}</p>
+      <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
       <div className="mt-4 grid gap-3">
         {activity.questions.map((question, index) => (
           <label key={question} className="block">
-            <span className="text-sm font-medium text-slate-700">{question}</span>
+            <RichText className="text-sm font-medium text-slate-700" text={question} />
             <input
               className={inputClass}
               disabled={readonly}
@@ -132,6 +158,19 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
         ))}
       </div>
     </article>
+  );
+}
+
+function ListeningRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningActivity>) {
+  const audioUrl = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}/tts?text=${encodeURIComponent(activity.text)}`;
+  return (
+    <div className="grid gap-3">
+      <audio controls src={audioUrl} />
+      <label className="block">
+        <RichText className="text-base font-medium text-slate-800" text={activity.question} />
+        <input className={inputClass} disabled={readonly} value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
+      </label>
+    </div>
   );
 }
 
@@ -187,6 +226,14 @@ export const activityRegistry = {
     create: () => ({ id: nextId('reading'), type: 'reading', title: 'My school', content: 'This is my school.', questions: ['What is the text about?'] }),
     Renderer: ReadingRenderer,
   },
+  listening: {
+    type: 'listening',
+    label: 'Listening',
+    description: 'Audio comprehension prompt',
+    icon: '🎧',
+    create: () => ({ id: nextId('listening'), type: 'listening', text: 'Listen to this sentence.', question: 'What did you hear?', answer: '' }),
+    Renderer: ListeningRenderer,
+  } satisfies ActivityDefinition<ListeningActivity>,
   imagequestion: {
     type: 'imagequestion',
     label: 'Image question',

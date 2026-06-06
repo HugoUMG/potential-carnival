@@ -13,6 +13,7 @@ SUPPORTED_BLOCKS = {
     "speaking",
     "reading",
     "imagequestion",
+    "listening",
 }
 
 
@@ -101,12 +102,19 @@ def _get_list(body: str, key: str) -> list[str]:
     return [_strip_quotes(line.split("-", 1)[1]) for line in match.group(1).splitlines() if line.strip().startswith("-")]
 
 
+def _get_answer(body: str):
+    values = _get_list(body, "answer")
+    if values:
+        return values
+    return _get_scalar(body, "answer")
+
+
 def parse_activity(activity_type: str, body: str) -> ActivityData:
-    common = {"id": str(uuid4()), "type": activity_type}
+    common = {"id": str(uuid4()), "type": activity_type, "instructions": _get_scalar(body, "instructions")}
     if activity_type == "fillblank":
-        return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_scalar(body, "answer"))
+        return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_answer(body))
     if activity_type == "multiplechoice":
-        return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_scalar(body, "answer"))
+        return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_answer(body))
     if activity_type in {"textbox", "speaking"}:
         return ActivityData(**common, prompt=_get_scalar(body, "prompt"))
     if activity_type == "matching":
@@ -115,6 +123,8 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         return ActivityData(**common, title=_get_scalar(body, "title"), content=_get_scalar(body, "content"), questions=_get_list(body, "questions"))
     if activity_type == "imagequestion":
         return ActivityData(**common, image=_get_scalar(body, "image"), prompt=_get_scalar(body, "prompt"))
+    if activity_type == "listening":
+        return ActivityData(**common, text=_get_scalar(body, "text"), question=_get_scalar(body, "question"), answer=_get_answer(body))
     raise WorksheetScriptError(f"Tipo de actividad no compatible: {activity_type}")
 
 
