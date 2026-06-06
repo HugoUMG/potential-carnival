@@ -326,9 +326,8 @@ def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(
     require_student_owner_or_staff(student_id, current_user)
     answered_ids = {response.worksheet_id for response in repository.list_responses(student_id=student_id, include_archived=False)}
     assigned = repository.list_student_assigned_worksheets(student_id)
-    published = assigned if assigned else repository.list_worksheets(published=True, archived=False)
-    answered_unpublished = [worksheet for worksheet in repository.list_worksheets(archived=False) if worksheet.id in answered_ids and not worksheet.published]
-    return published + [worksheet for worksheet in answered_unpublished if worksheet.id not in {item.id for item in published}]
+    answered_unpublished = [worksheet for worksheet in assigned if worksheet.id in answered_ids and not worksheet.published]
+    return assigned + [worksheet for worksheet in answered_unpublished if worksheet.id not in {item.id for item in assigned}]
 
 
 @app.get("/students/{student_id}/responses", response_model=list[WorksheetResponse])
