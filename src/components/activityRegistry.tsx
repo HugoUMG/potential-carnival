@@ -26,7 +26,7 @@ function asString(value: StudentAnswer | undefined): string {
 }
 
 function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<FillBlankActivity>) {
-  const parts = activity.text.split('_____');
+  const parts = activity.text.replace(/\\n/g, '\n').split('_____');
   const expected = Array.isArray(activity.answer) ? activity.answer : [activity.answer];
   const values = Array.isArray(value) ? value : [asString(value)];
   const updateBlank = (index: number, nextValue: string) => {
