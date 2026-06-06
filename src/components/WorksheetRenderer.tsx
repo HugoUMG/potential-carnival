@@ -37,6 +37,7 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index }: {
         </div>
         <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Interactiva</span>
       </div>
+      {activity.instructions && <p className="mb-3 rounded-xl bg-amber-50 p-3 text-sm italic text-amber-800"><RichText text={activity.instructions} /></p>}
       <Renderer activity={activity} value={answer} readonly={readonly} onChange={onAnswerChange} />
     </section>
   );
