@@ -7,6 +7,9 @@ import { TeacherDashboard, type TeacherMenu } from './components/TeacherDashboar
 import { sampleWorksheet } from './data/sampleWorksheet';
 import {
   archiveWorksheet,
+  assignStudentToClassroom,
+  assignWorksheetToClassroom,
+  createClassroom,
   createStudent,
   createTeacher,
   createWorksheet,
@@ -14,20 +17,29 @@ import {
   deleteTeacher,
   deleteWorksheet,
   deleteResponse,
+  listClassrooms,
   listStudentResponses,
   listStudents,
   listStudentWorksheets,
   listTeachers,
   listTeacherWorksheets,
+  listWorksheetClassrooms,
   listWorksheetResponses,
   login,
   logout,
+  getClassroom,
   getCurrentSession,
+  getTeacherDashboard,
   publishWorksheet,
   reviewAnswer,
   submitResponse,
+  unassignStudentFromClassroom,
+  unassignWorksheetFromClassroom,
+  type Classroom,
+  type ClassroomDetail,
   type DetalleRespuesta,
   type RespuestaEstudiante,
+  type TeacherStats,
   type UsuarioSesion,
 } from './services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet, WorksheetActivity } from './types';
@@ -118,6 +130,15 @@ export default function App() {
   const [responses, setResponses] = useState<RespuestaEstudiante[]>([]);
   const [students, setStudents] = useState<UsuarioSesion[]>([]);
   const [teachers, setTeachers] = useState<UsuarioSesion[]>([]);
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [activeClassroomId, setActiveClassroomId] = useState('');
+  const [classroomDetail, setClassroomDetail] = useState<ClassroomDetail | null>(null);
+  const [classroomName, setClassroomName] = useState('');
+  const [studentClassroomSelection, setStudentClassroomSelection] = useState<Record<string, string>>({});
+  const [assignmentWorksheet, setAssignmentWorksheet] = useState<Worksheet | null>(null);
+  const [selectedAssignmentClassrooms, setSelectedAssignmentClassrooms] = useState<string[]>([]);
+  const [teacherStats, setTeacherStats] = useState<TeacherStats | null>(null);
+  const [worksheetClassrooms, setWorksheetClassrooms] = useState<Record<string, Classroom[]>>({});
   const [studentForm, setStudentForm] = useState({ name: '', username: '', password: '' });
   const [teacherForm, setTeacherForm] = useState({ name: '', username: '', password: '', email: '' });
   const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
@@ -135,14 +156,25 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  useEffect(() => {
+    if (!user || user.role === 'student' || !activeClassroomId) return;
+    void refreshClassroomDetail(activeClassroomId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClassroomId, user?.id]);
+
   async function refreshData(currentUser = user) {
     if (!currentUser) return;
     try {
       if (currentUser.role !== 'student') {
-        const [teacherWorksheets, allStudents, allTeachers] = await Promise.all([listTeacherWorksheets(currentUser.role === 'admin' ? undefined : currentUser.id), listStudents(), currentUser.role === 'admin' ? listTeachers() : Promise.resolve([])]);
+        const [teacherWorksheets, allStudents, allTeachers, teacherClassrooms, dashboardStats] = await Promise.all([listTeacherWorksheets(currentUser.role === 'admin' ? undefined : currentUser.id), listStudents(), currentUser.role === 'admin' ? listTeachers() : Promise.resolve([]), listClassrooms(), getTeacherDashboard()]);
         setWorksheets(teacherWorksheets.length ? teacherWorksheets : [sampleWorksheet]);
         setStudents(allStudents);
         setTeachers(allTeachers);
+        setClassrooms(teacherClassrooms);
+        setTeacherStats(dashboardStats);
+        const classroomAssignments = await Promise.all(teacherWorksheets.map(async (worksheet) => [worksheet.id, await listWorksheetClassrooms(worksheet.id)] as const));
+        setWorksheetClassrooms(Object.fromEntries(classroomAssignments));
+        if (!activeClassroomId && teacherClassrooms[0]) setActiveClassroomId(teacherClassrooms[0].id);
         if (teacherWorksheets[0]) {
           setActiveWorksheet(teacherWorksheets[0]);
           setScriptDraft(teacherWorksheets[0].scriptContent);
@@ -286,6 +318,62 @@ export default function App() {
     setResponses((current) => current.map((item) => (item.id === updated.id ? updated : item)));
   }
 
+
+
+  async function refreshClassroomDetail(classroomId = activeClassroomId) {
+    if (!classroomId) {
+      setClassroomDetail(null);
+      return;
+    }
+    const detail = await getClassroom(classroomId);
+    setClassroomDetail(detail);
+    setActiveClassroomId(classroomId);
+  }
+
+  async function createNewClassroom() {
+    if (!classroomName.trim()) return;
+    const created = await createClassroom(classroomName.trim());
+    setClassrooms((current) => [...current, created]);
+    setClassroomName('');
+    await refreshClassroomDetail(created.id);
+    setMessage('Aula creada correctamente.');
+  }
+
+  async function assignStudentFromClassroom(studentId: string, classroomId = activeClassroomId) {
+    if (!classroomId) return;
+    await assignStudentToClassroom(classroomId, studentId);
+    await refreshClassroomDetail(classroomId);
+    setMessage('Estudiante asignado al aula.');
+  }
+
+  async function unassignStudentFromActiveClassroom(studentId: string) {
+    if (!activeClassroomId) return;
+    await unassignStudentFromClassroom(activeClassroomId, studentId);
+    await refreshClassroomDetail(activeClassroomId);
+    setMessage('Estudiante desasignado del aula.');
+  }
+
+  async function openAssignWorksheetModal(worksheet: Worksheet) {
+    setAssignmentWorksheet(worksheet);
+    const assignedClassrooms = await listWorksheetClassrooms(worksheet.id);
+    setSelectedAssignmentClassrooms(assignedClassrooms.map((classroom) => classroom.id));
+  }
+
+  async function saveWorksheetClassroomAssignments() {
+    if (!assignmentWorksheet) return;
+    const selected = new Set(selectedAssignmentClassrooms);
+    await Promise.all(classrooms.map((classroom) => (
+      selected.has(classroom.id)
+        ? assignWorksheetToClassroom(classroom.id, assignmentWorksheet.id)
+        : unassignWorksheetFromClassroom(classroom.id, assignmentWorksheet.id)
+    )));
+    const updatedClassrooms = await listWorksheetClassrooms(assignmentWorksheet.id);
+    setWorksheetClassrooms((current) => ({ ...current, [assignmentWorksheet.id]: updatedClassrooms }));
+    if (activeClassroomId) await refreshClassroomDetail(activeClassroomId);
+    setAssignmentWorksheet(null);
+    setMessage('Asignaciones de aula actualizadas.');
+  }
+
   if (!user) return <LoginPanel onLogin={setUser} />;
 
   if (user.role === 'student') {
@@ -342,6 +430,92 @@ export default function App() {
       <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto max-w-7xl px-4 py-4"><h1 className="text-xl font-bold">Panel del profesor</h1><p className="text-sm text-slate-500">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p></div></nav>
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
         <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} onSelectMenu={setAdminMenu} onLogout={() => { logout(); setUser(null); }} />
+        {adminMenu === 'dashboard' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Dashboard</p>
+            <h2 className="text-2xl font-bold">Resumen del profesor</h2>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl bg-blue-50 p-5"><p className="text-sm text-blue-700">Total de estudiantes</p><strong className="text-4xl">{teacherStats?.total_students ?? students.length}</strong></div>
+              <div className="rounded-2xl bg-emerald-50 p-5"><p className="text-sm text-emerald-700">Hojas activas</p><strong className="text-4xl">{teacherStats?.active_worksheets ?? publishedCount}</strong></div>
+            </div>
+            <div className="mt-6 grid gap-5 xl:grid-cols-2">
+              <div className="rounded-2xl border p-4">
+                <h3 className="font-bold">Promedio de notas por hoja</h3>
+                <div className="mt-4 grid gap-3">
+                  {(teacherStats?.avg_scores ?? []).map((item) => (
+                    <div key={item.worksheet_title}>
+                      <div className="mb-1 flex justify-between text-sm"><span>{item.worksheet_title}</span><strong>{item.average_score}%</strong></div>
+                      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(100, item.average_score)}%` }} /></div>
+                    </div>
+                  ))}
+                  {!(teacherStats?.avg_scores?.length) && <p className="text-sm text-slate-500">Aún no hay notas para graficar.</p>}
+                </div>
+              </div>
+              <div className="rounded-2xl border p-4">
+                <h3 className="font-bold">Aciertos vs desaciertos</h3>
+                {(() => {
+                  const correct = teacherStats?.total_correct ?? 0;
+                  const incorrect = teacherStats?.total_incorrect ?? 0;
+                  const total = correct + incorrect;
+                  const correctPct = total ? Math.round((correct / total) * 100) : 0;
+                  return <div className="mt-4 flex items-center gap-5"><div className="h-32 w-32 rounded-full" style={{ background: `conic-gradient(#10b981 0 ${correctPct}%, #ef4444 ${correctPct}% 100%)` }} /><div className="grid gap-2 text-sm"><span className="font-semibold text-emerald-700">Aciertos: {correct}</span><span className="font-semibold text-red-600">Desaciertos: {incorrect}</span></div></div>;
+                })()}
+              </div>
+              <div className="rounded-2xl border p-4 xl:col-span-2">
+                <h3 className="font-bold">Alumnos por aula</h3>
+                <div className="mt-4 grid gap-3">
+                  {(teacherStats?.students_per_classroom ?? []).map((item) => (
+                    <div key={item.classroom_name}>
+                      <div className="mb-1 flex justify-between text-sm"><span>{item.classroom_name}</span><strong>{item.student_count}</strong></div>
+                      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, item.student_count * 10)}%` }} /></div>
+                    </div>
+                  ))}
+                  {!(teacherStats?.students_per_classroom?.length) && <p className="text-sm text-slate-500">Crea aulas para ver esta gráfica.</p>}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+        {adminMenu === 'aulas' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div><p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Aulas</p><h2 className="text-2xl font-bold">Gestión de aulas</h2></div>
+              <div className="flex gap-2"><input className="rounded-2xl border p-3" placeholder="Nombre del aula" value={classroomName} onChange={(e) => setClassroomName(e.target.value)} /><button className="rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white" onClick={createNewClassroom}>Crear aula</button></div>
+            </div>
+            {message && <p className="mt-4 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}
+            <div className="mt-5 grid gap-5 lg:grid-cols-[280px_1fr]">
+              <aside className="grid content-start gap-2">
+                {classrooms.map((classroom) => <button key={classroom.id} className={`rounded-2xl border p-3 text-left font-semibold ${activeClassroomId === classroom.id ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-100'}`} onClick={() => setActiveClassroomId(classroom.id)}>{classroom.name}</button>)}
+                {!classrooms.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay aulas creadas.</p>}
+              </aside>
+              <div className="rounded-2xl border border-slate-100 p-4">
+                {classroomDetail ? (
+                  <div className="grid gap-6">
+                    <div><h3 className="text-xl font-bold">{classroomDetail.name}</h3><p className="text-sm text-slate-500">Estudiantes y hojas asignadas a esta aula.</p></div>
+                    <div>
+                      <h4 className="font-bold">Estudiantes asignados</h4>
+                      <div className="mt-3 grid gap-2">
+                        {classroomDetail.students.map((student) => <div key={student.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3"><span>{student.name} · @{student.username}</span><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">{classroomDetail.student_statuses[student.id]}</span><button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" onClick={() => unassignStudentFromActiveClassroom(student.id)}>Desasignar</button></div>)}
+                        {!classroomDetail.students.length && <p className="text-sm text-slate-500">Sin estudiantes asignados.</p>}
+                      </div>
+                      <h5 className="mt-4 text-sm font-bold">Asignar estudiante</h5>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {students.filter((student) => !classroomDetail.students.some((assigned) => assigned.id === student.id)).map((student) => <button key={student.id} className="rounded-xl border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-700" onClick={() => assignStudentFromClassroom(student.id)}>{student.name}</button>)}
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="font-bold">Hojas asignadas</h4>
+                      <div className="mt-3 grid gap-2">
+                        {classroomDetail.worksheets.map((worksheet) => <div key={worksheet.id} className="rounded-xl bg-slate-50 p-3"><strong>{worksheet.title}</strong><p className="text-sm text-slate-500">{worksheet.description}</p></div>)}
+                        {!classroomDetail.worksheets.length && <p className="text-sm text-slate-500">Sin hojas asignadas.</p>}
+                      </div>
+                    </div>
+                  </div>
+                ) : <p className="text-sm text-slate-500">Selecciona o crea un aula para ver el detalle.</p>}
+              </div>
+            </div>
+          </section>
+        )}
         {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} isSaving={isSaving} message={message} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onSaveScript={saveScript} />}
         {adminMenu === 'estudiantes' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
@@ -358,7 +532,14 @@ export default function App() {
               {students.map((student) => (
                 <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
                   <span>{student.name} · @{student.username}</span>
-                  <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeStudent(student)}><Trash2 className="mr-1 inline" size={15} /> Eliminar</button>
+                  <div className="flex flex-wrap gap-2">
+                    <select className="rounded-xl border bg-white px-3 py-2 text-sm" value={studentClassroomSelection[student.id] ?? ''} onChange={(e) => setStudentClassroomSelection((current) => ({ ...current, [student.id]: e.target.value }))}>
+                      <option value="">Asignar a aula...</option>
+                      {classrooms.map((classroom) => <option key={classroom.id} value={classroom.id}>{classroom.name}</option>)}
+                    </select>
+                    <button className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700" type="button" onClick={() => assignStudentFromClassroom(student.id, studentClassroomSelection[student.id])}>Asignar</button>
+                    <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeStudent(student)}><Trash2 className="mr-1 inline" size={15} /> Eliminar</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -383,10 +564,11 @@ export default function App() {
                       <h3 className="mt-3 text-lg font-bold">{worksheet.title}</h3>
                       <p className="text-sm text-slate-500">{worksheet.description}</p>
                       <p className="mt-2 text-xs text-slate-400">Intentos: {worksheet.maxAttempts ?? 'Ilimitada'}</p>
+                      <p className="mt-1 text-xs font-semibold text-emerald-700">Aulas: {worksheetClassrooms[worksheet.id]?.map((classroom) => classroom.name).join(', ') || 'Sin asignar'}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700" onClick={() => togglePublished(worksheet)}>{worksheet.status === 'published' ? 'Deshabilitar' : 'Habilitar'}</button>
-                      <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button><button className="rounded-2xl border border-indigo-200 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button>
+                      <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button><button className="rounded-2xl border border-indigo-200 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button><button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700" onClick={() => openAssignWorksheetModal(worksheet)}>Asignar a aula</button>
                       <button className="rounded-2xl border border-amber-200 px-4 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}><Archive className="mr-1 inline" size={16} /> Archivar</button>
                       <button className="rounded-2xl border border-red-200 px-4 py-2 font-semibold text-red-600" onClick={() => removeWorksheet(worksheet)}><Trash2 className="mr-1 inline" size={16} /> Borrar</button>
                     </div>
@@ -478,6 +660,37 @@ export default function App() {
           </section>
         )}
       </div>
+      {assignmentWorksheet && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6">
+          <div className="mx-auto max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div><h2 className="text-xl font-bold">Asignar a aula</h2><p className="text-sm text-slate-500">{assignmentWorksheet.title}</p></div>
+              <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setAssignmentWorksheet(null)}>Cancelar</button>
+            </div>
+            <label className="mt-4 flex items-center gap-2 rounded-2xl bg-blue-50 p-3 font-semibold text-blue-700">
+              <input type="checkbox" checked={classrooms.length > 0 && selectedAssignmentClassrooms.length === classrooms.length} onChange={(e) => setSelectedAssignmentClassrooms(e.target.checked ? classrooms.map((classroom) => classroom.id) : [])} />
+              Todas las aulas
+            </label>
+            <div className="mt-3 grid gap-2">
+              {classrooms.map((classroom) => (
+                <label key={classroom.id} className="flex items-center gap-2 rounded-xl border p-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedAssignmentClassrooms.includes(classroom.id)}
+                    onChange={(e) => setSelectedAssignmentClassrooms((current) => e.target.checked ? [...new Set([...current, classroom.id])] : current.filter((id) => id !== classroom.id))}
+                  />
+                  {classroom.name}
+                </label>
+              ))}
+              {!classrooms.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Primero crea un aula.</p>}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setAssignmentWorksheet(null)}>Cancelar</button>
+              <button className="rounded-2xl bg-emerald-600 px-4 py-2 font-semibold text-white" onClick={saveWorksheetClassroomAssignments}>Guardar asignación</button>
+            </div>
+          </div>
+        </div>
+      )}
       {previewWorksheet && (
         <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6">
           <div className="mx-auto max-w-5xl rounded-3xl bg-slate-50 p-5 shadow-2xl">

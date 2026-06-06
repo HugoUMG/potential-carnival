@@ -46,6 +46,7 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index }: {
 export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange }: WorksheetRendererProps) {
   const completedCount = worksheet.activities.filter((activity) => Boolean(answers[activity.id])).length;
   const progress = worksheet.activities.length === 0 ? 0 : Math.round((completedCount / worksheet.activities.length) * 100);
+  const blocks = worksheet.blocks?.length ? worksheet.blocks : [{ title: null, instructions: null, activities: worksheet.activities }];
 
   return (
     <div className="mx-auto max-w-4xl" style={{ backgroundColor: worksheet.theme?.background_color, color: worksheet.theme?.text_color }}>
@@ -66,16 +67,26 @@ export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange
         </div>
       </header>
 
-      <div className="grid gap-5">
-        {worksheet.activities.map((activity, index) => (
-          <ActivityCard
-            key={activity.id}
-            activity={activity}
-            answer={answers[activity.id]}
-            readonly={readonly}
-            onAnswerChange={onAnswerChange}
-            index={index}
-          />
+      <div className="grid gap-6">
+        {blocks.map((block, blockIndex) => (
+          <section key={`${block.title ?? 'block'}-${blockIndex}`} className="grid gap-5">
+            {(block.title || block.instructions) && (
+              <div className="rounded-3xl border border-blue-100 bg-blue-50/70 p-5">
+                {block.title && <h2 className="text-xl font-extrabold text-slate-900"><RichText text={block.title} /></h2>}
+                {block.instructions && <p className="mt-2 text-sm italic leading-6 text-blue-800">ℹ️ <RichText text={block.instructions} /></p>}
+              </div>
+            )}
+            {block.activities.map((activity, activityIndex) => (
+              <ActivityCard
+                key={activity.id}
+                activity={activity}
+                answer={answers[activity.id]}
+                readonly={readonly}
+                onAnswerChange={onAnswerChange}
+                index={activityIndex}
+              />
+            ))}
+          </section>
         ))}
       </div>
     </div>

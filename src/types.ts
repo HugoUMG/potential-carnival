@@ -70,6 +70,12 @@ export type WorksheetActivity =
   | ImageQuestionActivity
   | ListeningActivity;
 
+export interface ActivityBlock {
+  title?: string | null;
+  instructions?: string | null;
+  activities: WorksheetActivity[];
+}
+
 export interface Worksheet {
   id: string;
   title: string;
@@ -79,6 +85,7 @@ export interface Worksheet {
   archived: boolean;
   scriptContent: string;
   activities: WorksheetActivity[];
+  blocks?: ActivityBlock[];
   createdBy: string;
   createdAt: string;
   analytics: WorksheetAnalytics;

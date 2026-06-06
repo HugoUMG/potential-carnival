@@ -16,6 +16,11 @@ import { RichText } from './RichText';
 
 const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
 
+function ActivityInstructions({ instructions }: { instructions?: string }) {
+  if (!instructions) return null;
+  return <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm italic text-amber-800">ℹ️ <RichText text={instructions} /></p>;
+}
+
 function asString(value: StudentAnswer | undefined): string {
   return typeof value === 'string' ? value : '';
 }
@@ -34,14 +39,16 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
     return (
       <label className="block">
         <RichText className="text-base font-medium text-slate-800" text={activity.text} />
+        <ActivityInstructions instructions={activity.instructions} />
         <input className={inputClass} disabled={readonly} placeholder="Type the missing word" value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
       </label>
     );
   }
 
   return (
-    <div className="text-base font-medium leading-10 text-slate-800 whitespace-pre-line">
-      {parts.map((part, index) => (
+    <div>
+      <div className="text-base font-medium leading-10 text-slate-800 whitespace-pre-line">
+        {parts.map((part, index) => (
         <span key={`${activity.id}-${index}`}>
           {part}
           {index < parts.length - 1 && (
@@ -54,7 +61,9 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
             />
           )}
         </span>
-      ))}
+        ))}
+      </div>
+      <ActivityInstructions instructions={activity.instructions} />
     </div>
   );
 }
@@ -63,6 +72,7 @@ function MultipleChoiceRenderer({ activity, value, readonly, onChange }: Activit
   return (
     <fieldset>
       <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
+      <ActivityInstructions instructions={activity.instructions} />
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {activity.options.map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
@@ -85,6 +95,7 @@ function TextBoxRenderer({ activity, value, readonly, onChange }: ActivityRender
   return (
     <label className="block">
       <RichText className="text-base font-medium text-slate-800" text={activity.prompt} />
+      <ActivityInstructions instructions={activity.instructions} />
       <textarea
         className={`${inputClass} min-h-28 resize-y`}
         disabled={readonly}
@@ -113,6 +124,7 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
   return (
     <div>
       <p className="text-base font-medium text-slate-800">Match each item with its meaning.</p>
+      <ActivityInstructions instructions={activity.instructions} />
       <div className="mt-4 grid gap-3">
         {activity.left.map((leftItem) => (
           <label key={leftItem} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_2fr] sm:items-center">
@@ -143,6 +155,7 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
   return (
     <article>
       <h3 className="text-lg font-semibold text-slate-900">{activity.title}</h3>
+      <ActivityInstructions instructions={activity.instructions} />
       <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
       <div className="mt-4 grid gap-3">
         {activity.questions.map((question, index) => (
@@ -168,6 +181,7 @@ function ListeningRenderer({ activity, value, readonly, onChange }: ActivityRend
       <audio controls src={audioUrl} />
       <label className="block">
         <RichText className="text-base font-medium text-slate-800" text={activity.question} />
+        <ActivityInstructions instructions={activity.instructions} />
         <input className={inputClass} disabled={readonly} value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
       </label>
     </div>
