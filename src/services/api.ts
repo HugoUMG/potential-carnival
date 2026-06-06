@@ -26,11 +26,11 @@ export interface DetalleRespuesta {
 
 interface BackendActivity {
   id: string;
-  type: ActivityType | 'speaking';
+  type: ActivityType | 'speaking' | 'listening';
   text?: string | null;
   question?: string | null;
   options?: string[] | null;
-  answer?: string | null;
+  answer?: string | string[] | null;
   prompt?: string | null;
   left?: string[] | null;
   right?: string[] | null;
@@ -45,12 +45,13 @@ interface BackendWorksheet {
   title: string;
   description: string;
   script_content: string;
-  json_content: { title: string; description: string; activities: BackendActivity[] };
+  json_content: { title: string; description: string; activities?: BackendActivity[]; blocks?: { title?: string; instructions?: string; activities: BackendActivity[] }[] };
   created_by: string;
   created_at: string;
   published: boolean;
   archived: boolean;
   max_attempts?: number | null;
+  theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
 }
 
 export interface RespuestaEstudiante {
@@ -115,6 +116,8 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return { id: activity.id, type: 'reading', title: activity.title ?? '', content: activity.content ?? '', questions: activity.questions ?? [] };
     case 'imagequestion':
       return { id: activity.id, type: 'imagequestion', image: activity.image ?? '', prompt: activity.prompt ?? '' };
+    case 'listening':
+      return { id: activity.id, type: 'listening', text: activity.text ?? '', question: activity.question ?? '', answer: String(activity.answer ?? '') };
   }
 }
 
@@ -127,10 +130,11 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     status: worksheet.published ? 'published' : 'draft',
     archived: worksheet.archived,
     scriptContent: worksheet.script_content,
-    activities: worksheet.json_content.activities.map(normalizeActivity),
+    activities: (worksheet.json_content.blocks?.flatMap((block) => block.activities) ?? worksheet.json_content.activities ?? []).map(normalizeActivity),
     createdBy: worksheet.created_by,
     createdAt: worksheet.created_at,
     maxAttempts: worksheet.max_attempts ?? null,
+    theme: worksheet.theme ?? null,
     analytics: { completionRate: 0, averageScore: 0, attempts: 0, mostMissedQuestions: [] },
   };
 }
@@ -210,4 +214,9 @@ export async function listWorksheetResponses(worksheetId: string): Promise<Respu
 
 export async function reviewAnswer(responseId: string, activityId: string, status: 'correct' | 'incorrect', comment: string): Promise<RespuestaEstudiante> {
   return request<RespuestaEstudiante>(`/responses/${responseId}/review`, { method: 'POST', body: JSON.stringify({ activity_id: activityId, status, comment }) });
+}
+
+
+export async function deleteResponse(responseId: string): Promise<void> {
+  await request<void>(`/responses/${responseId}`, { method: 'DELETE' });
 }

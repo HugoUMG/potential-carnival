@@ -1,5 +1,6 @@
 import type React from 'react';
 import { activityRegistry } from './activityRegistry';
+import { RichText } from './RichText';
 import type { StudentAnswers, StudentAnswer, Worksheet, WorksheetActivity } from '../types';
 
 interface WorksheetRendererProps {
@@ -36,6 +37,7 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index }: {
         </div>
         <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Interactiva</span>
       </div>
+      {activity.instructions && <p className="mb-3 rounded-xl bg-amber-50 p-3 text-sm italic text-amber-800"><RichText text={activity.instructions} /></p>}
       <Renderer activity={activity} value={answer} readonly={readonly} onChange={onAnswerChange} />
     </section>
   );
@@ -46,13 +48,13 @@ export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange
   const progress = worksheet.activities.length === 0 ? 0 : Math.round((completedCount / worksheet.activities.length) * 100);
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <header className="mb-6 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-500 p-6 text-white shadow-lg">
+    <div className="mx-auto max-w-4xl" style={{ backgroundColor: worksheet.theme?.background_color, color: worksheet.theme?.text_color }}>
+      <header className="mb-6 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-500 p-6 text-white shadow-lg" style={{ background: worksheet.theme?.primary_color }}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="rounded-full bg-white/20 px-3 py-1 text-sm font-semibold">Worksheet</span>
             <h1 className="mt-4 text-3xl font-bold">{worksheet.title}</h1>
-            <p className="mt-2 max-w-2xl text-blue-50">{worksheet.description}</p>
+            <p className="mt-2 max-w-2xl text-blue-50"><RichText text={worksheet.description} /></p>
           </div>
           <div className="rounded-2xl bg-white/15 p-4 text-center backdrop-blur">
             <p className="text-3xl font-bold">{progress}%</p>

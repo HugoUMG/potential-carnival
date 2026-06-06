@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Archive, BookOpen, Check, GraduationCap, LockKeyhole, Send, Trash2, X } from 'lucide-react';
+import { Archive, BookOpen, Check, GraduationCap, LockKeyhole, RefreshCw, Send, Trash2, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
+import { RichText } from './components/RichText';
 import { TeacherDashboard, type TeacherMenu } from './components/TeacherDashboard';
 import { sampleWorksheet } from './data/sampleWorksheet';
 import {
@@ -12,6 +13,7 @@ import {
   deleteStudent,
   deleteTeacher,
   deleteWorksheet,
+  deleteResponse,
   listStudentResponses,
   listStudents,
   listStudentWorksheets,
@@ -95,7 +97,7 @@ function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
     <div className="mt-3 grid gap-2">
       {response.details.map((detail) => (
         <div key={detail.activity_id} className={`rounded-xl border p-3 text-sm ${statusBadge(detail.status)}`}>
-          <div className="font-semibold">{detail.prompt}</div>
+          <div className="font-semibold"><RichText text={detail.prompt} /></div>
           <div>Respuesta: {JSON.stringify(detail.student_answer ?? '')}</div>
           {detail.correct_answer !== null && <div>Correcta: {JSON.stringify(detail.correct_answer)}</div>}
           {detail.teacher_comment && <div>Comentario: {detail.teacher_comment}</div>}
@@ -122,6 +124,8 @@ export default function App() {
   const [selectedActivityId, setSelectedActivityId] = useState<string>(sampleWorksheet.activities[0]?.id ?? '');
   const [message, setMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
 
   const selectedActivity = useMemo(() => activeWorksheet.activities.find((activity) => activity.id === selectedActivityId), [activeWorksheet.activities, selectedActivityId]);
 
@@ -204,7 +208,8 @@ export default function App() {
   }
 
   async function sendAnswers() {
-    if (!user) return;
+    if (!user || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const response = await submitResponse(activeWorksheet, user, answers);
       setResponses((current) => [response, ...current]);
@@ -212,6 +217,8 @@ export default function App() {
       setMessage(`Respuestas enviadas. Puntuación: ${response.score ?? 'pendiente'}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudieron enviar las respuestas.');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -266,6 +273,13 @@ export default function App() {
     setAdminMenu('revision');
   }
 
+  async function removeResponse(response: RespuestaEstudiante) {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar la respuesta de ${response.student_name}? Esta acción no se puede deshacer`)) return;
+    await deleteResponse(response.id);
+    setResponses((current) => current.filter((item) => item.id !== response.id));
+    setMessage('Respuesta eliminada. El estudiante podrá volver a enviar si tiene intentos disponibles.');
+  }
+
   async function review(response: RespuestaEstudiante, detail: DetalleRespuesta, status: 'correct' | 'incorrect') {
     const key = `${response.id}-${detail.activity_id}`;
     const updated = await reviewAnswer(response.id, detail.activity_id, status, reviewComments[key] ?? '');
@@ -287,7 +301,7 @@ export default function App() {
         <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto flex max-w-7xl justify-between px-4 py-4"><div><h1 className="text-xl font-bold">Portal del estudiante</h1><p className="text-sm text-slate-500">Hola, {user.name} (@{user.username}).</p></div><button className="rounded-2xl border px-4 py-2" onClick={() => { logout(); setUser(null); }}>Cerrar sesión</button></div></nav>
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
           <aside className="rounded-3xl bg-white p-5 shadow-sm">
-            <h2 className="font-bold">Evaluaciones</h2>
+            <div className="flex items-center justify-between"><h2 className="font-bold">Evaluaciones</h2><button className="rounded-full p-2 text-slate-500 hover:bg-slate-100" type="button" title="Actualizar" onClick={() => refreshData(user)}><RefreshCw size={16} /></button></div>
             <div className="mt-4 grid gap-3">
               {worksheets.map((worksheet) => {
                 const response = responseByWorksheet.get(worksheet.id);
@@ -312,7 +326,7 @@ export default function App() {
               </div>
             )}
             {message && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">{message}</p>}
-            {worksheets.length > 0 && isActiveWorksheetPublished && <div className="mx-auto mt-6 flex max-w-4xl justify-end"><button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white" onClick={sendAnswers}><Send className="mr-2 inline" size={18} /> Enviar respuestas</button></div>}
+            {worksheets.length > 0 && isActiveWorksheetPublished && <div className="mx-auto mt-6 flex max-w-4xl justify-end"><button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white disabled:opacity-60" disabled={isSubmitting} onClick={sendAnswers}><Send className="mr-2 inline" size={18} /> {isSubmitting ? 'Enviando...' : 'Enviar respuestas'}</button></div>}
           </section>
         </div>
       </main>
@@ -372,7 +386,7 @@ export default function App() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700" onClick={() => togglePublished(worksheet)}>{worksheet.status === 'published' ? 'Deshabilitar' : 'Habilitar'}</button>
-                      <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button>
+                      <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button><button className="rounded-2xl border border-indigo-200 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button>
                       <button className="rounded-2xl border border-amber-200 px-4 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}><Archive className="mr-1 inline" size={16} /> Archivar</button>
                       <button className="rounded-2xl border border-red-200 px-4 py-2 font-semibold text-red-600" onClick={() => removeWorksheet(worksheet)}><Trash2 className="mr-1 inline" size={16} /> Borrar</button>
                     </div>
@@ -429,19 +443,19 @@ export default function App() {
         )}
         {adminMenu === 'revision' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2>
+            <div className="flex items-start justify-between gap-3"><h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2><button className="rounded-full p-2 text-slate-500 hover:bg-slate-100" type="button" title="Actualizar" onClick={() => loadWorksheetResponses(activeWorksheet)}><RefreshCw size={16} /></button></div>
             <p className="text-sm text-slate-500">Nombre, fecha, puntuación, aciertos y pendientes permanecen guardados aunque la evaluación se deshabilite. Las respuestas incorrectas de fill in the blank se pueden corregir manualmente por errores de escritura.</p>
             <div className="mt-5 grid gap-4">
               {responses.map((response) => (
                 <article key={response.id} className="rounded-2xl border p-4">
-                  <h3 className="font-bold">{response.student_name}</h3>
+                  <div className="flex items-start justify-between gap-3"><h3 className="font-bold">{response.student_name}</h3><button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeResponse(response)}>Eliminar respuesta</button></div>
                   <p className="text-sm text-slate-500">Fecha: {new Date(response.submitted_at).toLocaleString()} · Puntuación: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>
                   {response.details.map((detail) => {
                     const key = `${response.id}-${detail.activity_id}`;
                     const canReview = detail.status === 'pending' || (detail.activity_type === 'fillblank' && detail.status === 'incorrect');
                     return (
                       <div key={detail.activity_id} className={`mt-3 rounded-xl border p-3 ${statusBadge(detail.status)}`}>
-                        <strong>{detail.prompt}</strong>
+                        <strong><RichText text={detail.prompt} /></strong>
                         <p>Respuesta: {JSON.stringify(detail.student_answer ?? '')}</p>
                         {detail.correct_answer !== null && <p>Correcta: {JSON.stringify(detail.correct_answer)}</p>}
                         {canReview && (
@@ -464,6 +478,17 @@ export default function App() {
           </section>
         )}
       </div>
+      {previewWorksheet && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6">
+          <div className="mx-auto max-w-5xl rounded-3xl bg-slate-50 p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold">Vista previa: {previewWorksheet.title}</h2>
+              <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPreviewWorksheet(null)}>Cerrar</button>
+            </div>
+            <WorksheetRenderer worksheet={previewWorksheet} answers={{}} readonly onAnswerChange={() => undefined} />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

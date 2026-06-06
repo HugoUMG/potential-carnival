@@ -6,26 +6,28 @@ export type ActivityType =
   | 'textbox'
   | 'matching'
   | 'reading'
-  | 'imagequestion';
+  | 'imagequestion'
+  | 'listening';
 
 export interface BaseActivity {
   id: string;
   type: ActivityType;
   prompt?: string;
-  answer?: string;
+  answer?: string | string[];
+  instructions?: string;
 }
 
 export interface FillBlankActivity extends BaseActivity {
   type: 'fillblank';
   text: string;
-  answer: string;
+  answer: string | string[];
 }
 
 export interface MultipleChoiceActivity extends BaseActivity {
   type: 'multiplechoice';
   question: string;
   options: string[];
-  answer: string;
+  answer: string | string[];
 }
 
 export interface TextBoxActivity extends BaseActivity {
@@ -46,6 +48,13 @@ export interface ReadingActivity extends BaseActivity {
   questions: string[];
 }
 
+export interface ListeningActivity extends BaseActivity {
+  type: 'listening';
+  text: string;
+  question: string;
+  answer: string;
+}
+
 export interface ImageQuestionActivity extends BaseActivity {
   type: 'imagequestion';
   image: string;
@@ -58,7 +67,8 @@ export type WorksheetActivity =
   | TextBoxActivity
   | MatchingActivity
   | ReadingActivity
-  | ImageQuestionActivity;
+  | ImageQuestionActivity
+  | ListeningActivity;
 
 export interface Worksheet {
   id: string;
@@ -73,6 +83,7 @@ export interface Worksheet {
   createdAt: string;
   analytics: WorksheetAnalytics;
   maxAttempts?: number | null;
+  theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
 }
 
 export interface WorksheetAnalytics {

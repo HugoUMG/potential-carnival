@@ -1,7 +1,10 @@
 from typing import Any
+import asyncio
+import time
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
 from .ai import generate_worksheet_script
@@ -10,12 +13,20 @@ from .models import (
     AiGenerateRequest,
     AnswerDetail,
     AnswerReview,
+    Classroom,
+    ClassroomCreate,
+    ClassroomDetail,
+    ClassroomStudentAssignment,
+    ClassroomWorksheetAssignment,
     LoginRequest,
     LoginResponse,
+    PasswordUpdate,
     PublicUser,
     StudentCreate,
     TeacherCreate,
+    TeacherDashboardStats,
     UserRole,
+    UserUpdate,
     Worksheet,
     WorksheetCreate,
     WorksheetJson,
@@ -24,11 +35,12 @@ from .models import (
 )
 from .parser import WorksheetScriptError, parse_worksheet_script
 from .repository import repository
-from .security import create_access_token, decode_access_token
+from .security import create_access_token, decode_access_token, hash_password
 from .settings import get_allowed_origins
 
 app = FastAPI(title="API del constructor de hojas con IA", version="1.0.0")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+_response_locks: dict[tuple[str, str], float] = {}
 
 app.add_middleware(
     CORSMiddleware,
@@ -123,6 +135,126 @@ def list_students(_: PublicUser = Depends(require_teacher_or_admin)) -> list[Pub
     return repository.list_students()
 
 
+
+
+@app.put("/users/{user_id}", response_model=PublicUser)
+def update_user(user_id: str, payload: UserUpdate, current_user: PublicUser = Depends(get_current_user)) -> PublicUser:
+    if current_user.role == UserRole.student and current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="No puedes editar otro usuario")
+    if current_user.role == UserRole.teacher:
+        target = repository.get_user(user_id)
+        if not target or target.role != UserRole.student:
+            raise HTTPException(status_code=403, detail="Los profesores solo pueden editar estudiantes")
+    try:
+        user = repository.update_user(user_id, payload.name, payload.email, payload.username)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail="El nombre de usuario ya existe") from exc
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user
+
+
+@app.put("/users/{user_id}/password", status_code=204)
+def update_user_password(user_id: str, payload: PasswordUpdate, current_user: PublicUser = Depends(get_current_user)) -> None:
+    target = repository.get_user(user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if current_user.role == UserRole.student:
+        if current_user.id != user_id:
+            raise HTTPException(status_code=403, detail="No puedes cambiar la contraseña de otro usuario")
+        if not payload.current_password or not repository.verify_user_password(user_id, payload.current_password):
+            raise HTTPException(status_code=403, detail="La contraseña actual no es correcta")
+    elif current_user.role == UserRole.teacher and target.role != UserRole.student:
+        raise HTTPException(status_code=403, detail="Los profesores solo pueden cambiar contraseñas de estudiantes")
+    repository.update_password_hash(user_id, hash_password(payload.new_password))
+
+
+@app.post("/classrooms", response_model=Classroom)
+def create_classroom(payload: ClassroomCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Classroom:
+    return repository.create_classroom(payload.name, current_user.id)
+
+
+@app.get("/classrooms", response_model=list[Classroom])
+def list_classrooms(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[Classroom]:
+    return repository.list_classrooms(None if current_user.role == UserRole.admin else current_user.id)
+
+
+def require_classroom_manager(classroom_id: str, current_user: PublicUser) -> Classroom:
+    classroom = repository.get_classroom(classroom_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Aula no encontrada")
+    if current_user.role != UserRole.admin and classroom.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes administrar esta aula")
+    return classroom
+
+
+@app.get("/classrooms/{classroom_id}", response_model=ClassroomDetail)
+def get_classroom_detail(classroom_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> ClassroomDetail:
+    classroom = require_classroom_manager(classroom_id, current_user)
+    students = repository.list_classroom_students(classroom_id)
+    worksheets = repository.list_classroom_worksheets(classroom_id)
+    statuses = {}
+    for student in students:
+        completed = sum(1 for worksheet in worksheets if repository.count_student_attempts(worksheet.id, student.id) > 0)
+        pending = max(len(worksheets) - completed, 0)
+        statuses[student.id] = "Completado ✓" if pending == 0 else f"Pendiente {pending} de {len(worksheets)}"
+    return ClassroomDetail(**classroom.model_dump(), students=students, worksheets=worksheets, student_statuses=statuses)
+
+
+@app.post("/classrooms/{classroom_id}/students", status_code=204)
+def assign_student(classroom_id: str, payload: ClassroomStudentAssignment, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    require_classroom_manager(classroom_id, current_user)
+    student = repository.get_user(payload.student_id)
+    if not student or student.role != UserRole.student:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    repository.assign_student_to_classroom(classroom_id, payload.student_id)
+
+
+@app.delete("/classrooms/{classroom_id}/students/{student_id}", status_code=204)
+def unassign_student(classroom_id: str, student_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    require_classroom_manager(classroom_id, current_user)
+    repository.unassign_student_from_classroom(classroom_id, student_id)
+
+
+@app.post("/classrooms/{classroom_id}/worksheets", status_code=204)
+def assign_worksheet(classroom_id: str, payload: ClassroomWorksheetAssignment, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    require_classroom_manager(classroom_id, current_user)
+    require_worksheet_manager(payload.worksheet_id, current_user)
+    repository.assign_worksheet_to_classroom(classroom_id, payload.worksheet_id)
+
+
+@app.delete("/classrooms/{classroom_id}/worksheets/{worksheet_id}", status_code=204)
+def unassign_worksheet(classroom_id: str, worksheet_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    require_classroom_manager(classroom_id, current_user)
+    require_worksheet_manager(worksheet_id, current_user)
+    repository.unassign_worksheet_from_classroom(classroom_id, worksheet_id)
+
+
+@app.get("/worksheets/{worksheet_id}/classrooms", response_model=list[Classroom])
+def list_worksheet_classrooms(worksheet_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[Classroom]:
+    require_worksheet_manager(worksheet_id, current_user)
+    return repository.list_worksheet_classrooms(worksheet_id)
+
+
+@app.get("/dashboard/teacher", response_model=TeacherDashboardStats)
+def teacher_dashboard(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    return repository.teacher_dashboard(None if current_user.role == UserRole.admin else current_user.id)
+
+
+@app.get("/tts")
+async def tts(text: str = Query(min_length=1), voice: str = "en-US-GuyNeural") -> StreamingResponse:
+    try:
+        import edge_tts
+        communicate = edge_tts.Communicate(text, voice)
+        chunks: list[bytes] = []
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                chunks.append(chunk["data"])
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
+    return StreamingResponse(iter(chunks), media_type="audio/mpeg")
+
+
 @app.post("/teachers", response_model=PublicUser)
 def create_teacher(payload: TeacherCreate, _: PublicUser = Depends(require_admin)) -> PublicUser:
     try:
@@ -168,6 +300,7 @@ def create_worksheet(payload: WorksheetCreate, current_user: PublicUser = Depend
         json_content=worksheet_json,
         created_by=payload.created_by,
         max_attempts=payload.max_attempts,
+        theme=payload.theme,
     )
     return repository.add_worksheet(worksheet)
 
@@ -192,9 +325,10 @@ def list_worksheets(created_by: str | None = None, published: bool | None = None
 def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[Worksheet]:
     require_student_owner_or_staff(student_id, current_user)
     answered_ids = {response.worksheet_id for response in repository.list_responses(student_id=student_id, include_archived=False)}
-    published = repository.list_worksheets(published=True, archived=False)
+    assigned = repository.list_student_assigned_worksheets(student_id)
+    published = assigned if assigned else repository.list_worksheets(published=True, archived=False)
     answered_unpublished = [worksheet for worksheet in repository.list_worksheets(archived=False) if worksheet.id in answered_ids and not worksheet.published]
-    return published + answered_unpublished
+    return published + [worksheet for worksheet in answered_unpublished if worksheet.id not in {item.id for item in published}]
 
 
 @app.get("/students/{student_id}/responses", response_model=list[WorksheetResponse])
@@ -268,10 +402,16 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
         raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
     if worksheet.archived or not worksheet.published:
         raise HTTPException(status_code=403, detail="Esta hoja de trabajo no está disponible")
-    if worksheet.max_attempts is not None:
-        attempts = repository.count_student_attempts(worksheet.id, current_user.id)
-        if attempts >= worksheet.max_attempts:
-            raise HTTPException(status_code=403, detail="Ya alcanzaste el número máximo de intentos para esta evaluación")
+    lock_key = (current_user.id, worksheet.id)
+    now = time.monotonic()
+    if now - _response_locks.get(lock_key, 0) < 5:
+        raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
+    attempts = repository.count_student_attempts(worksheet.id, current_user.id)
+    if worksheet.max_attempts is not None and attempts >= worksheet.max_attempts:
+        raise HTTPException(status_code=409, detail="Ya has alcanzado el número máximo de intentos para esta hoja")
+    if worksheet.max_attempts is None and attempts > 0:
+        raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
+    _response_locks[lock_key] = now
 
     details = _build_answer_details(worksheet, payload.answers_json)
     correct_count, pending_count, score = _score_details(details)
@@ -294,6 +434,15 @@ def list_responses(worksheet_id: str, current_user: PublicUser = Depends(require
     return repository.list_responses(worksheet_id=worksheet_id)
 
 
+@app.delete("/responses/{response_id}", status_code=204)
+def delete_response(response_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    response = repository.get_response(response_id)
+    if not response:
+        raise HTTPException(status_code=404, detail="Respuesta no encontrada")
+    require_worksheet_manager(response.worksheet_id, current_user)
+    repository.delete_response(response_id)
+
+
 @app.post("/responses/{response_id}/review", response_model=WorksheetResponse)
 def review_response(response_id: str, payload: AnswerReview, current_user: PublicUser = Depends(require_teacher_or_admin)) -> WorksheetResponse:
     response = repository.get_response(response_id)
@@ -314,11 +463,17 @@ def review_response(response_id: str, payload: AnswerReview, current_user: Publi
 
 def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list[AnswerDetail]:
     details: list[AnswerDetail] = []
-    for activity in worksheet.json_content.activities:
+    for activity in worksheet.json_content.iter_activities():
         student_answer = answers.get(activity.id)
         prompt = activity.text or activity.question or activity.prompt or activity.title or activity.type
-        if activity.type in {"fillblank", "multiplechoice"} and activity.answer:
-            is_correct = str(student_answer or "").strip().lower() == activity.answer.strip().lower()
+        if activity.type == "fillblank" and activity.answer:
+            correct_answers = activity.answer if isinstance(activity.answer, list) else [activity.answer]
+            student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
+            is_correct = len(student_answers) >= len(correct_answers) and all(str(student_answers[index] or "").strip().lower() == str(correct).strip().lower() for index, correct in enumerate(correct_answers))
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            continue
+        if activity.type in {"multiplechoice", "listening"} and activity.answer:
+            is_correct = str(student_answer or "").strip().lower() == str(activity.answer).strip().lower()
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue
         if activity.type == "matching" and activity.left and activity.right:
