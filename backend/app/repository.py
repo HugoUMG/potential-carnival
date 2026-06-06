@@ -176,8 +176,8 @@ class WorksheetRepository:
         with get_connection() as connection:
             connection.execute(
                 f"""
-                INSERT INTO worksheets (id, title, description, script_content, json_content, created_by, created_at, published, archived, max_attempts)
-                VALUES ({self._placeholders(10)})
+                INSERT INTO worksheets (id, title, description, script_content, json_content, created_by, created_at, published, archived, max_attempts, theme)
+                VALUES ({self._placeholders(11)})
                 """,
                 (
                     worksheet.id,
@@ -190,6 +190,7 @@ class WorksheetRepository:
                     self._bool_param(worksheet.published),
                     self._bool_param(worksheet.archived),
                     worksheet.max_attempts,
+                    self._json_param(worksheet.theme) if worksheet.theme is not None else None,
                 ),
             )
         return worksheet
@@ -337,6 +338,182 @@ class WorksheetRepository:
             ).fetchall()
         return [self._response_from_row(row) for row in rows]
 
+    def update_user(self, user_id: str, name: str, email: str | None, username: str) -> PublicUser | None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(f"SELECT id FROM users WHERE id = {placeholder}", (user_id,)).fetchone()
+            if not row:
+                return None
+            other = connection.execute(
+                f"SELECT id FROM users WHERE LOWER(username) = LOWER({placeholder}) AND id <> {placeholder}",
+                (username, user_id),
+            ).fetchone()
+            if other:
+                raise ValueError("El usuario ya existe")
+            connection.execute(
+                f"UPDATE users SET name = {placeholder}, email = {placeholder}, username = {placeholder} WHERE id = {placeholder}",
+                (name, email, username, user_id),
+            )
+            row = connection.execute(f"SELECT id, name, email, username, role FROM users WHERE id = {placeholder}", (user_id,)).fetchone()
+        return self._user_from_row(row) if row else None
+
+    def verify_user_password(self, user_id: str, password: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(f"SELECT password_hash FROM users WHERE id = {placeholder}", (user_id,)).fetchone()
+        return bool(row and verify_password(password, dict(row)["password_hash"]))
+
+    def create_classroom(self, name: str, created_by: str):
+        from .models import Classroom
+        classroom = Classroom(name=name, created_by=created_by)
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO classrooms (id, name, created_by, created_at) VALUES ({self._placeholders(4)})",
+                (classroom.id, classroom.name, classroom.created_by, classroom.created_at.isoformat()),
+            )
+        return classroom
+
+    def list_classrooms(self, created_by: str | None = None):
+        from .models import Classroom
+        placeholder = self._placeholder
+        params = []
+        where = ""
+        if created_by:
+            where = f"WHERE created_by = {placeholder}"
+            params.append(created_by)
+        with get_connection() as connection:
+            rows = connection.execute(f"SELECT * FROM classrooms {where} ORDER BY name", params).fetchall()
+        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"])) for r in rows]
+
+    def get_classroom(self, classroom_id: str):
+        from .models import Classroom
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(f"SELECT * FROM classrooms WHERE id = {placeholder}", (classroom_id,)).fetchone()
+        if not row:
+            return None
+        data = dict(row)
+        return Classroom(id=data["id"], name=data["name"], created_by=data["created_by"], created_at=_parse_datetime(data["created_at"]))
+
+    def assign_student_to_classroom(self, classroom_id: str, student_id: str) -> None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT {'OR IGNORE' if get_database_backend() == 'sqlite' else ''} INTO classroom_students (classroom_id, student_id) VALUES ({self._placeholders(2)})" if get_database_backend() == 'sqlite' else f"INSERT INTO classroom_students (classroom_id, student_id) VALUES ({self._placeholders(2)}) ON CONFLICT DO NOTHING",
+                (classroom_id, student_id),
+            )
+
+    def unassign_student_from_classroom(self, classroom_id: str, student_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(f"DELETE FROM classroom_students WHERE classroom_id = {placeholder} AND student_id = {placeholder}", (classroom_id, student_id))
+            return bool(cursor.rowcount)
+
+    def assign_worksheet_to_classroom(self, classroom_id: str, worksheet_id: str) -> None:
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT {'OR IGNORE' if get_database_backend() == 'sqlite' else ''} INTO classroom_worksheets (classroom_id, worksheet_id) VALUES ({self._placeholders(2)})" if get_database_backend() == 'sqlite' else f"INSERT INTO classroom_worksheets (classroom_id, worksheet_id) VALUES ({self._placeholders(2)}) ON CONFLICT DO NOTHING",
+                (classroom_id, worksheet_id),
+            )
+
+    def unassign_worksheet_from_classroom(self, classroom_id: str, worksheet_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(f"DELETE FROM classroom_worksheets WHERE classroom_id = {placeholder} AND worksheet_id = {placeholder}", (classroom_id, worksheet_id))
+            return bool(cursor.rowcount)
+
+    def list_classroom_students(self, classroom_id: str) -> list[PublicUser]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT users.id, users.name, users.email, users.username, users.role
+                FROM users JOIN classroom_students ON classroom_students.student_id = users.id
+                WHERE classroom_students.classroom_id = {placeholder}
+                ORDER BY users.name
+                """,
+                (classroom_id,),
+            ).fetchall()
+        return [self._user_from_row(row) for row in rows]
+
+    def list_classroom_worksheets(self, classroom_id: str) -> list[Worksheet]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT worksheets.* FROM worksheets
+                JOIN classroom_worksheets ON classroom_worksheets.worksheet_id = worksheets.id
+                WHERE classroom_worksheets.classroom_id = {placeholder}
+                ORDER BY worksheets.created_at DESC
+                """,
+                (classroom_id,),
+            ).fetchall()
+        return [self._worksheet_from_row(row) for row in rows]
+
+    def list_worksheet_classrooms(self, worksheet_id: str):
+        from .models import Classroom
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT classrooms.* FROM classrooms
+                JOIN classroom_worksheets ON classroom_worksheets.classroom_id = classrooms.id
+                WHERE classroom_worksheets.worksheet_id = {placeholder}
+                ORDER BY classrooms.name
+                """,
+                (worksheet_id,),
+            ).fetchall()
+        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"])) for r in rows]
+
+    def list_student_assigned_worksheets(self, student_id: str) -> list[Worksheet]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT DISTINCT worksheets.* FROM worksheets
+                JOIN classroom_worksheets ON classroom_worksheets.worksheet_id = worksheets.id
+                JOIN classroom_students ON classroom_students.classroom_id = classroom_worksheets.classroom_id
+                WHERE classroom_students.student_id = {placeholder}
+                  AND worksheets.published = {placeholder}
+                  AND worksheets.archived = {placeholder}
+                ORDER BY worksheets.created_at DESC
+                """,
+                (student_id, self._bool_param(True), self._bool_param(False)),
+            ).fetchall()
+        return [self._worksheet_from_row(row) for row in rows]
+
+    def delete_response(self, response_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(f"DELETE FROM worksheet_responses WHERE id = {placeholder}", (response_id,))
+            return bool(cursor.rowcount)
+
+    def teacher_dashboard(self, teacher_id: str | None = None) -> dict:
+        worksheets = self.list_worksheets(created_by=teacher_id, published=True, archived=False)
+        students = self.list_students()
+        responses = self.list_responses()
+        worksheet_ids = {worksheet.id for worksheet in worksheets}
+        scoped_responses = [response for response in responses if response.worksheet_id in worksheet_ids]
+        avg_scores = []
+        for worksheet in worksheets:
+            scores = [response.score for response in scoped_responses if response.worksheet_id == worksheet.id and response.score is not None]
+            avg_scores.append({"worksheet_title": worksheet.title, "average_score": round(sum(scores) / len(scores), 2) if scores else 0.0})
+        total_correct = sum(response.correct_count for response in scoped_responses)
+        total_incorrect = sum(1 for response in scoped_responses for detail in response.details if getattr(detail, "status", None) == "incorrect" or (isinstance(detail, dict) and detail.get("status") == "incorrect"))
+        classrooms = self.list_classrooms(created_by=teacher_id)
+        students_per_classroom = [
+            {"classroom_name": classroom.name, "student_count": len(self.list_classroom_students(classroom.id))}
+            for classroom in classrooms
+        ]
+        return {
+            "total_students": len(students),
+            "active_worksheets": len(worksheets),
+            "avg_scores": avg_scores,
+            "total_correct": total_correct,
+            "total_incorrect": total_incorrect,
+            "students_per_classroom": students_per_classroom,
+        }
+
     def _user_from_row(self, row: object) -> PublicUser:
         data = dict(row)
         return PublicUser(id=data["id"], name=data["name"], email=data.get("email"), username=data.get("username") or data.get("email") or data["id"], role=UserRole(data["role"]))
@@ -354,6 +531,7 @@ class WorksheetRepository:
             published=bool(data["published"]),
             archived=bool(data.get("archived")),
             max_attempts=data.get("max_attempts"),
+            theme=_decode_json(data.get("theme"), None),
         )
 
     def _response_from_row(self, row: object) -> WorksheetResponse:

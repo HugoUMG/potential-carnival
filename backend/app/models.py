@@ -57,11 +57,12 @@ class LoginResponse(BaseModel):
 
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
-    type: Literal["fillblank", "multiplechoice", "textbox", "matching", "speaking", "reading", "imagequestion"]
+    type: Literal["fillblank", "multiplechoice", "textbox", "matching", "speaking", "reading", "imagequestion", "listening"]
     text: str | None = None
     question: str | None = None
     options: list[str] | None = None
-    answer: str | None = None
+    answer: str | list[str] | None = None
+    instructions: str | None = None
     prompt: str | None = None
     left: list[str] | None = None
     right: list[str] | None = None
@@ -71,10 +72,22 @@ class Activity(BaseModel):
     image: str | None = None
 
 
+class ActivityBlock(BaseModel):
+    title: str | None = None
+    instructions: str | None = None
+    activities: list[Activity] = Field(default_factory=list)
+
+
 class WorksheetJson(BaseModel):
     title: str
     description: str = ""
-    activities: list[Activity]
+    activities: list[Activity] = Field(default_factory=list)
+    blocks: list[ActivityBlock] | None = None
+
+    def iter_activities(self) -> list[Activity]:
+        if self.blocks:
+            return [activity for block in self.blocks for activity in block.activities]
+        return self.activities
 
 
 class Worksheet(BaseModel):
@@ -88,12 +101,14 @@ class Worksheet(BaseModel):
     published: bool = False
     archived: bool = False
     max_attempts: int | None = None
+    theme: dict[str, str] | None = None
 
 
 class WorksheetCreate(BaseModel):
     script_content: str
     created_by: str
     max_attempts: int | None = None
+    theme: dict[str, str] | None = None
 
 
 class AiGenerateRequest(BaseModel):
@@ -135,3 +150,48 @@ class WorksheetResponse(BaseModel):
     pending_count: int = 0
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     student_id: str | None = None
+
+
+class ClassroomCreate(BaseModel):
+    name: str
+
+
+class ClassroomStudentAssignment(BaseModel):
+    student_id: str
+
+
+class ClassroomWorksheetAssignment(BaseModel):
+    worksheet_id: str
+
+
+class Classroom(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    name: str
+    created_by: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ClassroomDetail(Classroom):
+    students: list[PublicUser] = Field(default_factory=list)
+    worksheets: list[Worksheet] = Field(default_factory=list)
+    student_statuses: dict[str, str] = Field(default_factory=dict)
+
+
+class UserUpdate(BaseModel):
+    name: str
+    email: str | None = None
+    username: str
+
+
+class PasswordUpdate(BaseModel):
+    new_password: str = Field(min_length=8)
+    current_password: str | None = None
+
+
+class TeacherDashboardStats(BaseModel):
+    total_students: int
+    active_worksheets: int
+    avg_scores: list[dict[str, float | str]] = Field(default_factory=list)
+    total_correct: int
+    total_incorrect: int
+    students_per_classroom: list[dict[str, int | str]] = Field(default_factory=list)

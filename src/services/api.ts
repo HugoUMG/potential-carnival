@@ -1,4 +1,4 @@
-import type { ActivityType, StudentAnswers, Worksheet, WorksheetActivity } from '../types';
+import type { ActivityBlock, ActivityType, StudentAnswers, Worksheet, WorksheetActivity } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const AUTH_STORAGE_KEY = 'worksheet_auth_session';
@@ -26,11 +26,11 @@ export interface DetalleRespuesta {
 
 interface BackendActivity {
   id: string;
-  type: ActivityType | 'speaking';
+  type: ActivityType | 'speaking' | 'listening';
   text?: string | null;
   question?: string | null;
   options?: string[] | null;
-  answer?: string | null;
+  answer?: string | string[] | null;
   prompt?: string | null;
   left?: string[] | null;
   right?: string[] | null;
@@ -38,6 +38,13 @@ interface BackendActivity {
   content?: string | null;
   questions?: string[] | null;
   image?: string | null;
+  instructions?: string | null;
+}
+
+interface BackendActivityBlock {
+  title?: string | null;
+  instructions?: string | null;
+  activities: BackendActivity[];
 }
 
 interface BackendWorksheet {
@@ -45,12 +52,13 @@ interface BackendWorksheet {
   title: string;
   description: string;
   script_content: string;
-  json_content: { title: string; description: string; activities: BackendActivity[] };
+  json_content: { title: string; description: string; activities?: BackendActivity[]; blocks?: BackendActivityBlock[] };
   created_by: string;
   created_at: string;
   published: boolean;
   archived: boolean;
   max_attempts?: number | null;
+  theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
 }
 
 export interface RespuestaEstudiante {
@@ -64,6 +72,28 @@ export interface RespuestaEstudiante {
   pending_count: number;
   submitted_at: string;
   student_id?: string | null;
+}
+
+export interface Classroom {
+  id: string;
+  name: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ClassroomDetail extends Classroom {
+  students: UsuarioSesion[];
+  worksheets: Worksheet[];
+  student_statuses: Record<string, string>;
+}
+
+export interface TeacherStats {
+  total_students: number;
+  active_worksheets: number;
+  avg_scores: { worksheet_title: string; average_score: number }[];
+  total_correct: number;
+  total_incorrect: number;
+  students_per_classroom: { classroom_name: string; student_count: number }[];
 }
 
 function getStoredSession(): UsuarioSesion | null {
@@ -99,26 +129,43 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function withInstructions<T extends WorksheetActivity>(activity: T, source: BackendActivity): T {
+  return source.instructions ? { ...activity, instructions: source.instructions } : activity;
+}
+
 function normalizeActivity(activity: BackendActivity): WorksheetActivity {
   switch (activity.type) {
     case 'fillblank':
-      return { id: activity.id, type: 'fillblank', text: activity.text ?? '', answer: activity.answer ?? '' };
+      return withInstructions({ id: activity.id, type: 'fillblank', text: activity.text ?? '', answer: activity.answer ?? '' }, activity);
     case 'multiplechoice':
-      return { id: activity.id, type: 'multiplechoice', question: activity.question ?? '', options: activity.options ?? [], answer: activity.answer ?? '' };
+      return withInstructions({ id: activity.id, type: 'multiplechoice', question: activity.question ?? '', options: activity.options ?? [], answer: activity.answer ?? '' }, activity);
     case 'textbox':
-      return { id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' };
+      return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
     case 'matching':
-      return { id: activity.id, type: 'matching', left: activity.left ?? [], right: activity.right ?? [] };
+      return withInstructions({ id: activity.id, type: 'matching', left: activity.left ?? [], right: activity.right ?? [] }, activity);
     case 'speaking':
-      return { id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' };
+      return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
     case 'reading':
-      return { id: activity.id, type: 'reading', title: activity.title ?? '', content: activity.content ?? '', questions: activity.questions ?? [] };
+      return withInstructions({ id: activity.id, type: 'reading', title: activity.title ?? '', content: activity.content ?? '', questions: activity.questions ?? [] }, activity);
     case 'imagequestion':
-      return { id: activity.id, type: 'imagequestion', image: activity.image ?? '', prompt: activity.prompt ?? '' };
+      return withInstructions({ id: activity.id, type: 'imagequestion', image: activity.image ?? '', prompt: activity.prompt ?? '' }, activity);
+    case 'listening':
+      return withInstructions({ id: activity.id, type: 'listening', text: activity.text ?? '', question: activity.question ?? '', answer: String(activity.answer ?? '') }, activity);
   }
 }
 
+function normalizeBlocks(jsonContent: BackendWorksheet['json_content']): ActivityBlock[] | undefined {
+  return jsonContent.blocks?.map((block) => ({
+    title: block.title ?? null,
+    instructions: block.instructions ?? null,
+    activities: block.activities.map(normalizeActivity),
+  }));
+}
+
+
 export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
+  const blocks = normalizeBlocks(worksheet.json_content);
+  const activities = blocks?.flatMap((block) => block.activities) ?? (worksheet.json_content.activities ?? []).map(normalizeActivity);
   return {
     id: worksheet.id,
     title: worksheet.title,
@@ -127,10 +174,12 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     status: worksheet.published ? 'published' : 'draft',
     archived: worksheet.archived,
     scriptContent: worksheet.script_content,
-    activities: worksheet.json_content.activities.map(normalizeActivity),
+    activities,
+    blocks,
     createdBy: worksheet.created_by,
     createdAt: worksheet.created_at,
     maxAttempts: worksheet.max_attempts ?? null,
+    theme: worksheet.theme ?? null,
     analytics: { completionRate: 0, averageScore: 0, attempts: 0, mostMissedQuestions: [] },
   };
 }
@@ -210,4 +259,47 @@ export async function listWorksheetResponses(worksheetId: string): Promise<Respu
 
 export async function reviewAnswer(responseId: string, activityId: string, status: 'correct' | 'incorrect', comment: string): Promise<RespuestaEstudiante> {
   return request<RespuestaEstudiante>(`/responses/${responseId}/review`, { method: 'POST', body: JSON.stringify({ activity_id: activityId, status, comment }) });
+}
+
+
+export async function deleteResponse(responseId: string): Promise<void> {
+  await request<void>(`/responses/${responseId}`, { method: 'DELETE' });
+}
+
+
+export async function listClassrooms(): Promise<Classroom[]> {
+  return request<Classroom[]>('/classrooms');
+}
+
+export async function createClassroom(name: string): Promise<Classroom> {
+  return request<Classroom>('/classrooms', { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+export async function getClassroom(classroomId: string): Promise<ClassroomDetail> {
+  const detail = await request<Omit<ClassroomDetail, 'worksheets'> & { worksheets: BackendWorksheet[] }>(`/classrooms/${classroomId}`);
+  return { ...detail, worksheets: detail.worksheets.map(normalizeWorksheet) };
+}
+
+export async function assignStudentToClassroom(classroomId: string, studentId: string): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/students`, { method: 'POST', body: JSON.stringify({ student_id: studentId }) });
+}
+
+export async function unassignStudentFromClassroom(classroomId: string, studentId: string): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/students/${studentId}`, { method: 'DELETE' });
+}
+
+export async function assignWorksheetToClassroom(classroomId: string, worksheetId: string): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/worksheets`, { method: 'POST', body: JSON.stringify({ worksheet_id: worksheetId }) });
+}
+
+export async function unassignWorksheetFromClassroom(classroomId: string, worksheetId: string): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/worksheets/${worksheetId}`, { method: 'DELETE' });
+}
+
+export async function listWorksheetClassrooms(worksheetId: string): Promise<Classroom[]> {
+  return request<Classroom[]>(`/worksheets/${worksheetId}/classrooms`);
+}
+
+export async function getTeacherDashboard(): Promise<TeacherStats> {
+  return request<TeacherStats>('/dashboard/teacher');
 }

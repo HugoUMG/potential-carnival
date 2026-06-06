@@ -9,7 +9,8 @@ class ActivityData:
     text: str | None = None
     question: str | None = None
     options: list[str] | None = None
-    answer: str | None = None
+    answer: str | list[str] | None = None
+    instructions: str | None = None
     prompt: str | None = None
     left: list[str] | None = None
     right: list[str] | None = None
