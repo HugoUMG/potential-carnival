@@ -634,7 +634,7 @@ export default function App() {
                   <p className="text-sm text-slate-500">Fecha: {new Date(response.submitted_at).toLocaleString()} · Puntuación: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>
                   {response.details.map((detail) => {
                     const key = `${response.id}-${detail.activity_id}`;
-                    const canReview = detail.status === 'pending' || (detail.activity_type === 'fillblank' && detail.status === 'incorrect');
+                    const canReview = detail.status === 'pending' || detail.activity_type === 'fillblank' || detail.activity_type === 'listeningfillblank';
                     return (
                       <div key={detail.activity_id} className={`mt-3 rounded-xl border p-3 ${statusBadge(detail.status)}`}>
                         <strong><RichText text={detail.prompt} /></strong>

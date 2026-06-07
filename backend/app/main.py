@@ -492,6 +492,55 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
                     )
                 )
             continue
+        if activity.type == "listeningfillblank" and activity.answer:
+            correct_answers = activity.answer if isinstance(activity.answer, list) else [activity.answer]
+            student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
+            is_correct = len(student_answers) >= len(correct_answers) and all(
+                str(student_answers[i] or "").strip().lower() == str(c).strip().lower()
+                for i, c in enumerate(correct_answers)
+            )
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            continue
+        if activity.type == "listeningmultiplechoice" and activity.answer:
+            is_correct = str(student_answer or "").strip().lower() == str(activity.answer).strip().lower()
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            continue
+        if activity.type == "listeningmatching" and activity.pairs:
+            selected = student_answer if isinstance(student_answer, dict) else {}
+            for index, pair in enumerate(activity.pairs):
+                correct_match = pair.get("match")
+                selected_match = selected.get(str(index))
+                is_correct = selected_match == correct_match
+                details.append(AnswerDetail(
+                    activity_id=f"{activity.id}:{index}",
+                    activity_type=activity.type,
+                    prompt=f"Audio {index + 1}",
+                    student_answer=selected_match,
+                    correct_answer=correct_match,
+                    status="correct" if is_correct else "incorrect",
+                ))
+            continue
+        if activity.type == "listeningtruefalse" and activity.statements:
+            selected = student_answer if isinstance(student_answer, dict) else {}
+            for index, statement in enumerate(activity.statements):
+                correct = statement.get("answer")
+                raw = selected.get(str(index))
+                if isinstance(raw, bool):
+                    student_bool: bool | None = raw
+                elif isinstance(raw, str):
+                    student_bool = raw.lower() == "true"
+                else:
+                    student_bool = None
+                is_correct = student_bool == correct if student_bool is not None else False
+                details.append(AnswerDetail(
+                    activity_id=f"{activity.id}:{index}",
+                    activity_type=activity.type,
+                    prompt=statement.get("text", ""),
+                    student_answer=raw,
+                    correct_answer=correct,
+                    status="correct" if is_correct else "incorrect",
+                ))
+            continue
         details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending"))
     return details
 

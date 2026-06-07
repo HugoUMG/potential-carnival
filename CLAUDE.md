@@ -90,6 +90,10 @@ Las hojas se crean con un DSL propio. El backend lo parsea (`backend/app/parser.
 | `listening` | Reproductor TTS que lee oración oculta al estudiante. | OK |
 | `imagequestion` | Imagen con pregunta abierta. | OK |
 | `speaking` | **NO IMPLEMENTADO — no usar.** | NO USAR |
+| `listeningfillblank` | Audio TTS + fill in the blank inline. `audio_text` nunca visible al estudiante. | OK |
+| `listeningmultiplechoice` | Audio TTS + selección múltiple. | OK |
+| `listeningmatching` | N audios independientes + dropdown por cada uno. `pairs[].audio_text` oculto. | OK |
+| `listeningtruefalse` | Un audio + botones True/False por enunciado. `statements[].answer` es boolean. | OK |
 
 ### Formato del Script DSL
 
@@ -309,6 +313,8 @@ const blocks = worksheet.blocks?.length
 - Asignación de hojas a aulas con modal de checkboxes
 - **Parser procesa `theme {}` → guarda en columna `theme` como JSONB** ✓ (corregido)
 - **Parser procesa `block {}` → guarda bloques en `json_content.blocks`** ✓ (corregido)
+- **4 tipos híbridos de listening** (listeningfillblank, listeningmultiplechoice, listeningmatching, listeningtruefalse) — calificación automática, `audio_text` nunca visible al estudiante ✓
+- **Panel profesor: fillblank y listeningfillblank siempre muestran controles de revisión** (correcto/incorrecto + comentario) ✓
 
 ### Pendientes (menores)
 - Bug 3: `\n` puede faltar en algún campo específico no cubierto por `RichText`

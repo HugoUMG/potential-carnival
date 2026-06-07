@@ -26,7 +26,7 @@ export interface DetalleRespuesta {
 
 interface BackendActivity {
   id: string;
-  type: ActivityType | 'speaking' | 'listening';
+  type: ActivityType | 'speaking';
   text?: string | null;
   question?: string | null;
   options?: string[] | null;
@@ -39,6 +39,9 @@ interface BackendActivity {
   questions?: string[] | null;
   image?: string | null;
   instructions?: string | null;
+  audio_text?: string | null;
+  pairs?: { audio_text: string; match: string }[] | null;
+  statements?: { text: string; answer: boolean }[] | null;
 }
 
 interface BackendActivityBlock {
@@ -151,6 +154,14 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'imagequestion', image: activity.image ?? '', prompt: activity.prompt ?? '' }, activity);
     case 'listening':
       return withInstructions({ id: activity.id, type: 'listening', text: activity.text ?? '', question: activity.question ?? '', answer: String(activity.answer ?? '') }, activity);
+    case 'listeningfillblank':
+      return withInstructions({ id: activity.id, type: 'listeningfillblank', audio_text: activity.audio_text ?? '', text: activity.text ?? '', answer: activity.answer ?? '' }, activity);
+    case 'listeningmultiplechoice':
+      return withInstructions({ id: activity.id, type: 'listeningmultiplechoice', audio_text: activity.audio_text ?? '', question: activity.question ?? '', options: activity.options ?? [], answer: String(activity.answer ?? '') }, activity);
+    case 'listeningmatching':
+      return withInstructions({ id: activity.id, type: 'listeningmatching', pairs: activity.pairs ?? [], options: activity.options ?? [] }, activity);
+    case 'listeningtruefalse':
+      return withInstructions({ id: activity.id, type: 'listeningtruefalse', audio_text: activity.audio_text ?? '', statements: activity.statements ?? [] }, activity);
   }
 }
 
