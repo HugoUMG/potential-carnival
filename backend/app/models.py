@@ -61,6 +61,7 @@ class Activity(BaseModel):
         "fillblank", "multiplechoice", "textbox", "matching", "speaking",
         "reading", "imagequestion", "listening",
         "listeningfillblank", "listeningmultiplechoice", "listeningmatching", "listeningtruefalse",
+        "truefalse", "readingtruefalse",
     ]
     text: str | None = None
     question: str | None = None

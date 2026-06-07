@@ -520,7 +520,7 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
                     status="correct" if is_correct else "incorrect",
                 ))
             continue
-        if activity.type == "listeningtruefalse" and activity.statements:
+        if activity.type in {"truefalse", "readingtruefalse", "listeningtruefalse"} and activity.statements:
             selected = student_answer if isinstance(student_answer, dict) else {}
             for index, statement in enumerate(activity.statements):
                 correct = statement.get("answer")
