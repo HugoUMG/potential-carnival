@@ -57,7 +57,11 @@ class LoginResponse(BaseModel):
 
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
-    type: Literal["fillblank", "multiplechoice", "textbox", "matching", "speaking", "reading", "imagequestion", "listening"]
+    type: Literal[
+        "fillblank", "multiplechoice", "textbox", "matching", "speaking",
+        "reading", "imagequestion", "listening",
+        "listeningfillblank", "listeningmultiplechoice", "listeningmatching", "listeningtruefalse",
+    ]
     text: str | None = None
     question: str | None = None
     options: list[str] | None = None
@@ -70,6 +74,9 @@ class Activity(BaseModel):
     content: str | None = None
     questions: list[str] | None = None
     image: str | None = None
+    audio_text: str | None = None
+    pairs: list[dict] | None = None
+    statements: list[dict] | None = None
 
 
 class ActivityBlock(BaseModel):

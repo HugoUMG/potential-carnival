@@ -14,6 +14,10 @@ SUPPORTED_BLOCKS = {
     "reading",
     "imagequestion",
     "listening",
+    "listeningfillblank",
+    "listeningmultiplechoice",
+    "listeningmatching",
+    "listeningtruefalse",
 }
 
 
@@ -173,6 +177,28 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         return ActivityData(**common, image=_get_scalar(body, "image"), prompt=_get_scalar(body, "prompt"))
     if activity_type == "listening":
         return ActivityData(**common, text=_get_scalar(body, "text"), question=_get_scalar(body, "question"), answer=_get_answer(body))
+    if activity_type == "listeningfillblank":
+        return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), text=_get_scalar(body, "text"), answer=_get_answer(body))
+    if activity_type == "listeningmultiplechoice":
+        return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_answer(body))
+    if activity_type == "listeningmatching":
+        pair_bodies = _find_all_keyword_blocks(body, "pair")
+        pairs = [
+            {"audio_text": at, "match": m}
+            for pb in pair_bodies
+            for at, m in [(_get_scalar(pb, "audio_text"), _get_scalar(pb, "match"))]
+            if at and m
+        ]
+        return ActivityData(**common, pairs=pairs or None, options=_get_list(body, "options") or None)
+    if activity_type == "listeningtruefalse":
+        stmt_bodies = _find_all_keyword_blocks(body, "statement")
+        statements = [
+            {"text": t, "answer": (a or "").strip().lower() == "true"}
+            for sb in stmt_bodies
+            for t, a in [(_get_scalar(sb, "text"), _get_scalar(sb, "answer"))]
+            if t
+        ]
+        return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), statements=statements or None)
     raise WorksheetScriptError(f"Tipo de actividad no compatible: {activity_type}")
 
 

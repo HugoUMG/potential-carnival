@@ -7,7 +7,11 @@ export type ActivityType =
   | 'matching'
   | 'reading'
   | 'imagequestion'
-  | 'listening';
+  | 'listening'
+  | 'listeningfillblank'
+  | 'listeningmultiplechoice'
+  | 'listeningmatching'
+  | 'listeningtruefalse';
 
 export interface BaseActivity {
   id: string;
@@ -61,6 +65,33 @@ export interface ImageQuestionActivity extends BaseActivity {
   prompt: string;
 }
 
+export interface ListeningFillBlankActivity extends BaseActivity {
+  type: 'listeningfillblank';
+  audio_text: string;
+  text: string;
+  answer: string | string[];
+}
+
+export interface ListeningMultipleChoiceActivity extends BaseActivity {
+  type: 'listeningmultiplechoice';
+  audio_text: string;
+  question: string;
+  options: string[];
+  answer: string;
+}
+
+export interface ListeningMatchingActivity extends BaseActivity {
+  type: 'listeningmatching';
+  pairs: { audio_text: string; match: string }[];
+  options: string[];
+}
+
+export interface ListeningTrueFalseActivity extends BaseActivity {
+  type: 'listeningtruefalse';
+  audio_text: string;
+  statements: { text: string; answer: boolean }[];
+}
+
 export type WorksheetActivity =
   | FillBlankActivity
   | MultipleChoiceActivity
@@ -68,7 +99,11 @@ export type WorksheetActivity =
   | MatchingActivity
   | ReadingActivity
   | ImageQuestionActivity
-  | ListeningActivity;
+  | ListeningActivity
+  | ListeningFillBlankActivity
+  | ListeningMultipleChoiceActivity
+  | ListeningMatchingActivity
+  | ListeningTrueFalseActivity;
 
 export interface ActivityBlock {
   title?: string | null;

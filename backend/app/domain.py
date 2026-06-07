@@ -18,6 +18,9 @@ class ActivityData:
     content: str | None = None
     questions: list[str] | None = None
     image: str | None = None
+    audio_text: str | None = None
+    pairs: list[dict] | None = None
+    statements: list[dict] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {key: value for key, value in asdict(self).items() if value is not None}

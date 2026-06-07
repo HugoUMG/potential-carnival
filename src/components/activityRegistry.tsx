@@ -4,6 +4,10 @@ import type {
   ActivityRendererProps,
   FillBlankActivity,
   ImageQuestionActivity,
+  ListeningFillBlankActivity,
+  ListeningMatchingActivity,
+  ListeningMultipleChoiceActivity,
+  ListeningTrueFalseActivity,
   MatchingActivity,
   MultipleChoiceActivity,
   ReadingActivity,
@@ -13,6 +17,8 @@ import type {
   WorksheetActivity,
 } from '../types';
 import { RichText } from './RichText';
+
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
 
@@ -174,16 +180,133 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
   );
 }
 
+function AudioPlayer({ text }: { text: string }) {
+  const url = `${API_BASE}/tts?text=${encodeURIComponent(text)}`;
+  return <audio controls src={url} className="w-full" />;
+}
+
 function ListeningRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningActivity>) {
-  const audioUrl = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}/tts?text=${encodeURIComponent(activity.text)}`;
   return (
     <div className="grid gap-3">
-      <audio controls src={audioUrl} />
+      <AudioPlayer text={activity.text} />
       <label className="block">
         <RichText className="text-base font-medium text-slate-800" text={activity.question} />
         <ActivityInstructions instructions={activity.instructions} />
         <input className={inputClass} disabled={readonly} value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
       </label>
+    </div>
+  );
+}
+
+function ListeningFillBlankRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningFillBlankActivity>) {
+  const parts = activity.text.replace(/\\n/g, '\n').split('_____');
+  const expected = Array.isArray(activity.answer) ? activity.answer : [activity.answer];
+  const values = Array.isArray(value) ? value : [asString(value)];
+  const updateBlank = (index: number, nextValue: string) => {
+    const next = [...values];
+    next[index] = nextValue;
+    onChange(activity.id, parts.length > 2 ? next : nextValue);
+  };
+  return (
+    <div className="grid gap-3">
+      <AudioPlayer text={activity.audio_text} />
+      <ActivityInstructions instructions={activity.instructions} />
+      <div className="text-base font-medium leading-10 text-slate-800 whitespace-pre-line">
+        {parts.map((part, index) => (
+          <span key={`${activity.id}-${index}`}>
+            {part}
+            {index < parts.length - 1 && (
+              <input
+                className="mx-1 inline-block rounded-lg border border-slate-300 px-2 py-1 text-sm align-middle outline-none focus:border-blue-500"
+                disabled={readonly}
+                style={{ width: `${Math.max(80, Math.min(160, (expected[index]?.length ?? 8) * 12))}px` }}
+                value={values[index] ?? ''}
+                onChange={(e) => updateBlank(index, e.target.value)}
+              />
+            )}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ListeningMultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningMultipleChoiceActivity>) {
+  return (
+    <div className="grid gap-3">
+      <AudioPlayer text={activity.audio_text} />
+      <fieldset>
+        <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
+        <ActivityInstructions instructions={activity.instructions} />
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {activity.options.map((option) => (
+            <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
+              <input disabled={readonly} name={activity.id} type="radio" checked={value === option} onChange={() => onChange(activity.id, option)} />
+              <span className="text-sm text-slate-700">{option}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+    </div>
+  );
+}
+
+function ListeningMatchingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningMatchingActivity>) {
+  const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
+  return (
+    <div className="grid gap-4">
+      <ActivityInstructions instructions={activity.instructions} />
+      {activity.pairs.map((pair, index) => (
+        <div key={index} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_auto]">
+          <div className="grid gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Audio {index + 1}</p>
+            <AudioPlayer text={pair.audio_text} />
+          </div>
+          <select
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 self-center"
+            disabled={readonly}
+            value={selections[String(index)] ?? ''}
+            onChange={(e) => onChange(activity.id, { ...selections, [String(index)]: e.target.value })}
+          >
+            <option value="">Select...</option>
+            {activity.options.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ListeningTrueFalseRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningTrueFalseActivity>) {
+  const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
+  return (
+    <div className="grid gap-4">
+      <AudioPlayer text={activity.audio_text} />
+      <ActivityInstructions instructions={activity.instructions} />
+      {activity.statements.map((stmt, index) => {
+        const selected = selections[String(index)];
+        return (
+          <div key={index} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
+            <span className="text-sm font-medium text-slate-800">{stmt.text}</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={readonly}
+                onClick={() => onChange(activity.id, { ...selections, [String(index)]: 'true' })}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${selected === 'true' ? 'bg-emerald-500 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:border-emerald-300'}`}
+              >True</button>
+              <button
+                type="button"
+                disabled={readonly}
+                onClick={() => onChange(activity.id, { ...selections, [String(index)]: 'false' })}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${selected === 'false' ? 'bg-red-500 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:border-red-300'}`}
+              >False</button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -255,6 +378,38 @@ export const activityRegistry = {
     icon: '🖼️',
     create: () => ({ id: nextId('imagequestion'), type: 'imagequestion', image: 'https://placehold.co/900x500', prompt: 'Describe what you see.' }),
     Renderer: ImageQuestionRenderer,
+  },
+  listeningfillblank: {
+    type: 'listeningfillblank',
+    label: 'Listening + Fill blank',
+    description: 'Listen and complete the missing words.',
+    icon: '🎧✏️',
+    create: () => ({ id: nextId('listeningfillblank'), type: 'listeningfillblank', audio_text: 'She goes to school every day.', text: 'She _____ to school every day.', answer: 'goes' }),
+    Renderer: ListeningFillBlankRenderer,
+  },
+  listeningmultiplechoice: {
+    type: 'listeningmultiplechoice',
+    label: 'Listening + Multiple choice',
+    description: 'Listen and choose the correct option.',
+    icon: '🎧✅',
+    create: () => ({ id: nextId('listeningmultiplechoice'), type: 'listeningmultiplechoice', audio_text: 'The meeting is on Friday at 3 PM.', question: 'When is the meeting?', options: ['Thursday at 3 PM', 'Friday at 3 PM', 'Friday at 5 PM'], answer: 'Friday at 3 PM' }),
+    Renderer: ListeningMultipleChoiceRenderer,
+  },
+  listeningmatching: {
+    type: 'listeningmatching',
+    label: 'Listening + Matching',
+    description: 'Match each audio with its meaning.',
+    icon: '🎧🔗',
+    create: () => ({ id: nextId('listeningmatching'), type: 'listeningmatching', pairs: [{ audio_text: 'It might rain later.', match: 'Possibility' }, { audio_text: 'You should rest more.', match: 'Advice' }], options: ['Possibility', 'Advice'] }),
+    Renderer: ListeningMatchingRenderer,
+  },
+  listeningtruefalse: {
+    type: 'listeningtruefalse',
+    label: 'Listening + True/False',
+    description: 'Listen and decide if each statement is true or false.',
+    icon: '🎧❓',
+    create: () => ({ id: nextId('listeningtruefalse'), type: 'listeningtruefalse', audio_text: 'The store opens at 9 AM and closes at 6 PM.', statements: [{ text: 'The store opens at 9 AM.', answer: true }, { text: 'The store closes at 8 PM.', answer: false }] }),
+    Renderer: ListeningTrueFalseRenderer,
   },
 } satisfies { [Type in WorksheetActivity['type']]: ActivityDefinition<Extract<WorksheetActivity, { type: Type }>> };
 
