@@ -300,7 +300,7 @@ def create_worksheet(payload: WorksheetCreate, current_user: PublicUser = Depend
         json_content=worksheet_json,
         created_by=payload.created_by,
         max_attempts=payload.max_attempts,
-        theme=payload.theme,
+        theme=worksheet_data.theme or payload.theme,
     )
     return repository.add_worksheet(worksheet)
 

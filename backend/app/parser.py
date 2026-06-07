@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from uuid import uuid4
 
-from .domain import ActivityData, WorksheetData
+from .domain import ActivityData, BlockData, WorksheetData
 
 SUPPORTED_BLOCKS = {
     "fillblank",
@@ -49,6 +49,54 @@ def _extract_block(source: str, keyword: str) -> str:
         cursor += 1
 
     raise WorksheetScriptError(f"Bloque {keyword} sin cerrar")
+
+
+def _find_all_keyword_blocks(source: str, keyword: str) -> list[str]:
+    """Devuelve los cuerpos de todos los bloques `keyword { ... }` encontrados."""
+    bodies: list[str] = []
+    cursor = 0
+    while cursor < len(source):
+        match = re.search(rf"\b{keyword}\s*{{", source[cursor:])
+        if not match:
+            break
+        body_start = cursor + match.end()
+        depth = 1
+        idx = body_start
+        while idx < len(source) and depth:
+            if source[idx] == "{":
+                depth += 1
+            elif source[idx] == "}":
+                depth -= 1
+            idx += 1
+        if depth:
+            raise WorksheetScriptError(f"Bloque {keyword} sin cerrar")
+        bodies.append(source[body_start : idx - 1])
+        cursor = idx
+    return bodies
+
+
+def _parse_theme(worksheet_body: str) -> dict[str, str] | None:
+    match = re.search(r"\btheme\s*{", worksheet_body)
+    if not match:
+        return None
+    start = match.end()
+    depth = 1
+    cursor = start
+    while cursor < len(worksheet_body) and depth:
+        if worksheet_body[cursor] == "{":
+            depth += 1
+        elif worksheet_body[cursor] == "}":
+            depth -= 1
+        cursor += 1
+    if depth:
+        return None
+    theme_body = worksheet_body[start : cursor - 1]
+    theme: dict[str, str] = {}
+    for key in ("primary_color", "background_color", "text_color"):
+        val = _get_scalar(theme_body, key)
+        if val:
+            theme[key] = val
+    return theme or None
 
 
 def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
@@ -134,7 +182,21 @@ def parse_worksheet_script(script: str) -> WorksheetData:
     if not title:
         raise WorksheetScriptError("El título de la hoja es obligatorio")
     description = _get_scalar(worksheet_body, "description", "") or ""
+    theme = _parse_theme(worksheet_body)
+
+    block_bodies = _find_all_keyword_blocks(worksheet_body, "block")
+    if block_bodies:
+        blocks: list[BlockData] = []
+        for block_body in block_bodies:
+            block_title = _get_scalar(block_body, "title")
+            block_instructions = _get_scalar(block_body, "instructions")
+            block_activities = [parse_activity(t, b) for t, b in _find_activity_blocks(block_body)]
+            blocks.append(BlockData(title=block_title, instructions=block_instructions, activities=block_activities))
+        if not any(b.activities for b in blocks):
+            raise WorksheetScriptError("Se requiere al menos una actividad")
+        return WorksheetData(title=title, description=description, blocks=blocks, theme=theme)
+
     activities = [parse_activity(activity_type, body) for activity_type, body in _find_activity_blocks(worksheet_body)]
     if not activities:
         raise WorksheetScriptError("Se requiere al menos una actividad")
-    return WorksheetData(title=title, description=description, activities=activities)
+    return WorksheetData(title=title, description=description, activities=activities, theme=theme)
