@@ -11,9 +11,11 @@ import type {
   MatchingActivity,
   MultipleChoiceActivity,
   ReadingActivity,
+  ReadingTrueFalseActivity,
   ListeningActivity,
   StudentAnswer,
   TextBoxActivity,
+  TrueFalseActivity,
   WorksheetActivity,
 } from '../types';
 import { RichText } from './RichText';
@@ -155,14 +157,34 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
   );
 }
 
+function TrueFalseButtons({ index, selected, readonly, onChange }: { index: number; selected: string | undefined; readonly?: boolean; onChange: (val: string) => void }) {
+  return (
+    <div className="flex gap-2">
+      <button type="button" disabled={readonly} onClick={() => onChange('true')}
+        className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${selected === 'true' ? 'bg-emerald-500 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:border-emerald-300'}`}>
+        True
+      </button>
+      <button type="button" disabled={readonly} onClick={() => onChange('false')}
+        className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${selected === 'false' ? 'bg-red-500 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:border-red-300'}`}>
+        False
+      </button>
+    </div>
+  );
+}
+
 function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ReadingActivity>) {
   const answers = typeof value === 'object' && !Array.isArray(value) && value !== null ? value : {};
+  const audioUrl = `${API_BASE}/tts?text=${encodeURIComponent(activity.content)}`;
 
   return (
     <article>
       <h3 className="text-lg font-semibold text-slate-900">{activity.title}</h3>
       <ActivityInstructions instructions={activity.instructions} />
       <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
+      <div className="mt-2">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Listen to the text</p>
+        <audio controls src={audioUrl} className="w-full" />
+      </div>
       <div className="mt-4 grid gap-3">
         {activity.questions.map((question, index) => (
           <label key={question} className="block">
@@ -174,6 +196,47 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
               onChange={(event) => onChange(activity.id, { ...answers, [index]: event.target.value })}
             />
           </label>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function TrueFalseRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<TrueFalseActivity>) {
+  const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
+  return (
+    <div className="grid gap-3">
+      <ActivityInstructions instructions={activity.instructions} />
+      {activity.statements.map((stmt, index) => (
+        <div key={index} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
+          <span className="text-sm font-medium text-slate-800">{stmt.text}</span>
+          <TrueFalseButtons index={index} selected={selections[String(index)]} readonly={readonly} onChange={(val) => onChange(activity.id, { ...selections, [String(index)]: val })} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ReadingTrueFalseActivity>) {
+  const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
+  const audioUrl = `${API_BASE}/tts?text=${encodeURIComponent(activity.content)}`;
+  return (
+    <article className="grid gap-4">
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900">{activity.title}</h3>
+        <ActivityInstructions instructions={activity.instructions} />
+        <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
+        <div className="mt-2">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Listen to the text</p>
+          <audio controls src={audioUrl} className="w-full" />
+        </div>
+      </div>
+      <div className="grid gap-3">
+        {activity.statements.map((stmt, index) => (
+          <div key={index} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
+            <span className="text-sm font-medium text-slate-800">{stmt.text}</span>
+            <TrueFalseButtons index={index} selected={selections[String(index)]} readonly={readonly} onChange={(val) => onChange(activity.id, { ...selections, [String(index)]: val })} />
+          </div>
         ))}
       </div>
     </article>
@@ -410,6 +473,22 @@ export const activityRegistry = {
     icon: '🎧❓',
     create: () => ({ id: nextId('listeningtruefalse'), type: 'listeningtruefalse', audio_text: 'The store opens at 9 AM and closes at 6 PM.', statements: [{ text: 'The store opens at 9 AM.', answer: true }, { text: 'The store closes at 8 PM.', answer: false }] }),
     Renderer: ListeningTrueFalseRenderer,
+  },
+  truefalse: {
+    type: 'truefalse',
+    label: 'True / False',
+    description: 'Decide if each statement is true or false.',
+    icon: '✔️❌',
+    create: () => ({ id: nextId('truefalse'), type: 'truefalse', statements: [{ text: 'The Earth is round.', answer: true }, { text: 'The Sun orbits the Earth.', answer: false }] }),
+    Renderer: TrueFalseRenderer,
+  },
+  readingtruefalse: {
+    type: 'readingtruefalse',
+    label: 'Reading + True/False',
+    description: 'Read a text (with audio), then answer True or False.',
+    icon: '📖❓',
+    create: () => ({ id: nextId('readingtruefalse'), type: 'readingtruefalse', title: 'My School', content: 'My school is very big. There are many classrooms and a large library.', statements: [{ text: 'The school has a library.', answer: true }, { text: 'The school is small.', answer: false }] }),
+    Renderer: ReadingTrueFalseRenderer,
   },
 } satisfies { [Type in WorksheetActivity['type']]: ActivityDefinition<Extract<WorksheetActivity, { type: Type }>> };
 

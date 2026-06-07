@@ -162,6 +162,10 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'listeningmatching', pairs: activity.pairs ?? [], options: activity.options ?? [] }, activity);
     case 'listeningtruefalse':
       return withInstructions({ id: activity.id, type: 'listeningtruefalse', audio_text: activity.audio_text ?? '', statements: activity.statements ?? [] }, activity);
+    case 'truefalse':
+      return withInstructions({ id: activity.id, type: 'truefalse', statements: activity.statements ?? [] }, activity);
+    case 'readingtruefalse':
+      return withInstructions({ id: activity.id, type: 'readingtruefalse', title: activity.title ?? '', content: activity.content ?? '', statements: activity.statements ?? [] }, activity);
   }
 }
 

@@ -18,6 +18,8 @@ SUPPORTED_BLOCKS = {
     "listeningmultiplechoice",
     "listeningmatching",
     "listeningtruefalse",
+    "truefalse",
+    "readingtruefalse",
 }
 
 
@@ -199,6 +201,24 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
             if t
         ]
         return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), statements=statements or None)
+    if activity_type == "truefalse":
+        stmt_bodies = _find_all_keyword_blocks(body, "statement")
+        statements = [
+            {"text": t, "answer": (a or "").strip().lower() == "true"}
+            for sb in stmt_bodies
+            for t, a in [(_get_scalar(sb, "text"), _get_scalar(sb, "answer"))]
+            if t
+        ]
+        return ActivityData(**common, statements=statements or None)
+    if activity_type == "readingtruefalse":
+        stmt_bodies = _find_all_keyword_blocks(body, "statement")
+        statements = [
+            {"text": t, "answer": (a or "").strip().lower() == "true"}
+            for sb in stmt_bodies
+            for t, a in [(_get_scalar(sb, "text"), _get_scalar(sb, "answer"))]
+            if t
+        ]
+        return ActivityData(**common, title=_get_scalar(body, "title"), content=_get_scalar(body, "content"), statements=statements or None)
     raise WorksheetScriptError(f"Tipo de actividad no compatible: {activity_type}")
 
 

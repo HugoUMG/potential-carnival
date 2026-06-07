@@ -11,7 +11,9 @@ export type ActivityType =
   | 'listeningfillblank'
   | 'listeningmultiplechoice'
   | 'listeningmatching'
-  | 'listeningtruefalse';
+  | 'listeningtruefalse'
+  | 'truefalse'
+  | 'readingtruefalse';
 
 export interface BaseActivity {
   id: string;
@@ -92,6 +94,18 @@ export interface ListeningTrueFalseActivity extends BaseActivity {
   statements: { text: string; answer: boolean }[];
 }
 
+export interface TrueFalseActivity extends BaseActivity {
+  type: 'truefalse';
+  statements: { text: string; answer: boolean }[];
+}
+
+export interface ReadingTrueFalseActivity extends BaseActivity {
+  type: 'readingtruefalse';
+  title: string;
+  content: string;
+  statements: { text: string; answer: boolean }[];
+}
+
 export type WorksheetActivity =
   | FillBlankActivity
   | MultipleChoiceActivity
@@ -103,7 +117,9 @@ export type WorksheetActivity =
   | ListeningFillBlankActivity
   | ListeningMultipleChoiceActivity
   | ListeningMatchingActivity
-  | ListeningTrueFalseActivity;
+  | ListeningTrueFalseActivity
+  | TrueFalseActivity
+  | ReadingTrueFalseActivity;
 
 export interface ActivityBlock {
   title?: string | null;
