@@ -335,10 +335,17 @@ def list_worksheets(created_by: str | None = None, published: bool | None = None
 @app.get("/students/{student_id}/worksheets", response_model=list[Worksheet])
 def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[Worksheet]:
     require_student_owner_or_staff(student_id, current_user)
-    answered_ids = {response.worksheet_id for response in repository.list_responses(student_id=student_id, include_archived=False)}
     assigned = repository.list_student_assigned_worksheets(student_id)
-    answered_unpublished = [worksheet for worksheet in assigned if worksheet.id in answered_ids and not worksheet.published]
-    return assigned + [worksheet for worksheet in answered_unpublished if worksheet.id not in {item.id for item in assigned}]
+    answered_ids = {response.worksheet_id for response in repository.list_responses(student_id=student_id, include_archived=False)}
+    answered_unpublished = [w for w in assigned if w.id in answered_ids and not w.published]
+    all_worksheets = assigned + [w for w in answered_unpublished if w.id not in {item.id for item in assigned}]
+    # Poblar attempts_used / attempts_remaining en una sola query
+    attempt_counts = repository.count_attempts_per_worksheet(student_id, [w.id for w in all_worksheets])
+    for worksheet in all_worksheets:
+        used = attempt_counts.get(worksheet.id, 0)
+        worksheet.attempts_used = used
+        worksheet.attempts_remaining = None if worksheet.max_attempts is None else max(0, worksheet.max_attempts - used)
+    return all_worksheets
 
 
 @app.get("/students/{student_id}/responses", response_model=list[WorksheetResponse])

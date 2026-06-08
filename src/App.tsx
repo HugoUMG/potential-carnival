@@ -277,6 +277,8 @@ export default function App() {
       setResponses((current) => [response, ...current]);
       setAnswers({});
       setMessage(`Respuestas enviadas. Puntuación: ${response.score ?? 'pendiente'}.`);
+      // Refrescar lista para que attempts_remaining se actualice y la hoja se mueva de pestaña
+      void refreshData(user);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudieron enviar las respuestas.');
     } finally {
@@ -418,7 +420,9 @@ export default function App() {
       return latestResponses;
     }, new Map<string, RespuestaEstudiante>());
 
-    const activeWorksheets = worksheets.filter((w) => w.status === 'published');
+    // Activas: publicadas Y con intentos restantes (null = ilimitado)
+    const activeWorksheets = worksheets.filter((w) => w.status === 'published' && (w.attemptsRemaining === null || w.attemptsRemaining === undefined || w.attemptsRemaining > 0));
+    // Calificadas: tiene al menos una respuesta enviada
     const gradedWorksheets = worksheets.filter((w) => responseByWorksheet.has(w.id));
 
     const activeResponse = responseByWorksheet.get(activeWorksheet.id);
@@ -496,7 +500,7 @@ export default function App() {
                     </button>
                   );
                 })}
-                {!activeWorksheets.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay evaluaciones activas en este momento.</p>}
+                {!activeWorksheets.length && <p className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">¡Todo listo! No tienes hojas de trabajo pendientes.</p>}
               </div>
             </aside>
             <section>

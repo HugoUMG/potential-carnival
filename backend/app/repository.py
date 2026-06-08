@@ -286,6 +286,24 @@ class WorksheetRepository:
             ).fetchone()
         return int(dict(row)["total"] if row else 0)
 
+    def count_attempts_per_worksheet(self, student_id: str, worksheet_ids: list[str]) -> dict[str, int]:
+        """Devuelve {worksheet_id: attempts_count} en una sola query para un estudiante."""
+        if not worksheet_ids:
+            return {}
+        placeholder = self._placeholder
+        w_placeholders = ", ".join([placeholder] * len(worksheet_ids))
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT worksheet_id, COUNT(*) AS cnt
+                FROM worksheet_responses
+                WHERE student_id = {placeholder} AND worksheet_id IN ({w_placeholders})
+                GROUP BY worksheet_id
+                """,
+                (student_id, *worksheet_ids),
+            ).fetchall()
+        return {dict(r)["worksheet_id"]: int(dict(r)["cnt"]) for r in rows}
+
     def get_responded_pairs(self, worksheet_ids: list[str], student_ids: list[str]) -> set[tuple[str, str]]:
         """Single query that returns all (worksheet_id, student_id) pairs that have at least one response.
         Replaces N×M individual count_student_attempts calls in classroom detail."""

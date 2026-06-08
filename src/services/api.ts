@@ -62,6 +62,8 @@ interface BackendWorksheet {
   archived: boolean;
   max_attempts?: number | null;
   theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
+  attempts_used?: number | null;
+  attempts_remaining?: number | null;
 }
 
 export interface RespuestaEstudiante {
@@ -221,6 +223,8 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     createdAt: worksheet.created_at,
     maxAttempts: worksheet.max_attempts ?? null,
     theme: worksheet.theme ?? null,
+    attemptsUsed: worksheet.attempts_used ?? null,
+    attemptsRemaining: worksheet.attempts_remaining ?? null,
     analytics: { completionRate: 0, averageScore: 0, attempts: 0, mostMissedQuestions: [] },
   };
 }
