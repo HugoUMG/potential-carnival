@@ -163,6 +163,40 @@ def _get_answer(body: str):
     return _get_scalar(body, "answer")
 
 
+def _get_statements(body: str) -> list[dict]:
+    """Parsea enunciados True/False desde dos formatos:
+    1. Lista: statements:\n  - Texto del enunciado. | true
+    2. Bloques: statement { text: "..." answer: true }
+    """
+    list_match = re.search(r"^\s*statements?\s*:\s*\n((?:[ \t]*-[ \t]*.+\n?)+)", body, re.MULTILINE)
+    if list_match:
+        statements = []
+        for line in list_match.group(1).splitlines():
+            line = line.strip()
+            if not line.startswith("-"):
+                continue
+            content = line[1:].strip()
+            if "|" in content:
+                parts = content.rsplit("|", 1)
+                text = _strip_quotes(parts[0].strip())
+                answer = parts[1].strip().lower() == "true"
+            else:
+                text = _strip_quotes(content)
+                answer = True
+            if text:
+                statements.append({"text": text, "answer": answer})
+        if statements:
+            return statements
+    # Fallback: bloques statement { text: "..." answer: true }
+    stmt_bodies = _find_all_keyword_blocks(body, "statement")
+    return [
+        {"text": t, "answer": (a or "").strip().lower() == "true"}
+        for sb in stmt_bodies
+        for t, a in [(_get_scalar(sb, "text"), _get_scalar(sb, "answer"))]
+        if t
+    ]
+
+
 def parse_activity(activity_type: str, body: str) -> ActivityData:
     common = {"id": str(uuid4()), "type": activity_type, "instructions": _get_scalar(body, "instructions")}
     if activity_type == "fillblank":
@@ -193,31 +227,13 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         ]
         return ActivityData(**common, pairs=pairs or None, options=_get_list(body, "options") or None)
     if activity_type == "listeningtruefalse":
-        stmt_bodies = _find_all_keyword_blocks(body, "statement")
-        statements = [
-            {"text": t, "answer": (a or "").strip().lower() == "true"}
-            for sb in stmt_bodies
-            for t, a in [(_get_scalar(sb, "text"), _get_scalar(sb, "answer"))]
-            if t
-        ]
+        statements = _get_statements(body)
         return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), statements=statements or None)
     if activity_type == "truefalse":
-        stmt_bodies = _find_all_keyword_blocks(body, "statement")
-        statements = [
-            {"text": t, "answer": (a or "").strip().lower() == "true"}
-            for sb in stmt_bodies
-            for t, a in [(_get_scalar(sb, "text"), _get_scalar(sb, "answer"))]
-            if t
-        ]
+        statements = _get_statements(body)
         return ActivityData(**common, statements=statements or None)
     if activity_type == "readingtruefalse":
-        stmt_bodies = _find_all_keyword_blocks(body, "statement")
-        statements = [
-            {"text": t, "answer": (a or "").strip().lower() == "true"}
-            for sb in stmt_bodies
-            for t, a in [(_get_scalar(sb, "text"), _get_scalar(sb, "answer"))]
-            if t
-        ]
+        statements = _get_statements(body)
         return ActivityData(**common, title=_get_scalar(body, "title"), content=_get_scalar(body, "content"), statements=statements or None)
     raise WorksheetScriptError(f"Tipo de actividad no compatible: {activity_type}")
 
