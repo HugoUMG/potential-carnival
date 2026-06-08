@@ -286,6 +286,26 @@ class WorksheetRepository:
             ).fetchone()
         return int(dict(row)["total"] if row else 0)
 
+    def get_responded_pairs(self, worksheet_ids: list[str], student_ids: list[str]) -> set[tuple[str, str]]:
+        """Single query that returns all (worksheet_id, student_id) pairs that have at least one response.
+        Replaces N×M individual count_student_attempts calls in classroom detail."""
+        if not worksheet_ids or not student_ids:
+            return set()
+        placeholder = self._placeholder
+        w_placeholders = ", ".join([placeholder] * len(worksheet_ids))
+        s_placeholders = ", ".join([placeholder] * len(student_ids))
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT DISTINCT worksheet_id, student_id
+                FROM worksheet_responses
+                WHERE worksheet_id IN ({w_placeholders})
+                  AND student_id IN ({s_placeholders})
+                """,
+                (*worksheet_ids, *student_ids),
+            ).fetchall()
+        return {(dict(row)["worksheet_id"], dict(row)["student_id"]) for row in rows}
+
     def get_response(self, response_id: str) -> WorksheetResponse | None:
         placeholder = self._placeholder
         with get_connection() as connection:

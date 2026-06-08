@@ -147,6 +147,14 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
+  const [refreshCooldowns, setRefreshCooldowns] = useState<Set<string>>(new Set());
+
+  function withCooldown(key: string, fn: () => void) {
+    if (refreshCooldowns.has(key)) return;
+    fn();
+    setRefreshCooldowns((prev) => new Set([...prev, key]));
+    setTimeout(() => setRefreshCooldowns((prev) => { const next = new Set(prev); next.delete(key); return next; }), 3000);
+  }
 
   const selectedActivity = useMemo(() => activeWorksheet.activities.find((activity) => activity.id === selectedActivityId), [activeWorksheet.activities, selectedActivityId]);
 
@@ -362,14 +370,20 @@ export default function App() {
   async function saveWorksheetClassroomAssignments() {
     if (!assignmentWorksheet) return;
     const selected = new Set(selectedAssignmentClassrooms);
-    await Promise.all(classrooms.map((classroom) => (
-      selected.has(classroom.id)
-        ? assignWorksheetToClassroom(classroom.id, assignmentWorksheet.id)
-        : unassignWorksheetFromClassroom(classroom.id, assignmentWorksheet.id)
-    )));
-    const updatedClassrooms = await listWorksheetClassrooms(assignmentWorksheet.id);
+    // Only call assign/unassign for classrooms whose state actually changed
+    const previouslyAssigned = new Set((worksheetClassrooms[assignmentWorksheet.id] ?? []).map((c) => c.id));
+    const toAssign = classrooms.filter((c) => selected.has(c.id) && !previouslyAssigned.has(c.id));
+    const toUnassign = classrooms.filter((c) => !selected.has(c.id) && previouslyAssigned.has(c.id));
+    await Promise.all([
+      ...toAssign.map((c) => assignWorksheetToClassroom(c.id, assignmentWorksheet.id)),
+      ...toUnassign.map((c) => unassignWorksheetFromClassroom(c.id, assignmentWorksheet.id)),
+    ]);
+    const updatedClassrooms = classrooms.filter((c) => selected.has(c.id));
     setWorksheetClassrooms((current) => ({ ...current, [assignmentWorksheet.id]: updatedClassrooms }));
-    if (activeClassroomId) await refreshClassroomDetail(activeClassroomId);
+    // Only refresh detail if active classroom was actually affected
+    if (activeClassroomId && (toAssign.some((c) => c.id === activeClassroomId) || toUnassign.some((c) => c.id === activeClassroomId))) {
+      await refreshClassroomDetail(activeClassroomId);
+    }
     setAssignmentWorksheet(null);
     setMessage('Asignaciones de aula actualizadas.');
   }
@@ -389,7 +403,7 @@ export default function App() {
         <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto flex max-w-7xl justify-between px-4 py-4"><div><h1 className="text-xl font-bold">Portal del estudiante</h1><p className="text-sm text-slate-500">Hola, {user.name} (@{user.username}).</p></div><button className="rounded-2xl border px-4 py-2" onClick={() => { logout(); setUser(null); }}>Cerrar sesión</button></div></nav>
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
           <aside className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between"><h2 className="font-bold">Evaluaciones</h2><button className="rounded-full p-2 text-slate-500 hover:bg-slate-100" type="button" title="Actualizar" onClick={() => refreshData(user)}><RefreshCw size={16} /></button></div>
+            <div className="flex items-center justify-between"><h2 className="font-bold">Evaluaciones</h2><button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('student-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('student-refresh')} onClick={() => withCooldown('student-refresh', () => refreshData(user))}><RefreshCw size={16} /></button></div>
             <div className="mt-4 grid gap-3">
               {worksheets.map((worksheet) => {
                 const response = responseByWorksheet.get(worksheet.id);
@@ -625,7 +639,7 @@ export default function App() {
         )}
         {adminMenu === 'revision' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3"><h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2><button className="rounded-full p-2 text-slate-500 hover:bg-slate-100" type="button" title="Actualizar" onClick={() => loadWorksheetResponses(activeWorksheet)}><RefreshCw size={16} /></button></div>
+            <div className="flex items-start justify-between gap-3"><h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2><button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('responses-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('responses-refresh')} onClick={() => withCooldown('responses-refresh', () => loadWorksheetResponses(activeWorksheet))}><RefreshCw size={16} /></button></div>
             <p className="text-sm text-slate-500">Nombre, fecha, puntuación, aciertos y pendientes permanecen guardados aunque la evaluación se deshabilite. Las respuestas incorrectas de fill in the blank se pueden corregir manualmente por errores de escritura.</p>
             <div className="mt-5 grid gap-4">
               {responses.map((response) => (

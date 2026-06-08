@@ -194,8 +194,11 @@ def get_classroom_detail(classroom_id: str, current_user: PublicUser = Depends(r
     students = repository.list_classroom_students(classroom_id)
     worksheets = repository.list_classroom_worksheets(classroom_id)
     statuses = {}
+    worksheet_ids = [w.id for w in worksheets]
+    student_ids = [s.id for s in students]
+    responded_pairs = repository.get_responded_pairs(worksheet_ids, student_ids)
     for student in students:
-        completed = sum(1 for worksheet in worksheets if repository.count_student_attempts(worksheet.id, student.id) > 0)
+        completed = sum(1 for w_id in worksheet_ids if (w_id, student.id) in responded_pairs)
         pending = max(len(worksheets) - completed, 0)
         statuses[student.id] = "Completado ✓" if pending == 0 else f"Pendiente {pending} de {len(worksheets)}"
     return ClassroomDetail(**classroom.model_dump(), students=students, worksheets=worksheets, student_statuses=statuses)
