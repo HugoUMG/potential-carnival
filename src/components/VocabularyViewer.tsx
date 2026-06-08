@@ -239,7 +239,7 @@ function parseCsv(csv: string): VocabularyItem[] {
     // Format A: block, english, spanish, type, v_past, v_participle, v_ing, v_3rd
     // Format B: english, spanish, type, v_past, v_participle, v_ing, v_3rd
     let english: string, spanish: string, type: string, v_past: string, v_participle: string, v_ing: string, v_3rd: string;
-    if (cols.length >= 8 && /^[a-z ]+$/i.test(cols[0]) && cols[1]) {
+    if (cols.length >= 8 && /^[a-z0-9 ]+$/i.test(cols[0]) && cols[1]) {
       // Assume format A with block column
       [, english, spanish, type, v_past = '', v_participle = '', v_ing = '', v_3rd = ''] = cols;
     } else {
