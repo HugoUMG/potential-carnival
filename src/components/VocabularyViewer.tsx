@@ -91,7 +91,7 @@ function WordCard({ item }: { item: VocabularyItem }) {
       </div>
 
       {verbForms && expanded && (
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-white/70 p-3 text-sm sm:grid-cols-5">
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-white/70 p-3 text-sm lg:grid-cols-3">
           {[
             { label: 'Base', value: item.english },
             { label: 'Simple Past', value: item.v_past },
