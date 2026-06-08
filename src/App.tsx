@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Archive, BookOpen, Check, LockKeyhole, RefreshCw, Send, Trash2, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
+import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { RichText } from './components/RichText';
 import { TeacherDashboard, type TeacherMenu } from './components/TeacherDashboard';
 import { sampleWorksheet } from './data/sampleWorksheet';
@@ -10,7 +11,10 @@ import {
   archiveWorksheet,
   assignStudentToClassroom,
   assignWorksheetToClassroom,
+  assignVocabularyToClassroom,
+  unassignVocabularyFromClassroom,
   changePassword,
+  createVocabularyList,
   createClassroom,
   createStudent,
   createTeacher,
@@ -18,16 +22,20 @@ import {
   deleteStudent,
   deleteTeacher,
   deleteWorksheet,
+  deleteVocabularyList,
   deleteResponse,
   getStudentsActivity,
   listClassrooms,
   listStudentClassrooms,
   listStudentResponses,
   listStudentSessions,
+  listStudentVocabulary,
   listStudents,
   listStudentWorksheets,
   listTeachers,
   listTeacherWorksheets,
+  listVocabularyClassrooms,
+  listVocabularyLists,
   listWorksheetClassrooms,
   listWorksheetResponses,
   login,
@@ -50,7 +58,7 @@ import {
   type UserSession,
   type UsuarioSesion,
 } from './services/api';
-import type { StudentAnswer, StudentAnswers, Worksheet, WorksheetActivity } from './types';
+import type { StudentAnswer, StudentAnswers, VocabularyList, Worksheet, WorksheetActivity } from './types';
 import './styles/app.css';
 
 
@@ -105,12 +113,15 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
   const [refreshCooldowns, setRefreshCooldowns] = useState<Set<string>>(new Set());
-  const [studentTab, setStudentTab] = useState<'activas' | 'calificadas' | 'perfil'>('activas');
+  const [studentTab, setStudentTab] = useState<'activas' | 'calificadas' | 'vocabulario' | 'perfil'>('activas');
   const [studentClassrooms, setStudentClassrooms] = useState<Classroom[]>([]);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [passwordMsg, setPasswordMsg] = useState('');
   const [studentsActivity, setStudentsActivity] = useState<StudentActivity[]>([]);
   const [sessionModal, setSessionModal] = useState<{ student: StudentActivity; sessions: UserSession[] } | null>(null);
+  const [vocabularyLists, setVocabularyLists] = useState<VocabularyList[]>([]);
+  const [vocabAssignedClassrooms, setVocabAssignedClassrooms] = useState<Record<string, string[]>>({});
+  const [studentVocabularyLists, setStudentVocabularyLists] = useState<VocabularyList[]>([]);
 
   function withCooldown(key: string, fn: () => void) {
     if (refreshCooldowns.has(key)) return;
@@ -153,7 +164,7 @@ export default function App() {
     if (!currentUser) return;
     try {
       if (currentUser.role !== 'student') {
-        const [teacherWorksheets, allStudents, allTeachers, teacherClassrooms, dashboardStats] = await Promise.all([listTeacherWorksheets(currentUser.role === 'admin' ? undefined : currentUser.id), listStudents(), currentUser.role === 'admin' ? listTeachers() : Promise.resolve([]), listClassrooms(), getTeacherDashboard()]);
+        const [teacherWorksheets, allStudents, allTeachers, teacherClassrooms, dashboardStats, vocabLists] = await Promise.all([listTeacherWorksheets(currentUser.role === 'admin' ? undefined : currentUser.id), listStudents(), currentUser.role === 'admin' ? listTeachers() : Promise.resolve([]), listClassrooms(), getTeacherDashboard(), listVocabularyLists()]);
         // Garantizar orden más reciente primero, independientemente del backend
         const sortedWorksheets = [...teacherWorksheets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setWorksheets(sortedWorksheets.length ? sortedWorksheets : [sampleWorksheet]);
@@ -161,8 +172,13 @@ export default function App() {
         setTeachers(allTeachers);
         setClassrooms(teacherClassrooms);
         setTeacherStats(dashboardStats);
-        const classroomAssignments = await Promise.all(sortedWorksheets.map(async (worksheet) => [worksheet.id, await listWorksheetClassrooms(worksheet.id)] as const));
+        setVocabularyLists(vocabLists);
+        const [classroomAssignments, vocabClassroomAssignments] = await Promise.all([
+          Promise.all(sortedWorksheets.map(async (worksheet) => [worksheet.id, await listWorksheetClassrooms(worksheet.id)] as const)),
+          Promise.all(vocabLists.map(async (vl) => [vl.id, await listVocabularyClassrooms(vl.id)] as const)),
+        ]);
         setWorksheetClassrooms(Object.fromEntries(classroomAssignments));
+        setVocabAssignedClassrooms(Object.fromEntries(vocabClassroomAssignments));
         if (!activeClassroomId && teacherClassrooms[0]) setActiveClassroomId(teacherClassrooms[0].id);
         if (sortedWorksheets[0]) {
           setActiveWorksheet(sortedWorksheets[0]);
@@ -171,10 +187,11 @@ export default function App() {
           setResponses(await listWorksheetResponses(sortedWorksheets[0].id));
         }
       } else {
-        const [availableWorksheets, studentResponses, myClassrooms] = await Promise.all([listStudentWorksheets(currentUser.id), listStudentResponses(currentUser.id), listStudentClassrooms(currentUser.id)]);
+        const [availableWorksheets, studentResponses, myClassrooms, myVocab] = await Promise.all([listStudentWorksheets(currentUser.id), listStudentResponses(currentUser.id), listStudentClassrooms(currentUser.id), listStudentVocabulary(currentUser.id)]);
         setWorksheets(availableWorksheets);
         setResponses(studentResponses);
         setStudentClassrooms(myClassrooms);
+        setStudentVocabularyLists(myVocab);
         if (availableWorksheets[0]) setActiveWorksheet(availableWorksheets[0]);
       }
     } catch (error) {
@@ -372,6 +389,22 @@ export default function App() {
     setMessage('Asignaciones de aula actualizadas.');
   }
 
+  async function handleVocabAssign(listId: string, classroomId: string) {
+    await assignVocabularyToClassroom(listId, classroomId);
+    setVocabAssignedClassrooms((prev) => ({ ...prev, [listId]: [...(prev[listId] ?? []), classroomId] }));
+  }
+
+  async function handleVocabUnassign(listId: string, classroomId: string) {
+    await unassignVocabularyFromClassroom(listId, classroomId);
+    setVocabAssignedClassrooms((prev) => ({ ...prev, [listId]: (prev[listId] ?? []).filter((id) => id !== classroomId) }));
+  }
+
+  async function handleVocabDelete(listId: string) {
+    await deleteVocabularyList(listId);
+    setVocabularyLists((prev) => prev.filter((vl) => vl.id !== listId));
+    setVocabAssignedClassrooms((prev) => { const next = { ...prev }; delete next[listId]; return next; });
+  }
+
   // ProtectedRoute en main.tsx garantiza que user no es null en estas rutas.
   // Este fallback solo se activa si App se renderiza fuera del contexto esperado.
   if (!user) return null;
@@ -415,13 +448,13 @@ export default function App() {
             <div className="flex items-center gap-2">
               {/* Tabs en navbar */}
               <div className="hidden sm:flex rounded-2xl border border-slate-200 bg-slate-50 p-1 gap-1">
-                {(['activas', 'calificadas', 'perfil'] as const).map((tab) => (
+                {(['activas', 'calificadas', 'vocabulario', 'perfil'] as const).map((tab) => (
                   <button
                     key={tab}
                     className={`rounded-xl px-4 py-1.5 text-sm font-semibold capitalize transition-colors ${studentTab === tab ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
                     onClick={() => setStudentTab(tab)}
                   >
-                    {tab === 'activas' ? 'Activas' : tab === 'calificadas' ? 'Calificadas' : 'Mi Perfil'}
+                    {tab === 'activas' ? 'Activas' : tab === 'calificadas' ? 'Calificadas' : tab === 'vocabulario' ? 'Vocabulario' : 'Mi Perfil'}
                   </button>
                 ))}
               </div>
@@ -430,13 +463,13 @@ export default function App() {
           </div>
           {/* Tabs móvil */}
           <div className="flex sm:hidden border-t border-slate-100">
-            {(['activas', 'calificadas', 'perfil'] as const).map((tab) => (
+            {(['activas', 'calificadas', 'vocabulario', 'perfil'] as const).map((tab) => (
               <button
                 key={tab}
-                className={`flex-1 py-2 text-sm font-semibold capitalize transition-colors ${studentTab === tab ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-500'}`}
+                className={`flex-1 py-2 text-sm font-semibold transition-colors ${studentTab === tab ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-500'}`}
                 onClick={() => setStudentTab(tab)}
               >
-                {tab === 'activas' ? 'Activas' : tab === 'calificadas' ? 'Calificadas' : 'Mi Perfil'}
+                {tab === 'activas' ? 'Activas' : tab === 'calificadas' ? 'Calif.' : tab === 'vocabulario' ? 'Vocab.' : 'Perfil'}
               </button>
             ))}
           </div>
@@ -529,6 +562,13 @@ export default function App() {
                 );
               })()}
             </section>
+          </div>
+        )}
+
+        {/* ── PESTAÑA VOCABULARIO ── */}
+        {studentTab === 'vocabulario' && (
+          <div className="mx-auto max-w-7xl px-4 py-8">
+            <VocabularyViewer lists={studentVocabularyLists} />
           </div>
         )}
 
@@ -872,6 +912,24 @@ export default function App() {
                 </tbody>
               </table>
             </div>
+          </section>
+        )}
+        {adminMenu === 'vocabulario' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <VocabularyManager
+              lists={vocabularyLists}
+              classrooms={classrooms}
+              onCreate={async (title, description, items) => {
+                if (!user) return;
+                const created = await createVocabularyList(title, description, user.id, items);
+                setVocabularyLists((prev) => [created, ...prev]);
+                setVocabAssignedClassrooms((prev) => ({ ...prev, [created.id]: [] }));
+              }}
+              onDeleted={handleVocabDelete}
+              onAssign={handleVocabAssign}
+              onUnassign={handleVocabUnassign}
+              assignedClassrooms={vocabAssignedClassrooms}
+            />
           </section>
         )}
         {adminMenu === 'revision' && (

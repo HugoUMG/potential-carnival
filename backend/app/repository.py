@@ -722,4 +722,110 @@ class WorksheetRepository:
         return result
 
 
+    # ── Vocabulario ──────────────────────────────────────────────────────────────
+
+    def create_vocabulary_list(self, payload) -> "VocabularyList":
+        from .models import VocabularyList
+        list_id = str(uuid4())
+        placeholder = self._placeholder
+        items_data = [item.model_dump() for item in payload.items]
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO vocabulary_lists (id, title, description, created_by, items) VALUES ({self._placeholders(5)})",
+                (list_id, payload.title, payload.description, payload.created_by, self._json_param(items_data)),
+            )
+            row = connection.execute(
+                f"SELECT * FROM vocabulary_lists WHERE id = {placeholder}", (list_id,)
+            ).fetchone()
+        return self._vocab_from_row(row)
+
+    def list_vocabulary_lists(self, created_by: str | None = None) -> "list[VocabularyList]":
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            if created_by:
+                rows = connection.execute(
+                    f"SELECT * FROM vocabulary_lists WHERE created_by = {placeholder} ORDER BY created_at DESC",
+                    (created_by,),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM vocabulary_lists ORDER BY created_at DESC"
+                ).fetchall()
+        return [self._vocab_from_row(r) for r in rows]
+
+    def get_vocabulary_list(self, list_id: str) -> "VocabularyList | None":
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT * FROM vocabulary_lists WHERE id = {placeholder}", (list_id,)
+            ).fetchone()
+        return self._vocab_from_row(row) if row else None
+
+    def delete_vocabulary_list(self, list_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(
+                f"DELETE FROM vocabulary_lists WHERE id = {placeholder}", (list_id,)
+            )
+            return bool(cursor.rowcount)
+
+    def assign_vocabulary_to_classroom(self, list_id: str, classroom_id: str) -> None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            try:
+                connection.execute(
+                    f"INSERT INTO vocabulary_assignments (list_id, classroom_id) VALUES ({placeholder}, {placeholder})",
+                    (list_id, classroom_id),
+                )
+            except Exception:
+                pass  # already assigned
+
+    def unassign_vocabulary_from_classroom(self, list_id: str, classroom_id: str) -> None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"DELETE FROM vocabulary_assignments WHERE list_id = {placeholder} AND classroom_id = {placeholder}",
+                (list_id, classroom_id),
+            )
+
+    def list_vocabulary_classrooms(self, list_id: str) -> list[str]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT classroom_id FROM vocabulary_assignments WHERE list_id = {placeholder}",
+                (list_id,),
+            ).fetchall()
+        return [dict(r)["classroom_id"] for r in rows]
+
+    def list_student_vocabulary(self, student_id: str) -> "list[VocabularyList]":
+        """Vocabulary lists assigned to classrooms the student belongs to."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT DISTINCT vl.* FROM vocabulary_lists vl
+                JOIN vocabulary_assignments va ON va.list_id = vl.id
+                JOIN classroom_students cs ON cs.classroom_id = va.classroom_id
+                WHERE cs.student_id = {placeholder}
+                ORDER BY vl.created_at DESC
+                """,
+                (student_id,),
+            ).fetchall()
+        return [self._vocab_from_row(r) for r in rows]
+
+    def _vocab_from_row(self, row: object) -> "VocabularyList":
+        from .models import VocabularyItem, VocabularyList
+        data = dict(row)
+        items_raw = _decode_json(data.get("items"), []) or []
+        items = [VocabularyItem(**item) for item in items_raw]
+        return VocabularyList(
+            id=data["id"],
+            title=data["title"],
+            description=data.get("description") or "",
+            created_by=data["created_by"],
+            created_at=_parse_datetime(data["created_at"]),
+            items=items,
+        )
+
+
 repository = WorksheetRepository()

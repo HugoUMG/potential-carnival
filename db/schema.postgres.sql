@@ -87,3 +87,26 @@ CREATE INDEX IF NOT EXISTS idx_classroom_worksheets_worksheet_id ON classroom_wo
 CREATE UNIQUE INDEX IF NOT EXISTS idx_responses_unique_attempt
 ON worksheet_responses (worksheet_id, student_id)
 WHERE student_id IS NOT NULL;
+
+-- Vocabulario
+CREATE TABLE IF NOT EXISTS vocabulary_lists (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  items JSONB NOT NULL DEFAULT '[]'::jsonb,
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS vocabulary_assignments (
+  list_id TEXT NOT NULL,
+  classroom_id TEXT NOT NULL,
+  assigned_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (list_id, classroom_id),
+  FOREIGN KEY (list_id) REFERENCES vocabulary_lists(id) ON DELETE CASCADE,
+  FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_vocabulary_lists_created_by ON vocabulary_lists(created_by);
+CREATE INDEX IF NOT EXISTS idx_vocabulary_assignments_classroom_id ON vocabulary_assignments(classroom_id);

@@ -1,4 +1,4 @@
-import type { ActivityBlock, ActivityType, StudentAnswers, Worksheet, WorksheetActivity } from '../types';
+import type { ActivityBlock, ActivityType, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const AUTH_STORAGE_KEY = 'worksheet_auth_session';
@@ -372,4 +372,34 @@ export async function getStudentsActivity(): Promise<StudentActivity[]> {
 
 export async function listStudentSessions(studentId: string): Promise<UserSession[]> {
   return request<UserSession[]>(`/students/${studentId}/sessions`);
+}
+
+// ── Vocabulario ───────────────────────────────────────────────────────────────
+
+export async function createVocabularyList(title: string, description: string, createdBy: string, items: VocabularyItem[]): Promise<VocabularyList> {
+  return request<VocabularyList>('/vocabulary', { method: 'POST', body: JSON.stringify({ title, description, created_by: createdBy, items }) });
+}
+
+export async function listVocabularyLists(): Promise<VocabularyList[]> {
+  return request<VocabularyList[]>('/vocabulary');
+}
+
+export async function deleteVocabularyList(listId: string): Promise<void> {
+  await request<void>(`/vocabulary/${listId}`, { method: 'DELETE' });
+}
+
+export async function assignVocabularyToClassroom(listId: string, classroomId: string): Promise<void> {
+  await request<void>(`/vocabulary/${listId}/assign`, { method: 'POST', body: JSON.stringify({ classroom_id: classroomId }) });
+}
+
+export async function unassignVocabularyFromClassroom(listId: string, classroomId: string): Promise<void> {
+  await request<void>(`/vocabulary/${listId}/assign/${classroomId}`, { method: 'DELETE' });
+}
+
+export async function listVocabularyClassrooms(listId: string): Promise<string[]> {
+  return request<string[]>(`/vocabulary/${listId}/classrooms`);
+}
+
+export async function listStudentVocabulary(studentId: string): Promise<VocabularyList[]> {
+  return request<VocabularyList[]>(`/students/${studentId}/vocabulary`);
 }

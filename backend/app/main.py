@@ -29,6 +29,9 @@ from .models import (
     UserRole,
     UserSession,
     UserUpdate,
+    VocabularyAssignment,
+    VocabularyList,
+    VocabularyListCreate,
     Worksheet,
     WorksheetCreate,
     WorksheetJson,
@@ -493,6 +496,61 @@ def review_response(response_id: str, payload: AnswerReview, current_user: Publi
         raise HTTPException(status_code=404, detail="Actividad no encontrada en la respuesta")
     response.correct_count, response.pending_count, response.score = _score_details(response.details)
     return repository.update_response_review(response)
+
+# ── Vocabulario ──────────────────────────────────────────────────────────────
+
+@app.post("/vocabulary", response_model=VocabularyList)
+def create_vocabulary_list(payload: VocabularyListCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> VocabularyList:
+    payload.created_by = current_user.id
+    return repository.create_vocabulary_list(payload)
+
+
+@app.get("/vocabulary", response_model=list[VocabularyList])
+def list_vocabulary_lists(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[VocabularyList]:
+    created_by = None if current_user.role == UserRole.admin else current_user.id
+    return repository.list_vocabulary_lists(created_by=created_by)
+
+
+@app.get("/vocabulary/{list_id}", response_model=VocabularyList)
+def get_vocabulary_list(list_id: str, _: PublicUser = Depends(get_current_user)) -> VocabularyList:
+    vocab = repository.get_vocabulary_list(list_id)
+    if not vocab:
+        raise HTTPException(status_code=404, detail="Lista de vocabulario no encontrada")
+    return vocab
+
+
+@app.delete("/vocabulary/{list_id}", status_code=204)
+def delete_vocabulary_list(list_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    vocab = repository.get_vocabulary_list(list_id)
+    if not vocab:
+        raise HTTPException(status_code=404, detail="Lista de vocabulario no encontrada")
+    if current_user.role == UserRole.teacher and vocab.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes eliminar esta lista")
+    repository.delete_vocabulary_list(list_id)
+
+
+@app.post("/vocabulary/{list_id}/assign", status_code=204)
+def assign_vocabulary_to_classroom(list_id: str, payload: VocabularyAssignment, _: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    if not repository.get_vocabulary_list(list_id):
+        raise HTTPException(status_code=404, detail="Lista de vocabulario no encontrada")
+    repository.assign_vocabulary_to_classroom(list_id, payload.classroom_id)
+
+
+@app.delete("/vocabulary/{list_id}/assign/{classroom_id}", status_code=204)
+def unassign_vocabulary_from_classroom(list_id: str, classroom_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    repository.unassign_vocabulary_from_classroom(list_id, classroom_id)
+
+
+@app.get("/vocabulary/{list_id}/classrooms", response_model=list[str])
+def list_vocabulary_classrooms(list_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> list[str]:
+    return repository.list_vocabulary_classrooms(list_id)
+
+
+@app.get("/students/{student_id}/vocabulary", response_model=list[VocabularyList])
+def list_student_vocabulary(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[VocabularyList]:
+    require_student_owner_or_staff(student_id, current_user)
+    return repository.list_student_vocabulary(student_id)
+
 
 def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list[AnswerDetail]:
     details: list[AnswerDetail] = []
