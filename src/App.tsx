@@ -9,6 +9,7 @@ import {
   archiveWorksheet,
   assignStudentToClassroom,
   assignWorksheetToClassroom,
+  changePassword,
   createClassroom,
   createStudent,
   createTeacher,
@@ -18,6 +19,7 @@ import {
   deleteWorksheet,
   deleteResponse,
   listClassrooms,
+  listStudentClassrooms,
   listStudentResponses,
   listStudents,
   listStudentWorksheets,
@@ -148,6 +150,10 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
   const [refreshCooldowns, setRefreshCooldowns] = useState<Set<string>>(new Set());
+  const [studentTab, setStudentTab] = useState<'activas' | 'calificadas' | 'perfil'>('activas');
+  const [studentClassrooms, setStudentClassrooms] = useState<Classroom[]>([]);
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
+  const [passwordMsg, setPasswordMsg] = useState('');
 
   function withCooldown(key: string, fn: () => void) {
     if (refreshCooldowns.has(key)) return;
@@ -190,9 +196,10 @@ export default function App() {
           setResponses(await listWorksheetResponses(teacherWorksheets[0].id));
         }
       } else {
-        const [availableWorksheets, studentResponses] = await Promise.all([listStudentWorksheets(currentUser.id), listStudentResponses(currentUser.id)]);
+        const [availableWorksheets, studentResponses, myClassrooms] = await Promise.all([listStudentWorksheets(currentUser.id), listStudentResponses(currentUser.id), listStudentClassrooms(currentUser.id)]);
         setWorksheets(availableWorksheets);
         setResponses(studentResponses);
+        setStudentClassrooms(myClassrooms);
         if (availableWorksheets[0]) setActiveWorksheet(availableWorksheets[0]);
       }
     } catch (error) {
@@ -395,42 +402,218 @@ export default function App() {
       if (!latestResponses.has(response.worksheet_id)) latestResponses.set(response.worksheet_id, response);
       return latestResponses;
     }, new Map<string, RespuestaEstudiante>());
+
+    const activeWorksheets = worksheets.filter((w) => w.status === 'published');
+    const gradedWorksheets = worksheets.filter((w) => responseByWorksheet.has(w.id));
+
     const activeResponse = responseByWorksheet.get(activeWorksheet.id);
     const isActiveWorksheetPublished = activeWorksheet.status === 'published';
 
+    async function handleChangePassword() {
+      if (!user) return;
+      if (passwordForm.next !== passwordForm.confirm) { setPasswordMsg('Las contraseñas nuevas no coinciden.'); return; }
+      if (!passwordForm.next) { setPasswordMsg('La nueva contraseña no puede estar vacía.'); return; }
+      try {
+        await changePassword(user.id, passwordForm.next, passwordForm.current || undefined);
+        setPasswordMsg('Contraseña actualizada correctamente.');
+        setPasswordForm({ current: '', next: '', confirm: '' });
+      } catch (err) {
+        setPasswordMsg(err instanceof Error ? err.message : 'Error al cambiar contraseña.');
+      }
+    }
+
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto flex max-w-7xl justify-between px-4 py-4"><div><h1 className="text-xl font-bold">Portal del estudiante</h1><p className="text-sm text-slate-500">Hola, {user.name} (@{user.username}).</p></div><button className="rounded-2xl border px-4 py-2" onClick={() => { logout(); setUser(null); }}>Cerrar sesión</button></div></nav>
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
-          <aside className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between"><h2 className="font-bold">Evaluaciones</h2><button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('student-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('student-refresh')} onClick={() => withCooldown('student-refresh', () => refreshData(user))}><RefreshCw size={16} /></button></div>
-            <div className="mt-4 grid gap-3">
-              {worksheets.map((worksheet) => {
-                const response = responseByWorksheet.get(worksheet.id);
-                return <button key={worksheet.id} className={`rounded-2xl border p-4 text-left ${activeWorksheet.id === worksheet.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100'}`} onClick={() => setActiveWorksheet(worksheet)}><BookOpen className="mb-2 text-blue-600" size={20} /><strong>{worksheet.title}</strong><p className="text-sm text-slate-500">{worksheet.description}</p><p className="mt-2 text-xs font-semibold">{response ? `Nota: ${response.score ?? 'pendiente'} · Aciertos: ${response.correct_count}` : 'Sin responder'}</p>{response && <ResponseDetails response={response} />}</button>;
-              })}
-              {!worksheets.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Todavía no hay evaluaciones habilitadas o respondidas.</p>}
+        {/* Navbar */}
+        <nav className="border-b border-slate-200 bg-white/85">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
+            <div>
+              <h1 className="text-xl font-bold">Portal del estudiante</h1>
+              <p className="text-sm text-slate-500">Hola, {user.name} (@{user.username})</p>
             </div>
-          </aside>
-          <section>
-            {worksheets.length > 0 && isActiveWorksheetPublished && <WorksheetRenderer worksheet={activeWorksheet} answers={answers} onAnswerChange={updateAnswer} />}
-            {worksheets.length > 0 && !isActiveWorksheetPublished && (
-              <div className="mx-auto max-w-4xl rounded-3xl border border-red-200 bg-red-50 p-6 text-red-700 shadow-sm">
-                <h2 className="text-xl font-extrabold">Esta hoja de trabajo fue deshabilitada por tu profesor.</h2>
-                <p className="mt-2 text-sm font-semibold">Ya no puedes ver ni volver a responder esta hoja, pero tus respuestas guardadas permanecen disponibles.</p>
-                {activeResponse && (
-                  <div className="mt-5 rounded-2xl bg-white/80 p-4 text-slate-700">
-                    <p className="text-sm font-bold text-slate-900">Último intento enviado: {new Date(activeResponse.submitted_at).toLocaleString()}</p>
-                    <p className="mt-1 text-sm font-semibold">Nota: {activeResponse.score ?? 'pendiente'} · Aciertos: {activeResponse.correct_count}</p>
-                    <ResponseDetails response={activeResponse} />
-                  </div>
-                )}
+            <div className="flex items-center gap-2">
+              {/* Tabs en navbar */}
+              <div className="hidden sm:flex rounded-2xl border border-slate-200 bg-slate-50 p-1 gap-1">
+                {(['activas', 'calificadas', 'perfil'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    className={`rounded-xl px-4 py-1.5 text-sm font-semibold capitalize transition-colors ${studentTab === tab ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+                    onClick={() => setStudentTab(tab)}
+                  >
+                    {tab === 'activas' ? 'Activas' : tab === 'calificadas' ? 'Calificadas' : 'Mi Perfil'}
+                  </button>
+                ))}
               </div>
-            )}
-            {message && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">{message}</p>}
-            {worksheets.length > 0 && isActiveWorksheetPublished && <div className="mx-auto mt-6 flex max-w-4xl justify-end"><button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white disabled:opacity-60" disabled={isSubmitting} onClick={sendAnswers}><Send className="mr-2 inline" size={18} /> {isSubmitting ? 'Enviando...' : 'Enviar respuestas'}</button></div>}
-          </section>
-        </div>
+              <button className="rounded-2xl border px-4 py-2 text-sm" onClick={() => { logout(); setUser(null); }}>Cerrar sesión</button>
+            </div>
+          </div>
+          {/* Tabs móvil */}
+          <div className="flex sm:hidden border-t border-slate-100">
+            {(['activas', 'calificadas', 'perfil'] as const).map((tab) => (
+              <button
+                key={tab}
+                className={`flex-1 py-2 text-sm font-semibold capitalize transition-colors ${studentTab === tab ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-500'}`}
+                onClick={() => setStudentTab(tab)}
+              >
+                {tab === 'activas' ? 'Activas' : tab === 'calificadas' ? 'Calificadas' : 'Mi Perfil'}
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {/* ── PESTAÑA ACTIVAS ── */}
+        {studentTab === 'activas' && (
+          <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
+            <aside className="rounded-3xl bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold">Evaluaciones activas</h2>
+                <button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('student-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('student-refresh')} onClick={() => withCooldown('student-refresh', () => refreshData(user))}><RefreshCw size={16} /></button>
+              </div>
+              <div className="mt-4 grid gap-3">
+                {activeWorksheets.map((worksheet) => {
+                  const response = responseByWorksheet.get(worksheet.id);
+                  return (
+                    <button key={worksheet.id} className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet.id === worksheet.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => setActiveWorksheet(worksheet)}>
+                      <BookOpen className="mb-2 text-blue-600" size={20} />
+                      <strong className="block">{worksheet.title}</strong>
+                      <p className="text-sm text-slate-500">{worksheet.description}</p>
+                      <p className="mt-2 text-xs font-semibold">{response ? `Nota: ${response.score ?? 'pendiente'} · Aciertos: ${response.correct_count}` : 'Sin responder'}</p>
+                    </button>
+                  );
+                })}
+                {!activeWorksheets.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay evaluaciones activas en este momento.</p>}
+              </div>
+            </aside>
+            <section>
+              {activeWorksheets.length > 0 && isActiveWorksheetPublished && <WorksheetRenderer worksheet={activeWorksheet} answers={answers} onAnswerChange={updateAnswer} />}
+              {activeWorksheets.length > 0 && !isActiveWorksheetPublished && (
+                <div className="mx-auto max-w-4xl rounded-3xl border border-amber-200 bg-amber-50 p-6 text-amber-800 shadow-sm">
+                  <h2 className="text-xl font-extrabold">Selecciona una evaluación activa de la lista.</h2>
+                </div>
+              )}
+              {message && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">{message}</p>}
+              {activeWorksheets.length > 0 && isActiveWorksheetPublished && (
+                <div className="mx-auto mt-6 flex max-w-4xl justify-end">
+                  <button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white disabled:opacity-60" disabled={isSubmitting} onClick={sendAnswers}>
+                    <Send className="mr-2 inline" size={18} /> {isSubmitting ? 'Enviando...' : 'Enviar respuestas'}
+                  </button>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* ── PESTAÑA CALIFICADAS ── */}
+        {studentTab === 'calificadas' && (
+          <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
+            <aside className="rounded-3xl bg-white p-5 shadow-sm">
+              <h2 className="font-bold">Evaluaciones calificadas</h2>
+              <div className="mt-4 grid gap-3">
+                {gradedWorksheets.map((worksheet) => {
+                  const response = responseByWorksheet.get(worksheet.id)!;
+                  return (
+                    <button key={worksheet.id} className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet.id === worksheet.id ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => setActiveWorksheet(worksheet)}>
+                      <Check className="mb-2 text-emerald-600" size={20} />
+                      <strong className="block">{worksheet.title}</strong>
+                      <p className="mt-1 text-xs font-semibold text-slate-600">Nota: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>
+                      <p className="text-xs text-slate-400">{new Date(response.submitted_at).toLocaleDateString()}</p>
+                    </button>
+                  );
+                })}
+                {!gradedWorksheets.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Aún no has entregado ninguna evaluación.</p>}
+              </div>
+            </aside>
+            <section className="rounded-3xl bg-white p-6 shadow-sm">
+              {(() => {
+                const resp = responseByWorksheet.get(activeWorksheet.id);
+                if (!resp) return <p className="text-sm text-slate-500">Selecciona una evaluación para ver tu resultado.</p>;
+                return (
+                  <>
+                    <h2 className="text-xl font-bold">{activeWorksheet.title}</h2>
+                    <p className="mt-1 text-sm text-slate-500">Entregado: {new Date(resp.submitted_at).toLocaleString()}</p>
+                    <div className="mt-3 flex gap-4 text-sm font-semibold">
+                      <span className="rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700">Aciertos: {resp.correct_count}</span>
+                      <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">Pendientes: {resp.pending_count}</span>
+                      {resp.score !== null && <span className="rounded-xl bg-blue-50 px-3 py-1 text-blue-700">Nota: {resp.score}</span>}
+                    </div>
+                    <div className="mt-5">
+                      {activeWorksheet.status !== 'published' && (
+                        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 font-semibold">
+                          Esta hoja fue deshabilitada por tu profesor — ya no puedes volver a responderla.
+                        </div>
+                      )}
+                      <ResponseDetails response={resp} />
+                    </div>
+                  </>
+                );
+              })()}
+            </section>
+          </div>
+        )}
+
+        {/* ── PESTAÑA MI PERFIL ── */}
+        {studentTab === 'perfil' && (
+          <div className="mx-auto max-w-3xl px-4 py-8 grid gap-6">
+            {/* Info personal */}
+            <section className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold">Mi información</h2>
+              <div className="mt-4 grid gap-2 text-sm">
+                <div className="flex gap-3"><span className="w-28 font-semibold text-slate-500">Nombre</span><span>{user.name}</span></div>
+                <div className="flex gap-3"><span className="w-28 font-semibold text-slate-500">Usuario</span><span>@{user.username}</span></div>
+                {user.email && <div className="flex gap-3"><span className="w-28 font-semibold text-slate-500">Email</span><span>{user.email}</span></div>}
+              </div>
+            </section>
+
+            {/* Aulas */}
+            <section className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold">Mis aulas</h2>
+              {studentClassrooms.length > 0
+                ? <ul className="mt-3 grid gap-2">{studentClassrooms.map((c) => <li key={c.id} className="rounded-2xl border border-slate-100 px-4 py-3 text-sm font-semibold">{c.name}</li>)}</ul>
+                : <p className="mt-3 text-sm text-slate-500">No estás asignado a ningún aula todavía.</p>}
+            </section>
+
+            {/* Historial */}
+            <section className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold">Historial de evaluaciones</h2>
+              {responses.length > 0
+                ? (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b text-left text-slate-500"><th className="pb-2 pr-4 font-semibold">Evaluación</th><th className="pb-2 pr-4 font-semibold">Fecha</th><th className="pb-2 pr-4 font-semibold">Nota</th><th className="pb-2 font-semibold">Aciertos</th></tr></thead>
+                      <tbody>
+                        {responses.map((resp) => {
+                          const ws = worksheets.find((w) => w.id === resp.worksheet_id);
+                          return (
+                            <tr key={resp.id} className="border-b last:border-0">
+                              <td className="py-2 pr-4 font-semibold">{ws?.title ?? resp.worksheet_id}</td>
+                              <td className="py-2 pr-4 text-slate-500">{new Date(resp.submitted_at).toLocaleDateString()}</td>
+                              <td className="py-2 pr-4">{resp.score ?? <span className="text-amber-600 font-semibold">Pendiente</span>}</td>
+                              <td className="py-2 text-emerald-700 font-semibold">{resp.correct_count}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+                : <p className="mt-3 text-sm text-slate-500">Aún no has entregado ninguna evaluación.</p>}
+            </section>
+
+            {/* Cambiar contraseña */}
+            <section className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-bold">Cambiar contraseña</h2>
+              <div className="mt-4 grid gap-3 max-w-sm">
+                <input className="rounded-2xl border p-3 text-sm" type="password" placeholder="Contraseña actual" value={passwordForm.current} onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))} />
+                <input className="rounded-2xl border p-3 text-sm" type="password" placeholder="Nueva contraseña" value={passwordForm.next} onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))} />
+                <input className="rounded-2xl border p-3 text-sm" type="password" placeholder="Confirmar nueva contraseña" value={passwordForm.confirm} onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))} />
+                {passwordMsg && <p className={`rounded-2xl p-3 text-sm font-semibold ${passwordMsg.includes('correctamente') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{passwordMsg}</p>}
+                <button className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700" onClick={handleChangePassword}>
+                  <LockKeyhole className="mr-2 inline" size={16} /> Actualizar contraseña
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </main>
     );
   }
