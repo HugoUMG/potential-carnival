@@ -808,7 +808,7 @@ export default function App() {
                                 <button className="rounded-xl border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50" onClick={() => removeGroup(group.id)}>Eliminar</button>
                               </div>
                               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                                <div>
+                                <div className="min-w-0">
                                   <p className="text-xs font-semibold uppercase text-slate-500">Integrantes</p>
                                   <div className="mt-1 grid gap-1">
                                     {groupStudents.map((s) => (
@@ -820,14 +820,14 @@ export default function App() {
                                     {!groupStudents.length && <p className="text-xs text-slate-400">Sin integrantes.</p>}
                                   </div>
                                   <div className="mt-2 flex gap-2">
-                                    <select className="flex-1 rounded-xl border bg-white p-2 text-sm" value={groupStudentSel[group.id] ?? ''} onChange={(e) => setGroupStudentSel((p) => ({ ...p, [group.id]: e.target.value }))}>
+                                    <select className="min-w-0 flex-1 rounded-xl border bg-white p-2 text-sm" value={groupStudentSel[group.id] ?? ''} onChange={(e) => setGroupStudentSel((p) => ({ ...p, [group.id]: e.target.value }))}>
                                       <option value="">Agregar estudiante...</option>
                                       {availableStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     </select>
-                                    <button className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => addStudentToGroupFn(group.id, groupStudentSel[group.id] ?? '')}>+</button>
+                                    <button className="shrink-0 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => addStudentToGroupFn(group.id, groupStudentSel[group.id] ?? '')}>+</button>
                                   </div>
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                   <p className="text-xs font-semibold uppercase text-slate-500">Hojas asignadas</p>
                                   <div className="mt-1 grid gap-1">
                                     {groupWorksheetIds.map((wid) => {
@@ -842,11 +842,11 @@ export default function App() {
                                     {!groupWorksheetIds.length && <p className="text-xs text-slate-400">Sin hojas asignadas.</p>}
                                   </div>
                                   <div className="mt-2 flex gap-2">
-                                    <select className="flex-1 rounded-xl border bg-white p-2 text-sm" value={groupWorksheetSel[group.id] ?? ''} onChange={(e) => setGroupWorksheetSel((p) => ({ ...p, [group.id]: e.target.value }))}>
+                                    <select className="min-w-0 flex-1 rounded-xl border bg-white p-2 text-sm" value={groupWorksheetSel[group.id] ?? ''} onChange={(e) => setGroupWorksheetSel((p) => ({ ...p, [group.id]: e.target.value }))}>
                                       <option value="">Asignar hoja...</option>
                                       {availableWorksheets.map((w) => <option key={w.id} value={w.id}>{w.title}</option>)}
                                     </select>
-                                    <button className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => assignWorksheetToGroupFn(group.id, groupWorksheetSel[group.id] ?? '')}>+</button>
+                                    <button className="shrink-0 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => assignWorksheetToGroupFn(group.id, groupWorksheetSel[group.id] ?? '')}>+</button>
                                   </div>
                                 </div>
                               </div>
