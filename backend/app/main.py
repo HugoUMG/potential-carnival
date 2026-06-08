@@ -339,6 +339,12 @@ def list_student_responses(student_id: str, current_user: PublicUser = Depends(g
     return repository.list_responses(student_id=student_id, include_archived=False)
 
 
+@app.get("/students/{student_id}/classrooms", response_model=list[Classroom])
+def list_student_classrooms(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[Classroom]:
+    require_student_owner_or_staff(student_id, current_user)
+    return repository.list_student_classrooms(student_id)
+
+
 @app.get("/worksheets/{worksheet_id}", response_model=Worksheet)
 def get_worksheet(worksheet_id: str, current_user: PublicUser = Depends(get_current_user)) -> Worksheet:
     worksheet = repository.get_worksheet(worksheet_id)

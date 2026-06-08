@@ -485,6 +485,21 @@ class WorksheetRepository:
             ).fetchall()
         return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"])) for r in rows]
 
+    def list_student_classrooms(self, student_id: str):
+        from .models import Classroom
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT classrooms.* FROM classrooms
+                JOIN classroom_students ON classroom_students.classroom_id = classrooms.id
+                WHERE classroom_students.student_id = {placeholder}
+                ORDER BY classrooms.name
+                """,
+                (student_id,),
+            ).fetchall()
+        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"])) for r in rows]
+
     def list_student_assigned_worksheets(self, student_id: str) -> list[Worksheet]:
         placeholder = self._placeholder
         with get_connection() as connection:

@@ -268,6 +268,17 @@ export async function listStudentResponses(studentId: string): Promise<Respuesta
   return request<RespuestaEstudiante[]>(`/students/${studentId}/responses`);
 }
 
+export async function listStudentClassrooms(studentId: string): Promise<Classroom[]> {
+  return request<Classroom[]>(`/students/${studentId}/classrooms`);
+}
+
+export async function changePassword(userId: string, newPassword: string, currentPassword?: string): Promise<void> {
+  await request<void>(`/users/${userId}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ new_password: newPassword, ...(currentPassword ? { current_password: currentPassword } : {}) }),
+  });
+}
+
 export async function listWorksheetResponses(worksheetId: string): Promise<RespuestaEstudiante[]> {
   return request<RespuestaEstudiante[]>(`/worksheets/${worksheetId}/responses`);
 }
