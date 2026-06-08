@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from .database import get_connection, get_database_backend
-from .models import PublicUser, StudentActivity, StudentCreate, TeacherCreate, UserRole, UserSession, Worksheet, WorksheetResponse
+from .models import PublicUser, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, UserRole, UserSession, Worksheet, WorksheetResponse
 from .security import hash_password, needs_password_rehash, verify_password
 
 
@@ -721,6 +721,86 @@ class WorksheetRepository:
             )
         return result
 
+
+    # ── Lectores ─────────────────────────────────────────────────────────────────
+
+    def create_reader(self, payload: ReaderCreate) -> PublicUser:
+        self._ensure_username_available(payload.username)
+        reader_id = str(uuid4())
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO users (id, name, username, password_hash, role) VALUES ({self._placeholders(4)}, 'reader')",
+                (reader_id, payload.name, payload.username, hash_password(payload.password)),
+            )
+            row = connection.execute(
+                f"SELECT id, name, email, username, role FROM users WHERE id = {placeholder}",
+                (reader_id,),
+            ).fetchone()
+        return self._user_from_row(row)
+
+    def list_readers(self) -> list[PublicUser]:
+        with get_connection() as connection:
+            rows = connection.execute(
+                "SELECT id, name, email, username, role FROM users WHERE role = 'reader' ORDER BY name"
+            ).fetchall()
+        return [self._user_from_row(row) for row in rows]
+
+    def delete_reader(self, reader_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(
+                f"DELETE FROM users WHERE id = {placeholder} AND role = 'reader'", (reader_id,)
+            )
+            return bool(cursor.rowcount)
+
+    def assign_reader_to_list(self, reader_id: str, list_id: str) -> None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            try:
+                connection.execute(
+                    f"INSERT INTO vocabulary_reader_assignments (reader_id, list_id) VALUES ({placeholder}, {placeholder})",
+                    (reader_id, list_id),
+                )
+            except Exception:
+                pass  # ya asignado
+
+    def unassign_reader_from_list(self, reader_id: str, list_id: str) -> None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"DELETE FROM vocabulary_reader_assignments WHERE reader_id = {placeholder} AND list_id = {placeholder}",
+                (reader_id, list_id),
+            )
+
+    def list_readers_for_list(self, list_id: str) -> list[PublicUser]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT u.id, u.name, u.email, u.username, u.role FROM users u
+                JOIN vocabulary_reader_assignments vra ON vra.reader_id = u.id
+                WHERE vra.list_id = {placeholder}
+                ORDER BY u.name
+                """,
+                (list_id,),
+            ).fetchall()
+        return [self._user_from_row(r) for r in rows]
+
+    def list_reader_vocabulary(self, reader_id: str) -> "list[VocabularyList]":
+        """Vocabulary lists directly assigned to this reader."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT vl.* FROM vocabulary_lists vl
+                JOIN vocabulary_reader_assignments vra ON vra.list_id = vl.id
+                WHERE vra.reader_id = {placeholder}
+                ORDER BY vl.created_at DESC
+                """,
+                (reader_id,),
+            ).fetchall()
+        return [self._vocab_from_row(r) for r in rows]
 
     # ── Vocabulario ──────────────────────────────────────────────────────────────
 
