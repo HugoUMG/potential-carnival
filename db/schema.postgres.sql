@@ -110,3 +110,21 @@ CREATE TABLE IF NOT EXISTS vocabulary_assignments (
 
 CREATE INDEX IF NOT EXISTS idx_vocabulary_lists_created_by ON vocabulary_lists(created_by);
 CREATE INDEX IF NOT EXISTS idx_vocabulary_assignments_classroom_id ON vocabulary_assignments(classroom_id);
+
+-- Rol reader: acceso solo a vocabulario, contraseña no modificable
+-- Ampliar el CHECK constraint del rol para incluir 'reader'
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+  CHECK (role IN ('admin', 'teacher', 'student', 'reader'));
+
+-- Asignación directa lector → lista de vocabulario (sin pasar por aulas)
+CREATE TABLE IF NOT EXISTS vocabulary_reader_assignments (
+  reader_id TEXT NOT NULL,
+  list_id   TEXT NOT NULL,
+  assigned_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (reader_id, list_id),
+  FOREIGN KEY (reader_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (list_id)   REFERENCES vocabulary_lists(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_vocab_reader_list_id ON vocabulary_reader_assignments(list_id);

@@ -11,6 +11,7 @@ interface Props {
 function roleRoute(role: UsuarioSesion['role']): string {
   if (role === 'admin') return '/admin';
   if (role === 'teacher') return '/teacher';
+  if (role === 'reader') return '/reader';
   return '/student';
 }
 
