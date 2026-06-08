@@ -18,9 +18,11 @@ import {
   deleteTeacher,
   deleteWorksheet,
   deleteResponse,
+  getStudentsActivity,
   listClassrooms,
   listStudentClassrooms,
   listStudentResponses,
+  listStudentSessions,
   listStudents,
   listStudentWorksheets,
   listTeachers,
@@ -29,6 +31,7 @@ import {
   listWorksheetResponses,
   login,
   logout,
+  logoutSession,
   getClassroom,
   getCurrentSession,
   getTeacherDashboard,
@@ -41,7 +44,9 @@ import {
   type ClassroomDetail,
   type DetalleRespuesta,
   type RespuestaEstudiante,
+  type StudentActivity,
   type TeacherStats,
+  type UserSession,
   type UsuarioSesion,
 } from './services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet, WorksheetActivity } from './types';
@@ -154,6 +159,8 @@ export default function App() {
   const [studentClassrooms, setStudentClassrooms] = useState<Classroom[]>([]);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [passwordMsg, setPasswordMsg] = useState('');
+  const [studentsActivity, setStudentsActivity] = useState<StudentActivity[]>([]);
+  const [sessionModal, setSessionModal] = useState<{ student: StudentActivity; sessions: UserSession[] } | null>(null);
 
   function withCooldown(key: string, fn: () => void) {
     if (refreshCooldowns.has(key)) return;
@@ -175,6 +182,12 @@ export default function App() {
     void refreshClassroomDetail(activeClassroomId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeClassroomId, user?.id]);
+
+  useEffect(() => {
+    if (!user || user.role === 'student' || adminMenu !== 'actividad') return;
+    void getStudentsActivity().then(setStudentsActivity).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminMenu, user?.id]);
 
   async function refreshData(currentUser = user) {
     if (!currentUser) return;
@@ -444,7 +457,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <button className="rounded-2xl border px-4 py-2 text-sm" onClick={() => { logout(); setUser(null); }}>Cerrar sesión</button>
+              <button className="rounded-2xl border px-4 py-2 text-sm" onClick={() => { void logoutSession(); setUser(null); }}>Cerrar sesión</button>
             </div>
           </div>
           {/* Tabs móvil */}
@@ -820,6 +833,79 @@ export default function App() {
             </div>
           </section>
         )}
+        {adminMenu === 'actividad' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Sesiones</p>
+                <h2 className="text-2xl font-bold">Actividad de estudiantes</h2>
+              </div>
+              <button
+                className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('activity-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`}
+                type="button" title="Actualizar" disabled={refreshCooldowns.has('activity-refresh')}
+                onClick={() => withCooldown('activity-refresh', () => { void getStudentsActivity().then(setStudentsActivity).catch(() => {}); })}
+              ><RefreshCw size={16} /></button>
+            </div>
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-slate-500">
+                    <th className="pb-3 pr-4 font-semibold">Estudiante</th>
+                    <th className="pb-3 pr-4 font-semibold">Estado</th>
+                    <th className="pb-3 pr-4 font-semibold">Último acceso</th>
+                    <th className="pb-3 pr-4 font-semibold">Sesiones</th>
+                    <th className="pb-3 font-semibold">Historial</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studentsActivity.map((sa) => {
+                    const lastLogin = sa.last_login ? new Date(sa.last_login) : null;
+                    const now = Date.now();
+                    let lastLoginLabel = 'Sin acceso';
+                    if (lastLogin) {
+                      const diffMs = now - lastLogin.getTime();
+                      const diffMins = Math.floor(diffMs / 60000);
+                      const diffHrs = Math.floor(diffMins / 60);
+                      const diffDays = Math.floor(diffHrs / 24);
+                      if (diffMins < 1) lastLoginLabel = 'Hace un momento';
+                      else if (diffMins < 60) lastLoginLabel = `Hace ${diffMins} min`;
+                      else if (diffHrs < 24) lastLoginLabel = `Hace ${diffHrs}h`;
+                      else if (diffDays === 1) lastLoginLabel = 'Ayer';
+                      else lastLoginLabel = `Hace ${diffDays} días`;
+                    }
+                    return (
+                      <tr key={sa.student_id} className="border-b last:border-0">
+                        <td className="py-3 pr-4">
+                          <div className="font-semibold">{sa.student_name}</div>
+                          <div className="text-xs text-slate-400">@{sa.username}</div>
+                        </td>
+                        <td className="py-3 pr-4">
+                          {sa.is_online
+                            ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500" />En línea</span>
+                            : <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500"><span className="h-2 w-2 rounded-full bg-slate-400" />Desconectado</span>}
+                        </td>
+                        <td className="py-3 pr-4 text-slate-600">{lastLoginLabel}</td>
+                        <td className="py-3 pr-4 font-semibold">{sa.total_sessions}</td>
+                        <td className="py-3">
+                          <button
+                            className="rounded-xl border px-3 py-1.5 text-xs font-semibold hover:bg-slate-50"
+                            type="button"
+                            onClick={() => {
+                              void listStudentSessions(sa.student_id).then((sessions) => setSessionModal({ student: sa, sessions }));
+                            }}
+                          >Ver historial</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!studentsActivity.length && (
+                    <tr><td colSpan={5} className="py-8 text-center text-slate-400">No hay estudiantes registrados aún.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
         {adminMenu === 'revision' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3"><h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2><button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('responses-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('responses-refresh')} onClick={() => withCooldown('responses-refresh', () => loadWorksheetResponses(activeWorksheet))}><RefreshCw size={16} /></button></div>
@@ -857,6 +943,43 @@ export default function App() {
           </section>
         )}
       </div>
+      {sessionModal && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6" onClick={() => setSessionModal(null)}>
+          <div className="mx-auto max-w-lg rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-5">
+              <div>
+                <h2 className="text-xl font-bold">Historial de sesiones</h2>
+                <p className="text-sm text-slate-500">{sessionModal.student.student_name} (@{sessionModal.student.username})</p>
+              </div>
+              <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setSessionModal(null)}>Cerrar</button>
+            </div>
+            {sessionModal.sessions.length === 0
+              ? <p className="text-sm text-slate-500">Este estudiante no tiene sesiones registradas.</p>
+              : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b text-left text-slate-500"><th className="pb-2 pr-3 font-semibold">Entrada</th><th className="pb-2 pr-3 font-semibold">Salida</th><th className="pb-2 font-semibold">Duración</th></tr></thead>
+                    <tbody>
+                      {sessionModal.sessions.map((s) => {
+                        const inTime = new Date(s.logged_in_at);
+                        const outTime = s.logged_out_at ? new Date(s.logged_out_at) : null;
+                        const durMs = outTime ? outTime.getTime() - inTime.getTime() : null;
+                        const durLabel = durMs === null ? '—' : durMs < 60000 ? `${Math.round(durMs / 1000)}s` : durMs < 3600000 ? `${Math.round(durMs / 60000)}min` : `${(durMs / 3600000).toFixed(1)}h`;
+                        return (
+                          <tr key={s.id} className="border-b last:border-0">
+                            <td className="py-2 pr-3">{inTime.toLocaleString()}</td>
+                            <td className="py-2 pr-3">{outTime ? outTime.toLocaleString() : <span className="text-emerald-600 font-semibold">Activa</span>}</td>
+                            <td className="py-2">{durLabel}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+          </div>
+        </div>
+      )}
       {assignmentWorksheet && (
         <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6">
           <div className="mx-auto max-w-xl rounded-3xl bg-white p-5 shadow-2xl">

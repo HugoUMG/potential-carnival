@@ -1,7 +1,7 @@
-import { BarChart3, BookOpenCheck, ClipboardCheck, Database, LogOut, PlusCircle, School, UserCog, UserPlus, UserRoundCheck } from 'lucide-react';
+import { Activity, BarChart3, BookOpenCheck, ClipboardCheck, Database, LogOut, PlusCircle, School, UserCog, UserPlus, UserRoundCheck } from 'lucide-react';
 import type { UsuarioSesion } from '../services/api';
 
-export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'aulas' | 'estudiantes' | 'profesores' | 'revision';
+export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'actividad';
 
 interface TeacherDashboardProps {
   user: UsuarioSesion;
@@ -21,6 +21,7 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
     { id: 'estudiantes' as const, label: 'Crear estudiante', icon: UserPlus },
     ...(user.role === 'admin' ? [{ id: 'profesores' as const, label: 'Crear profesor', icon: UserCog }] : []),
     { id: 'revision' as const, label: 'Revisión', icon: ClipboardCheck },
+    { id: 'actividad' as const, label: 'Actividad de estudiantes', icon: Activity },
   ];
 
   return (
