@@ -99,6 +99,22 @@ export interface TeacherStats {
   students_per_classroom: { classroom_name: string; student_count: number }[];
 }
 
+export interface UserSession {
+  id: string;
+  user_id: string;
+  logged_in_at: string;
+  logged_out_at: string | null;
+}
+
+export interface StudentActivity {
+  student_id: string;
+  student_name: string;
+  username: string;
+  last_login: string | null;
+  is_online: boolean;
+  total_sessions: number;
+}
+
 function getStoredSession(): UsuarioSesion | null {
   const rawSession = window.localStorage.getItem(AUTH_STORAGE_KEY);
   if (!rawSession) return null;
@@ -116,6 +132,16 @@ export function getCurrentSession(): UsuarioSesion | null {
 
 export function logout(): void {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+export async function logoutSession(): Promise<void> {
+  try {
+    await request<void>('/auth/logout', { method: 'POST' });
+  } catch {
+    // Token ya expirado o error de red — limpiar igualmente
+  } finally {
+    logout();
+  }
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -328,4 +354,12 @@ export async function listWorksheetClassrooms(worksheetId: string): Promise<Clas
 
 export async function getTeacherDashboard(): Promise<TeacherStats> {
   return request<TeacherStats>('/dashboard/teacher');
+}
+
+export async function getStudentsActivity(): Promise<StudentActivity[]> {
+  return request<StudentActivity[]>('/students/activity');
+}
+
+export async function listStudentSessions(studentId: string): Promise<UserSession[]> {
+  return request<UserSession[]>(`/students/${studentId}/sessions`);
 }

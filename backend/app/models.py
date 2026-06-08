@@ -203,3 +203,19 @@ class TeacherDashboardStats(BaseModel):
     total_correct: int
     total_incorrect: int
     students_per_classroom: list[dict[str, int | str]] = Field(default_factory=list)
+
+
+class UserSession(BaseModel):
+    id: str
+    user_id: str
+    logged_in_at: datetime
+    logged_out_at: datetime | None = None
+
+
+class StudentActivity(BaseModel):
+    student_id: str
+    student_name: str
+    username: str
+    last_login: datetime | None = None
+    is_online: bool = False
+    total_sessions: int = 0

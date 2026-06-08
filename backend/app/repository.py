@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from .database import get_connection, get_database_backend
-from .models import PublicUser, StudentCreate, TeacherCreate, UserRole, Worksheet, WorksheetResponse
+from .models import PublicUser, StudentActivity, StudentCreate, TeacherCreate, UserRole, UserSession, Worksheet, WorksheetResponse
 from .security import hash_password, needs_password_rehash, verify_password
 
 
@@ -583,6 +583,120 @@ class WorksheetRepository:
             pending_count=data.get("pending_count") or 0,
             submitted_at=_parse_datetime(data["submitted_at"]),
         )
+
+    # ── Sesiones de usuario ──────────────────────────────────────────────────
+
+    def create_session(self, user_id: str) -> str:
+        """Inserta una nueva sesión al hacer login. Retorna el session_id."""
+        session_id = str(uuid4())
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO user_sessions (id, user_id) VALUES ({placeholder}, {placeholder})",
+                (session_id, user_id),
+            )
+        return session_id
+
+    def close_active_session(self, user_id: str) -> None:
+        """Cierra la sesión activa más reciente del usuario (logout explícito)."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"""
+                UPDATE user_sessions SET logged_out_at = CURRENT_TIMESTAMP
+                WHERE id = (
+                    SELECT id FROM user_sessions
+                    WHERE user_id = {placeholder} AND logged_out_at IS NULL
+                    ORDER BY logged_in_at DESC LIMIT 1
+                )
+                """,
+                (user_id,),
+            )
+
+    def list_student_sessions(self, student_id: str) -> list[UserSession]:
+        """Devuelve todas las sesiones de un estudiante, más recientes primero."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT id, user_id, logged_in_at, logged_out_at
+                FROM user_sessions
+                WHERE user_id = {placeholder}
+                ORDER BY logged_in_at DESC
+                """,
+                (student_id,),
+            ).fetchall()
+        return [
+            UserSession(
+                id=dict(r)["id"],
+                user_id=dict(r)["user_id"],
+                logged_in_at=_parse_datetime(dict(r)["logged_in_at"]),
+                logged_out_at=_parse_datetime(dict(r)["logged_out_at"]) if dict(r)["logged_out_at"] else None,
+            )
+            for r in rows
+        ]
+
+    def get_students_activity(self, expire_minutes: int) -> list[StudentActivity]:
+        """
+        Devuelve un resumen de actividad para todos los estudiantes.
+        is_online = tiene sesión sin logout Y logged_in_at dentro del ventana del token.
+        """
+        from datetime import timezone
+        placeholder = self._placeholder
+
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    u.id        AS user_id,
+                    u.name      AS student_name,
+                    u.username  AS username,
+                    MAX(s.logged_in_at)   AS last_login,
+                    COUNT(s.id)           AS total_sessions,
+                    (
+                        SELECT s2.logged_out_at
+                        FROM user_sessions s2
+                        WHERE s2.user_id = u.id
+                        ORDER BY s2.logged_in_at DESC LIMIT 1
+                    ) AS latest_logout,
+                    (
+                        SELECT s3.logged_in_at
+                        FROM user_sessions s3
+                        WHERE s3.user_id = u.id
+                        ORDER BY s3.logged_in_at DESC LIMIT 1
+                    ) AS latest_login
+                FROM users u
+                LEFT JOIN user_sessions s ON s.user_id = u.id
+                WHERE u.role = {placeholder}
+                GROUP BY u.id, u.name, u.username
+                ORDER BY u.name
+                """,
+                ("student",),
+            ).fetchall()
+
+        now = datetime.now(timezone.utc)
+        result: list[StudentActivity] = []
+        for r in rows:
+            data = dict(r)
+            last_login = _parse_datetime(data["last_login"]) if data["last_login"] else None
+            latest_login = _parse_datetime(data["latest_login"]) if data["latest_login"] else None
+            latest_logout = data["latest_logout"]
+            is_online = (
+                latest_logout is None
+                and latest_login is not None
+                and (now - latest_login).total_seconds() < expire_minutes * 60
+            )
+            result.append(
+                StudentActivity(
+                    student_id=data["user_id"],
+                    student_name=data["student_name"],
+                    username=data["username"],
+                    last_login=last_login,
+                    is_online=is_online,
+                    total_sessions=int(data["total_sessions"] or 0),
+                )
+            )
+        return result
 
 
 repository = WorksheetRepository()

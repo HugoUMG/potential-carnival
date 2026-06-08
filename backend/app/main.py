@@ -22,10 +22,12 @@ from .models import (
     LoginResponse,
     PasswordUpdate,
     PublicUser,
+    StudentActivity,
     StudentCreate,
     TeacherCreate,
     TeacherDashboardStats,
     UserRole,
+    UserSession,
     UserUpdate,
     Worksheet,
     WorksheetCreate,
@@ -35,7 +37,7 @@ from .models import (
 )
 from .parser import WorksheetScriptError, parse_worksheet_script
 from .repository import repository
-from .security import create_access_token, decode_access_token, hash_password
+from .security import create_access_token, decode_access_token, get_access_token_expire_minutes, hash_password
 from .settings import get_allowed_origins
 
 app = FastAPI(title="API del constructor de hojas con IA", version="1.0.0")
@@ -114,7 +116,13 @@ def login(payload: LoginRequest) -> LoginResponse:
     user = repository.authenticate(payload.username, payload.password, payload.role)
     if not user:
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    repository.create_session(user.id)
     return LoginResponse(user=user, access_token=create_access_token(user.id, user.role.value))
+
+
+@app.post("/auth/logout", status_code=204)
+def logout(current_user: PublicUser = Depends(get_current_user)) -> None:
+    repository.close_active_session(current_user.id)
 
 
 @app.get("/auth/me", response_model=PublicUser)
@@ -343,6 +351,16 @@ def list_student_responses(student_id: str, current_user: PublicUser = Depends(g
 def list_student_classrooms(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[Classroom]:
     require_student_owner_or_staff(student_id, current_user)
     return repository.list_student_classrooms(student_id)
+
+
+@app.get("/students/activity", response_model=list[StudentActivity])
+def get_students_activity(_: PublicUser = Depends(require_teacher_or_admin)) -> list[StudentActivity]:
+    return repository.get_students_activity(get_access_token_expire_minutes())
+
+
+@app.get("/students/{student_id}/sessions", response_model=list[UserSession])
+def list_student_sessions(student_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> list[UserSession]:
+    return repository.list_student_sessions(student_id)
 
 
 @app.get("/worksheets/{worksheet_id}", response_model=Worksheet)

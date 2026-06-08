@@ -69,6 +69,16 @@ CREATE TABLE IF NOT EXISTS classroom_worksheets (
   FOREIGN KEY (worksheet_id) REFERENCES worksheets(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  logged_in_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  logged_out_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_logged_in ON user_sessions(logged_in_at);
 CREATE INDEX IF NOT EXISTS idx_classrooms_created_by ON classrooms(created_by);
 CREATE INDEX IF NOT EXISTS idx_classroom_students_student_id ON classroom_students(student_id);
 CREATE INDEX IF NOT EXISTS idx_classroom_worksheets_worksheet_id ON classroom_worksheets(worksheet_id);
