@@ -91,7 +91,7 @@ function WordCard({ item }: { item: VocabularyItem }) {
       </div>
 
       {verbForms && expanded && (
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-white/70 p-3 text-sm sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-white/70 p-3 text-sm sm:grid-cols-5">
           {[
             { label: 'Base', value: item.english },
             { label: 'Simple Past', value: item.v_past },
@@ -101,12 +101,10 @@ function WordCard({ item }: { item: VocabularyItem }) {
           ]
             .filter((f) => f.value)
             .map((f) => (
-              <div key={f.label} className="rounded-lg bg-indigo-50 px-2 py-1.5">
-                <p className="text-xs text-indigo-400 font-medium">{f.label}</p>
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold text-indigo-800">{f.value}</span>
-                  {f.value && <TtsButton text={f.value} />}
-                </div>
+              <div key={f.label} className="rounded-lg bg-indigo-50 px-2 py-2 flex flex-col gap-1">
+                <p className="text-xs text-indigo-400 font-medium leading-tight">{f.label}</p>
+                <p className="font-semibold text-indigo-800 break-words leading-tight">{f.value}</p>
+                <TtsButton text={f.value ?? ''} />
               </div>
             ))}
         </div>
