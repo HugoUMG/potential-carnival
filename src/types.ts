@@ -142,6 +142,8 @@ export interface Worksheet {
   analytics: WorksheetAnalytics;
   maxAttempts?: number | null;
   theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
+  attemptsUsed?: number | null;
+  attemptsRemaining?: number | null;
 }
 
 export interface WorksheetAnalytics {

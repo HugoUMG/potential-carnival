@@ -110,6 +110,8 @@ class Worksheet(BaseModel):
     archived: bool = False
     max_attempts: int | None = None
     theme: dict[str, str] | None = None
+    attempts_used: int | None = None
+    attempts_remaining: int | None = None
 
 
 class WorksheetCreate(BaseModel):
