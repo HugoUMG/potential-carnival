@@ -112,6 +112,9 @@ class Worksheet(BaseModel):
     theme: dict[str, str] | None = None
     attempts_used: int | None = None
     attempts_remaining: int | None = None
+    # Campos de grupo (solo para hojas grupales en el portal del estudiante)
+    group_id: str | None = None
+    group_name: str | None = None
 
 
 class WorksheetCreate(BaseModel):
@@ -147,6 +150,7 @@ class WorksheetResponseCreate(BaseModel):
     student_name: str
     answers_json: dict[str, Any]
     student_id: str | None = None
+    group_id: str | None = None
 
 
 class WorksheetResponse(BaseModel):
@@ -160,6 +164,7 @@ class WorksheetResponse(BaseModel):
     pending_count: int = 0
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     student_id: str | None = None
+    group_id: str | None = None
 
 
 class ClassroomCreate(BaseModel):
@@ -221,3 +226,44 @@ class StudentActivity(BaseModel):
     last_login: datetime | None = None
     is_online: bool = False
     total_sessions: int = 0
+
+
+# ── Grupos colaborativos ──────────────────────────────────────────────────────
+
+class GroupCreate(BaseModel):
+    name: str
+
+
+class GroupStudentAssignment(BaseModel):
+    student_id: str
+
+
+class GroupWorksheetAssignment(BaseModel):
+    worksheet_id: str
+
+
+class Group(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    classroom_id: str
+    name: str
+    created_by: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class GroupDetail(Group):
+    students: list[PublicUser] = Field(default_factory=list)
+    worksheet_ids: list[str] = Field(default_factory=list)
+
+
+class ActivityLock(BaseModel):
+    id: str
+    worksheet_id: str
+    group_id: str
+    activity_index: int
+    locked_by: str
+    locked_by_name: str
+    locked_at: datetime
+
+
+class LockRequest(BaseModel):
+    activity_index: int

@@ -136,6 +136,7 @@ def _initialize_sqlite_database() -> None:
         _add_column_if_missing(connection, "worksheet_responses", "details_json TEXT NOT NULL DEFAULT '[]'")
         _add_column_if_missing(connection, "worksheet_responses", "correct_count INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(connection, "worksheet_responses", "pending_count INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(connection, "worksheet_responses", "group_id TEXT")
         connection.execute("UPDATE users SET username = 'admin' WHERE id = 'admin-demo' AND username IS NULL")
         connection.execute("UPDATE users SET username = 'profesor' WHERE id = 'teacher-demo' AND username IS NULL")
         connection.execute("UPDATE users SET username = 'estudiante' WHERE id = 'student-demo' AND username IS NULL")

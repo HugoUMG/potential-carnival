@@ -10,6 +10,7 @@ from fastapi.security import OAuth2PasswordBearer
 from .ai import generate_worksheet_script
 from .database import initialize_database
 from .models import (
+    ActivityLock,
     AiGenerateRequest,
     AnswerDetail,
     AnswerReview,
@@ -18,8 +19,14 @@ from .models import (
     ClassroomDetail,
     ClassroomStudentAssignment,
     ClassroomWorksheetAssignment,
+    Group,
+    GroupCreate,
+    GroupDetail,
+    GroupStudentAssignment,
+    GroupWorksheetAssignment,
     LoginRequest,
     LoginResponse,
+    LockRequest,
     PasswordUpdate,
     PublicUser,
     StudentActivity,
@@ -338,13 +345,28 @@ def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(
     assigned = repository.list_student_assigned_worksheets(student_id)
     answered_ids = {response.worksheet_id for response in repository.list_responses(student_id=student_id, include_archived=False)}
     answered_unpublished = [w for w in assigned if w.id in answered_ids and not w.published]
-    all_worksheets = assigned + [w for w in answered_unpublished if w.id not in {item.id for item in assigned}]
-    # Poblar attempts_used / attempts_remaining en una sola query
-    attempt_counts = repository.count_attempts_per_worksheet(student_id, [w.id for w in all_worksheets])
-    for worksheet in all_worksheets:
+    individual_worksheets = assigned + [w for w in answered_unpublished if w.id not in {item.id for item in assigned}]
+
+    # Incluir hojas grupales (deduplicando frente a individuales)
+    individual_ids = {w.id for w in individual_worksheets}
+    group_pairs = repository.list_student_group_worksheets(student_id)
+    group_worksheets = [w for w, _ in group_pairs if w.id not in individual_ids]
+    all_worksheets = individual_worksheets + group_worksheets
+
+    # Poblar attempts_used / attempts_remaining para hojas individuales
+    attempt_counts = repository.count_attempts_per_worksheet(student_id, [w.id for w in individual_worksheets])
+    for worksheet in individual_worksheets:
         used = attempt_counts.get(worksheet.id, 0)
         worksheet.attempts_used = used
         worksheet.attempts_remaining = None if worksheet.max_attempts is None else max(0, worksheet.max_attempts - used)
+
+    # Para hojas grupales: contar intentos por grupo
+    for worksheet in group_worksheets:
+        if worksheet.group_id:
+            used = repository.count_group_attempts(worksheet.id, worksheet.group_id)
+            worksheet.attempts_used = used
+            worksheet.attempts_remaining = None if worksheet.max_attempts is None else max(0, worksheet.max_attempts - used)
+
     return all_worksheets
 
 
@@ -435,16 +457,34 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
         raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
     if worksheet.archived or not worksheet.published:
         raise HTTPException(status_code=403, detail="Esta hoja de trabajo no está disponible")
-    lock_key = (current_user.id, worksheet.id)
-    now = time.monotonic()
-    if now - _response_locks.get(lock_key, 0) < 5:
-        raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
-    attempts = repository.count_student_attempts(worksheet.id, current_user.id)
-    if worksheet.max_attempts is not None and attempts >= worksheet.max_attempts:
-        raise HTTPException(status_code=409, detail="Ya has alcanzado el número máximo de intentos para esta hoja")
-    if worksheet.max_attempts is None and attempts > 0:
-        raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
-    _response_locks[lock_key] = now
+
+    group_id = payload.group_id or None
+
+    if group_id:
+        # Validar que el estudiante pertenece al grupo
+        if not repository.is_student_in_group(group_id, current_user.id):
+            raise HTTPException(status_code=403, detail="No perteneces a este grupo")
+        lock_key = (group_id, worksheet.id)
+        now = time.monotonic()
+        if now - _response_locks.get(lock_key, 0) < 5:
+            raise HTTPException(status_code=409, detail="Ya se envió esta hoja de trabajo")
+        attempts = repository.count_group_attempts(worksheet.id, group_id)
+        if worksheet.max_attempts is not None and attempts >= worksheet.max_attempts:
+            raise HTTPException(status_code=409, detail="El grupo ya alcanzó el número máximo de intentos")
+        if worksheet.max_attempts is None and attempts > 0:
+            raise HTTPException(status_code=409, detail="El grupo ya envió esta hoja de trabajo")
+        _response_locks[lock_key] = now
+    else:
+        lock_key = (current_user.id, worksheet.id)
+        now = time.monotonic()
+        if now - _response_locks.get(lock_key, 0) < 5:
+            raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
+        attempts = repository.count_student_attempts(worksheet.id, current_user.id)
+        if worksheet.max_attempts is not None and attempts >= worksheet.max_attempts:
+            raise HTTPException(status_code=409, detail="Ya has alcanzado el número máximo de intentos para esta hoja")
+        if worksheet.max_attempts is None and attempts > 0:
+            raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
+        _response_locks[lock_key] = now
 
     details = _build_answer_details(worksheet, payload.answers_json)
     correct_count, pending_count, score = _score_details(details)
@@ -457,6 +497,7 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
         score=score,
         correct_count=correct_count,
         pending_count=pending_count,
+        group_id=group_id,
     )
     return repository.add_response(response)
 
@@ -493,6 +534,124 @@ def review_response(response_id: str, payload: AnswerReview, current_user: Publi
         raise HTTPException(status_code=404, detail="Actividad no encontrada en la respuesta")
     response.correct_count, response.pending_count, response.score = _score_details(response.details)
     return repository.update_response_review(response)
+
+# ── Grupos colaborativos ──────────────────────────────────────────────────────
+
+def require_group_manager(group_id: str, current_user: PublicUser) -> GroupDetail:
+    """Valida que el usuario es teacher/admin y es el creador del grupo (o admin)."""
+    group = repository.get_group(group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    if current_user.role != UserRole.admin and group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes administrar este grupo")
+    # Retornar GroupDetail
+    students = repository.list_group_students(group_id)
+    worksheet_ids = repository._list_group_worksheet_ids(group_id)
+    return GroupDetail(**group.model_dump(), students=students, worksheet_ids=worksheet_ids)
+
+
+@app.post("/classrooms/{classroom_id}/groups", response_model=Group)
+def create_group(classroom_id: str, payload: GroupCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Group:
+    require_classroom_manager(classroom_id, current_user)
+    return repository.create_group(payload.name, classroom_id, current_user.id)
+
+
+@app.get("/classrooms/{classroom_id}/groups", response_model=list[GroupDetail])
+def list_classroom_groups(classroom_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[GroupDetail]:
+    require_classroom_manager(classroom_id, current_user)
+    return repository.list_classroom_groups(classroom_id)
+
+
+@app.delete("/groups/{group_id}", status_code=204)
+def delete_group(group_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    require_group_manager(group_id, current_user)
+    repository.delete_group(group_id)
+
+
+@app.post("/groups/{group_id}/students", status_code=204)
+def add_student_to_group(group_id: str, payload: GroupStudentAssignment, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    group = repository.get_group(group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    if current_user.role != UserRole.admin and group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes administrar este grupo")
+    # Validar que el estudiante pertenece al aula del grupo
+    if not repository.is_student_in_classroom(group.classroom_id, payload.student_id):
+        raise HTTPException(status_code=400, detail="El estudiante no pertenece al aula de este grupo")
+    student = repository.get_user(payload.student_id)
+    if not student or student.role != UserRole.student:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    repository.add_student_to_group(group_id, payload.student_id)
+
+
+@app.delete("/groups/{group_id}/students/{student_id}", status_code=204)
+def remove_student_from_group(group_id: str, student_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    group = repository.get_group(group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    if current_user.role != UserRole.admin and group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes administrar este grupo")
+    repository.remove_student_from_group(group_id, student_id)
+
+
+@app.post("/groups/{group_id}/worksheets", status_code=204)
+def assign_worksheet_to_group(group_id: str, payload: GroupWorksheetAssignment, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    group = repository.get_group(group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    if current_user.role != UserRole.admin and group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes administrar este grupo")
+    require_worksheet_manager(payload.worksheet_id, current_user)
+    repository.assign_worksheet_to_group(group_id, payload.worksheet_id)
+
+
+@app.delete("/groups/{group_id}/worksheets/{worksheet_id}", status_code=204)
+def unassign_worksheet_from_group(group_id: str, worksheet_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    group = repository.get_group(group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    if current_user.role != UserRole.admin and group.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes administrar este grupo")
+    repository.unassign_worksheet_from_group(group_id, worksheet_id)
+
+
+# ── Locks de actividad (polling sin WebSockets) ───────────────────────────────
+
+def _require_group_member_or_staff(group_id: str, current_user: PublicUser) -> Group:
+    group = repository.get_group(group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    if current_user.role == UserRole.student and not repository.is_student_in_group(group_id, current_user.id):
+        raise HTTPException(status_code=403, detail="No perteneces a este grupo")
+    return group
+
+
+@app.post("/groups/{group_id}/worksheets/{worksheet_id}/lock", response_model=ActivityLock)
+def acquire_activity_lock(group_id: str, worksheet_id: str, payload: LockRequest, current_user: PublicUser = Depends(get_current_user)) -> ActivityLock:
+    _require_group_member_or_staff(group_id, current_user)
+    lock = repository.acquire_lock(worksheet_id, group_id, payload.activity_index, current_user.id, current_user.name)
+    if lock is None:
+        raise HTTPException(status_code=409, detail="Otro estudiante está editando esta actividad")
+    return lock
+
+
+@app.post("/groups/{group_id}/worksheets/{worksheet_id}/lock/heartbeat", status_code=204)
+def renew_activity_lock(group_id: str, worksheet_id: str, payload: LockRequest, current_user: PublicUser = Depends(get_current_user)) -> None:
+    _require_group_member_or_staff(group_id, current_user)
+    repository.renew_lock(worksheet_id, group_id, payload.activity_index, current_user.id)
+
+
+@app.delete("/groups/{group_id}/worksheets/{worksheet_id}/lock", status_code=204)
+def release_activity_lock(group_id: str, worksheet_id: str, payload: LockRequest, current_user: PublicUser = Depends(get_current_user)) -> None:
+    _require_group_member_or_staff(group_id, current_user)
+    repository.release_lock(worksheet_id, group_id, payload.activity_index, current_user.id)
+
+
+@app.get("/groups/{group_id}/worksheets/{worksheet_id}/locks", response_model=list[ActivityLock])
+def get_active_locks(group_id: str, worksheet_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[ActivityLock]:
+    _require_group_member_or_staff(group_id, current_user)
+    return repository.list_active_locks(worksheet_id, group_id)
+
 
 def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list[AnswerDetail]:
     details: list[AnswerDetail] = []

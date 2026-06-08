@@ -64,6 +64,28 @@ interface BackendWorksheet {
   theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
   attempts_used?: number | null;
   attempts_remaining?: number | null;
+  group_id?: string | null;
+  group_name?: string | null;
+}
+
+export interface Group {
+  id: string;
+  classroom_id: string;
+  name: string;
+  created_by: string;
+  created_at: string;
+  students?: UsuarioSesion[];
+  worksheet_ids?: string[];
+}
+
+export interface ActivityLock {
+  id: string;
+  worksheet_id: string;
+  group_id: string;
+  activity_index: number;
+  locked_by: string;
+  locked_by_name: string;
+  locked_at: string;
 }
 
 export interface RespuestaEstudiante {
@@ -231,6 +253,8 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     theme: worksheet.theme ?? null,
     attemptsUsed: worksheet.attempts_used ?? null,
     attemptsRemaining: worksheet.attempts_remaining ?? null,
+    groupId: worksheet.group_id ?? null,
+    groupName: worksheet.group_name ?? null,
     analytics: { completionRate: 0, averageScore: 0, attempts: 0, mostMissedQuestions: [] },
   };
 }
@@ -296,8 +320,11 @@ export async function deleteWorksheet(worksheetId: string): Promise<void> {
   await request<void>(`/worksheets/${worksheetId}`, { method: 'DELETE' });
 }
 
-export async function submitResponse(worksheet: Worksheet, user: UsuarioSesion, answers: StudentAnswers): Promise<RespuestaEstudiante> {
-  return request<RespuestaEstudiante>('/responses', { method: 'POST', body: JSON.stringify({ worksheet_id: worksheet.id, student_id: user.id, student_name: user.name, answers_json: answers }) });
+export async function submitResponse(worksheet: Worksheet, user: UsuarioSesion, answers: StudentAnswers, groupId?: string | null): Promise<RespuestaEstudiante> {
+  return request<RespuestaEstudiante>('/responses', {
+    method: 'POST',
+    body: JSON.stringify({ worksheet_id: worksheet.id, student_id: user.id, student_name: user.name, answers_json: answers, ...(groupId ? { group_id: groupId } : {}) }),
+  });
 }
 
 export async function listStudentResponses(studentId: string): Promise<RespuestaEstudiante[]> {
@@ -372,4 +399,50 @@ export async function getStudentsActivity(): Promise<StudentActivity[]> {
 
 export async function listStudentSessions(studentId: string): Promise<UserSession[]> {
   return request<UserSession[]>(`/students/${studentId}/sessions`);
+}
+
+// ── Grupos colaborativos ──────────────────────────────────────────────────────
+
+export async function createGroup(classroomId: string, name: string): Promise<Group> {
+  return request<Group>(`/classrooms/${classroomId}/groups`, { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+export async function listClassroomGroups(classroomId: string): Promise<Group[]> {
+  return request<Group[]>(`/classrooms/${classroomId}/groups`);
+}
+
+export async function deleteGroup(groupId: string): Promise<void> {
+  await request<void>(`/groups/${groupId}`, { method: 'DELETE' });
+}
+
+export async function addStudentToGroup(groupId: string, studentId: string): Promise<void> {
+  await request<void>(`/groups/${groupId}/students`, { method: 'POST', body: JSON.stringify({ student_id: studentId }) });
+}
+
+export async function removeStudentFromGroup(groupId: string, studentId: string): Promise<void> {
+  await request<void>(`/groups/${groupId}/students/${studentId}`, { method: 'DELETE' });
+}
+
+export async function assignWorksheetToGroup(groupId: string, worksheetId: string): Promise<void> {
+  await request<void>(`/groups/${groupId}/worksheets`, { method: 'POST', body: JSON.stringify({ worksheet_id: worksheetId }) });
+}
+
+export async function unassignWorksheetFromGroup(groupId: string, worksheetId: string): Promise<void> {
+  await request<void>(`/groups/${groupId}/worksheets/${worksheetId}`, { method: 'DELETE' });
+}
+
+export async function acquireActivityLock(groupId: string, worksheetId: string, activityIndex: number): Promise<ActivityLock> {
+  return request<ActivityLock>(`/groups/${groupId}/worksheets/${worksheetId}/lock`, { method: 'POST', body: JSON.stringify({ activity_index: activityIndex }) });
+}
+
+export async function renewActivityLock(groupId: string, worksheetId: string, activityIndex: number): Promise<void> {
+  await request<void>(`/groups/${groupId}/worksheets/${worksheetId}/lock/heartbeat`, { method: 'POST', body: JSON.stringify({ activity_index: activityIndex }) });
+}
+
+export async function releaseActivityLock(groupId: string, worksheetId: string, activityIndex: number): Promise<void> {
+  await request<void>(`/groups/${groupId}/worksheets/${worksheetId}/lock`, { method: 'DELETE', body: JSON.stringify({ activity_index: activityIndex }) });
+}
+
+export async function getActiveLocks(groupId: string, worksheetId: string): Promise<ActivityLock[]> {
+  return request<ActivityLock[]>(`/groups/${groupId}/worksheets/${worksheetId}/locks`);
 }

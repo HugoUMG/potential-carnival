@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from .database import get_connection, get_database_backend
-from .models import PublicUser, StudentActivity, StudentCreate, TeacherCreate, UserRole, UserSession, Worksheet, WorksheetResponse
+from .models import ActivityLock, Group, GroupDetail, PublicUser, StudentActivity, StudentCreate, TeacherCreate, UserRole, UserSession, Worksheet, WorksheetResponse
 from .security import hash_password, needs_password_rehash, verify_password
 
 
@@ -259,8 +259,8 @@ class WorksheetRepository:
         with get_connection() as connection:
             connection.execute(
                 f"""
-                INSERT INTO worksheet_responses (id, worksheet_id, student_id, student_name, answers_json, details_json, score, correct_count, pending_count, submitted_at)
-                VALUES ({self._placeholders(10)})
+                INSERT INTO worksheet_responses (id, worksheet_id, student_id, student_name, answers_json, details_json, score, correct_count, pending_count, submitted_at, group_id)
+                VALUES ({self._placeholders(11)})
                 """,
                 (
                     response.id,
@@ -273,6 +273,7 @@ class WorksheetRepository:
                     response.correct_count,
                     response.pending_count,
                     response.submitted_at.isoformat(),
+                    response.group_id,
                 ),
             )
         return response
@@ -600,6 +601,7 @@ class WorksheetRepository:
             correct_count=data.get("correct_count") or 0,
             pending_count=data.get("pending_count") or 0,
             submitted_at=_parse_datetime(data["submitted_at"]),
+            group_id=data.get("group_id"),
         )
 
     # ── Sesiones de usuario ──────────────────────────────────────────────────
@@ -720,6 +722,299 @@ class WorksheetRepository:
                 )
             )
         return result
+
+
+    # ── Grupos colaborativos ──────────────────────────────────────────────────
+
+    def create_group(self, name: str, classroom_id: str, created_by: str) -> Group:
+        group = Group(name=name, classroom_id=classroom_id, created_by=created_by)
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO groups (id, classroom_id, name, created_by, created_at) VALUES ({self._placeholders(5)})",
+                (group.id, group.classroom_id, group.name, group.created_by, group.created_at.isoformat()),
+            )
+        return group
+
+    def get_group(self, group_id: str) -> Group | None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(f"SELECT * FROM groups WHERE id = {placeholder}", (group_id,)).fetchone()
+        return self._group_from_row(row) if row else None
+
+    def list_classroom_groups(self, classroom_id: str) -> list[GroupDetail]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM groups WHERE classroom_id = {placeholder} ORDER BY name",
+                (classroom_id,),
+            ).fetchall()
+        result = []
+        for row in rows:
+            group = self._group_from_row(row)
+            students = self.list_group_students(group.id)
+            worksheet_ids = self._list_group_worksheet_ids(group.id)
+            result.append(GroupDetail(**group.model_dump(), students=students, worksheet_ids=worksheet_ids))
+        return result
+
+    def delete_group(self, group_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(f"DELETE FROM groups WHERE id = {placeholder}", (group_id,))
+            return bool(cursor.rowcount)
+
+    def add_student_to_group(self, group_id: str, student_id: str) -> None:
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT {'OR IGNORE' if get_database_backend() == 'sqlite' else ''} INTO group_students (group_id, student_id) VALUES ({self._placeholders(2)})"
+                if get_database_backend() == "sqlite"
+                else f"INSERT INTO group_students (group_id, student_id) VALUES ({self._placeholders(2)}) ON CONFLICT DO NOTHING",
+                (group_id, student_id),
+            )
+
+    def remove_student_from_group(self, group_id: str, student_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(
+                f"DELETE FROM group_students WHERE group_id = {placeholder} AND student_id = {placeholder}",
+                (group_id, student_id),
+            )
+            return bool(cursor.rowcount)
+
+    def assign_worksheet_to_group(self, group_id: str, worksheet_id: str) -> None:
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT {'OR IGNORE' if get_database_backend() == 'sqlite' else ''} INTO group_worksheets (group_id, worksheet_id) VALUES ({self._placeholders(2)})"
+                if get_database_backend() == "sqlite"
+                else f"INSERT INTO group_worksheets (group_id, worksheet_id) VALUES ({self._placeholders(2)}) ON CONFLICT DO NOTHING",
+                (group_id, worksheet_id),
+            )
+
+    def unassign_worksheet_from_group(self, group_id: str, worksheet_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(
+                f"DELETE FROM group_worksheets WHERE group_id = {placeholder} AND worksheet_id = {placeholder}",
+                (group_id, worksheet_id),
+            )
+            return bool(cursor.rowcount)
+
+    def list_group_students(self, group_id: str) -> list[PublicUser]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT users.id, users.name, users.email, users.username, users.role
+                FROM users JOIN group_students ON group_students.student_id = users.id
+                WHERE group_students.group_id = {placeholder}
+                ORDER BY users.name
+                """,
+                (group_id,),
+            ).fetchall()
+        return [self._user_from_row(row) for row in rows]
+
+    def _list_group_worksheet_ids(self, group_id: str) -> list[str]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT worksheet_id FROM group_worksheets WHERE group_id = {placeholder}",
+                (group_id,),
+            ).fetchall()
+        return [dict(r)["worksheet_id"] for r in rows]
+
+    def is_student_in_group(self, group_id: str, student_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT 1 FROM group_students WHERE group_id = {placeholder} AND student_id = {placeholder}",
+                (group_id, student_id),
+            ).fetchone()
+        return row is not None
+
+    def is_student_in_classroom(self, classroom_id: str, student_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT 1 FROM classroom_students WHERE classroom_id = {placeholder} AND student_id = {placeholder}",
+                (classroom_id, student_id),
+            ).fetchone()
+        return row is not None
+
+    def list_student_group_worksheets(self, student_id: str) -> list[tuple[Worksheet, Group]]:
+        """Devuelve las hojas de trabajo asignadas a grupos donde el estudiante es miembro."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT worksheets.*, groups.id AS grp_id, groups.name AS grp_name
+                FROM worksheets
+                JOIN group_worksheets ON group_worksheets.worksheet_id = worksheets.id
+                JOIN groups ON groups.id = group_worksheets.group_id
+                JOIN group_students ON group_students.group_id = groups.id
+                WHERE group_students.student_id = {placeholder}
+                  AND worksheets.published = {placeholder}
+                  AND worksheets.archived = {placeholder}
+                ORDER BY worksheets.created_at DESC
+                """,
+                (student_id, self._bool_param(True), self._bool_param(False)),
+            ).fetchall()
+        result = []
+        seen = set()
+        for row in rows:
+            data = dict(row)
+            key = (data["id"], data["grp_id"])
+            if key in seen:
+                continue
+            seen.add(key)
+            worksheet = self._worksheet_from_row(row)
+            worksheet.group_id = data["grp_id"]
+            worksheet.group_name = data["grp_name"]
+            group = Group(
+                id=data["grp_id"],
+                name=data["grp_name"],
+                classroom_id="",  # no needed here
+                created_by="",
+            )
+            result.append((worksheet, group))
+        return result
+
+    def count_group_attempts(self, worksheet_id: str, group_id: str) -> int:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT COUNT(*) AS total FROM worksheet_responses WHERE worksheet_id = {placeholder} AND group_id = {placeholder}",
+                (worksheet_id, group_id),
+            ).fetchone()
+        return int(dict(row)["total"] if row else 0)
+
+    # ── Locks de actividad ────────────────────────────────────────────────────
+
+    LOCK_TTL_SECONDS = 60
+
+    def acquire_lock(self, worksheet_id: str, group_id: str, activity_index: int, locked_by: str, locked_by_name: str) -> ActivityLock | None:
+        """
+        Intenta tomar el lock de una actividad.
+        - Si está libre o expirado (TTL), toma el lock → devuelve ActivityLock.
+        - Si está tomado por OTRO y vigente → devuelve None.
+        - Si está tomado por EL MISMO usuario → renueva y devuelve ActivityLock.
+        """
+        from datetime import timezone
+        placeholder = self._placeholder
+        now = datetime.now(timezone.utc)
+        lock_id = str(uuid4())
+
+        with get_connection() as connection:
+            row = connection.execute(
+                f"""
+                SELECT * FROM activity_locks
+                WHERE worksheet_id = {placeholder} AND group_id = {placeholder} AND activity_index = {placeholder}
+                """,
+                (worksheet_id, group_id, activity_index),
+            ).fetchone()
+
+            if row:
+                data = dict(row)
+                locked_at = _parse_datetime(data["locked_at"])
+                age = (now - locked_at).total_seconds()
+                if age < self.LOCK_TTL_SECONDS and data["locked_by"] != locked_by:
+                    # Lock vigente de otro usuario
+                    return None
+                # Actualizar lock (propio o expirado)
+                connection.execute(
+                    f"""
+                    UPDATE activity_locks
+                    SET locked_by = {placeholder}, locked_by_name = {placeholder}, locked_at = {placeholder}, id = {placeholder}
+                    WHERE worksheet_id = {placeholder} AND group_id = {placeholder} AND activity_index = {placeholder}
+                    """,
+                    (locked_by, locked_by_name, now.isoformat(), lock_id, worksheet_id, group_id, activity_index),
+                )
+            else:
+                connection.execute(
+                    f"""
+                    INSERT INTO activity_locks (id, worksheet_id, group_id, activity_index, locked_by, locked_by_name, locked_at)
+                    VALUES ({self._placeholders(7)})
+                    """,
+                    (lock_id, worksheet_id, group_id, activity_index, locked_by, locked_by_name, now.isoformat()),
+                )
+
+        return ActivityLock(
+            id=lock_id,
+            worksheet_id=worksheet_id,
+            group_id=group_id,
+            activity_index=activity_index,
+            locked_by=locked_by,
+            locked_by_name=locked_by_name,
+            locked_at=now,
+        )
+
+    def renew_lock(self, worksheet_id: str, group_id: str, activity_index: int, locked_by: str) -> bool:
+        """Renueva el locked_at del lock propio."""
+        from datetime import timezone
+        placeholder = self._placeholder
+        now = datetime.now(timezone.utc)
+        with get_connection() as connection:
+            cursor = connection.execute(
+                f"""
+                UPDATE activity_locks SET locked_at = {placeholder}
+                WHERE worksheet_id = {placeholder} AND group_id = {placeholder}
+                  AND activity_index = {placeholder} AND locked_by = {placeholder}
+                """,
+                (now.isoformat(), worksheet_id, group_id, activity_index, locked_by),
+            )
+            return bool(cursor.rowcount)
+
+    def release_lock(self, worksheet_id: str, group_id: str, activity_index: int, locked_by: str) -> bool:
+        """Libera el lock del estudiante actual."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(
+                f"""
+                DELETE FROM activity_locks
+                WHERE worksheet_id = {placeholder} AND group_id = {placeholder}
+                  AND activity_index = {placeholder} AND locked_by = {placeholder}
+                """,
+                (worksheet_id, group_id, activity_index, locked_by),
+            )
+            return bool(cursor.rowcount)
+
+    def list_active_locks(self, worksheet_id: str, group_id: str) -> list[ActivityLock]:
+        """Devuelve los locks vigentes (no expirados) del grupo+hoja."""
+        from datetime import timezone
+        placeholder = self._placeholder
+        now = datetime.now(timezone.utc)
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM activity_locks
+                WHERE worksheet_id = {placeholder} AND group_id = {placeholder}
+                ORDER BY activity_index
+                """,
+                (worksheet_id, group_id),
+            ).fetchall()
+        result = []
+        for row in rows:
+            data = dict(row)
+            locked_at = _parse_datetime(data["locked_at"])
+            if (now - locked_at).total_seconds() < self.LOCK_TTL_SECONDS:
+                result.append(ActivityLock(
+                    id=data["id"],
+                    worksheet_id=data["worksheet_id"],
+                    group_id=data["group_id"],
+                    activity_index=int(data["activity_index"]),
+                    locked_by=data["locked_by"],
+                    locked_by_name=data["locked_by_name"],
+                    locked_at=locked_at,
+                ))
+        return result
+
+    def _group_from_row(self, row: object) -> Group:
+        data = dict(row)
+        return Group(
+            id=data["id"],
+            classroom_id=data["classroom_id"],
+            name=data["name"],
+            created_by=data["created_by"],
+            created_at=_parse_datetime(data["created_at"]),
+        )
 
 
 repository = WorksheetRepository()

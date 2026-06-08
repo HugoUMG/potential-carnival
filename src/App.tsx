@@ -7,19 +7,24 @@ import { RichText } from './components/RichText';
 import { TeacherDashboard, type TeacherMenu } from './components/TeacherDashboard';
 import { sampleWorksheet } from './data/sampleWorksheet';
 import {
+  addStudentToGroup,
   archiveWorksheet,
   assignStudentToClassroom,
   assignWorksheetToClassroom,
+  assignWorksheetToGroup,
   changePassword,
   createClassroom,
+  createGroup,
   createStudent,
   createTeacher,
   createWorksheet,
+  deleteGroup,
   deleteStudent,
   deleteTeacher,
   deleteWorksheet,
   deleteResponse,
   getStudentsActivity,
+  listClassroomGroups,
   listClassrooms,
   listStudentClassrooms,
   listStudentResponses,
@@ -37,13 +42,16 @@ import {
   getCurrentSession,
   getTeacherDashboard,
   publishWorksheet,
+  removeStudentFromGroup,
   reviewAnswer,
   submitResponse,
   unassignStudentFromClassroom,
   unassignWorksheetFromClassroom,
+  unassignWorksheetFromGroup,
   type Classroom,
   type ClassroomDetail,
   type DetalleRespuesta,
+  type Group,
   type RespuestaEstudiante,
   type StudentActivity,
   type TeacherStats,
@@ -111,6 +119,11 @@ export default function App() {
   const [passwordMsg, setPasswordMsg] = useState('');
   const [studentsActivity, setStudentsActivity] = useState<StudentActivity[]>([]);
   const [sessionModal, setSessionModal] = useState<{ student: StudentActivity; sessions: UserSession[] } | null>(null);
+  // ── Grupos colaborativos ────────────────────────────────────────────────────
+  const [classroomGroups, setClassroomGroups] = useState<Group[]>([]);
+  const [groupForm, setGroupForm] = useState({ name: '' });
+  const [groupStudentSel, setGroupStudentSel] = useState<Record<string, string>>({});
+  const [groupWorksheetSel, setGroupWorksheetSel] = useState<Record<string, string>>({});
 
   function withCooldown(key: string, fn: () => void) {
     if (refreshCooldowns.has(key)) return;
@@ -233,7 +246,8 @@ export default function App() {
     if (!user || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const response = await submitResponse(activeWorksheet, user, answers);
+      const groupId = activeWorksheet.groupId ?? undefined;
+      const response = await submitResponse(activeWorksheet, user, answers, groupId);
       setResponses((current) => [response, ...current]);
       setAnswers({});
       setMessage(`Respuestas enviadas. Puntuación: ${response.score ?? 'pendiente'}.`);
@@ -317,8 +331,9 @@ export default function App() {
       setClassroomDetail(null);
       return;
     }
-    const detail = await getClassroom(classroomId);
+    const [detail, groups] = await Promise.all([getClassroom(classroomId), listClassroomGroups(classroomId).catch(() => [])]);
     setClassroomDetail(detail);
+    setClassroomGroups(groups);
     setActiveClassroomId(classroomId);
   }
 
@@ -343,6 +358,83 @@ export default function App() {
     await unassignStudentFromClassroom(activeClassroomId, studentId);
     await refreshClassroomDetail(activeClassroomId);
     setMessage('Estudiante desasignado del aula.');
+  }
+
+  async function createNewGroup() {
+    if (!groupForm.name.trim() || !activeClassroomId) return;
+    try {
+      const created = await createGroup(activeClassroomId, groupForm.name.trim());
+      setClassroomGroups((current) => [...current, created]);
+      setGroupForm({ name: '' });
+      setMessage('Grupo creado correctamente.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo crear el grupo.');
+    }
+  }
+
+  async function removeGroup(groupId: string) {
+    if (!window.confirm('¿Eliminar este grupo?')) return;
+    try {
+      await deleteGroup(groupId);
+      setClassroomGroups((current) => current.filter((g) => g.id !== groupId));
+      setMessage('Grupo eliminado.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el grupo.');
+    }
+  }
+
+  async function addStudentToGroupFn(groupId: string, studentId: string) {
+    if (!studentId) return;
+    try {
+      await addStudentToGroup(groupId, studentId);
+      setClassroomGroups((current) =>
+        current.map((g) => {
+          if (g.id !== groupId) return g;
+          const student = classroomDetail?.students.find((s) => s.id === studentId);
+          return { ...g, students: [...(g.students ?? []), ...(student ? [student] : [])] };
+        })
+      );
+      setGroupStudentSel((prev) => ({ ...prev, [groupId]: '' }));
+      setMessage('Estudiante agregado al grupo.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo agregar el estudiante.');
+    }
+  }
+
+  async function removeStudentFromGroupFn(groupId: string, studentId: string) {
+    try {
+      await removeStudentFromGroup(groupId, studentId);
+      setClassroomGroups((current) =>
+        current.map((g) => g.id !== groupId ? g : { ...g, students: (g.students ?? []).filter((s) => s.id !== studentId) })
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo quitar el estudiante del grupo.');
+    }
+  }
+
+  async function assignWorksheetToGroupFn(groupId: string, worksheetId: string) {
+    if (!worksheetId) return;
+    try {
+      await assignWorksheetToGroup(groupId, worksheetId);
+      setClassroomGroups((current) =>
+        current.map((g) => g.id !== groupId ? g : { ...g, worksheet_ids: [...(g.worksheet_ids ?? []), worksheetId] })
+      );
+      setGroupWorksheetSel((prev) => ({ ...prev, [groupId]: '' }));
+      setMessage('Hoja asignada al grupo.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo asignar la hoja.');
+    }
+  }
+
+  async function unassignWorksheetFromGroupFn(groupId: string, worksheetId: string) {
+    try {
+      await unassignWorksheetFromGroup(groupId, worksheetId);
+      setClassroomGroups((current) =>
+        current.map((g) => g.id !== groupId ? g : { ...g, worksheet_ids: (g.worksheet_ids ?? []).filter((id) => id !== worksheetId) })
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo desasignar la hoja del grupo.');
+    }
   }
 
   async function openAssignWorksheetModal(worksheet: Worksheet) {
@@ -457,6 +549,7 @@ export default function App() {
                     <button key={worksheet.id} className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet.id === worksheet.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => setActiveWorksheet(worksheet)}>
                       <BookOpen className="mb-2 text-blue-600" size={20} />
                       <strong className="block">{worksheet.title}</strong>
+                      {worksheet.groupName && <span className="mt-1 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">👥 {worksheet.groupName}</span>}
                       <p className="text-sm text-slate-500">{worksheet.description}</p>
                       <p className="mt-2 text-xs font-semibold">{response ? `Nota: ${response.score ?? 'pendiente'} · Aciertos: ${response.correct_count}` : 'Sin responder'}</p>
                     </button>
@@ -466,7 +559,7 @@ export default function App() {
               </div>
             </aside>
             <section>
-              {activeWorksheets.length > 0 && isActiveWorksheetPublished && <WorksheetRenderer worksheet={activeWorksheet} answers={answers} onAnswerChange={updateAnswer} />}
+              {activeWorksheets.length > 0 && isActiveWorksheetPublished && <WorksheetRenderer worksheet={activeWorksheet} answers={answers} onAnswerChange={updateAnswer} groupId={activeWorksheet.groupId} />}
               {activeWorksheets.length > 0 && !isActiveWorksheetPublished && (
                 <div className="mx-auto max-w-4xl rounded-3xl border border-amber-200 bg-amber-50 p-6 text-amber-800 shadow-sm">
                   <h2 className="text-xl font-extrabold">Selecciona una evaluación activa de la lista.</h2>
@@ -686,6 +779,81 @@ export default function App() {
                       <div className="mt-3 grid gap-2">
                         {classroomDetail.worksheets.map((worksheet) => <div key={worksheet.id} className="rounded-xl bg-slate-50 p-3"><strong>{worksheet.title}</strong><p className="text-sm text-slate-500">{worksheet.description}</p></div>)}
                         {!classroomDetail.worksheets.length && <p className="text-sm text-slate-500">Sin hojas asignadas.</p>}
+                      </div>
+                    </div>
+
+                    {/* ── GRUPOS ── */}
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <h4 className="font-bold">Grupos colaborativos</h4>
+                        <div className="flex gap-2">
+                          <input className="rounded-xl border p-2 text-sm" placeholder="Nombre del grupo" value={groupForm.name} onChange={(e) => setGroupForm({ name: e.target.value })} />
+                          <button className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white" onClick={createNewGroup}>+ Crear grupo</button>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid gap-4">
+                        {classroomGroups.map((group) => {
+                          const groupStudents = group.students ?? [];
+                          const groupWorksheetIds = group.worksheet_ids ?? [];
+                          const availableStudents = classroomDetail.students.filter((s) => !groupStudents.some((gs) => gs.id === s.id));
+                          const availableWorksheets = classroomDetail.worksheets.filter((w) => !groupWorksheetIds.includes(w.id));
+                          return (
+                            <div key={group.id} className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-lg">👥</span>
+                                  <strong className="text-slate-900">{group.name}</strong>
+                                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">{groupStudents.length} estudiantes</span>
+                                </div>
+                                <button className="rounded-xl border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50" onClick={() => removeGroup(group.id)}>Eliminar</button>
+                              </div>
+                              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                <div>
+                                  <p className="text-xs font-semibold uppercase text-slate-500">Integrantes</p>
+                                  <div className="mt-1 grid gap-1">
+                                    {groupStudents.map((s) => (
+                                      <div key={s.id} className="flex items-center justify-between rounded-lg bg-white px-3 py-1.5 text-sm">
+                                        <span>{s.name}</span>
+                                        <button className="text-xs text-red-500 hover:text-red-700" onClick={() => removeStudentFromGroupFn(group.id, s.id)}>✕</button>
+                                      </div>
+                                    ))}
+                                    {!groupStudents.length && <p className="text-xs text-slate-400">Sin integrantes.</p>}
+                                  </div>
+                                  <div className="mt-2 flex gap-2">
+                                    <select className="flex-1 rounded-xl border bg-white p-2 text-sm" value={groupStudentSel[group.id] ?? ''} onChange={(e) => setGroupStudentSel((p) => ({ ...p, [group.id]: e.target.value }))}>
+                                      <option value="">Agregar estudiante...</option>
+                                      {availableStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                    <button className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => addStudentToGroupFn(group.id, groupStudentSel[group.id] ?? '')}>+</button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold uppercase text-slate-500">Hojas asignadas</p>
+                                  <div className="mt-1 grid gap-1">
+                                    {groupWorksheetIds.map((wid) => {
+                                      const ws = classroomDetail.worksheets.find((w) => w.id === wid);
+                                      return ws ? (
+                                        <div key={wid} className="flex items-center justify-between rounded-lg bg-white px-3 py-1.5 text-sm">
+                                          <span className="truncate">{ws.title}</span>
+                                          <button className="text-xs text-red-500 hover:text-red-700" onClick={() => unassignWorksheetFromGroupFn(group.id, wid)}>✕</button>
+                                        </div>
+                                      ) : null;
+                                    })}
+                                    {!groupWorksheetIds.length && <p className="text-xs text-slate-400">Sin hojas asignadas.</p>}
+                                  </div>
+                                  <div className="mt-2 flex gap-2">
+                                    <select className="flex-1 rounded-xl border bg-white p-2 text-sm" value={groupWorksheetSel[group.id] ?? ''} onChange={(e) => setGroupWorksheetSel((p) => ({ ...p, [group.id]: e.target.value }))}>
+                                      <option value="">Asignar hoja...</option>
+                                      {availableWorksheets.map((w) => <option key={w.id} value={w.id}>{w.title}</option>)}
+                                    </select>
+                                    <button className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => assignWorksheetToGroupFn(group.id, groupWorksheetSel[group.id] ?? '')}>+</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {!classroomGroups.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay grupos creados en esta aula.</p>}
                       </div>
                     </div>
                   </div>

@@ -144,6 +144,29 @@ export interface Worksheet {
   theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
   attemptsUsed?: number | null;
   attemptsRemaining?: number | null;
+  // Campos de grupo (solo para hojas grupales en portal del estudiante)
+  groupId?: string | null;
+  groupName?: string | null;
+}
+
+export interface Group {
+  id: string;
+  classroom_id: string;
+  name: string;
+  created_by: string;
+  created_at: string;
+  students?: import('./services/api').UsuarioSesion[];
+  worksheet_ids?: string[];
+}
+
+export interface ActivityLock {
+  id: string;
+  worksheet_id: string;
+  group_id: string;
+  activity_index: number;
+  locked_by: string;
+  locked_by_name: string;
+  locked_at: string;
 }
 
 export interface WorksheetAnalytics {
