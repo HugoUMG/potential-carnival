@@ -587,10 +587,15 @@ class WorksheetRepository:
     # ── Sesiones de usuario ──────────────────────────────────────────────────
 
     def create_session(self, user_id: str) -> str:
-        """Inserta una nueva sesión al hacer login. Retorna el session_id."""
+        """Cierra sesiones activas anteriores e inserta una nueva al hacer login."""
         session_id = str(uuid4())
         placeholder = self._placeholder
         with get_connection() as connection:
+            # Cerrar todas las sesiones activas previas del mismo usuario
+            connection.execute(
+                f"UPDATE user_sessions SET logged_out_at = CURRENT_TIMESTAMP WHERE user_id = {placeholder} AND logged_out_at IS NULL",
+                (user_id,),
+            )
             connection.execute(
                 f"INSERT INTO user_sessions (id, user_id) VALUES ({placeholder}, {placeholder})",
                 (session_id, user_id),
