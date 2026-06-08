@@ -91,7 +91,7 @@ function WordCard({ item }: { item: VocabularyItem }) {
       </div>
 
       {verbForms && expanded && (
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-white/70 p-3 text-sm sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-white/70 p-3 text-sm">
           {[
             { label: 'Base', value: item.english },
             { label: 'Simple Past', value: item.v_past },
@@ -101,12 +101,10 @@ function WordCard({ item }: { item: VocabularyItem }) {
           ]
             .filter((f) => f.value)
             .map((f) => (
-              <div key={f.label} className="rounded-lg bg-indigo-50 px-2 py-1.5">
-                <p className="text-xs text-indigo-400 font-medium">{f.label}</p>
-                <div className="flex items-center gap-1">
-                  <span className="font-semibold text-indigo-800">{f.value}</span>
-                  {f.value && <TtsButton text={f.value} />}
-                </div>
+              <div key={f.label} className="rounded-lg bg-indigo-50 px-2 py-2 flex flex-col gap-1">
+                <p className="text-xs text-indigo-400 font-medium leading-tight">{f.label}</p>
+                <p className="font-semibold text-indigo-800 break-words leading-tight">{f.value}</p>
+                <TtsButton text={f.value ?? ''} />
               </div>
             ))}
         </div>
@@ -210,14 +208,20 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
 
 // ── Manager para el profesor ──────────────────────────────────────────────────
 
+interface Reader { id: string; name: string; username: string; }
+
 interface VocabularyManagerProps {
   lists: VocabularyList[];
   classrooms: { id: string; name: string }[];
+  readers: Reader[];
   onCreate: (title: string, description: string, items: VocabularyItem[]) => Promise<void>;
   onDeleted: (listId: string) => void;
   onAssign: (listId: string, classroomId: string) => void;
   onUnassign: (listId: string, classroomId: string) => void;
   assignedClassrooms: Record<string, string[]>;
+  onAssignReader: (listId: string, readerId: string) => void;
+  onUnassignReader: (listId: string, readerId: string) => void;
+  assignedReaders: Record<string, string[]>;
 }
 
 function parseCsv(csv: string): VocabularyItem[] {
@@ -233,7 +237,7 @@ function parseCsv(csv: string): VocabularyItem[] {
     // Format A: block, english, spanish, type, v_past, v_participle, v_ing, v_3rd
     // Format B: english, spanish, type, v_past, v_participle, v_ing, v_3rd
     let english: string, spanish: string, type: string, v_past: string, v_participle: string, v_ing: string, v_3rd: string;
-    if (cols.length >= 8 && /^[a-z ]+$/i.test(cols[0]) && cols[1]) {
+    if (cols.length >= 8 && /^[a-z0-9 ]+$/i.test(cols[0]) && cols[1]) {
       // Assume format A with block column
       [, english, spanish, type, v_past = '', v_participle = '', v_ing = '', v_3rd = ''] = cols;
     } else {
@@ -245,7 +249,7 @@ function parseCsv(csv: string): VocabularyItem[] {
   return items;
 }
 
-export function VocabularyManager({ lists, classrooms, onCreate, onDeleted, onAssign, onUnassign, assignedClassrooms }: VocabularyManagerProps) {
+export function VocabularyManager({ lists, classrooms, readers, onCreate, onDeleted, onAssign, onUnassign, assignedClassrooms, onAssignReader, onUnassignReader, assignedReaders }: VocabularyManagerProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [csvText, setCsvText] = useState('');
@@ -360,21 +364,45 @@ export function VocabularyManager({ lists, classrooms, onCreate, onDeleted, onAs
               </div>
 
               {/* Asignación a aulas */}
-              <div className="mt-3 flex flex-wrap gap-2">
-                {classrooms.map((classroom) => {
-                  const isAssigned = (assignedClassrooms[list.id] ?? []).includes(classroom.id);
-                  return (
-                    <button
-                      key={classroom.id}
-                      type="button"
-                      className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${isAssigned ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'}`}
-                      onClick={() => isAssigned ? onUnassign(list.id, classroom.id) : onAssign(list.id, classroom.id)}
-                    >
-                      {isAssigned ? '✓ ' : '+ '}{classroom.name}
-                    </button>
-                  );
-                })}
-                {!classrooms.length && <p className="text-xs text-slate-400">Primero crea aulas para asignar esta lista.</p>}
+              <div className="mt-3">
+                <p className="text-xs font-semibold text-slate-400 mb-1.5">Aulas</p>
+                <div className="flex flex-wrap gap-2">
+                  {classrooms.map((classroom) => {
+                    const isAssigned = (assignedClassrooms[list.id] ?? []).includes(classroom.id);
+                    return (
+                      <button
+                        key={classroom.id}
+                        type="button"
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${isAssigned ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'}`}
+                        onClick={() => isAssigned ? onUnassign(list.id, classroom.id) : onAssign(list.id, classroom.id)}
+                      >
+                        {isAssigned ? '✓ ' : '+ '}{classroom.name}
+                      </button>
+                    );
+                  })}
+                  {!classrooms.length && <p className="text-xs text-slate-400">Primero crea aulas.</p>}
+                </div>
+              </div>
+
+              {/* Asignación a lectores */}
+              <div className="mt-3">
+                <p className="text-xs font-semibold text-slate-400 mb-1.5">Lectores</p>
+                <div className="flex flex-wrap gap-2">
+                  {readers.map((reader) => {
+                    const isAssigned = (assignedReaders[list.id] ?? []).includes(reader.id);
+                    return (
+                      <button
+                        key={reader.id}
+                        type="button"
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${isAssigned ? 'border-teal-400 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:border-teal-300 hover:text-teal-600'}`}
+                        onClick={() => isAssigned ? onUnassignReader(list.id, reader.id) : onAssignReader(list.id, reader.id)}
+                      >
+                        {isAssigned ? '✓ ' : '+ '}{reader.name}
+                      </button>
+                    );
+                  })}
+                  {!readers.length && <p className="text-xs text-slate-400">Aún no hay lectores creados.</p>}
+                </div>
               </div>
 
               {/* Vista expandida */}

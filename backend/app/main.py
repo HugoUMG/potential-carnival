@@ -22,6 +22,7 @@ from .models import (
     LoginResponse,
     PasswordUpdate,
     PublicUser,
+    ReaderCreate,
     StudentActivity,
     StudentCreate,
     TeacherCreate,
@@ -99,9 +100,9 @@ def require_student(current_user: PublicUser = Depends(get_current_user)) -> Pub
 
 
 def require_student_owner_or_staff(student_id: str, current_user: PublicUser) -> None:
-    if current_user.role == UserRole.student and current_user.id != student_id:
-        raise HTTPException(status_code=403, detail="No puedes consultar datos de otro estudiante")
-    if current_user.role not in {UserRole.student, UserRole.teacher, UserRole.admin}:
+    if current_user.role in {UserRole.student, UserRole.reader} and current_user.id != student_id:
+        raise HTTPException(status_code=403, detail="No puedes consultar datos de otro usuario")
+    if current_user.role not in {UserRole.student, UserRole.reader, UserRole.teacher, UserRole.admin}:
         raise HTTPException(status_code=403, detail="No autorizado")
 
 
@@ -170,6 +171,9 @@ def update_user_password(user_id: str, payload: PasswordUpdate, current_user: Pu
     target = repository.get_user(user_id)
     if not target:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    # Los lectores no pueden cambiar contraseña bajo ninguna circunstancia
+    if target.role == UserRole.reader:
+        raise HTTPException(status_code=403, detail="La contraseña de un lector no puede modificarse")
     if current_user.role == UserRole.student:
         if current_user.id != user_id:
             raise HTTPException(status_code=403, detail="No puedes cambiar la contraseña de otro usuario")
@@ -496,6 +500,56 @@ def review_response(response_id: str, payload: AnswerReview, current_user: Publi
         raise HTTPException(status_code=404, detail="Actividad no encontrada en la respuesta")
     response.correct_count, response.pending_count, response.score = _score_details(response.details)
     return repository.update_response_review(response)
+
+# ── Lectores ─────────────────────────────────────────────────────────────────
+
+@app.post("/readers", response_model=PublicUser)
+def create_reader(payload: ReaderCreate, _: PublicUser = Depends(require_teacher_or_admin)) -> PublicUser:
+    try:
+        return repository.create_reader(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.get("/readers", response_model=list[PublicUser])
+def list_readers(_: PublicUser = Depends(require_teacher_or_admin)) -> list[PublicUser]:
+    return repository.list_readers()
+
+
+@app.delete("/readers/{reader_id}", status_code=204)
+def delete_reader(reader_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    if not repository.delete_reader(reader_id):
+        raise HTTPException(status_code=404, detail="Lector no encontrado")
+
+
+@app.get("/readers/{reader_id}/vocabulary", response_model=list[VocabularyList])
+def list_reader_vocabulary(reader_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[VocabularyList]:
+    if current_user.role == UserRole.reader and current_user.id != reader_id:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    if current_user.role not in {UserRole.reader, UserRole.teacher, UserRole.admin}:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    return repository.list_reader_vocabulary(reader_id)
+
+
+@app.post("/vocabulary/{list_id}/readers", status_code=204)
+def assign_reader_to_list(list_id: str, payload: dict, _: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    reader_id = payload.get("reader_id")
+    if not reader_id:
+        raise HTTPException(status_code=422, detail="reader_id requerido")
+    if not repository.get_vocabulary_list(list_id):
+        raise HTTPException(status_code=404, detail="Lista no encontrada")
+    repository.assign_reader_to_list(reader_id, list_id)
+
+
+@app.delete("/vocabulary/{list_id}/readers/{reader_id}", status_code=204)
+def unassign_reader_from_list(list_id: str, reader_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    repository.unassign_reader_from_list(reader_id, list_id)
+
+
+@app.get("/vocabulary/{list_id}/readers", response_model=list[PublicUser])
+def list_readers_for_list(list_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> list[PublicUser]:
+    return repository.list_readers_for_list(list_id)
+
 
 # ── Vocabulario ──────────────────────────────────────────────────────────────
 

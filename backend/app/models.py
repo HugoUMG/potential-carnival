@@ -10,6 +10,7 @@ class UserRole(str, Enum):
     admin = "admin"
     teacher = "teacher"
     student = "student"
+    reader = "reader"  # Solo lectura de vocabulario; contraseña no modificable
 
 
 class User(BaseModel):
@@ -47,6 +48,12 @@ class TeacherCreate(BaseModel):
     username: str
     password: str = Field(min_length=8)
     email: str | None = None
+
+
+class ReaderCreate(BaseModel):
+    name: str
+    username: str
+    password: str = Field(min_length=8)
 
 
 class LoginResponse(BaseModel):

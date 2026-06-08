@@ -7,7 +7,7 @@ export interface UsuarioSesion {
   id: string;
   name: string;
   username: string;
-  role: 'admin' | 'teacher' | 'student';
+  role: 'admin' | 'teacher' | 'student' | 'reader';
   email?: string | null;
   accessToken?: string;
 }
@@ -402,4 +402,34 @@ export async function listVocabularyClassrooms(listId: string): Promise<string[]
 
 export async function listStudentVocabulary(studentId: string): Promise<VocabularyList[]> {
   return request<VocabularyList[]>(`/students/${studentId}/vocabulary`);
+}
+
+// ── Lectores ──────────────────────────────────────────────────────────────────
+
+export async function createReader(name: string, username: string, password: string): Promise<UsuarioSesion> {
+  return request<UsuarioSesion>('/readers', { method: 'POST', body: JSON.stringify({ name, username, password }) });
+}
+
+export async function listReaders(): Promise<UsuarioSesion[]> {
+  return request<UsuarioSesion[]>('/readers');
+}
+
+export async function deleteReader(readerId: string): Promise<void> {
+  await request<void>(`/readers/${readerId}`, { method: 'DELETE' });
+}
+
+export async function listReaderVocabulary(readerId: string): Promise<VocabularyList[]> {
+  return request<VocabularyList[]>(`/readers/${readerId}/vocabulary`);
+}
+
+export async function assignReaderToList(listId: string, readerId: string): Promise<void> {
+  await request<void>(`/vocabulary/${listId}/readers`, { method: 'POST', body: JSON.stringify({ reader_id: readerId }) });
+}
+
+export async function unassignReaderFromList(listId: string, readerId: string): Promise<void> {
+  await request<void>(`/vocabulary/${listId}/readers/${readerId}`, { method: 'DELETE' });
+}
+
+export async function listReadersForList(listId: string): Promise<UsuarioSesion[]> {
+  return request<UsuarioSesion[]>(`/vocabulary/${listId}/readers`);
 }

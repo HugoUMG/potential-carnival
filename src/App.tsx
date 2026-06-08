@@ -13,12 +13,17 @@ import {
   assignWorksheetToClassroom,
   assignVocabularyToClassroom,
   unassignVocabularyFromClassroom,
+  assignReaderToList,
+  unassignReaderFromList,
+  listReadersForList,
   changePassword,
   createVocabularyList,
   createClassroom,
+  createReader,
   createStudent,
   createTeacher,
   createWorksheet,
+  deleteReader,
   deleteStudent,
   deleteTeacher,
   deleteWorksheet,
@@ -26,6 +31,7 @@ import {
   deleteResponse,
   getStudentsActivity,
   listClassrooms,
+  listReaders,
   listStudentClassrooms,
   listStudentResponses,
   listStudentSessions,
@@ -121,7 +127,10 @@ export default function App() {
   const [sessionModal, setSessionModal] = useState<{ student: StudentActivity; sessions: UserSession[] } | null>(null);
   const [vocabularyLists, setVocabularyLists] = useState<VocabularyList[]>([]);
   const [vocabAssignedClassrooms, setVocabAssignedClassrooms] = useState<Record<string, string[]>>({});
+  const [vocabAssignedReaders, setVocabAssignedReaders] = useState<Record<string, string[]>>({});
   const [studentVocabularyLists, setStudentVocabularyLists] = useState<VocabularyList[]>([]);
+  const [readers, setReaders] = useState<UsuarioSesion[]>([]);
+  const [readerForm, setReaderForm] = useState({ name: '', username: '', password: '' });
 
   function withCooldown(key: string, fn: () => void) {
     if (refreshCooldowns.has(key)) return;
@@ -164,7 +173,7 @@ export default function App() {
     if (!currentUser) return;
     try {
       if (currentUser.role !== 'student') {
-        const [teacherWorksheets, allStudents, allTeachers, teacherClassrooms, dashboardStats, vocabLists] = await Promise.all([listTeacherWorksheets(currentUser.role === 'admin' ? undefined : currentUser.id), listStudents(), currentUser.role === 'admin' ? listTeachers() : Promise.resolve([]), listClassrooms(), getTeacherDashboard(), listVocabularyLists()]);
+        const [teacherWorksheets, allStudents, allTeachers, teacherClassrooms, dashboardStats, vocabLists, allReaders] = await Promise.all([listTeacherWorksheets(currentUser.role === 'admin' ? undefined : currentUser.id), listStudents(), currentUser.role === 'admin' ? listTeachers() : Promise.resolve([]), listClassrooms(), getTeacherDashboard(), listVocabularyLists(), listReaders()]);
         // Garantizar orden más reciente primero, independientemente del backend
         const sortedWorksheets = [...teacherWorksheets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setWorksheets(sortedWorksheets.length ? sortedWorksheets : [sampleWorksheet]);
@@ -173,12 +182,15 @@ export default function App() {
         setClassrooms(teacherClassrooms);
         setTeacherStats(dashboardStats);
         setVocabularyLists(vocabLists);
-        const [classroomAssignments, vocabClassroomAssignments] = await Promise.all([
+        setReaders(allReaders);
+        const [classroomAssignments, vocabClassroomAssignments, vocabReaderAssignments] = await Promise.all([
           Promise.all(sortedWorksheets.map(async (worksheet) => [worksheet.id, await listWorksheetClassrooms(worksheet.id)] as const)),
           Promise.all(vocabLists.map(async (vl) => [vl.id, await listVocabularyClassrooms(vl.id)] as const)),
+          Promise.all(vocabLists.map(async (vl) => [vl.id, (await listReadersForList(vl.id)).map((r) => r.id)] as const)),
         ]);
         setWorksheetClassrooms(Object.fromEntries(classroomAssignments));
         setVocabAssignedClassrooms(Object.fromEntries(vocabClassroomAssignments));
+        setVocabAssignedReaders(Object.fromEntries(vocabReaderAssignments));
         if (!activeClassroomId && teacherClassrooms[0]) setActiveClassroomId(teacherClassrooms[0].id);
         if (sortedWorksheets[0]) {
           setActiveWorksheet(sortedWorksheets[0]);
@@ -403,6 +415,39 @@ export default function App() {
     await deleteVocabularyList(listId);
     setVocabularyLists((prev) => prev.filter((vl) => vl.id !== listId));
     setVocabAssignedClassrooms((prev) => { const next = { ...prev }; delete next[listId]; return next; });
+    setVocabAssignedReaders((prev) => { const next = { ...prev }; delete next[listId]; return next; });
+  }
+
+  async function handleReaderAssignToList(listId: string, readerId: string) {
+    await assignReaderToList(listId, readerId);
+    setVocabAssignedReaders((prev) => ({ ...prev, [listId]: [...(prev[listId] ?? []), readerId] }));
+  }
+
+  async function handleReaderUnassignFromList(listId: string, readerId: string) {
+    await unassignReaderFromList(listId, readerId);
+    setVocabAssignedReaders((prev) => ({ ...prev, [listId]: (prev[listId] ?? []).filter((id) => id !== readerId) }));
+  }
+
+  async function createNewReader() {
+    try {
+      const created = await createReader(readerForm.name, readerForm.username, readerForm.password);
+      setReaders((prev) => [created, ...prev]);
+      setReaderForm({ name: '', username: '', password: '' });
+      setMessage('Lector creado correctamente.');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'No se pudo crear el lector.');
+    }
+  }
+
+  async function removeReader(reader: UsuarioSesion) {
+    if (!window.confirm(`¿Eliminar al lector "${reader.name}"?`)) return;
+    try {
+      await deleteReader(reader.id);
+      setReaders((prev) => prev.filter((r) => r.id !== reader.id));
+      setMessage('Lector eliminado.');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'No se pudo eliminar.');
+    }
   }
 
   // ProtectedRoute en main.tsx garantiza que user no es null en estas rutas.
@@ -914,21 +959,56 @@ export default function App() {
             </div>
           </section>
         )}
+        {adminMenu === 'lectores' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">Acceso especial</p>
+            <h2 className="text-2xl font-bold">Lectores de vocabulario</h2>
+            <p className="mt-1 text-sm text-slate-500">Los lectores solo pueden ver el módulo de vocabulario. <strong>Su contraseña no puede ser modificada.</strong></p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <input className="rounded-2xl border p-3 text-sm" placeholder="Nombre" value={readerForm.name} onChange={(e) => setReaderForm({ ...readerForm, name: e.target.value })} />
+              <input className="rounded-2xl border p-3 text-sm" placeholder="Usuario" value={readerForm.username} onChange={(e) => setReaderForm({ ...readerForm, username: e.target.value })} />
+              <input className="rounded-2xl border p-3 text-sm" placeholder="Contraseña" value={readerForm.password} onChange={(e) => setReaderForm({ ...readerForm, password: e.target.value })} />
+            </div>
+            <button className="mt-4 rounded-2xl bg-teal-600 px-5 py-3 font-semibold text-white hover:bg-teal-700" onClick={createNewReader}>Crear lector</button>
+            {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
+            <h3 className="mt-6 font-bold">Lectores existentes</h3>
+            <div className="mt-3 grid gap-2">
+              {readers.map((reader) => (
+                <div key={reader.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-teal-50 p-3">
+                  <div>
+                    <span className="font-semibold">{reader.name}</span>
+                    <span className="ml-2 text-sm text-slate-500">@{reader.username}</span>
+                    <span className="ml-2 rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700">Lector</span>
+                  </div>
+                  <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" onClick={() => removeReader(reader)}>
+                    <Trash2 className="mr-1 inline" size={14} /> Eliminar
+                  </button>
+                </div>
+              ))}
+              {!readers.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay lectores creados. Asígna listas de vocabulario desde el menú Vocabulario.</p>}
+            </div>
+          </section>
+        )}
         {adminMenu === 'vocabulario' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <VocabularyManager
               lists={vocabularyLists}
               classrooms={classrooms}
+              readers={readers.map((r) => ({ id: r.id, name: r.name, username: r.username }))}
               onCreate={async (title, description, items) => {
                 if (!user) return;
                 const created = await createVocabularyList(title, description, user.id, items);
                 setVocabularyLists((prev) => [created, ...prev]);
                 setVocabAssignedClassrooms((prev) => ({ ...prev, [created.id]: [] }));
+                setVocabAssignedReaders((prev) => ({ ...prev, [created.id]: [] }));
               }}
               onDeleted={handleVocabDelete}
               onAssign={handleVocabAssign}
               onUnassign={handleVocabUnassign}
               assignedClassrooms={vocabAssignedClassrooms}
+              onAssignReader={handleReaderAssignToList}
+              onUnassignReader={handleReaderUnassignFromList}
+              assignedReaders={vocabAssignedReaders}
             />
           </section>
         )}
