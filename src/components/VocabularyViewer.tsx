@@ -101,10 +101,10 @@ function WordCard({ item }: { item: VocabularyItem }) {
           ]
             .filter((f) => f.value)
             .map((f) => (
-              <div key={f.label} className="flex items-center justify-between gap-2 rounded-lg bg-indigo-50 px-3 py-2">
+              <div key={f.label} className="flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2">
                 <span className="text-xs text-indigo-400 font-medium shrink-0 w-24">{f.label}</span>
-                <span className="font-semibold text-indigo-800 flex-1 min-w-0">{f.value}</span>
-                <TtsButton text={f.value ?? ''} />
+                <span className="font-semibold text-indigo-800 flex-1 min-w-0 break-all">{f.value}</span>
+                <span className="shrink-0"><TtsButton text={f.value ?? ''} /></span>
               </div>
             ))}
         </div>
