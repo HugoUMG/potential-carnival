@@ -194,19 +194,21 @@ export default function App() {
     try {
       if (currentUser.role !== 'student') {
         const [teacherWorksheets, allStudents, allTeachers, teacherClassrooms, dashboardStats] = await Promise.all([listTeacherWorksheets(currentUser.role === 'admin' ? undefined : currentUser.id), listStudents(), currentUser.role === 'admin' ? listTeachers() : Promise.resolve([]), listClassrooms(), getTeacherDashboard()]);
-        setWorksheets(teacherWorksheets.length ? teacherWorksheets : [sampleWorksheet]);
+        // Garantizar orden más reciente primero, independientemente del backend
+        const sortedWorksheets = [...teacherWorksheets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setWorksheets(sortedWorksheets.length ? sortedWorksheets : [sampleWorksheet]);
         setStudents(allStudents);
         setTeachers(allTeachers);
         setClassrooms(teacherClassrooms);
         setTeacherStats(dashboardStats);
-        const classroomAssignments = await Promise.all(teacherWorksheets.map(async (worksheet) => [worksheet.id, await listWorksheetClassrooms(worksheet.id)] as const));
+        const classroomAssignments = await Promise.all(sortedWorksheets.map(async (worksheet) => [worksheet.id, await listWorksheetClassrooms(worksheet.id)] as const));
         setWorksheetClassrooms(Object.fromEntries(classroomAssignments));
         if (!activeClassroomId && teacherClassrooms[0]) setActiveClassroomId(teacherClassrooms[0].id);
-        if (teacherWorksheets[0]) {
-          setActiveWorksheet(teacherWorksheets[0]);
-          setScriptDraft(teacherWorksheets[0].scriptContent);
-          setMaxAttemptsDraft(teacherWorksheets[0].maxAttempts ? String(teacherWorksheets[0].maxAttempts) : 'unlimited');
-          setResponses(await listWorksheetResponses(teacherWorksheets[0].id));
+        if (sortedWorksheets[0]) {
+          setActiveWorksheet(sortedWorksheets[0]);
+          setScriptDraft(sortedWorksheets[0].scriptContent);
+          setMaxAttemptsDraft(sortedWorksheets[0].maxAttempts ? String(sortedWorksheets[0].maxAttempts) : 'unlimited');
+          setResponses(await listWorksheetResponses(sortedWorksheets[0].id));
         }
       } else {
         const [availableWorksheets, studentResponses, myClassrooms] = await Promise.all([listStudentWorksheets(currentUser.id), listStudentResponses(currentUser.id), listStudentClassrooms(currentUser.id)]);
