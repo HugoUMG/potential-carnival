@@ -221,3 +221,35 @@ class StudentActivity(BaseModel):
     last_login: datetime | None = None
     is_online: bool = False
     total_sessions: int = 0
+
+
+# ─── Vocabulario ───────────────────────────────────────────────────────────────
+
+class VocabularyItem(BaseModel):
+    english: str
+    spanish: str
+    type: str  # verb, noun, adjective, adverb, connector, linking word, preposition, phrase, other
+    v_past: str = ""
+    v_participle: str = ""
+    v_ing: str = ""
+    v_3rd: str = ""
+
+
+class VocabularyList(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    title: str
+    description: str = ""
+    created_by: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    items: list[VocabularyItem] = Field(default_factory=list)
+
+
+class VocabularyListCreate(BaseModel):
+    title: str
+    description: str = ""
+    created_by: str
+    items: list[VocabularyItem] = Field(default_factory=list)
+
+
+class VocabularyAssignment(BaseModel):
+    classroom_id: str

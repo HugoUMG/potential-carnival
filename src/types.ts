@@ -163,6 +163,38 @@ export interface ActivityRendererProps<T extends WorksheetActivity = WorksheetAc
   onChange: (activityId: string, value: StudentAnswer) => void;
 }
 
+// ── Vocabulario ───────────────────────────────────────────────────────────────
+
+export type VocabularyWordType =
+  | 'verb'
+  | 'noun'
+  | 'adjective'
+  | 'adverb'
+  | 'connector'
+  | 'linking word'
+  | 'preposition'
+  | 'phrase'
+  | string;
+
+export interface VocabularyItem {
+  english: string;
+  spanish: string;
+  type: VocabularyWordType;
+  v_past?: string;
+  v_participle?: string;
+  v_ing?: string;
+  v_3rd?: string;
+}
+
+export interface VocabularyList {
+  id: string;
+  title: string;
+  description: string;
+  created_by: string;
+  created_at: string;
+  items: VocabularyItem[];
+}
+
 export interface ActivityDefinition<T extends WorksheetActivity = WorksheetActivity> {
   type: T['type'];
   label: string;
