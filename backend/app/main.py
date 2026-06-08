@@ -56,7 +56,7 @@ def startup() -> None:
     initialize_database()
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, str]:
     return {"estado": "correcto"}
 
