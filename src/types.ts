@@ -181,6 +181,7 @@ export interface VocabularyItem {
   english: string;
   spanish: string;
   type: VocabularyWordType;
+  block?: string;
   v_past?: string;
   v_participle?: string;
   v_ing?: string;

@@ -238,6 +238,7 @@ class VocabularyItem(BaseModel):
     english: str
     spanish: str
     type: str  # verb, noun, adjective, adverb, connector, linking word, preposition, phrase, other
+    block: str = ""
     v_past: str = ""
     v_participle: str = ""
     v_ing: str = ""

@@ -146,20 +146,42 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
 
         if (!filtered.length) return null;
 
-        // Agrupar por block: usamos el campo de block que puede venir en los items
-        // No hay campo block en item directamente (items es plano), así que mostramos por lista
+        // Group items by block label (preserving insertion order)
+        const hasBlocks = filtered.some((item) => item.block && item.block.trim() !== '');
+        const groups: { label: string; items: VocabularyItem[] }[] = [];
+        if (hasBlocks) {
+          for (const item of filtered) {
+            const label = item.block?.trim() || '';
+            const last = groups[groups.length - 1];
+            if (last && last.label === label) { last.items.push(item); }
+            else { groups.push({ label, items: [item] }); }
+          }
+        } else {
+          groups.push({ label: '', items: filtered });
+        }
+
         return (
           <section key={list.id} className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="mb-1">
+            <div className="mb-4">
               <h3 className="text-lg font-bold text-slate-900">{list.title}</h3>
               {list.description && <p className="text-sm text-slate-500"><RichText text={list.description} /></p>}
               <p className="mt-1 text-xs text-slate-400">{filtered.length} {filtered.length === 1 ? 'palabra' : 'palabras'}</p>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((item, index) => (
-                <WordCard key={`${item.english}-${index}`} item={item} />
-              ))}
-            </div>
+            {groups.map((group, gi) => (
+              <div key={gi} className={gi > 0 ? 'mt-8' : ''}>
+                {group.label && (
+                  <div className="mb-3 flex items-center gap-3">
+                    <span className="rounded-2xl bg-indigo-50 px-4 py-1.5 text-sm font-bold text-indigo-700">{group.label}</span>
+                    <span className="text-xs text-slate-400">{group.items.length} palabras</span>
+                  </div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {group.items.map((item, index) => (
+                    <WordCard key={`${item.english}-${index}`} item={item} />
+                  ))}
+                </div>
+              </div>
+            ))}
           </section>
         );
       })}
@@ -219,7 +241,7 @@ function parseCsv(csv: string): VocabularyItem[] {
     // Support both formats:
     // Format A: block, english, spanish, type, v_past, v_participle, v_ing, v_3rd
     // Format B: english, spanish, type, v_past, v_participle, v_ing, v_3rd
-    let english: string, spanish: string, type: string, v_past: string, v_participle: string, v_ing: string, v_3rd: string;
+    let block: string, english: string, spanish: string, type: string, v_past: string, v_participle: string, v_ing: string, v_3rd: string;
     // Detect format by checking if cols[3] is a known word type (Format A with block),
     // or cols[2] is a known word type (Format B without block).
     // This handles block names with special characters like "&", "-", etc.
@@ -227,13 +249,14 @@ function parseCsv(csv: string): VocabularyItem[] {
     const isFormatA = cols.length >= 4 && KNOWN_TYPES.has(cols[3]?.toLowerCase());
     if (isFormatA) {
       // Format A: block, english, spanish, type, v_past, v_participle, v_ing, v_3rd
-      [, english, spanish, type, v_past = '', v_participle = '', v_ing = '', v_3rd = ''] = cols;
+      [block, english, spanish, type, v_past = '', v_participle = '', v_ing = '', v_3rd = ''] = cols;
     } else {
       // Format B: english, spanish, type, v_past, v_participle, v_ing, v_3rd
+      block = '';
       [english, spanish, type, v_past = '', v_participle = '', v_ing = '', v_3rd = ''] = cols;
     }
     if (!english || !spanish) continue;
-    items.push({ english, spanish, type: type || 'other', v_past, v_participle, v_ing, v_3rd });
+    items.push({ block: block || '', english, spanish, type: type || 'other', v_past, v_participle, v_ing, v_3rd });
   }
   return items;
 }
