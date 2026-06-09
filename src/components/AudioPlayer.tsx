@@ -236,7 +236,11 @@ export function AudioPlayer({ text, voice }: AudioPlayerProps) {
   );
 }
 
-// ── Botón compacto TTS (para vocabulario) ────────────────────────────────────
+// ── Botón compacto TTS (para vocabulario) — carga perezosa ───────────────────
+//
+// NO precarga en el montaje. Descarga el audio solo cuando el usuario hace clic
+// por primera vez, luego lo cachea en un ref para que el siguiente clic sea
+// instantáneo. Esto evita descargar cientos de audios al abrir el vocabulario.
 
 interface TtsButtonProps {
   text: string;
@@ -244,36 +248,58 @@ interface TtsButtonProps {
 }
 
 export function TtsButton({ text, voice }: TtsButtonProps) {
-  const { blobUrl, loading, error, reload } = useAudioBlob(text, voice);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [playing, setPlaying] = useState(false);
+  // Cache del blob URL — persiste entre renders mientras el componente vive
+  const cachedUrl = useRef<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const handleClick = () => {
-    if (error) { void reload(); return; }
-    const audio = audioRef.current;
-    if (!audio || !blobUrl) return;
-    if (playing) {
-      audio.pause();
+  const handleClick = async () => {
+    // Si ya está reproduciendo, pausar y reiniciar
+    if (playing && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      return;
+    }
+
+    // Si ya tenemos el blob cacheado, reproducir directo
+    if (cachedUrl.current) {
+      const audio = audioRef.current ?? new Audio(cachedUrl.current);
+      audioRef.current = audio;
       audio.currentTime = 0;
-    } else {
       void audio.play();
+      return;
+    }
+
+    // Primera vez: descargar el blob
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch(buildTtsUrl(text, voice));
+      if (!res.ok) throw new Error(`TTS ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      cachedUrl.current = url;
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onplay    = () => setPlaying(true);
+      audio.onpause   = () => setPlaying(false);
+      audio.onended   = () => setPlaying(false);
+      void audio.play();
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <>
-      {blobUrl && (
-        <audio
-          ref={audioRef}
-          src={blobUrl}
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          onEnded={() => setPlaying(false)}
-        />
-      )}
       <button
         type="button"
-        onClick={handleClick}
+        onClick={() => void handleClick()}
         disabled={loading}
         title={error ? 'Error — clic para reintentar' : playing ? 'Detener' : 'Reproducir'}
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition
