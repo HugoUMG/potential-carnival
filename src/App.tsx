@@ -580,7 +580,7 @@ export default function App() {
                     <button key={worksheet.id} className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet.id === worksheet.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => setActiveWorksheet(worksheet)}>
                       <BookOpen className="mb-2 text-blue-600" size={20} />
                       <strong className="block">{worksheet.title}</strong>
-                      <p className="text-sm text-slate-500">{worksheet.description}</p>
+                      <p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p>
                       {worksheet.dueDate && (() => {
                         const due = new Date(worksheet.dueDate);
                         const now = Date.now();
@@ -826,7 +826,7 @@ export default function App() {
                     <div>
                       <h4 className="font-bold">Hojas asignadas</h4>
                       <div className="mt-3 grid gap-2">
-                        {classroomDetail.worksheets.map((worksheet) => <div key={worksheet.id} className="rounded-xl bg-slate-50 p-3"><strong>{worksheet.title}</strong><p className="text-sm text-slate-500">{worksheet.description}</p></div>)}
+                        {classroomDetail.worksheets.map((worksheet) => <div key={worksheet.id} className="rounded-xl bg-slate-50 p-3"><strong>{worksheet.title}</strong><p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p></div>)}
                         {!classroomDetail.worksheets.length && <p className="text-sm text-slate-500">Sin hojas asignadas.</p>}
                       </div>
                     </div>
@@ -892,7 +892,7 @@ export default function App() {
                     <div>
                       <span className={`rounded-full px-3 py-1 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
                       <h3 className="mt-3 text-lg font-bold">{worksheet.title}</h3>
-                      <p className="text-sm text-slate-500">{worksheet.description}</p>
+                      <p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p>
                       <p className="mt-2 text-xs text-slate-400">Intentos: {worksheet.maxAttempts ?? 'Ilimitada'}</p>
                       <p className="mt-1 text-xs font-semibold text-emerald-700">Aulas: {worksheetClassrooms[worksheet.id]?.map((classroom) => classroom.name).join(', ') || 'Sin asignar'}</p>
                     </div>
@@ -930,7 +930,7 @@ export default function App() {
                       <div>
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Archivada</span>
                         <h4 className="mt-3 font-bold">{worksheet.title}</h4>
-                        <p className="text-sm text-slate-500">{worksheet.description}</p>
+                        <p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button className="rounded-2xl border border-amber-200 bg-white px-4 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}>Desarchivar</button>
