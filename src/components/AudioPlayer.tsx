@@ -106,11 +106,35 @@ export function AudioPlayer({ text, voice }: AudioPlayerProps) {
   };
 
   const fmt = (s: number) => {
-    if (!isFinite(s)) return '0:00';
+    if (!isFinite(s) || isNaN(s)) return '0:00';
     return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   };
 
-  const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
+  const progressPct = duration > 0 && isFinite(duration) ? (progress / duration) * 100 : 0;
+
+  /**
+   * Safari bug: blob URLs de audio devuelven duration=Infinity en onLoadedMetadata.
+   * Fix: forzar seek a un número muy alto para que Safari escanee el archivo completo
+   * y dispare un segundo evento con la duración real.
+   */
+  const handleLoadedMetadata = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (!isFinite(audio.duration)) {
+      audio.currentTime = 1e101; // fuerza a Safari a leer hasta el final
+    } else {
+      setDuration(audio.duration);
+    }
+  };
+
+  const handleDurationChange = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isFinite(audio.duration)) {
+      setDuration(audio.duration);
+      audio.currentTime = 0; // regresa al inicio tras el scan de Safari
+    }
+  };
 
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
@@ -124,7 +148,8 @@ export function AudioPlayer({ text, voice }: AudioPlayerProps) {
           onPause={() => setPlaying(false)}
           onEnded={() => { setPlaying(false); setProgress(0); }}
           onTimeUpdate={() => { if (audioRef.current) setProgress(audioRef.current.currentTime); }}
-          onLoadedMetadata={() => { if (audioRef.current) setDuration(audioRef.current.duration); }}
+          onLoadedMetadata={handleLoadedMetadata}
+          onDurationChange={handleDurationChange}
         />
       )}
 
