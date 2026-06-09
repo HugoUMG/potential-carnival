@@ -152,15 +152,20 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options?.headers },
   });
-  if (response.status === 401) {
-    // Token expirado o inválido: limpiar sesión y notificar a la app
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    window.dispatchEvent(new CustomEvent('session-expired'));
-    throw new Error('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
-  }
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Error inesperado' }));
-    throw new Error(error.detail ?? 'Error inesperado');
+    const detail: string = error.detail ?? 'Error inesperado';
+    if (response.status === 401) {
+      // Si es el endpoint de login, el 401 significa credenciales incorrectas — mostrar mensaje real
+      if (path === '/auth/login') {
+        throw new Error(detail);
+      }
+      // Para cualquier otro endpoint, el 401 significa token expirado o inválido
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      window.dispatchEvent(new CustomEvent('session-expired'));
+      throw new Error('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
+    }
+    throw new Error(detail);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
