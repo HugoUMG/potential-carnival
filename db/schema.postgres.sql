@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS classroom_worksheets (
 );
 
 ALTER TABLE worksheets ADD COLUMN IF NOT EXISTS theme JSONB;
+ALTER TABLE classroom_worksheets ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS user_sessions (
   id TEXT PRIMARY KEY,

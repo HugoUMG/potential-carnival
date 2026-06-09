@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, BookOpen, Check, LockKeyhole, RefreshCw, Send, Trash2, X } from 'lucide-react';
+import { Archive, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Download, LockKeyhole, RefreshCw, Search, Send, Trash2, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
@@ -29,6 +29,7 @@ import {
   deleteWorksheet,
   deleteVocabularyList,
   deleteResponse,
+  duplicateWorksheet,
   getStudentsActivity,
   listClassrooms,
   listReaders,
@@ -131,6 +132,14 @@ export default function App() {
   const [studentVocabularyLists, setStudentVocabularyLists] = useState<VocabularyList[]>([]);
   const [readers, setReaders] = useState<UsuarioSesion[]>([]);
   const [readerForm, setReaderForm] = useState({ name: '', username: '', password: '' });
+  // Evaluaciones: search + pagination
+  const [wsSearch, setWsSearch] = useState('');
+  const [wsPage, setWsPage] = useState(1);
+  const WS_PAGE_SIZE = 10;
+  // Due date for worksheet assignment
+  const [assignDueDate, setAssignDueDate] = useState('');
+  // Duplicate loading state
+  const [isDuplicating, setIsDuplicating] = useState<string | null>(null);
 
   function withCooldown(key: string, fn: () => void) {
     if (refreshCooldowns.has(key)) return;
@@ -326,6 +335,26 @@ export default function App() {
     setAdminMenu('revision');
   }
 
+  function exportResponsesCsv() {
+    if (!responses.length) return;
+    const header = ['Estudiante', 'Fecha', 'Nota', 'Aciertos', 'Pendientes'];
+    const rows = responses.map((r) => [
+      r.student_name,
+      new Date(r.submitted_at).toLocaleString(),
+      r.score ?? '',
+      r.correct_count,
+      r.pending_count,
+    ]);
+    const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `respuestas_${activeWorksheet.title.replace(/\s+/g, '_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function removeResponse(response: RespuestaEstudiante) {
     if (!window.confirm(`¿Estás seguro de que deseas eliminar la respuesta de ${response.student_name}? Esta acción no se puede deshacer`)) return;
     await deleteResponse(response.id);
@@ -376,8 +405,24 @@ export default function App() {
 
   async function openAssignWorksheetModal(worksheet: Worksheet) {
     setAssignmentWorksheet(worksheet);
+    setAssignDueDate('');
     const assignedClassrooms = await listWorksheetClassrooms(worksheet.id);
     setSelectedAssignmentClassrooms(assignedClassrooms.map((classroom) => classroom.id));
+  }
+
+  async function handleDuplicateWorksheet(worksheet: Worksheet) {
+    if (isDuplicating) return;
+    setIsDuplicating(worksheet.id);
+    try {
+      const duped = await duplicateWorksheet(worksheet.id);
+      setWorksheets((prev) => [duped, ...prev]);
+      setWorksheetClassrooms((prev) => ({ ...prev, [duped.id]: [] }));
+      setMessage(`Evaluación duplicada: "${duped.title}"`);
+    } catch {
+      setMessage('Error al duplicar la evaluación.');
+    } finally {
+      setIsDuplicating(null);
+    }
   }
 
   async function saveWorksheetClassroomAssignments() {
@@ -388,7 +433,7 @@ export default function App() {
     const toAssign = classrooms.filter((c) => selected.has(c.id) && !previouslyAssigned.has(c.id));
     const toUnassign = classrooms.filter((c) => !selected.has(c.id) && previouslyAssigned.has(c.id));
     await Promise.all([
-      ...toAssign.map((c) => assignWorksheetToClassroom(c.id, assignmentWorksheet.id)),
+      ...toAssign.map((c) => assignWorksheetToClassroom(c.id, assignmentWorksheet.id, assignDueDate || null)),
       ...toUnassign.map((c) => unassignWorksheetFromClassroom(c.id, assignmentWorksheet.id)),
     ]);
     const updatedClassrooms = classrooms.filter((c) => selected.has(c.id));
@@ -536,6 +581,15 @@ export default function App() {
                       <BookOpen className="mb-2 text-blue-600" size={20} />
                       <strong className="block">{worksheet.title}</strong>
                       <p className="text-sm text-slate-500">{worksheet.description}</p>
+                      {worksheet.dueDate && (() => {
+                        const due = new Date(worksheet.dueDate);
+                        const now = Date.now();
+                        const diffMs = due.getTime() - now;
+                        const diffH = Math.ceil(diffMs / 3600000);
+                        const isPast = diffMs < 0;
+                        const label = isPast ? 'Vencida' : diffH <= 24 ? `Vence en ${diffH}h` : `Vence ${due.toLocaleDateString()}`;
+                        return <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ${isPast ? 'bg-red-100 text-red-700' : diffH <= 24 ? 'bg-amber-100 text-amber-700' : 'bg-blue-50 text-blue-600'}`}>{label}</span>;
+                      })()}
                       <p className="mt-2 text-xs font-semibold">{response ? `Nota: ${response.score ?? 'pendiente'} · Aciertos: ${response.correct_count}` : 'Sin responder'}</p>
                     </button>
                   );
@@ -687,6 +741,9 @@ export default function App() {
   const savedWorksheets = worksheets.filter((worksheet) => worksheet.id !== sampleWorksheet.id && !worksheet.archived);
   const archivedWorksheets = worksheets.filter((worksheet) => worksheet.id !== sampleWorksheet.id && worksheet.archived);
   const publishedCount = savedWorksheets.filter((worksheet) => worksheet.status === 'published').length;
+  const filteredWorksheets = savedWorksheets.filter((w) => wsSearch === '' || w.title.toLowerCase().includes(wsSearch.toLowerCase()) || w.description.toLowerCase().includes(wsSearch.toLowerCase()));
+  const wsPageCount = Math.max(1, Math.ceil(filteredWorksheets.length / WS_PAGE_SIZE));
+  const pagedWorksheets = filteredWorksheets.slice((wsPage - 1) * WS_PAGE_SIZE, wsPage * WS_PAGE_SIZE);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -817,9 +874,19 @@ export default function App() {
               </div>
               <button className="rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white" onClick={() => setAdminMenu('crear')}>Nueva evaluación</button>
             </div>
+            {/* Search */}
+            <div className="mt-4 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                className="w-full rounded-2xl border border-slate-200 py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                placeholder="Buscar por título o descripción..."
+                value={wsSearch}
+                onChange={(e) => { setWsSearch(e.target.value); setWsPage(1); }}
+              />
+            </div>
             {message && <p className="mt-4 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}
             <div className="mt-5 grid gap-4">
-              {savedWorksheets.map((worksheet) => (
+              {pagedWorksheets.map((worksheet) => (
                 <article key={worksheet.id} className="rounded-2xl border border-slate-100 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -831,15 +898,28 @@ export default function App() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700" onClick={() => togglePublished(worksheet)}>{worksheet.status === 'published' ? 'Deshabilitar' : 'Habilitar'}</button>
-                      <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button><button className="rounded-2xl border border-indigo-200 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button><button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700" onClick={() => openAssignWorksheetModal(worksheet)}>Asignar a aula</button>
+                      <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button>
+                      <button className="rounded-2xl border border-indigo-200 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button>
+                      <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700" onClick={() => openAssignWorksheetModal(worksheet)}>Asignar a aula</button>
+                      <button className="rounded-2xl border border-violet-200 px-4 py-2 font-semibold text-violet-700 disabled:opacity-50" disabled={isDuplicating === worksheet.id} onClick={() => handleDuplicateWorksheet(worksheet)}><Copy className="mr-1 inline" size={16} />{isDuplicating === worksheet.id ? 'Duplicando...' : 'Duplicar'}</button>
                       <button className="rounded-2xl border border-amber-200 px-4 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}><Archive className="mr-1 inline" size={16} /> Archivar</button>
                       <button className="rounded-2xl border border-red-200 px-4 py-2 font-semibold text-red-600" onClick={() => removeWorksheet(worksheet)}><Trash2 className="mr-1 inline" size={16} /> Borrar</button>
                     </div>
                   </div>
                 </article>
               ))}
-              {!savedWorksheets.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No hay evaluaciones activas en el menú.</p>}
+              {!filteredWorksheets.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">{wsSearch ? 'No se encontraron evaluaciones con ese término.' : 'No hay evaluaciones activas en el menú.'}</p>}
             </div>
+            {/* Pagination */}
+            {wsPageCount > 1 && (
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span className="text-slate-500">{filteredWorksheets.length} evaluaciones · página {wsPage} de {wsPageCount}</span>
+                <div className="flex gap-2">
+                  <button className="rounded-xl border px-3 py-1.5 font-semibold disabled:opacity-40" disabled={wsPage <= 1} onClick={() => setWsPage((p) => p - 1)}><ChevronLeft size={16} /></button>
+                  <button className="rounded-xl border px-3 py-1.5 font-semibold disabled:opacity-40" disabled={wsPage >= wsPageCount} onClick={() => setWsPage((p) => p + 1)}><ChevronRight size={16} /></button>
+                </div>
+              </div>
+            )}
             <div className="mt-8 border-t border-slate-100 pt-5">
               <h3 className="text-lg font-bold">Archivadas</h3>
               <p className="text-sm text-slate-500">Las hojas archivadas quedan almacenadas, pero los estudiantes no pueden verlas ni ver sus respuestas hasta desarchivarlas.</p>
@@ -1014,7 +1094,15 @@ export default function App() {
         )}
         {adminMenu === 'revision' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3"><h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2><button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('responses-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('responses-refresh')} onClick={() => withCooldown('responses-refresh', () => loadWorksheetResponses(activeWorksheet))}><RefreshCw size={16} /></button></div>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2>
+              <div className="flex gap-2">
+                {responses.length > 0 && (
+                  <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700 text-sm" type="button" onClick={exportResponsesCsv}><Download className="mr-1 inline" size={15} /> Exportar CSV</button>
+                )}
+                <button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('responses-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('responses-refresh')} onClick={() => withCooldown('responses-refresh', () => loadWorksheetResponses(activeWorksheet))}><RefreshCw size={16} /></button>
+              </div>
+            </div>
             <p className="text-sm text-slate-500">Nombre, fecha, puntuación, aciertos y pendientes permanecen guardados aunque la evaluación se deshabilite. Las respuestas incorrectas de fill in the blank se pueden corregir manualmente por errores de escritura.</p>
             <div className="mt-5 grid gap-4">
               {responses.map((response) => (
@@ -1109,6 +1197,19 @@ export default function App() {
                 </label>
               ))}
               {!classrooms.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Primero crea un aula.</p>}
+            </div>
+            {/* Due date */}
+            <div className="mt-4">
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Fecha límite (opcional)</label>
+              <input
+                type="datetime-local"
+                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                value={assignDueDate}
+                onChange={(e) => setAssignDueDate(e.target.value)}
+              />
+              {assignDueDate && (
+                <button className="mt-1 text-xs text-slate-400 hover:text-red-500" type="button" onClick={() => setAssignDueDate('')}>✕ Quitar fecha límite</button>
+              )}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setAssignmentWorksheet(null)}>Cancelar</button>

@@ -238,7 +238,8 @@ def unassign_student(classroom_id: str, student_id: str, current_user: PublicUse
 def assign_worksheet(classroom_id: str, payload: ClassroomWorksheetAssignment, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
     require_classroom_manager(classroom_id, current_user)
     require_worksheet_manager(payload.worksheet_id, current_user)
-    repository.assign_worksheet_to_classroom(classroom_id, payload.worksheet_id)
+    due_date_str = payload.due_date.isoformat() if payload.due_date else None
+    repository.assign_worksheet_to_classroom(classroom_id, payload.worksheet_id, due_date_str)
 
 
 @app.delete("/classrooms/{classroom_id}/worksheets/{worksheet_id}", status_code=204)
@@ -430,6 +431,19 @@ def delete_worksheet(worksheet_id: str, current_user: PublicUser = Depends(requi
     require_worksheet_manager(worksheet_id, current_user)
     if not repository.delete_worksheet(worksheet_id):
         raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+
+
+@app.post("/worksheets/{worksheet_id}/duplicate", response_model=Worksheet)
+def duplicate_worksheet(worksheet_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Worksheet:
+    require_worksheet_manager(worksheet_id, current_user)
+    original = repository.get_worksheet(worksheet_id)
+    if not original:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    new_title = f"Copia de {original.title}"
+    duplicated = repository.duplicate_worksheet(worksheet_id, new_title, current_user.id)
+    if not duplicated:
+        raise HTTPException(status_code=500, detail="No se pudo duplicar la hoja")
+    return duplicated
 
 
 @app.post("/responses", response_model=WorksheetResponse)
