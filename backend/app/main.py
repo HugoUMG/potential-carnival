@@ -620,6 +620,14 @@ def list_student_vocabulary(student_id: str, current_user: PublicUser = Depends(
     return repository.list_student_vocabulary(student_id)
 
 
+def _norm_answer(v: Any) -> str:
+    """Normaliza una respuesta para comparación: strip, lowercase, y elimina comillas residuales."""
+    s = str(v or "").strip().lower()
+    if len(s) >= 2 and s[0] == s[-1] == '"':
+        s = s[1:-1].strip()
+    return s
+
+
 def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list[AnswerDetail]:
     details: list[AnswerDetail] = []
     for activity in worksheet.json_content.iter_activities():
@@ -628,7 +636,7 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
         if activity.type == "fillblank" and activity.answer:
             correct_answers = activity.answer if isinstance(activity.answer, list) else [activity.answer]
             student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
-            is_correct = len(student_answers) >= len(correct_answers) and all(str(student_answers[index] or "").strip().lower() == str(correct).strip().lower() for index, correct in enumerate(correct_answers))
+            is_correct = len(student_answers) >= len(correct_answers) and all(_norm_answer(student_answers[index]) == _norm_answer(correct) for index, correct in enumerate(correct_answers))
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue
         if activity.type in {"multiplechoice", "listening"} and activity.answer:
@@ -656,7 +664,7 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             correct_answers = activity.answer if isinstance(activity.answer, list) else [activity.answer]
             student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
             is_correct = len(student_answers) >= len(correct_answers) and all(
-                str(student_answers[i] or "").strip().lower() == str(c).strip().lower()
+                _norm_answer(student_answers[i]) == _norm_answer(c)
                 for i, c in enumerate(correct_answers)
             )
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
