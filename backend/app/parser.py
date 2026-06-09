@@ -156,11 +156,43 @@ def _get_list(body: str, key: str) -> list[str]:
     return [_strip_quotes(line.split("-", 1)[1]) for line in match.group(1).splitlines() if line.strip().startswith("-")]
 
 
+def _parse_inline_array(raw: str) -> list[str] | None:
+    """Parsea 'answer: ["a", "b", "c"]' o "answer: [a, b, c]" como lista.
+    Retorna None si raw no empieza con '['.
+    """
+    raw = raw.strip()
+    if not (raw.startswith("[") and raw.endswith("]")):
+        return None
+    inner = raw[1:-1]
+    # Split por coma respetando comillas
+    items: list[str] = []
+    current: list[str] = []
+    in_quote = False
+    for ch in inner:
+        if ch == '"' and not in_quote:
+            in_quote = True
+        elif ch == '"' and in_quote:
+            in_quote = False
+        elif ch == ',' and not in_quote:
+            items.append(_strip_quotes("".join(current).strip()))
+            current = []
+            continue
+        current.append(ch)
+    if current:
+        items.append(_strip_quotes("".join(current).strip()))
+    return [i for i in items if i]
+
+
 def _get_answer(body: str):
     values = _get_list(body, "answer")
     if values:
         return values
-    return _get_scalar(body, "answer")
+    scalar = _get_scalar(body, "answer")
+    if scalar and scalar.startswith("["):
+        parsed = _parse_inline_array(scalar)
+        if parsed:
+            return parsed
+    return scalar
 
 
 def _get_statements(body: str) -> list[dict]:
