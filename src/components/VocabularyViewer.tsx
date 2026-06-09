@@ -1,8 +1,7 @@
-import { useState, useRef } from 'react';
-import { ChevronDown, ChevronUp, Volume2 } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { VocabularyItem, VocabularyList, VocabularyWordType } from '../types';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+import { TtsButton } from './AudioPlayer';
 
 // ── Colores por tipo de palabra ───────────────────────────────────────────────
 
@@ -19,45 +18,6 @@ const TYPE_COLORS: Record<string, { card: string; badge: string; label: string }
 
 function getTypeStyle(type: VocabularyWordType) {
   return TYPE_COLORS[type.toLowerCase()] ?? { card: 'border-slate-200 bg-slate-50', badge: 'bg-slate-100 text-slate-600', label: type };
-}
-
-// ── Botón TTS ─────────────────────────────────────────────────────────────────
-
-function TtsButton({ text }: { text: string }) {
-  const [loading, setLoading] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  async function play() {
-    if (loading) return;
-    setLoading(true);
-    try {
-      const url = `${API_BASE_URL}/tts?text=${encodeURIComponent(text)}&voice=en-US-GuyNeural`;
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      if (audioRef.current) { audioRef.current.pause(); URL.revokeObjectURL(audioRef.current.src); }
-      const audio = new Audio(objUrl);
-      audioRef.current = audio;
-      audio.onended = () => URL.revokeObjectURL(objUrl);
-      void audio.play();
-    } catch {
-      // silently ignore
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={play}
-      disabled={loading}
-      className="rounded-full p-1.5 text-slate-400 transition hover:bg-white hover:text-blue-600 disabled:opacity-40"
-      title="Escuchar pronunciación"
-    >
-      <Volume2 size={16} />
-    </button>
-  );
 }
 
 // ── Tarjeta de palabra ────────────────────────────────────────────────────────

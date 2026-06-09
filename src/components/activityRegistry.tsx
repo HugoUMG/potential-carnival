@@ -19,8 +19,7 @@ import type {
   WorksheetActivity,
 } from '../types';
 import { RichText } from './RichText';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+import { AudioPlayer } from './AudioPlayer';
 
 const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
 
@@ -174,7 +173,6 @@ function TrueFalseButtons({ index, selected, readonly, onChange }: { index: numb
 
 function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ReadingActivity>) {
   const answers = typeof value === 'object' && !Array.isArray(value) && value !== null ? value : {};
-  const audioUrl = `${API_BASE}/tts?text=${encodeURIComponent(activity.content)}`;
 
   return (
     <article>
@@ -183,7 +181,7 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
       <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
       <div className="mt-2">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Listen to the text</p>
-        <audio controls src={audioUrl} className="w-full" />
+        <AudioPlayer text={activity.content} />
       </div>
       <div className="mt-4 grid gap-3">
         {activity.questions.map((question, index) => (
@@ -219,7 +217,6 @@ function TrueFalseRenderer({ activity, value, readonly, onChange }: ActivityRend
 
 function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ReadingTrueFalseActivity>) {
   const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
-  const audioUrl = `${API_BASE}/tts?text=${encodeURIComponent(activity.content)}`;
   return (
     <article className="grid gap-4">
       <div>
@@ -228,7 +225,7 @@ function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: Activ
         <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
         <div className="mt-2">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Listen to the text</p>
-          <audio controls src={audioUrl} className="w-full" />
+          <AudioPlayer text={activity.content} />
         </div>
       </div>
       <div className="grid gap-3">
@@ -241,11 +238,6 @@ function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: Activ
       </div>
     </article>
   );
-}
-
-function AudioPlayer({ text }: { text: string }) {
-  const url = `${API_BASE}/tts?text=${encodeURIComponent(text)}`;
-  return <audio controls src={url} className="w-full" />;
 }
 
 function ListeningRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningActivity>) {
