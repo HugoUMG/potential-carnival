@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { VocabularyItem, VocabularyList, VocabularyWordType } from '../types';
 import { TtsButton } from './AudioPlayer';
+import { RichText } from './RichText';
 
 // ── Colores por tipo de palabra ───────────────────────────────────────────────
 
@@ -151,7 +152,7 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
           <section key={list.id} className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="mb-1">
               <h3 className="text-lg font-bold text-slate-900">{list.title}</h3>
-              {list.description && <p className="text-sm text-slate-500">{list.description}</p>}
+              {list.description && <p className="text-sm text-slate-500"><RichText text={list.description} /></p>}
               <p className="mt-1 text-xs text-slate-400">{filtered.length} {filtered.length === 1 ? 'palabra' : 'palabras'}</p>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -305,7 +306,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 className="font-bold">{list.title}</h3>
-                  {list.description && <p className="text-sm text-slate-500">{list.description}</p>}
+                  {list.description && <p className="text-sm text-slate-500"><RichText text={list.description} /></p>}
                   <p className="mt-1 text-xs text-slate-400">{list.items.length} palabras</p>
                   {(assignedClassrooms[list.id] ?? []).length > 0 && (
                     <p className="mt-1 text-xs font-semibold text-emerald-700">
