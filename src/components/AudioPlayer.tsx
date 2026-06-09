@@ -10,12 +10,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Pause, Play, RefreshCw, Volume2, VolumeX } from 'lucide-react';
+import { getVoiceGender, getVoiceName, setVoiceGender, type VoiceGender } from '../utils/voicePreference';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
-const DEFAULT_VOICE = 'en-US-GuyNeural';
 
-function buildTtsUrl(text: string, voice = DEFAULT_VOICE) {
-  return `${API_BASE}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}`;
+function buildTtsUrl(text: string, voice?: string) {
+  const v = voice ?? getVoiceName(); // usa preferencia global si no se especifica
+  return `${API_BASE}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(v)}`;
 }
 
 // ── Hook compartido: descarga blob y gestiona estado ─────────────────────────
@@ -68,12 +69,20 @@ interface AudioPlayerProps {
 }
 
 export function AudioPlayer({ text, voice }: AudioPlayerProps) {
-  const { blobUrl, loading, error, reload } = useAudioBlob(text, voice);
+  const [gender, setGender] = useState<VoiceGender>(getVoiceGender());
+  const resolvedVoice = voice ?? (gender === 'female' ? 'en-US-JennyNeural' : 'en-US-GuyNeural');
+  const { blobUrl, loading, error, reload } = useAudioBlob(text, resolvedVoice);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
+
+  const handleGenderChange = (g: VoiceGender) => {
+    setGender(g);
+    setVoiceGender(g);
+    void reload(); // recarga con la nueva voz
+  };
 
   // Aplica velocidad al audio element cuando cambia
   useEffect(() => {
@@ -206,6 +215,28 @@ export function AudioPlayer({ text, voice }: AudioPlayerProps) {
           <option value={1}>1×</option>
           <option value={1.25}>1.25×</option>
         </select>
+
+        {/* Selector de voz — solo si no se forzó una voz específica */}
+        {!voice && (
+          <div className="flex shrink-0 overflow-hidden rounded-lg border border-blue-200 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => handleGenderChange('male')}
+              title="Voz masculina (Guy)"
+              className={`px-2 py-1 transition ${gender === 'male' ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-50'}`}
+            >
+              ♂
+            </button>
+            <button
+              type="button"
+              onClick={() => handleGenderChange('female')}
+              title="Voz femenina (Jenny)"
+              className={`px-2 py-1 transition ${gender === 'female' ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-50'}`}
+            >
+              ♀
+            </button>
+          </div>
+        )}
 
         {/* Reintentar si hay error */}
         {error && (
