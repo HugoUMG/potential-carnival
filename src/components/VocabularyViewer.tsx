@@ -237,10 +237,16 @@ function parseCsv(csv: string): VocabularyItem[] {
     // Format A: block, english, spanish, type, v_past, v_participle, v_ing, v_3rd
     // Format B: english, spanish, type, v_past, v_participle, v_ing, v_3rd
     let english: string, spanish: string, type: string, v_past: string, v_participle: string, v_ing: string, v_3rd: string;
-    if (cols.length >= 8 && /^[a-z0-9 ]+$/i.test(cols[0]) && cols[1]) {
-      // Assume format A with block column
+    // Detect format by checking if cols[3] is a known word type (Format A with block),
+    // or cols[2] is a known word type (Format B without block).
+    // This handles block names with special characters like "&", "-", etc.
+    const KNOWN_TYPES = new Set(['verb', 'noun', 'adjective', 'adverb', 'connector', 'linking word', 'preposition', 'phrase', 'other']);
+    const isFormatA = cols.length >= 4 && KNOWN_TYPES.has(cols[3]?.toLowerCase());
+    if (isFormatA) {
+      // Format A: block, english, spanish, type, v_past, v_participle, v_ing, v_3rd
       [, english, spanish, type, v_past = '', v_participle = '', v_ing = '', v_3rd = ''] = cols;
     } else {
+      // Format B: english, spanish, type, v_past, v_participle, v_ing, v_3rd
       [english, spanish, type, v_past = '', v_participle = '', v_ing = '', v_3rd = ''] = cols;
     }
     if (!english || !spanish) continue;
