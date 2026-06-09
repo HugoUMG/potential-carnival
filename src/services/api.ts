@@ -350,8 +350,12 @@ export async function unassignStudentFromClassroom(classroomId: string, studentI
   await request<void>(`/classrooms/${classroomId}/students/${studentId}`, { method: 'DELETE' });
 }
 
-export async function assignWorksheetToClassroom(classroomId: string, worksheetId: string): Promise<void> {
-  await request<void>(`/classrooms/${classroomId}/worksheets`, { method: 'POST', body: JSON.stringify({ worksheet_id: worksheetId }) });
+export async function assignWorksheetToClassroom(classroomId: string, worksheetId: string, dueDate?: string | null): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/worksheets`, { method: 'POST', body: JSON.stringify({ worksheet_id: worksheetId, due_date: dueDate ?? null }) });
+}
+
+export async function duplicateWorksheet(worksheetId: string): Promise<Worksheet> {
+  return request<Worksheet>(`/worksheets/${worksheetId}/duplicate`, { method: 'POST' });
 }
 
 export async function unassignWorksheetFromClassroom(classroomId: string, worksheetId: string): Promise<void> {

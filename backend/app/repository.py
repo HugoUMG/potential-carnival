@@ -447,12 +447,39 @@ class WorksheetRepository:
             cursor = connection.execute(f"DELETE FROM classroom_students WHERE classroom_id = {placeholder} AND student_id = {placeholder}", (classroom_id, student_id))
             return bool(cursor.rowcount)
 
-    def assign_worksheet_to_classroom(self, classroom_id: str, worksheet_id: str) -> None:
+    def duplicate_worksheet(self, worksheet_id: str, new_title: str, created_by: str) -> "Worksheet | None":
+        original = self.get_worksheet(worksheet_id)
+        if not original:
+            return None
+        import datetime as _dt
+        from uuid import uuid4 as _uuid4
+        new_ws = Worksheet(
+            id=str(_uuid4()),
+            title=new_title,
+            description=original.description,
+            script_content=original.script_content,
+            json_content=original.json_content,
+            created_by=created_by,
+            created_at=_dt.datetime.now(_dt.timezone.utc),
+            published=False,
+            archived=False,
+            max_attempts=original.max_attempts,
+            theme=original.theme,
+        )
+        return self.add_worksheet(new_ws)
+
+    def assign_worksheet_to_classroom(self, classroom_id: str, worksheet_id: str, due_date: str | None = None) -> None:
         with get_connection() as connection:
-            connection.execute(
-                f"INSERT {'OR IGNORE' if get_database_backend() == 'sqlite' else ''} INTO classroom_worksheets (classroom_id, worksheet_id) VALUES ({self._placeholders(2)})" if get_database_backend() == 'sqlite' else f"INSERT INTO classroom_worksheets (classroom_id, worksheet_id) VALUES ({self._placeholders(2)}) ON CONFLICT DO NOTHING",
-                (classroom_id, worksheet_id),
-            )
+            if get_database_backend() == 'sqlite':
+                connection.execute(
+                    f"INSERT OR IGNORE INTO classroom_worksheets (classroom_id, worksheet_id, due_date) VALUES ({self._placeholders(3)})",
+                    (classroom_id, worksheet_id, due_date),
+                )
+            else:
+                connection.execute(
+                    f"INSERT INTO classroom_worksheets (classroom_id, worksheet_id, due_date) VALUES ({self._placeholders(3)}) ON CONFLICT (classroom_id, worksheet_id) DO UPDATE SET due_date = EXCLUDED.due_date",
+                    (classroom_id, worksheet_id, due_date),
+                )
 
     def unassign_worksheet_from_classroom(self, classroom_id: str, worksheet_id: str) -> bool:
         placeholder = self._placeholder
@@ -523,17 +550,24 @@ class WorksheetRepository:
         with get_connection() as connection:
             rows = connection.execute(
                 f"""
-                SELECT DISTINCT worksheets.* FROM worksheets
+                SELECT worksheets.*, classroom_worksheets.due_date AS due_date FROM worksheets
                 JOIN classroom_worksheets ON classroom_worksheets.worksheet_id = worksheets.id
                 JOIN classroom_students ON classroom_students.classroom_id = classroom_worksheets.classroom_id
                 WHERE classroom_students.student_id = {placeholder}
                   AND worksheets.published = {placeholder}
                   AND worksheets.archived = {placeholder}
+                GROUP BY worksheets.id, classroom_worksheets.due_date
                 ORDER BY worksheets.created_at DESC
                 """,
                 (student_id, self._bool_param(True), self._bool_param(False)),
             ).fetchall()
-        return [self._worksheet_from_row(row) for row in rows]
+        result = []
+        for row in rows:
+            ws = self._worksheet_from_row(row)
+            data = dict(row)
+            ws.due_date = _parse_datetime(data.get("due_date")) if data.get("due_date") else None
+            result.append(ws)
+        return result
 
     def delete_response(self, response_id: str) -> bool:
         placeholder = self._placeholder

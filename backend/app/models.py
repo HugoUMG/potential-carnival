@@ -119,6 +119,7 @@ class Worksheet(BaseModel):
     theme: dict[str, str] | None = None
     attempts_used: int | None = None
     attempts_remaining: int | None = None
+    due_date: datetime | None = None
 
 
 class WorksheetCreate(BaseModel):
@@ -179,6 +180,7 @@ class ClassroomStudentAssignment(BaseModel):
 
 class ClassroomWorksheetAssignment(BaseModel):
     worksheet_id: str
+    due_date: datetime | None = None
 
 
 class Classroom(BaseModel):
