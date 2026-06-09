@@ -185,6 +185,28 @@ interface VocabularyManagerProps {
   assignedReaders: Record<string, string[]>;
 }
 
+/** Splits a CSV line into columns respecting double-quoted fields that may contain commas. */
+function splitCsvLine(line: string): string[] {
+  const cols: string[] = [];
+  let current = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      // Escaped quote inside quoted field ("" → ")
+      if (inQuote && line[i + 1] === '"') { current += '"'; i++; }
+      else { inQuote = !inQuote; }
+    } else if (ch === ',' && !inQuote) {
+      cols.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  cols.push(current.trim());
+  return cols;
+}
+
 function parseCsv(csv: string): VocabularyItem[] {
   const lines = csv.trim().split('\n');
   if (!lines.length) return [];
@@ -192,7 +214,7 @@ function parseCsv(csv: string): VocabularyItem[] {
   const start = lines[0].toLowerCase().startsWith('block') || lines[0].toLowerCase().startsWith('english') ? 1 : 0;
   const items: VocabularyItem[] = [];
   for (const line of lines.slice(start)) {
-    const cols = line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+    const cols = splitCsvLine(line);
     if (cols.length < 3) continue;
     // Support both formats:
     // Format A: block, english, spanish, type, v_past, v_participle, v_ing, v_3rd
