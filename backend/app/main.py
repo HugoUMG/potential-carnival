@@ -628,15 +628,51 @@ def _norm_answer(v: Any) -> str:
     return s
 
 
+def _resolve_correct_answers(answer: Any) -> list[str]:
+    """Convierte el campo answer de una actividad en lista normalizada.
+    Maneja tres formatos:
+      1. Lista Python/JSON: ["have to", "don't have to"]            → lista directa
+      2. Cadena inline array: '["have to", "don\\'t have to"]'      → parsea manualmente
+      3. Cadena simple: "have to"                                    → lista de un elemento
+    """
+    if isinstance(answer, list):
+        return [_norm_answer(a) for a in answer]
+    s = str(answer or "").strip()
+    # Inline array format stored as string: ["a", "b", ...]
+    if s.startswith("[") and s.endswith("]"):
+        inner = s[1:-1]
+        items: list[str] = []
+        current: list[str] = []
+        in_quote = False
+        for ch in inner:
+            if ch == '"' and not in_quote:
+                in_quote = True
+            elif ch == '"' and in_quote:
+                in_quote = False
+            elif ch == ',' and not in_quote:
+                val = "".join(current).strip().strip('"').strip()
+                if val:
+                    items.append(_norm_answer(val))
+                current = []
+                continue
+            current.append(ch)
+        val = "".join(current).strip().strip('"').strip()
+        if val:
+            items.append(_norm_answer(val))
+        if items:
+            return items
+    return [_norm_answer(s)]
+
+
 def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list[AnswerDetail]:
     details: list[AnswerDetail] = []
     for activity in worksheet.json_content.iter_activities():
         student_answer = answers.get(activity.id)
         prompt = activity.text or activity.question or activity.prompt or activity.title or activity.type
         if activity.type == "fillblank" and activity.answer:
-            correct_answers = activity.answer if isinstance(activity.answer, list) else [activity.answer]
+            correct_answers = _resolve_correct_answers(activity.answer)
             student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
-            is_correct = len(student_answers) >= len(correct_answers) and all(_norm_answer(student_answers[index]) == _norm_answer(correct) for index, correct in enumerate(correct_answers))
+            is_correct = len(student_answers) >= len(correct_answers) and all(_norm_answer(student_answers[index]) == correct for index, correct in enumerate(correct_answers))
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue
         if activity.type in {"multiplechoice", "listening"} and activity.answer:
@@ -661,11 +697,11 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
                 )
             continue
         if activity.type == "listeningfillblank" and activity.answer:
-            correct_answers = activity.answer if isinstance(activity.answer, list) else [activity.answer]
+            correct_answers = _resolve_correct_answers(activity.answer)
             student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
             is_correct = len(student_answers) >= len(correct_answers) and all(
-                _norm_answer(student_answers[i]) == _norm_answer(c)
-                for i, c in enumerate(correct_answers)
+                _norm_answer(student_answers[i]) == correct
+                for i, correct in enumerate(correct_answers)
             )
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue
