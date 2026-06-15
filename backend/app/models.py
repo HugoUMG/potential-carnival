@@ -157,6 +157,13 @@ class WorksheetResponseCreate(BaseModel):
     student_id: str | None = None
 
 
+class GuestResponseCreate(BaseModel):
+    worksheet_id: str
+    student_name: str
+    guest_token: str
+    answers_json: dict[str, Any]
+
+
 class WorksheetResponse(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     worksheet_id: str
@@ -168,6 +175,7 @@ class WorksheetResponse(BaseModel):
     pending_count: int = 0
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     student_id: str | None = None
+    guest_token: str | None = None
 
 
 class ClassroomCreate(BaseModel):
