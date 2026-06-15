@@ -352,7 +352,12 @@ def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(
     for worksheet in all_worksheets:
         used = attempt_counts.get(worksheet.id, 0)
         worksheet.attempts_used = used
-        worksheet.attempts_remaining = None if worksheet.max_attempts is None else max(0, worksheet.max_attempts - used)
+        if worksheet.max_attempts is None:
+            # Sin límite configurado: el índice único permite solo 1 entrega por estudiante.
+            # Si ya entregó, marcar como 0 para que el frontend la mueva a Calificadas.
+            worksheet.attempts_remaining = 0 if worksheet.id in answered_ids else None
+        else:
+            worksheet.attempts_remaining = max(0, worksheet.max_attempts - used)
     return all_worksheets
 
 
