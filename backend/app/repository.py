@@ -259,8 +259,8 @@ class WorksheetRepository:
         with get_connection() as connection:
             connection.execute(
                 f"""
-                INSERT INTO worksheet_responses (id, worksheet_id, student_id, student_name, answers_json, details_json, score, correct_count, pending_count, submitted_at)
-                VALUES ({self._placeholders(10)})
+                INSERT INTO worksheet_responses (id, worksheet_id, student_id, student_name, answers_json, details_json, score, correct_count, pending_count, submitted_at, guest_token)
+                VALUES ({self._placeholders(11)})
                 """,
                 (
                     response.id,
@@ -273,9 +273,34 @@ class WorksheetRepository:
                     response.correct_count,
                     response.pending_count,
                     response.submitted_at.isoformat(),
+                    response.guest_token,
                 ),
             )
         return response
+
+    def count_guest_attempts(self, worksheet_id: str, guest_token: str) -> int:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT COUNT(*) AS total FROM worksheet_responses WHERE worksheet_id = {placeholder} AND guest_token = {placeholder}",
+                (worksheet_id, guest_token),
+            ).fetchone()
+        return int(dict(row)["total"] if row else 0)
+
+    def list_responses_by_guest_token(self, guest_token: str) -> list[WorksheetResponse]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT worksheet_responses.*
+                FROM worksheet_responses
+                JOIN worksheets ON worksheets.id = worksheet_responses.worksheet_id
+                WHERE worksheet_responses.guest_token = {placeholder}
+                ORDER BY worksheet_responses.submitted_at DESC
+                """,
+                (guest_token,),
+            ).fetchall()
+        return [self._response_from_row(row) for row in rows]
 
     def count_student_attempts(self, worksheet_id: str, student_id: str) -> int:
         placeholder = self._placeholder
@@ -634,6 +659,7 @@ class WorksheetRepository:
             correct_count=data.get("correct_count") or 0,
             pending_count=data.get("pending_count") or 0,
             submitted_at=_parse_datetime(data["submitted_at"]),
+            guest_token=data.get("guest_token"),
         )
 
     # ── Sesiones de usuario ──────────────────────────────────────────────────

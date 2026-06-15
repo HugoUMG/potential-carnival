@@ -6,6 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { ReaderPortal } from './pages/ReaderPortal';
 import { VocabPublicPage } from './pages/VocabPublicPage';
+import { GuestPage } from './pages/GuestPage';
 import { getCurrentSession } from './services/api';
 
 /** Redirige desde / al portal correcto según el rol, o a /login si no hay sesión. */
@@ -61,6 +62,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         />
 
         <Route path="/vocab" element={<VocabPublicPage />} />
+        <Route path="/guest" element={<GuestPage />} />
         <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

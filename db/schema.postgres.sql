@@ -129,3 +129,9 @@ CREATE TABLE IF NOT EXISTS vocabulary_reader_assignments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_vocab_reader_list_id ON vocabulary_reader_assignments(list_id);
+
+-- Acceso de invitado: token persistente en localStorage del navegador
+ALTER TABLE worksheet_responses ADD COLUMN IF NOT EXISTS guest_token TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_responses_guest_attempt
+ON worksheet_responses (worksheet_id, guest_token)
+WHERE guest_token IS NOT NULL;

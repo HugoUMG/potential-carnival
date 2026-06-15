@@ -36,6 +36,7 @@ from .models import (
     Worksheet,
     WorksheetCreate,
     WorksheetJson,
+    GuestResponseCreate,
     WorksheetResponse,
     WorksheetResponseCreate,
 )
@@ -569,6 +570,63 @@ def unassign_reader_from_list(list_id: str, reader_id: str, _: PublicUser = Depe
 @app.get("/vocabulary/{list_id}/readers", response_model=list[PublicUser])
 def list_readers_for_list(list_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> list[PublicUser]:
     return repository.list_readers_for_list(list_id)
+
+
+# ── Endpoints de invitado (sin autenticación) ────────────────────────────────
+
+@app.get("/public/worksheets", response_model=list[Worksheet])
+def public_worksheets() -> list[Worksheet]:
+    """Todas las hojas publicadas y no archivadas, sin autenticación."""
+    return repository.list_worksheets(published=True, archived=False)
+
+
+@app.post("/public/responses", response_model=WorksheetResponse)
+def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
+    """Envía respuestas como invitado. Identificación por guest_token (UUID en localStorage)."""
+    if not payload.guest_token or len(payload.guest_token) < 10:
+        raise HTTPException(status_code=422, detail="guest_token inválido")
+    if not payload.student_name.strip():
+        raise HTTPException(status_code=422, detail="El nombre no puede estar vacío")
+
+    worksheet = repository.get_worksheet(payload.worksheet_id)
+    if not worksheet:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    if worksheet.archived or not worksheet.published:
+        raise HTTPException(status_code=403, detail="Esta hoja de trabajo no está disponible")
+
+    # Prevenir doble envío por token + worksheet
+    lock_key = (f"guest:{payload.guest_token}", worksheet.id)
+    now = time.monotonic()
+    if now - _response_locks.get(lock_key, 0) < 5:
+        raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
+    attempts = repository.count_guest_attempts(worksheet.id, payload.guest_token)
+    if attempts > 0:
+        raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
+    _response_locks[lock_key] = now
+
+    details = _build_answer_details(worksheet, payload.answers_json)
+    details = ai_grade_activities(details, worksheet.title)
+    correct_count, pending_count, score = _score_details(details)
+    response = WorksheetResponse(
+        worksheet_id=payload.worksheet_id,
+        student_id=None,
+        student_name=payload.student_name.strip(),
+        answers_json=payload.answers_json,
+        details=details,
+        score=score,
+        correct_count=correct_count,
+        pending_count=pending_count,
+        guest_token=payload.guest_token,
+    )
+    return repository.add_response(response)
+
+
+@app.get("/public/responses", response_model=list[WorksheetResponse])
+def list_guest_responses(guest_token: str) -> list[WorksheetResponse]:
+    """Devuelve todas las respuestas de un invitado por su token."""
+    if not guest_token or len(guest_token) < 10:
+        raise HTTPException(status_code=422, detail="guest_token inválido")
+    return repository.list_responses_by_guest_token(guest_token)
 
 
 # ── Vocabulario público (sin autenticación) ───────────────────────────────────

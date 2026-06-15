@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, GraduationCap, LockKeyhole } from 'lucide-react';
+import { BookOpen, GraduationCap, LockKeyhole, UserRound } from 'lucide-react';
 import { getCurrentSession, login } from '../services/api';
 import type { UsuarioSesion } from '../services/api';
 
@@ -109,9 +109,16 @@ export function LoginPage() {
             </p>
           )}
 
-          <div className="mt-4 border-t border-slate-100 pt-4">
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
             <button
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3 font-bold text-white shadow-lg shadow-emerald-100 transition hover:bg-emerald-600"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 font-bold text-white shadow-lg shadow-violet-100 transition hover:bg-violet-700"
+              type="button"
+              onClick={() => navigate('/guest')}
+            >
+              <UserRound size={18} /> Invitado
+            </button>
+            <button
+              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 font-bold text-white shadow-lg shadow-emerald-100 transition hover:bg-emerald-600"
               type="button"
               onClick={() => navigate('/vocab')}
             >
