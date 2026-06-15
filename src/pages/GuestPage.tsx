@@ -12,6 +12,13 @@ const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 interface GuestSession {
   name: string;
   token: string;
+  classroomId: string;
+  classroomName: string;
+}
+
+interface PublicClassroom {
+  id: string;
+  name: string;
 }
 
 function getOrCreateSession(): GuestSession | null {
@@ -26,8 +33,14 @@ function saveSession(session: GuestSession) {
   localStorage.setItem('guestSession', JSON.stringify(session));
 }
 
-async function fetchPublicWorksheets(): Promise<Worksheet[]> {
-  const r = await fetch(`${API_BASE}/public/worksheets`);
+async function fetchPublicClassrooms(): Promise<PublicClassroom[]> {
+  const r = await fetch(`${API_BASE}/public/classrooms`);
+  if (!r.ok) return [];
+  return r.json() as Promise<PublicClassroom[]>;
+}
+
+async function fetchClassroomWorksheets(classroomId: string): Promise<Worksheet[]> {
+  const r = await fetch(`${API_BASE}/public/classrooms/${encodeURIComponent(classroomId)}/worksheets`);
   if (!r.ok) throw new Error('No se pudieron cargar las hojas');
   const data = await r.json() as Parameters<typeof normalizeWorksheet>[0][];
   return data.map(normalizeWorksheet);
@@ -55,17 +68,29 @@ async function submitGuestResponse(
   return data as unknown as RespuestaEstudiante;
 }
 
-// ── Name entry screen ─────────────────────────────────────────────────────────
+// ── Entry screen: classroom + name ───────────────────────────────────────────
 
-function NameEntry({ onEnter }: { onEnter: (name: string) => void }) {
+function NameEntry({ onEnter }: { onEnter: (name: string, classroom: PublicClassroom) => void }) {
+  const [classrooms, setClassrooms] = useState<PublicClassroom[]>([]);
+  const [selectedClassroom, setSelectedClassroom] = useState<PublicClassroom | null>(null);
   const [name, setName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  useEffect(() => {
+    void fetchPublicClassrooms().then((data) => {
+      setClassrooms(data);
+      if (data.length === 1) setSelectedClassroom(data[0]);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (selectedClassroom) inputRef.current?.focus();
+  }, [selectedClassroom]);
 
   function submit() {
     const trimmed = name.trim();
-    if (trimmed.length < 2) return;
-    onEnter(trimmed);
+    if (trimmed.length < 2 || !selectedClassroom) return;
+    onEnter(trimmed, selectedClassroom);
   }
 
   return (
@@ -75,22 +100,46 @@ function NameEntry({ onEnter }: { onEnter: (name: string) => void }) {
           <User className="text-violet-600" size={26} />
         </div>
         <h1 className="text-2xl font-extrabold text-slate-900">Acceso invitado</h1>
-        <p className="mt-1 text-sm text-slate-500">Escribe tu nombre completo para continuar.</p>
-        <input
-          ref={inputRef}
-          className="mt-5 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
-          placeholder="Tu nombre completo"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-        />
-        <button
-          className="mt-4 w-full rounded-2xl bg-violet-600 px-5 py-3 font-bold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
-          disabled={name.trim().length < 2}
-          onClick={submit}
-        >
-          Continuar →
-        </button>
+        <p className="mt-1 text-sm text-slate-500">Selecciona tu clase y escribe tu nombre.</p>
+
+        {/* Selector de aula */}
+        <div className="mt-5 grid gap-2">
+          {classrooms.length === 0 && (
+            <p className="text-sm text-slate-400">Cargando aulas…</p>
+          )}
+          {classrooms.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors ${selectedClassroom?.id === c.id ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-700 hover:border-violet-300 hover:bg-violet-50'}`}
+              onClick={() => setSelectedClassroom(c)}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Nombre */}
+        {selectedClassroom && (
+          <>
+            <input
+              ref={inputRef}
+              className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+              placeholder="Tu nombre completo"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            />
+            <button
+              className="mt-3 w-full rounded-2xl bg-violet-600 px-5 py-3 font-bold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              disabled={name.trim().length < 2}
+              onClick={submit}
+            >
+              Entrar →
+            </button>
+          </>
+        )}
+
         <button
           className="mt-3 text-sm text-slate-400 hover:text-slate-600"
           onClick={() => { window.location.href = '/login'; }}
@@ -116,16 +165,16 @@ export function GuestPage() {
   const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string } | null>(null);
   const [error, setError] = useState('');
 
-  function handleEnterName(name: string) {
+  function handleEnterName(name: string, classroom: PublicClassroom) {
     const token = crypto.randomUUID();
-    const s = { name, token };
+    const s: GuestSession = { name, token, classroomId: classroom.id, classroomName: classroom.name };
     saveSession(s);
     setSession(s);
   }
 
   useEffect(() => {
     if (!session) return;
-    void fetchPublicWorksheets().then(setWorksheets).catch(() => setError('No se pudieron cargar las evaluaciones.'));
+    void fetchClassroomWorksheets(session.classroomId).then(setWorksheets).catch(() => setError('No se pudieron cargar las evaluaciones.'));
     void fetchGuestResponses(session.token).then(setResponses).catch(() => {});
   }, [session?.token]);
 
@@ -167,7 +216,7 @@ export function GuestPage() {
       <nav className="border-b border-slate-200 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <div>
-            <p className="text-xs text-slate-500">Acceso invitado</p>
+            <p className="text-xs text-slate-500">Invitado · {session.classroomName}</p>
             <p className="font-bold leading-tight">{session.name}</p>
           </div>
           <div className="flex items-center gap-2">
