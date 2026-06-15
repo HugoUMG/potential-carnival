@@ -442,3 +442,10 @@ export async function unassignReaderFromList(listId: string, readerId: string): 
 export async function listReadersForList(listId: string): Promise<UsuarioSesion[]> {
   return request<UsuarioSesion[]>(`/vocabulary/${listId}/readers`);
 }
+
+export async function generateWorksheetWithAI(prompt: string, createdBy: string): Promise<Worksheet> {
+  return request<Worksheet>('/worksheets/ai-generate', {
+    method: 'POST',
+    body: JSON.stringify({ prompt, created_by: createdBy }),
+  });
+}
