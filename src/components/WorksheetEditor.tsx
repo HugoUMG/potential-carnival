@@ -5,6 +5,75 @@ import { emptyState } from '../utils/dslSerializer';
 import { generateWorksheetWithAI } from '../services/api';
 import type { Worksheet, WorksheetActivity } from '../types';
 
+// ── Panel de generación con IA ────────────────────────────────────────────────
+
+function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
+  aiPrompt: string;
+  setAiPrompt: (v: string) => void;
+  isGenerating: boolean;
+  aiError: string;
+  onGenerate: () => void;
+}) {
+  return (
+    <div className="rounded-3xl bg-white p-6 shadow-sm max-w-3xl">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-100">
+          <Wand2 size={20} className="text-violet-600" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Generar con Inteligencia Artificial</p>
+          <h2 className="text-xl font-bold text-slate-900">Describe la hoja que necesitas</h2>
+        </div>
+      </div>
+      <p className="mt-1 text-sm text-slate-500 mb-5">
+        Escribe en español qué quieres que la IA cree. Sé específico: nivel, tema, tipos de actividad y cantidad de preguntas.
+      </p>
+
+      <div className="rounded-2xl bg-violet-50 border border-violet-100 p-4 mb-5">
+        <p className="text-xs font-semibold text-violet-700 mb-2">Ejemplos de prompts:</p>
+        <div className="grid gap-2">
+          {[
+            'Hoja de A2 sobre Present Perfect con 8 preguntas: 3 fillblank, 3 multiplechoice y 2 matching.',
+            'Actividades de listening para B1 sobre rutinas diarias: 2 listeningfillblank y 2 listeningtruefalse.',
+            'Worksheet de A1 sobre colores y objetos del salón, 10 preguntas simples con truefalse y multiplechoice.',
+          ].map((example) => (
+            <button key={example} type="button" onClick={() => setAiPrompt(example)}
+              className="text-left text-xs text-violet-600 hover:text-violet-800 rounded-xl hover:bg-violet-100 px-3 py-2 transition">
+              → {example}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className="block">
+        <span className="text-sm font-semibold text-slate-700">Tu descripción</span>
+        <textarea
+          className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100 min-h-36"
+          placeholder="Ej: Hoja para estudiantes de A1 sobre los colores, 10 preguntas con multiplechoice y truefalse..."
+          value={aiPrompt}
+          onChange={(e) => setAiPrompt(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onGenerate(); }}
+        />
+        <p className="mt-1 text-xs text-slate-400">Ctrl+Enter para generar</p>
+      </label>
+
+      {aiError && (
+        <div className="mt-4 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{aiError}</div>
+      )}
+
+      <button type="button" disabled={isGenerating || !aiPrompt.trim()} onClick={onGenerate}
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 font-semibold text-white shadow-lg shadow-violet-100 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60">
+        {isGenerating
+          ? <><Loader2 size={18} className="animate-spin" /> Generando con IA...</>
+          : <><Sparkles size={18} /> Generar hoja de trabajo</>}
+      </button>
+      {isGenerating && <p className="mt-3 text-center text-sm text-slate-400">La IA está creando tu hoja... esto puede tardar unos segundos.</p>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface WorksheetEditorProps {
   worksheet: Worksheet;
   selectedActivity?: WorksheetActivity;
@@ -79,6 +148,44 @@ export function WorksheetEditor({
     { id: 'ai',      label: 'Generar con IA', icon: <Sparkles size={15} /> },
   ];
 
+  // En modo script: layout de 3 columnas. En visual e IA: ancho completo.
+  if (mode !== 'script') {
+    return (
+      <div className="grid gap-5">
+        {/* Tabs */}
+        <div className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1 w-fit">
+          {tabs.map((tab) => (
+            <button key={tab.id} type="button"
+              onClick={() => tab.id === 'visual' ? switchToVisual() : setMode(tab.id)}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                mode === tab.id
+                  ? tab.id === 'ai' ? 'bg-violet-600 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {skippedWarning !== null && mode === 'visual' && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+            <span>⚠ {skippedWarning} actividad{skippedWarning !== 1 ? 's' : ''} no se importaron al modo visual.</span>
+            <button type="button" className="shrink-0 font-bold hover:text-amber-900" onClick={() => setSkippedWarning(null)}>✕</button>
+          </div>
+        )}
+
+        {mode === 'visual' && (
+          <VisualWorksheetBuilder initialState={visualState} maxAttemptsDraft={maxAttemptsDraft}
+            isSaving={isSaving} message={message} onMaxAttemptsChange={onMaxAttemptsChange} onSave={handleVisualSave} />
+        )}
+
+        {mode === 'ai' && <AiPanel aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} isGenerating={isGenerating}
+          aiError={aiError} onGenerate={() => void handleGenerate()} />}
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-5 xl:grid-cols-[240px_1fr_280px]">
       {/* ── Biblioteca lateral ── */}
@@ -87,19 +194,17 @@ export function WorksheetEditor({
         <p className="mt-1 text-sm text-slate-500">Haz clic para agregar bloques al lienzo de prueba.</p>
         <div className="mt-4 grid gap-3">
           {[
-            { type: 'fillblank',   icon: '📝', label: 'Fill in the Blank',     desc: 'Espacios en blanco inline' },
-            { type: 'multiplechoice', icon: '☑️', label: 'Multiple Choice',   desc: 'Selección múltiple' },
-            { type: 'matching',    icon: '🔗', label: 'Matching',              desc: 'Emparejar columnas' },
-            { type: 'textbox',     icon: '✍️', label: 'Open Answer',           desc: 'Respuesta abierta' },
-            { type: 'truefalse',   icon: '✅', label: 'True / False',          desc: 'Verdadero o falso' },
-            { type: 'reading',     icon: '📖', label: 'Reading',               desc: 'Texto + preguntas' },
-            { type: 'listening',   icon: '🔊', label: 'Listening',             desc: 'Audio TTS + pregunta' },
-            { type: 'imagequestion',icon: '🖼️', label: 'Image Question',       desc: 'Imagen + pregunta abierta' },
+            { type: 'fillblank',    icon: '📝', label: 'Fill in the Blank',  desc: 'Espacios en blanco inline' },
+            { type: 'multiplechoice',icon: '☑️', label: 'Multiple Choice',   desc: 'Selección múltiple' },
+            { type: 'matching',     icon: '🔗', label: 'Matching',            desc: 'Emparejar columnas' },
+            { type: 'textbox',      icon: '✍️', label: 'Open Answer',         desc: 'Respuesta abierta' },
+            { type: 'truefalse',    icon: '✅', label: 'True / False',        desc: 'Verdadero o falso' },
+            { type: 'reading',      icon: '📖', label: 'Reading',             desc: 'Texto + preguntas' },
+            { type: 'listening',    icon: '🔊', label: 'Listening',           desc: 'Audio TTS + pregunta' },
+            { type: 'imagequestion',icon: '🖼️', label: 'Image Question',     desc: 'Imagen + pregunta abierta' },
           ].map((def) => (
-            <button
-              key={def.type}
+            <button key={def.type} type="button"
               className="rounded-2xl border border-slate-100 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
-              type="button"
               onClick={() => onAddActivity({ id: `${def.type}-${crypto.randomUUID()}`, type: def.type as any } as WorksheetActivity)}
             >
               <span className="text-2xl">{def.icon}</span>
@@ -120,11 +225,7 @@ export function WorksheetEditor({
               type="button"
               onClick={() => tab.id === 'visual' ? switchToVisual() : setMode(tab.id)}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                mode === tab.id
-                  ? tab.id === 'ai'
-                    ? 'bg-violet-600 text-white shadow-sm'
-                    : 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+                mode === tab.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               {tab.icon} {tab.label}
@@ -132,17 +233,7 @@ export function WorksheetEditor({
           ))}
         </div>
 
-        {/* Advertencia de tipos no soportados */}
-        {skippedWarning !== null && mode === 'visual' && (
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-            <span>⚠ {skippedWarning} actividad{skippedWarning !== 1 ? 's' : ''} no se importaron al modo visual.</span>
-            <button type="button" className="shrink-0 font-bold hover:text-amber-900" onClick={() => setSkippedWarning(null)}>✕</button>
-          </div>
-        )}
-
-        {/* ── Tab: Script ── */}
-        {mode === 'script' && (
-          <div className="rounded-3xl bg-white p-5 shadow-sm">
+        <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Modo Script</p>
@@ -192,93 +283,7 @@ export function WorksheetEditor({
             </div>
             {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm font-medium text-blue-700">{message}</p>}
           </div>
-        )}
 
-        {/* ── Tab: Visual ── */}
-        {mode === 'visual' && (
-          <VisualWorksheetBuilder
-            initialState={visualState}
-            maxAttemptsDraft={maxAttemptsDraft}
-            isSaving={isSaving}
-            message={message}
-            onMaxAttemptsChange={onMaxAttemptsChange}
-            onSave={handleVisualSave}
-          />
-        )}
-
-        {/* ── Tab: IA ── */}
-        {mode === 'ai' && (
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-100">
-                <Wand2 size={20} className="text-violet-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Generar con Inteligencia Artificial</p>
-                <h2 className="text-xl font-bold text-slate-900">Describe la hoja que necesitas</h2>
-              </div>
-            </div>
-            <p className="mt-1 text-sm text-slate-500 mb-5">
-              Escribe en español qué quieres que la IA cree. Sé específico: nivel, tema, tipos de actividad y cantidad de preguntas.
-            </p>
-
-            <div className="rounded-2xl bg-violet-50 border border-violet-100 p-4 mb-5">
-              <p className="text-xs font-semibold text-violet-700 mb-2">Ejemplos de prompts:</p>
-              <div className="grid gap-2">
-                {[
-                  'Hoja de A2 sobre Present Perfect con 8 preguntas: 3 fillblank, 3 multiplechoice y 2 matching.',
-                  'Actividades de listening para B1 sobre rutinas diarias: 2 listeningfillblank y 2 listeningtruefalse.',
-                  'Worksheet de A1 sobre colores y objetos del salón, 10 preguntas simples con truefalse y multiplechoice.',
-                ].map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    onClick={() => setAiPrompt(example)}
-                    className="text-left text-xs text-violet-600 hover:text-violet-800 rounded-xl hover:bg-violet-100 px-3 py-2 transition"
-                  >
-                    → {example}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">Tu descripción</span>
-              <textarea
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100 min-h-36"
-                placeholder="Ej: Hoja para estudiantes de A1 sobre los colores, 10 preguntas con multiplechoice y truefalse..."
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void handleGenerate(); }}
-              />
-              <p className="mt-1 text-xs text-slate-400">Ctrl+Enter para generar</p>
-            </label>
-
-            {aiError && (
-              <div className="mt-4 rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-                {aiError}
-              </div>
-            )}
-
-            <button
-              type="button"
-              disabled={isGenerating || !aiPrompt.trim()}
-              onClick={() => void handleGenerate()}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 font-semibold text-white shadow-lg shadow-violet-100 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isGenerating
-                ? <><Loader2 size={18} className="animate-spin" /> Generando con IA...</>
-                : <><Sparkles size={18} /> Generar hoja de trabajo</>
-              }
-            </button>
-
-            {isGenerating && (
-              <p className="mt-3 text-center text-sm text-slate-400">
-                La IA está creando tu hoja... esto puede tardar unos segundos.
-              </p>
-            )}
-          </div>
-        )}
       </section>
 
       {/* ── Vista JSON lateral ── */}
