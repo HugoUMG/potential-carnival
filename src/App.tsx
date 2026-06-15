@@ -671,7 +671,8 @@ export default function App() {
                     <p className="mt-1 text-sm text-slate-500">Entregado: {new Date(resp.submitted_at).toLocaleString()}</p>
                     <div className="mt-3 flex gap-4 text-sm font-semibold">
                       <span className="rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700">Aciertos: {resp.correct_count}</span>
-                      <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">Pendientes: {resp.pending_count}</span>
+                      <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">Fallos: {resp.details.filter((d) => d.status === 'incorrect').length}</span>
+                      {resp.pending_count > 0 && <span className="rounded-xl bg-amber-50 px-3 py-1 text-amber-700">Pendientes: {resp.pending_count}</span>}
                       {resp.score !== null && <span className="rounded-xl bg-blue-50 px-3 py-1 text-blue-700">Nota: {resp.score}</span>}
                     </div>
                     <div className="mt-5">
@@ -724,16 +725,18 @@ export default function App() {
                 ? (
                   <div className="mt-4 overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead><tr className="border-b text-left text-slate-500"><th className="pb-2 pr-4 font-semibold">Evaluación</th><th className="pb-2 pr-4 font-semibold">Fecha</th><th className="pb-2 pr-4 font-semibold">Nota</th><th className="pb-2 font-semibold">Aciertos</th></tr></thead>
+                      <thead><tr className="border-b text-left text-slate-500"><th className="pb-2 pr-4 font-semibold">Evaluación</th><th className="pb-2 pr-4 font-semibold">Fecha</th><th className="pb-2 pr-4 font-semibold">Nota</th><th className="pb-2 pr-4 font-semibold text-emerald-700">Aciertos</th><th className="pb-2 font-semibold text-red-600">Fallos</th></tr></thead>
                       <tbody>
                         {responses.map((resp) => {
                           const ws = worksheets.find((w) => w.id === resp.worksheet_id);
+                          const incorrect = resp.details.filter((d) => d.status === 'incorrect').length;
                           return (
                             <tr key={resp.id} className="border-b last:border-0">
                               <td className="py-2 pr-4 font-semibold">{ws?.title ?? resp.worksheet_id}</td>
                               <td className="py-2 pr-4 text-slate-500">{new Date(resp.submitted_at).toLocaleDateString()}</td>
                               <td className="py-2 pr-4">{resp.score ?? <span className="text-amber-600 font-semibold">Pendiente</span>}</td>
-                              <td className="py-2 text-emerald-700 font-semibold">{resp.correct_count}</td>
+                              <td className="py-2 pr-4 text-emerald-700 font-semibold">{resp.correct_count}</td>
+                              <td className="py-2 text-red-600 font-semibold">{incorrect}</td>
                             </tr>
                           );
                         })}
