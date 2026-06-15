@@ -118,6 +118,7 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string } | null>(null);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
   const [refreshCooldowns, setRefreshCooldowns] = useState<Set<string>>(new Set());
   const [studentTab, setStudentTab] = useState<'activas' | 'calificadas' | 'vocabulario' | 'perfil'>('activas');
@@ -274,7 +275,7 @@ export default function App() {
       const response = await submitResponse(activeWorksheet, user, answers);
       setResponses((current) => [response, ...current]);
       setAnswers({});
-      setMessage(`Respuestas enviadas. Puntuación: ${response.score ?? 'pendiente'}.`);
+      setSubmitResult({ score: response.score, worksheetId: activeWorksheet.id, worksheetTitle: activeWorksheet.title });
       // Refrescar lista para que attempts_remaining se actualice y la hoja se mueva de pestaña
       void refreshData(user);
     } catch (error) {
@@ -587,7 +588,7 @@ export default function App() {
                 {activeWorksheets.map((worksheet) => {
                   const response = responseByWorksheet.get(worksheet.id);
                   return (
-                    <button key={worksheet.id} className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet.id === worksheet.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => setActiveWorksheet(worksheet)}>
+                    <button key={worksheet.id} className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet.id === worksheet.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => { setActiveWorksheet(worksheet); setMessage(''); }}>
                       <BookOpen className="mb-2 text-blue-600" size={20} />
                       <strong className="block">{worksheet.title}</strong>
                       <p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p>
@@ -614,7 +615,7 @@ export default function App() {
                   <h2 className="text-xl font-extrabold">Selecciona una evaluación activa de la lista.</h2>
                 </div>
               )}
-              {message && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">{message}</p>}
+              {message && !submitResult && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">{message}</p>}
               {activeWorksheets.length > 0 && isActiveWorksheetPublished && (
                 <div className="mx-auto mt-6 flex max-w-4xl justify-end">
                   <button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white disabled:opacity-60" disabled={isSubmitting} onClick={sendAnswers}>
@@ -744,6 +745,39 @@ export default function App() {
             </section>
           </div>
         )}
+      {/* ── MODAL: resultado de envío ── */}
+      {submitResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-2xl text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <Check className="text-emerald-600" size={32} />
+            </div>
+            <h2 className="text-2xl font-extrabold text-slate-900">¡Entregado!</h2>
+            <p className="mt-1 text-sm text-slate-500">{submitResult.worksheetTitle}</p>
+            <div className="mt-4 rounded-2xl bg-blue-50 px-6 py-4">
+              <p className="text-4xl font-black text-blue-700">{submitResult.score !== null ? submitResult.score : '—'}</p>
+              <p className="text-sm font-semibold text-blue-500">Puntuación</p>
+            </div>
+            <button
+              className="mt-6 w-full rounded-2xl bg-violet-600 px-6 py-3 font-semibold text-white hover:bg-violet-700"
+              onClick={() => {
+                const ws = [...activeWorksheets, ...gradedWorksheets].find((w) => w.id === submitResult.worksheetId);
+                if (ws) setActiveWorksheet(ws);
+                setStudentTab('calificadas');
+                setSubmitResult(null);
+              }}
+            >
+              Ver mis respuestas →
+            </button>
+            <button
+              className="mt-3 w-full rounded-2xl px-6 py-2 text-sm text-slate-500 hover:bg-slate-50"
+              onClick={() => setSubmitResult(null)}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
       </main>
     );
   }
