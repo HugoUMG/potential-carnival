@@ -250,6 +250,12 @@ def unassign_worksheet(classroom_id: str, worksheet_id: str, current_user: Publi
     repository.unassign_worksheet_from_classroom(classroom_id, worksheet_id)
 
 
+@app.delete("/classrooms/{classroom_id}", status_code=204)
+def delete_classroom(classroom_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    require_classroom_manager(classroom_id, current_user)
+    repository.delete_classroom(classroom_id)
+
+
 @app.get("/worksheets/{worksheet_id}/classrooms", response_model=list[Classroom])
 def list_worksheet_classrooms(worksheet_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[Classroom]:
     require_worksheet_manager(worksheet_id, current_user)

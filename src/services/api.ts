@@ -367,6 +367,10 @@ export async function unassignWorksheetFromClassroom(classroomId: string, worksh
   await request<void>(`/classrooms/${classroomId}/worksheets/${worksheetId}`, { method: 'DELETE' });
 }
 
+export async function deleteClassroom(classroomId: string): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}`, { method: 'DELETE' });
+}
+
 export async function listWorksheetClassrooms(worksheetId: string): Promise<Classroom[]> {
   return request<Classroom[]>(`/worksheets/${worksheetId}/classrooms`);
 }

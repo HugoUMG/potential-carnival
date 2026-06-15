@@ -458,6 +458,12 @@ class WorksheetRepository:
         data = dict(row)
         return Classroom(id=data["id"], name=data["name"], created_by=data["created_by"], created_at=_parse_datetime(data["created_at"]))
 
+    def delete_classroom(self, classroom_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(f"DELETE FROM classrooms WHERE id = {placeholder}", (classroom_id,))
+            return bool(cursor.rowcount)
+
     def assign_student_to_classroom(self, classroom_id: str, student_id: str) -> None:
         placeholder = self._placeholder
         with get_connection() as connection:
