@@ -571,6 +571,33 @@ def list_readers_for_list(list_id: str, _: PublicUser = Depends(require_teacher_
     return repository.list_readers_for_list(list_id)
 
 
+# ── Vocabulario público (sin autenticación) ───────────────────────────────────
+
+@app.get("/public/readers-vocabulary")
+def public_readers_vocabulary() -> list[dict]:
+    """Devuelve todos los readers con sus listas de vocabulario. No requiere autenticación."""
+    readers = repository.list_readers()
+    result = []
+    for reader in readers:
+        lists = repository.list_reader_vocabulary(reader.id)
+        if lists:
+            result.append({
+                "id": reader.id,
+                "name": reader.name,
+                "username": reader.username,
+                "vocabulary_lists": [
+                    {
+                        "id": vl.id,
+                        "title": vl.title,
+                        "description": vl.description,
+                        "items": [item.model_dump() for item in vl.items],
+                    }
+                    for vl in lists
+                ],
+            })
+    return result
+
+
 # ── Vocabulario ──────────────────────────────────────────────────────────────
 
 @app.post("/vocabulary", response_model=VocabularyList)
