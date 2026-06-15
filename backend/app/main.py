@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import generate_worksheet_script
+from .ai import ai_grade_activities, generate_worksheet_script
 from .database import initialize_database
 from .models import (
     AiGenerateRequest,
@@ -468,6 +468,7 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
     _response_locks[lock_key] = now
 
     details = _build_answer_details(worksheet, payload.answers_json)
+    details = ai_grade_activities(details, worksheet.title)
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,

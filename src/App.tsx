@@ -83,7 +83,7 @@ function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
           <div className="font-semibold"><RichText text={detail.prompt} /></div>
           <div>Respuesta: {JSON.stringify(detail.student_answer ?? '')}</div>
           {detail.correct_answer !== null && <div>Correcta: {JSON.stringify(detail.correct_answer)}</div>}
-          {detail.teacher_comment && <div>Comentario: {detail.teacher_comment}</div>}
+          {detail.teacher_comment && <div className="mt-1 italic opacity-80">💬 {detail.teacher_comment}</div>}
         </div>
       ))}
     </div>
@@ -331,7 +331,17 @@ export default function App() {
 
   async function loadWorksheetResponses(worksheet: Worksheet) {
     setActiveWorksheet(worksheet);
-    setResponses(await listWorksheetResponses(worksheet.id));
+    const loaded = await listWorksheetResponses(worksheet.id);
+    setResponses(loaded);
+    const preloaded: Record<string, string> = {};
+    for (const resp of loaded) {
+      for (const detail of resp.details) {
+        if (detail.teacher_comment) {
+          preloaded[`${resp.id}-${detail.activity_id}`] = detail.teacher_comment;
+        }
+      }
+    }
+    setReviewComments(preloaded);
     setAdminMenu('revision');
   }
 
@@ -1112,21 +1122,35 @@ export default function App() {
                   {response.details.map((detail) => {
                     const key = `${response.id}-${detail.activity_id}`;
                     const canReview = detail.status === 'pending' || detail.activity_type === 'fillblank' || detail.activity_type === 'listeningfillblank';
+                    const hasAiComment = !!detail.teacher_comment;
                     return (
                       <div key={detail.activity_id} className={`mt-3 rounded-xl border p-3 ${statusBadge(detail.status)}`}>
-                        <strong><RichText text={detail.prompt} /></strong>
-                        <p>Respuesta: {JSON.stringify(detail.student_answer ?? '')}</p>
-                        {detail.correct_answer !== null && <p>Correcta: {JSON.stringify(detail.correct_answer)}</p>}
+                        <div className="flex items-start justify-between gap-2">
+                          <strong className="text-sm"><RichText text={detail.prompt} /></strong>
+                          {hasAiComment && (
+                            <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">✦ IA</span>
+                          )}
+                        </div>
+                        <p className="text-sm">Respuesta: {JSON.stringify(detail.student_answer ?? '')}</p>
+                        {detail.correct_answer !== null && <p className="text-sm">Correcta: {JSON.stringify(detail.correct_answer)}</p>}
+                        {hasAiComment && !canReview && (
+                          <p className="mt-1 text-sm italic opacity-80">💬 {detail.teacher_comment}</p>
+                        )}
                         {canReview && (
                           <div className="mt-2 grid gap-2">
-                            <textarea className="rounded-xl border p-2" placeholder="Comentario opcional para el estudiante" value={reviewComments[key] ?? ''} onChange={(e) => setReviewComments({ ...reviewComments, [key]: e.target.value })} />
+                            <textarea
+                              className="rounded-xl border p-2 text-sm"
+                              placeholder="Comentario para el estudiante (pre-cargado por IA)"
+                              value={reviewComments[key] ?? ''}
+                              onChange={(e) => setReviewComments({ ...reviewComments, [key]: e.target.value })}
+                              rows={2}
+                            />
                             <div className="flex gap-2">
                               <button className="rounded-xl bg-emerald-600 px-3 py-2 text-white" type="button" onClick={() => review(response, detail, 'correct')}><Check size={16} /></button>
                               <button className="rounded-xl bg-red-600 px-3 py-2 text-white" type="button" onClick={() => review(response, detail, 'incorrect')}><X size={16} /></button>
                             </div>
                           </div>
                         )}
-                        {detail.teacher_comment && <p>Comentario: {detail.teacher_comment}</p>}
                       </div>
                     );
                   })}

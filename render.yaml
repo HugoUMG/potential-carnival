@@ -17,6 +17,10 @@ services:
         sync: false
       - key: SEED_DEMO_USERS
         value: "false"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
 
   - type: web
     name: constructor-hojas-web
