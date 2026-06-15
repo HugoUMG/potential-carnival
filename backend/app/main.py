@@ -574,6 +574,21 @@ def list_readers_for_list(list_id: str, _: PublicUser = Depends(require_teacher_
 
 # ── Endpoints de invitado (sin autenticación) ────────────────────────────────
 
+@app.get("/public/classrooms")
+def public_classrooms() -> list[dict]:
+    """Lista todas las aulas disponibles para selección de invitados. Sin autenticación."""
+    from .models import Classroom
+    classrooms: list[Classroom] = repository.list_classrooms()
+    return [{"id": c.id, "name": c.name} for c in classrooms]
+
+
+@app.get("/public/classrooms/{classroom_id}/worksheets", response_model=list[Worksheet])
+def public_classroom_worksheets(classroom_id: str) -> list[Worksheet]:
+    """Hojas publicadas de un aula específica. Sin autenticación."""
+    worksheets = repository.list_classroom_worksheets(classroom_id)
+    return [w for w in worksheets if w.published and not w.archived]
+
+
 @app.get("/public/worksheets", response_model=list[Worksheet])
 def public_worksheets() -> list[Worksheet]:
     """Todas las hojas publicadas y no archivadas, sin autenticación."""
