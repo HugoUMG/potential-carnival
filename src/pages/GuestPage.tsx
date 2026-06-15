@@ -24,7 +24,15 @@ interface PublicClassroom {
 function getOrCreateSession(): GuestSession | null {
   try {
     const stored = localStorage.getItem('guestSession');
-    if (stored) return JSON.parse(stored) as GuestSession;
+    if (stored) {
+      const parsed = JSON.parse(stored) as GuestSession;
+      // Descartar sesiones antiguas sin classroomId
+      if (!parsed.classroomId) {
+        localStorage.removeItem('guestSession');
+        return null;
+      }
+      return parsed;
+    }
   } catch {}
   return null;
 }
