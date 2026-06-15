@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BookText, GraduationCap, LockKeyhole } from 'lucide-react';
+import { BookText, BookOpen, GraduationCap, LockKeyhole } from 'lucide-react';
 import { getCurrentSession, login } from '../services/api';
 import type { UsuarioSesion } from '../services/api';
 
@@ -130,6 +130,16 @@ export function LoginPage() {
               {message}
             </p>
           )}
+
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <button
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3 font-bold text-white shadow-lg shadow-emerald-100 transition hover:bg-emerald-600"
+              type="button"
+              onClick={() => navigate('/vocab')}
+            >
+              <BookOpen size={18} /> Vocabulario
+            </button>
+          </div>
         </div>
       </section>
     </main>
