@@ -214,7 +214,14 @@ export default function App() {
         setResponses(studentResponses);
         setStudentClassrooms(myClassrooms);
         setStudentVocabularyLists(myVocab);
-        if (availableWorksheets[0]) setActiveWorksheet(availableWorksheets[0]);
+        // Seleccionar la primera hoja que aún tenga intentos disponibles
+        const answeredIds = new Set(studentResponses.map((r) => r.worksheet_id));
+        const firstActive = availableWorksheets.find((w) =>
+          w.status === 'published' &&
+          w.attemptsRemaining !== 0 &&
+          !(( w.attemptsRemaining === null || w.attemptsRemaining === undefined) && answeredIds.has(w.id))
+        );
+        if (firstActive) setActiveWorksheet(firstActive);
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo conectar con el backend.');
@@ -528,7 +535,8 @@ export default function App() {
     const gradedWorksheets = worksheets.filter((w) => responseByWorksheet.has(w.id));
 
     const activeResponse = responseByWorksheet.get(activeWorksheet.id);
-    const isActiveWorksheetPublished = activeWorksheet.status === 'published';
+    // Verdadera si la hoja activa aún está en la lista de activas (no solo publicada)
+    const isActiveWorksheetPublished = activeWorksheets.some((w) => w.id === activeWorksheet.id);
 
     async function handleChangePassword() {
       if (!user) return;
