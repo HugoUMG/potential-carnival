@@ -104,7 +104,14 @@ def _call_groq(system: str, user: str) -> str:
             },
         )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        data = resp.json()
+        usage = data.get("usage", {})
+        print(
+            f"[AI:groq] prompt={usage.get('prompt_tokens','?')} "
+            f"completion={usage.get('completion_tokens','?')} "
+            f"total={usage.get('total_tokens','?')} tokens"
+        )
+        return data["choices"][0]["message"]["content"]
 
 
 def _call_gemini(prompt: str) -> str:
@@ -121,7 +128,15 @@ def _call_gemini(prompt: str) -> str:
             },
         )
         resp.raise_for_status()
-        return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        data = resp.json()
+        usage = data.get("usageMetadata", {})
+        print(
+            f"[AI:gemini] prompt={usage.get('promptTokenCount','?')} "
+            f"completion={usage.get('candidatesTokenCount','?')} "
+            f"thinking={usage.get('thoughtsTokenCount',0)} "
+            f"total={usage.get('totalTokenCount','?')} tokens"
+        )
+        return data["candidates"][0]["content"]["parts"][0]["text"]
 
 
 def _ai_call(system: str, user: str) -> str:
