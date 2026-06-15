@@ -516,8 +516,14 @@ export default function App() {
       return latestResponses;
     }, new Map<string, RespuestaEstudiante>());
 
-    // Activas: publicadas Y con intentos restantes (null = ilimitado)
-    const activeWorksheets = worksheets.filter((w) => w.status === 'published' && (w.attemptsRemaining === null || w.attemptsRemaining === undefined || w.attemptsRemaining > 0));
+    // Activas: publicadas, con intentos restantes, y sin respuesta ya enviada cuando no hay límite
+    const activeWorksheets = worksheets.filter((w) => {
+      if (w.status !== 'published') return false;
+      if (w.attemptsRemaining === 0) return false;
+      // Sin límite de intentos pero ya entregada → el índice único impide reenvío, mover a Calificadas
+      if ((w.attemptsRemaining === null || w.attemptsRemaining === undefined) && responseByWorksheet.has(w.id)) return false;
+      return true;
+    });
     // Calificadas: tiene al menos una respuesta enviada
     const gradedWorksheets = worksheets.filter((w) => responseByWorksheet.has(w.id));
 
