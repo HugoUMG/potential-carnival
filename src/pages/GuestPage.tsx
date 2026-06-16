@@ -54,6 +54,21 @@ async function fetchClassroomWorksheets(classroomId: string): Promise<Worksheet[
   return data.map(normalizeWorksheet);
 }
 
+async function logGuestAccess(session: GuestSession): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/public/guest-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        guest_token: session.token,
+        name: session.name,
+        classroom_id: session.classroomId,
+        classroom_name: session.classroomName,
+      }),
+    });
+  } catch { /* no interrumpir el flujo si el log falla */ }
+}
+
 async function fetchGuestResponses(token: string): Promise<RespuestaEstudiante[]> {
   const r = await fetch(`${API_BASE}/public/responses?guest_token=${encodeURIComponent(token)}`);
   if (!r.ok) return [];
@@ -178,10 +193,13 @@ export function GuestPage() {
     const s: GuestSession = { name, token, classroomId: classroom.id, classroomName: classroom.name };
     saveSession(s);
     setSession(s);
+    void logGuestAccess(s);
   }
 
   useEffect(() => {
     if (!session) return;
+    // Log returning visits (session already existed in localStorage)
+    void logGuestAccess(session);
     void fetchClassroomWorksheets(session.classroomId).then(setWorksheets).catch(() => setError('No se pudieron cargar las evaluaciones.'));
     void fetchGuestResponses(session.token).then(setResponses).catch(() => {});
   }, [session?.token]);

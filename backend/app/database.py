@@ -138,6 +138,18 @@ def _initialize_sqlite_database() -> None:
         _add_column_if_missing(connection, "worksheet_responses", "pending_count INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(connection, "worksheet_responses", "guest_token TEXT")
         _add_column_if_missing(connection, "classrooms", "is_public INTEGER NOT NULL DEFAULT 0")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS guest_access_logs (
+              id TEXT PRIMARY KEY,
+              guest_token TEXT NOT NULL,
+              name TEXT NOT NULL,
+              classroom_id TEXT NOT NULL,
+              classroom_name TEXT NOT NULL,
+              accessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
         connection.execute("UPDATE users SET username = 'admin' WHERE id = 'admin-demo' AND username IS NULL")
         connection.execute("UPDATE users SET username = 'profesor' WHERE id = 'teacher-demo' AND username IS NULL")
         connection.execute("UPDATE users SET username = 'estudiante' WHERE id = 'student-demo' AND username IS NULL")

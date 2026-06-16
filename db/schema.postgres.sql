@@ -136,3 +136,15 @@ ALTER TABLE classrooms ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAU
 CREATE UNIQUE INDEX IF NOT EXISTS idx_responses_guest_attempt
 ON worksheet_responses (worksheet_id, guest_token)
 WHERE guest_token IS NOT NULL;
+
+-- Registro de accesos de invitados (cada vez que entran al portal)
+CREATE TABLE IF NOT EXISTS guest_access_logs (
+  id            TEXT PRIMARY KEY,
+  guest_token   TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  classroom_id  TEXT NOT NULL,
+  classroom_name TEXT NOT NULL,
+  accessed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_guest_access_logs_token ON guest_access_logs(guest_token);
+CREATE INDEX IF NOT EXISTS idx_guest_access_logs_at ON guest_access_logs(accessed_at DESC);

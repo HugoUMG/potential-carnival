@@ -164,6 +164,13 @@ class GuestResponseCreate(BaseModel):
     answers_json: dict[str, Any]
 
 
+class GuestSessionLog(BaseModel):
+    guest_token: str
+    name: str
+    classroom_id: str
+    classroom_name: str
+
+
 class WorksheetResponse(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     worksheet_id: str
