@@ -316,16 +316,23 @@ class WorksheetRepository:
     def list_guest_access_logs(self) -> list[dict]:
         with get_connection() as connection:
             rows = connection.execute(
-                "SELECT id, guest_token, name, classroom_id, classroom_name, accessed_at FROM guest_access_logs ORDER BY accessed_at DESC LIMIT 500"
+                """
+                SELECT guest_token, name, classroom_id, classroom_name,
+                       COUNT(*) AS visit_count, MAX(accessed_at) AS last_accessed_at
+                FROM guest_access_logs
+                GROUP BY guest_token, classroom_id
+                ORDER BY last_accessed_at DESC
+                LIMIT 500
+                """
             ).fetchall()
         return [
             {
-                "id": dict(r)["id"],
                 "guest_token": dict(r)["guest_token"],
                 "name": dict(r)["name"],
                 "classroom_id": dict(r)["classroom_id"],
                 "classroom_name": dict(r)["classroom_name"],
-                "accessed_at": _parse_datetime(dict(r)["accessed_at"]).isoformat(),
+                "visit_count": dict(r)["visit_count"],
+                "last_accessed_at": _parse_datetime(dict(r)["last_accessed_at"]).isoformat(),
             }
             for r in rows
         ]

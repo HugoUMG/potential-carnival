@@ -390,12 +390,12 @@ export async function getTeacherNotifications(since?: string): Promise<TeacherNo
 }
 
 export interface GuestAccessLog {
-  id: string;
   guest_token: string;
   name: string;
   classroom_id: string;
   classroom_name: string;
-  accessed_at: string;
+  visit_count: number;
+  last_accessed_at: string;
 }
 
 export async function getGuestAccessLogs(): Promise<GuestAccessLog[]> {
