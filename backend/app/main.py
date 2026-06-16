@@ -369,6 +369,17 @@ def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(
     return all_worksheets
 
 
+@app.get("/teacher/notifications")
+def get_teacher_notifications(since: str | None = None, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict]:
+    from datetime import datetime, timezone, timedelta
+    if since:
+        since_iso = since
+    else:
+        since_iso = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
+    teacher_id = None if current_user.role == UserRole.admin else current_user.id
+    return repository.get_recent_responses_for_teacher(teacher_id, since_iso)
+
+
 @app.get("/students/{student_id}/responses", response_model=list[WorksheetResponse])
 def list_student_responses(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[WorksheetResponse]:
     require_student_owner_or_staff(student_id, current_user)
