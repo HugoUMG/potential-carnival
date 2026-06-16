@@ -191,11 +191,16 @@ class ClassroomWorksheetAssignment(BaseModel):
     due_date: datetime | None = None
 
 
+class ClassroomVisibilityUpdate(BaseModel):
+    is_public: bool
+
+
 class Classroom(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     name: str
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    is_public: bool = False
 
 
 class ClassroomDetail(Classroom):

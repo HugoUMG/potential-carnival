@@ -17,6 +17,7 @@ from .models import (
     ClassroomCreate,
     ClassroomDetail,
     ClassroomStudentAssignment,
+    ClassroomVisibilityUpdate,
     ClassroomWorksheetAssignment,
     LoginRequest,
     LoginResponse,
@@ -580,12 +581,18 @@ def list_readers_for_list(list_id: str, _: PublicUser = Depends(require_teacher_
 
 # ── Endpoints de invitado (sin autenticación) ────────────────────────────────
 
+@app.patch("/classrooms/{classroom_id}/visibility", status_code=204)
+def set_classroom_visibility(classroom_id: str, payload: ClassroomVisibilityUpdate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    require_classroom_manager(classroom_id, current_user)
+    repository.set_classroom_visibility(classroom_id, payload.is_public)
+
+
 @app.get("/public/classrooms")
 def public_classrooms() -> list[dict]:
-    """Lista todas las aulas disponibles para selección de invitados. Sin autenticación."""
+    """Lista solo las aulas marcadas como públicas para selección de invitados. Sin autenticación."""
     from .models import Classroom
     classrooms: list[Classroom] = repository.list_classrooms()
-    return [{"id": c.id, "name": c.name} for c in classrooms]
+    return [{"id": c.id, "name": c.name} for c in classrooms if c.is_public]
 
 
 @app.get("/public/classrooms/{classroom_id}/worksheets", response_model=list[Worksheet])

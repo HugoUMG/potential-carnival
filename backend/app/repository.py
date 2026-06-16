@@ -446,7 +446,7 @@ class WorksheetRepository:
             params.append(created_by)
         with get_connection() as connection:
             rows = connection.execute(f"SELECT * FROM classrooms {where} ORDER BY name", params).fetchall()
-        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"])) for r in rows]
+        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"]), is_public=bool(dict(r).get("is_public", False))) for r in rows]
 
     def get_classroom(self, classroom_id: str):
         from .models import Classroom
@@ -456,7 +456,15 @@ class WorksheetRepository:
         if not row:
             return None
         data = dict(row)
-        return Classroom(id=data["id"], name=data["name"], created_by=data["created_by"], created_at=_parse_datetime(data["created_at"]))
+        return Classroom(id=data["id"], name=data["name"], created_by=data["created_by"], created_at=_parse_datetime(data["created_at"]), is_public=bool(data.get("is_public", False)))
+
+    def set_classroom_visibility(self, classroom_id: str, is_public: bool) -> None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"UPDATE classrooms SET is_public = {placeholder} WHERE id = {placeholder}",
+                (self._bool_param(is_public), classroom_id),
+            )
 
     def delete_classroom(self, classroom_id: str) -> bool:
         placeholder = self._placeholder
@@ -559,7 +567,7 @@ class WorksheetRepository:
                 """,
                 (worksheet_id,),
             ).fetchall()
-        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"])) for r in rows]
+        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"]), is_public=bool(dict(r).get("is_public", False))) for r in rows]
 
     def list_student_classrooms(self, student_id: str):
         from .models import Classroom
@@ -574,7 +582,7 @@ class WorksheetRepository:
                 """,
                 (student_id,),
             ).fetchall()
-        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"])) for r in rows]
+        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"]), is_public=bool(dict(r).get("is_public", False))) for r in rows]
 
     def list_student_assigned_worksheets(self, student_id: str) -> list[Worksheet]:
         placeholder = self._placeholder

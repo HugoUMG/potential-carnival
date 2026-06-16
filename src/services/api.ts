@@ -84,6 +84,7 @@ export interface Classroom {
   name: string;
   created_by: string;
   created_at: string;
+  is_public: boolean;
 }
 
 export interface ClassroomDetail extends Classroom {
@@ -369,6 +370,10 @@ export async function unassignWorksheetFromClassroom(classroomId: string, worksh
 
 export async function deleteClassroom(classroomId: string): Promise<void> {
   await request<void>(`/classrooms/${classroomId}`, { method: 'DELETE' });
+}
+
+export async function setClassroomVisibility(classroomId: string, isPublic: boolean): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/visibility`, { method: 'PATCH', body: JSON.stringify({ is_public: isPublic }) });
 }
 
 export async function listWorksheetClassrooms(worksheetId: string): Promise<Classroom[]> {
