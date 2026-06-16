@@ -1190,23 +1190,27 @@ export default function App() {
                     <tr className="border-b text-left text-slate-500">
                       <th className="pb-3 pr-4 font-semibold">Nombre</th>
                       <th className="pb-3 pr-4 font-semibold">Aula</th>
-                      <th className="pb-3 pr-4 font-semibold">Fecha y hora</th>
+                      <th className="pb-3 pr-4 font-semibold">Último acceso</th>
+                      <th className="pb-3 pr-4 font-semibold">Visitas</th>
                       <th className="pb-3 font-semibold">Token</th>
                     </tr>
                   </thead>
                   <tbody>
                     {guestLogs.map((log) => (
-                      <tr key={log.id} className="border-b last:border-0">
+                      <tr key={`${log.guest_token}-${log.classroom_id}`} className="border-b last:border-0">
                         <td className="py-3 pr-4 font-semibold">{log.name}</td>
                         <td className="py-3 pr-4">
                           <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{log.classroom_name}</span>
                         </td>
-                        <td className="py-3 pr-4 text-slate-600">{new Date(log.accessed_at).toLocaleString()}</td>
+                        <td className="py-3 pr-4 text-slate-600">{new Date(log.last_accessed_at).toLocaleString()}</td>
+                        <td className="py-3 pr-4">
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{log.visit_count}×</span>
+                        </td>
                         <td className="py-3 font-mono text-xs text-slate-400">{log.guest_token.slice(0, 8)}…</td>
                       </tr>
                     ))}
                     {!guestLogs.length && (
-                      <tr><td colSpan={4} className="py-8 text-center text-slate-400">Sin accesos de invitados registrados aún.</td></tr>
+                      <tr><td colSpan={5} className="py-8 text-center text-slate-400">Sin accesos de invitados registrados aún.</td></tr>
                     )}
                   </tbody>
                 </table>
