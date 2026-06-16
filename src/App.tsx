@@ -51,6 +51,8 @@ import {
   getClassroom,
   getCurrentSession,
   getTeacherDashboard,
+  getTeacherNotifications,
+  type TeacherNotification,
   publishWorksheet,
   reviewAnswer,
   submitResponse,
@@ -96,6 +98,8 @@ export default function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState<UsuarioSesion | null>(() => getCurrentSession());
   const [adminMenu, setAdminMenu] = useState<TeacherMenu>('crear');
+  const [notificationCount, setNotificationCount] = useState(0);
+  const prevNotifCount = useRef(0);
   const [worksheets, setWorksheets] = useState<Worksheet[]>([sampleWorksheet]);
   const [activeWorksheet, setActiveWorksheet] = useState<Worksheet>(sampleWorksheet);
   const [scriptDraft, setScriptDraft] = useState(sampleWorksheet.scriptContent);
@@ -181,6 +185,40 @@ export default function App() {
     void getStudentsActivity().then(setStudentsActivity).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminMenu, user?.id]);
+
+  useEffect(() => {
+    if (!user || user.role === 'student') return;
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user || user.role === 'student') return;
+    const storageKey = `teacher_notif_since_${user.id}`;
+
+    async function poll() {
+      const since = localStorage.getItem(storageKey) ?? new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+      try {
+        const notifs: TeacherNotification[] = await getTeacherNotifications(since);
+        const count = notifs.length;
+        setNotificationCount(count);
+        if (count > prevNotifCount.current && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          const diff = count - prevNotifCount.current;
+          const body = diff === 1
+            ? `${notifs[0].student_name} entregó "${notifs[0].worksheet_title}"`
+            : `${diff} nuevas respuestas de estudiantes`;
+          new Notification('Nueva respuesta recibida 📋', { body, icon: '/favicon.ico' });
+        }
+        prevNotifCount.current = count;
+      } catch { /* silent — no interrumpir la UI */ }
+    }
+
+    void poll();
+    const id = setInterval(() => void poll(), 30_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   async function refreshData(currentUser = user) {
     if (!currentUser) return;
@@ -835,7 +873,7 @@ export default function App() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto max-w-7xl px-4 py-4"><h1 className="text-xl font-bold">Panel del profesor</h1><p className="text-sm text-slate-500">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p></div></nav>
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
-        <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} onSelectMenu={setAdminMenu} onLogout={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }} />
+        <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} notificationCount={notificationCount} onSelectMenu={(menu) => { if (menu === 'revision') { const key = `teacher_notif_since_${user.id}`; localStorage.setItem(key, new Date().toISOString()); setNotificationCount(0); prevNotifCount.current = 0; } setAdminMenu(menu); }} onLogout={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }} />
         {adminMenu === 'dashboard' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Dashboard</p>

@@ -8,11 +8,12 @@ interface TeacherDashboardProps {
   totalWorksheets: number;
   publishedCount: number;
   selectedMenu: TeacherMenu;
+  notificationCount: number;
   onSelectMenu: (menu: TeacherMenu) => void;
   onLogout: () => void;
 }
 
-export function TeacherDashboard({ user, totalWorksheets, publishedCount, selectedMenu, onSelectMenu, onLogout }: TeacherDashboardProps) {
+export function TeacherDashboard({ user, totalWorksheets, publishedCount, selectedMenu, notificationCount, onSelectMenu, onLogout }: TeacherDashboardProps) {
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
     { id: 'crear' as const, label: 'Crear evaluación', icon: PlusCircle },
@@ -43,6 +44,11 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
           return (
             <button key={item.id} className={`dashboard-action ${selectedMenu === item.id ? 'dashboard-action-active' : ''}`} type="button" onClick={() => onSelectMenu(item.id)}>
               <Icon size={18} /> {item.label}
+              {item.id === 'revision' && notificationCount > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                  {notificationCount > 99 ? '99+' : notificationCount}
+                </span>
+              )}
             </button>
           );
         })}

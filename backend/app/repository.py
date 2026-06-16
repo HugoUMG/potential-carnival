@@ -608,6 +608,42 @@ class WorksheetRepository:
             result.append(ws)
         return result
 
+    def get_recent_responses_for_teacher(self, teacher_id: str | None, since_iso: str) -> list[dict]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            if teacher_id:
+                rows = connection.execute(
+                    f"""
+                    SELECT wr.id, wr.student_name, wr.submitted_at, wr.score, w.title AS worksheet_title
+                    FROM worksheet_responses wr
+                    JOIN worksheets w ON w.id = wr.worksheet_id
+                    WHERE w.created_by = {placeholder} AND wr.submitted_at > {placeholder}
+                    ORDER BY wr.submitted_at DESC
+                    """,
+                    (teacher_id, since_iso),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    f"""
+                    SELECT wr.id, wr.student_name, wr.submitted_at, wr.score, w.title AS worksheet_title
+                    FROM worksheet_responses wr
+                    JOIN worksheets w ON w.id = wr.worksheet_id
+                    WHERE wr.submitted_at > {placeholder}
+                    ORDER BY wr.submitted_at DESC
+                    """,
+                    (since_iso,),
+                ).fetchall()
+        return [
+            {
+                "id": dict(r)["id"],
+                "student_name": dict(r)["student_name"],
+                "worksheet_title": dict(r)["worksheet_title"],
+                "submitted_at": _parse_datetime(dict(r)["submitted_at"]).isoformat(),
+                "score": dict(r).get("score"),
+            }
+            for r in rows
+        ]
+
     def delete_response(self, response_id: str) -> bool:
         placeholder = self._placeholder
         with get_connection() as connection:

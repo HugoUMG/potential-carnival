@@ -376,6 +376,19 @@ export async function setClassroomVisibility(classroomId: string, isPublic: bool
   await request<void>(`/classrooms/${classroomId}/visibility`, { method: 'PATCH', body: JSON.stringify({ is_public: isPublic }) });
 }
 
+export interface TeacherNotification {
+  id: string;
+  student_name: string;
+  worksheet_title: string;
+  submitted_at: string;
+  score: number | null;
+}
+
+export async function getTeacherNotifications(since?: string): Promise<TeacherNotification[]> {
+  const url = since ? `/teacher/notifications?since=${encodeURIComponent(since)}` : '/teacher/notifications';
+  return request<TeacherNotification[]>(url);
+}
+
 export async function listWorksheetClassrooms(worksheetId: string): Promise<Classroom[]> {
   return request<Classroom[]>(`/worksheets/${worksheetId}/classrooms`);
 }
