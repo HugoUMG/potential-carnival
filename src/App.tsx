@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Archive, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Download, LockKeyhole, RefreshCw, Search, Send, Trash2, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
@@ -107,6 +107,7 @@ export default function App() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [activeClassroomId, setActiveClassroomId] = useState('');
   const [classroomDetail, setClassroomDetail] = useState<ClassroomDetail | null>(null);
+  const latestClassroomFetch = useRef('');
   const [classroomName, setClassroomName] = useState('');
   const [studentClassroomSelection, setStudentClassroomSelection] = useState<Record<string, string>>({});
   const [assignmentWorksheet, setAssignmentWorksheet] = useState<Worksheet | null>(null);
@@ -395,9 +396,11 @@ export default function App() {
       setClassroomDetail(null);
       return;
     }
+    latestClassroomFetch.current = classroomId;
     const detail = await getClassroom(classroomId);
-    setClassroomDetail(detail);
-    setActiveClassroomId(classroomId);
+    if (latestClassroomFetch.current === classroomId) {
+      setClassroomDetail(detail);
+    }
   }
 
   async function createNewClassroom() {
@@ -405,6 +408,7 @@ export default function App() {
     const created = await createClassroom(classroomName.trim());
     setClassrooms((current) => [...current, created]);
     setClassroomName('');
+    setActiveClassroomId(created.id);
     await refreshClassroomDetail(created.id);
     setMessage('Aula creada correctamente.');
   }
