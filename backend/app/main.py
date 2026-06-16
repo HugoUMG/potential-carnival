@@ -38,6 +38,7 @@ from .models import (
     WorksheetCreate,
     WorksheetJson,
     GuestResponseCreate,
+    GuestSessionLog,
     WorksheetResponse,
     WorksheetResponseCreate,
 )
@@ -666,6 +667,18 @@ def list_guest_responses(guest_token: str) -> list[WorksheetResponse]:
     if not guest_token or len(guest_token) < 10:
         raise HTTPException(status_code=422, detail="guest_token inválido")
     return repository.list_responses_by_guest_token(guest_token)
+
+
+@app.post("/public/guest-sessions", status_code=204)
+def log_guest_session(payload: GuestSessionLog) -> None:
+    """Registra un acceso de invitado. Sin autenticación."""
+    repository.log_guest_access(payload.guest_token, payload.name, payload.classroom_id, payload.classroom_name)
+
+
+@app.get("/teacher/guest-logs")
+def list_guest_logs(_: PublicUser = Depends(require_teacher_or_admin)) -> list[dict]:
+    """Historial de accesos de invitados para el panel del profesor."""
+    return repository.list_guest_access_logs()
 
 
 # ── Vocabulario público (sin autenticación) ───────────────────────────────────

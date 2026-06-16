@@ -389,6 +389,19 @@ export async function getTeacherNotifications(since?: string): Promise<TeacherNo
   return request<TeacherNotification[]>(url);
 }
 
+export interface GuestAccessLog {
+  id: string;
+  guest_token: string;
+  name: string;
+  classroom_id: string;
+  classroom_name: string;
+  accessed_at: string;
+}
+
+export async function getGuestAccessLogs(): Promise<GuestAccessLog[]> {
+  return request<GuestAccessLog[]>('/teacher/guest-logs');
+}
+
 export async function listWorksheetClassrooms(worksheetId: string): Promise<Classroom[]> {
   return request<Classroom[]>(`/worksheets/${worksheetId}/classrooms`);
 }

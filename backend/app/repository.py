@@ -302,6 +302,34 @@ class WorksheetRepository:
             ).fetchall()
         return [self._response_from_row(row) for row in rows]
 
+    def log_guest_access(self, guest_token: str, name: str, classroom_id: str, classroom_name: str) -> None:
+        from uuid import uuid4 as _uuid4
+        from datetime import datetime, timezone as _tz
+        log_id = str(_uuid4())
+        accessed_at = datetime.now(_tz.utc).isoformat()
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO guest_access_logs (id, guest_token, name, classroom_id, classroom_name, accessed_at) VALUES ({self._placeholders(6)})",
+                (log_id, guest_token, name, classroom_id, classroom_name, accessed_at),
+            )
+
+    def list_guest_access_logs(self) -> list[dict]:
+        with get_connection() as connection:
+            rows = connection.execute(
+                "SELECT id, guest_token, name, classroom_id, classroom_name, accessed_at FROM guest_access_logs ORDER BY accessed_at DESC LIMIT 500"
+            ).fetchall()
+        return [
+            {
+                "id": dict(r)["id"],
+                "guest_token": dict(r)["guest_token"],
+                "name": dict(r)["name"],
+                "classroom_id": dict(r)["classroom_id"],
+                "classroom_name": dict(r)["classroom_name"],
+                "accessed_at": _parse_datetime(dict(r)["accessed_at"]).isoformat(),
+            }
+            for r in rows
+        ]
+
     def count_student_attempts(self, worksheet_id: str, student_id: str) -> int:
         placeholder = self._placeholder
         with get_connection() as connection:
