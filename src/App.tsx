@@ -4,6 +4,7 @@ import { Archive, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Download, Lo
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
+import { ImageLibraryPage } from './pages/ImageLibraryPage';
 import { RichText } from './components/RichText';
 import { TeacherDashboard, type TeacherMenu } from './components/TeacherDashboard';
 import { sampleWorksheet } from './data/sampleWorksheet';
@@ -1324,6 +1325,7 @@ export default function App() {
             </div>
           </section>
         )}
+        {adminMenu === 'imagenes' && <ImageLibraryPage />}
       </div>
       {sessionModal && (
         <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6" onClick={() => setSessionModal(null)}>

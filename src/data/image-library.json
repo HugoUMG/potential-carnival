@@ -1,0 +1,1318 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "last_updated": "2026-06-15",
+    "total_images": 154,
+    "description": "Biblioteca de imágenes para actividades imagequestion — práctica de inglés A1-B2",
+    "source": "Unsplash (unsplash.com) — libres de uso comercial y educativo.",
+    "how_to_use": "Copia el campo 'url' de cualquier imagen en el campo 'image:' de tu actividad imagequestion en el DSL.",
+    "how_to_update": "Para agregar imágenes: abre unsplash.com, busca la foto que quieres, copia la URL directa de la imagen (clic derecho → Copiar dirección de imagen) y agrégala siguiendo el mismo formato JSON."
+  },
+  "categories": [
+    {
+      "id": "daily-routines",
+      "name": "Daily Routines",
+      "name_es": "Rutinas Diarias",
+      "level": "A1",
+      "color": "#3B82F6",
+      "images": [
+        {
+          "id": "dr-001",
+          "name": "Morning Alarm Clock",
+          "description": "A ringing alarm clock on a bedside table — time to wake up",
+          "url": "https://images.unsplash.com/photo-1508962914676-134849a727f0?w=800&auto=format&q=80",
+          "tags": ["morning", "alarm", "wake up", "bedroom", "time"],
+          "level": "A1",
+          "questions": ["What time does the alarm say?", "What do you do after the alarm rings?", "Describe what you see in the picture."]
+        },
+        {
+          "id": "dr-002",
+          "name": "Morning Coffee",
+          "description": "A person enjoying a cup of coffee with latte art in the morning light",
+          "url": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&auto=format&q=80",
+          "tags": ["morning", "coffee", "breakfast", "routine", "drink"],
+          "level": "A1",
+          "questions": ["What is the person drinking?", "Do you drink coffee in the morning? Why or why not?", "What other things do people have for breakfast?"]
+        },
+        {
+          "id": "dr-003",
+          "name": "Cooking Breakfast",
+          "description": "A person cooking food in a bright, modern kitchen",
+          "url": "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=800&auto=format&q=80",
+          "tags": ["cooking", "kitchen", "breakfast", "food preparation"],
+          "level": "A1",
+          "questions": ["What is the person doing?", "What can you see in the kitchen?", "What do you usually eat for breakfast?"]
+        },
+        {
+          "id": "dr-004",
+          "name": "Commuting to Work",
+          "description": "Busy people walking to work in a crowded city street",
+          "url": "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=800&auto=format&q=80",
+          "tags": ["commuting", "work", "city", "walking", "morning"],
+          "level": "A2",
+          "questions": ["Where are these people going?", "How do you get to school or work?", "Describe the scene in the picture."]
+        },
+        {
+          "id": "dr-005",
+          "name": "Working at a Computer",
+          "description": "A person typing on a laptop computer at a desk with a coffee cup nearby",
+          "url": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&auto=format&q=80",
+          "tags": ["work", "computer", "laptop", "office", "typing"],
+          "level": "A1",
+          "questions": ["What is the person doing?", "Do you use a computer every day? What for?", "Describe the workspace in the picture."]
+        },
+        {
+          "id": "dr-006",
+          "name": "Eating Lunch Together",
+          "description": "A group of people sitting together at a table enjoying a meal",
+          "url": "https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=800&auto=format&q=80",
+          "tags": ["lunch", "eating", "food", "restaurant", "meal", "family"],
+          "level": "A1",
+          "questions": ["What are the people doing?", "Where do you usually have lunch?", "Who do you like to eat with?"]
+        },
+        {
+          "id": "dr-007",
+          "name": "Grocery Shopping",
+          "description": "Person pushing a cart through the aisles of a supermarket",
+          "url": "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=800&auto=format&q=80",
+          "tags": ["shopping", "supermarket", "groceries", "food", "cart"],
+          "level": "A2",
+          "questions": ["What is the person doing?", "What do you buy at the supermarket?", "How often do you go grocery shopping?"]
+        },
+        {
+          "id": "dr-008",
+          "name": "Evening Jog",
+          "description": "A person jogging along a path at sunset in the park",
+          "url": "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=800&auto=format&q=80",
+          "tags": ["exercise", "running", "evening", "park", "fitness"],
+          "level": "A1",
+          "questions": ["What is the person doing?", "When do you exercise?", "Do you prefer to exercise in the morning or evening?"]
+        },
+        {
+          "id": "dr-009",
+          "name": "Watching TV",
+          "description": "A person relaxing on a sofa watching television in a cozy living room",
+          "url": "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&auto=format&q=80",
+          "tags": ["TV", "relaxing", "sofa", "evening", "living room"],
+          "level": "A1",
+          "questions": ["What is the person doing?", "What kind of programs do you like to watch?", "How many hours of TV do you watch per day?"]
+        },
+        {
+          "id": "dr-010",
+          "name": "Getting Ready for Sleep",
+          "description": "A cozy bedroom with a soft pillow and bedside lamp turned on",
+          "url": "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=800&auto=format&q=80",
+          "tags": ["sleep", "bedroom", "night", "rest", "bedtime"],
+          "level": "A1",
+          "questions": ["What time do you go to bed?", "Describe the bedroom in the picture.", "What do you do before you go to sleep?"]
+        }
+      ]
+    },
+    {
+      "id": "food-drinks",
+      "name": "Food & Drinks",
+      "name_es": "Comida y Bebidas",
+      "level": "A1-A2",
+      "color": "#EF4444",
+      "images": [
+        {
+          "id": "fd-001",
+          "name": "Pepperoni Pizza",
+          "description": "A delicious pepperoni pizza fresh out of the oven",
+          "url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&auto=format&q=80",
+          "tags": ["pizza", "Italian food", "fast food", "meal", "dinner"],
+          "level": "A1",
+          "questions": ["What food is this?", "Do you like pizza? What toppings do you prefer?", "Describe the pizza in the picture."]
+        },
+        {
+          "id": "fd-002",
+          "name": "Classic Burger",
+          "description": "A big, juicy hamburger with lettuce, tomato and cheese",
+          "url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&auto=format&q=80",
+          "tags": ["burger", "hamburger", "fast food", "sandwich", "meal"],
+          "level": "A1",
+          "questions": ["What food is this?", "What ingredients can you see in the burger?", "Do you eat burgers often? Where?"]
+        },
+        {
+          "id": "fd-003",
+          "name": "Sushi Platter",
+          "description": "A beautiful arrangement of sushi rolls and nigiri on a wooden board",
+          "url": "https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=800&auto=format&q=80",
+          "tags": ["sushi", "Japanese food", "seafood", "restaurant", "rolls"],
+          "level": "A2",
+          "questions": ["What kind of food is this?", "Have you ever tried sushi? Did you like it?", "What country does this food come from?"]
+        },
+        {
+          "id": "fd-004",
+          "name": "Healthy Green Salad",
+          "description": "A fresh, colorful salad with vegetables, avocado and dressing",
+          "url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&auto=format&q=80",
+          "tags": ["salad", "vegetables", "healthy food", "lunch", "greens"],
+          "level": "A1",
+          "questions": ["What can you see in this salad?", "Do you like salads? Why or why not?", "Name five vegetables you can see in the picture."]
+        },
+        {
+          "id": "fd-005",
+          "name": "Birthday Cake",
+          "description": "A beautiful layered birthday cake with candles and frosting",
+          "url": "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?w=800&auto=format&q=80",
+          "tags": ["cake", "birthday", "dessert", "celebration", "candles"],
+          "level": "A1",
+          "questions": ["What occasion is this cake for?", "What flavour do you think this cake is?", "Describe the decoration on the cake."]
+        },
+        {
+          "id": "fd-006",
+          "name": "Ice Cream Cone",
+          "description": "A colorful ice cream cone with two scoops on a sunny day",
+          "url": "https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=800&auto=format&q=80",
+          "tags": ["ice cream", "dessert", "summer", "sweet", "cold"],
+          "level": "A1",
+          "questions": ["What are the flavours of this ice cream?", "What is your favourite ice cream flavour?", "When do you usually eat ice cream?"]
+        },
+        {
+          "id": "fd-007",
+          "name": "Colorful Fruit Bowl",
+          "description": "A bowl full of fresh, colourful tropical fruits",
+          "url": "https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=800&auto=format&q=80",
+          "tags": ["fruit", "healthy", "tropical", "vitamins", "colourful"],
+          "level": "A1",
+          "questions": ["Name all the fruits you can see.", "Which fruit do you eat most often?", "Why is it important to eat fruit?"]
+        },
+        {
+          "id": "fd-008",
+          "name": "Fresh Bread at the Bakery",
+          "description": "Golden loaves of freshly baked bread in a bakery",
+          "url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&auto=format&q=80",
+          "tags": ["bread", "bakery", "baking", "food", "wheat"],
+          "level": "A1",
+          "questions": ["Where do you think this picture was taken?", "Do you like bread? What kind?", "Describe what you can see."]
+        },
+        {
+          "id": "fd-009",
+          "name": "Vegetable Market",
+          "description": "A variety of fresh colorful vegetables at a market stall",
+          "url": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&auto=format&q=80",
+          "tags": ["vegetables", "market", "healthy", "fresh", "colours"],
+          "level": "A1",
+          "questions": ["Name five vegetables you can see.", "What is your favourite vegetable?", "Where do you buy vegetables?"]
+        },
+        {
+          "id": "fd-010",
+          "name": "Breakfast Pancakes",
+          "description": "A stack of fluffy pancakes with syrup and fresh berries",
+          "url": "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=800&auto=format&q=80",
+          "tags": ["pancakes", "breakfast", "sweet", "maple syrup", "berries"],
+          "level": "A2",
+          "questions": ["What is on top of the pancakes?", "Do you prefer sweet or savoury breakfasts?", "How do you make pancakes? Explain the steps."]
+        },
+        {
+          "id": "fd-011",
+          "name": "Hot Chocolate",
+          "description": "A mug of creamy hot chocolate with marshmallows on top",
+          "url": "https://images.unsplash.com/photo-1517578239113-b03992dcdd25?w=800&auto=format&q=80",
+          "tags": ["hot chocolate", "drink", "winter", "cozy", "sweet"],
+          "level": "A1",
+          "questions": ["What is in this cup?", "When do you usually drink hot drinks?", "Do you prefer hot chocolate or coffee? Why?"]
+        },
+        {
+          "id": "fd-012",
+          "name": "Street Tacos",
+          "description": "Colourful Mexican street tacos with meat, salsa and lime",
+          "url": "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=800&auto=format&q=80",
+          "tags": ["tacos", "Mexican food", "street food", "spicy", "meal"],
+          "level": "A2",
+          "questions": ["What type of food is this?", "What toppings can you see on the tacos?", "Have you ever eaten Mexican food?"]
+        }
+      ]
+    },
+    {
+      "id": "animals",
+      "name": "Animals",
+      "name_es": "Animales",
+      "level": "A1",
+      "color": "#10B981",
+      "images": [
+        {
+          "id": "an-001",
+          "name": "Golden Retriever Dog",
+          "description": "A happy golden retriever with its tongue out, looking playful",
+          "url": "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&auto=format&q=80",
+          "tags": ["dog", "pet", "golden retriever", "animal", "happy"],
+          "level": "A1",
+          "questions": ["What animal is this?", "Do you have a pet? Describe it.", "What words describe the dog's personality?"]
+        },
+        {
+          "id": "an-002",
+          "name": "Orange Tabby Cat",
+          "description": "A fluffy orange tabby cat with bright green eyes looking at the camera",
+          "url": "https://images.unsplash.com/photo-1518791841217-8f162f1912da?w=800&auto=format&q=80",
+          "tags": ["cat", "pet", "fluffy", "orange", "tabby"],
+          "level": "A1",
+          "questions": ["What animal is this?", "Describe the cat using adjectives.", "Do you prefer cats or dogs? Why?"]
+        },
+        {
+          "id": "an-003",
+          "name": "White Horse in Field",
+          "description": "A majestic white horse running freely in a green meadow",
+          "url": "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=800&auto=format&q=80",
+          "tags": ["horse", "white", "field", "meadow", "farm animal"],
+          "level": "A1",
+          "questions": ["What animal is this?", "Describe the horse using three adjectives.", "Where do horses usually live?"]
+        },
+        {
+          "id": "an-004",
+          "name": "Lion Portrait",
+          "description": "A powerful lion staring directly at the camera with a magnificent mane",
+          "url": "https://images.unsplash.com/photo-1552053831-71594a27632d?w=800&auto=format&q=80",
+          "tags": ["lion", "wild animal", "Africa", "savanna", "king"],
+          "level": "A1",
+          "questions": ["What animal is this?", "Where does this animal live?", "What makes lions special compared to other cats?"]
+        },
+        {
+          "id": "an-005",
+          "name": "Elephant Close-Up",
+          "description": "A close-up of an African elephant with its distinctive wrinkled skin and tusks",
+          "url": "https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?w=800&auto=format&q=80",
+          "tags": ["elephant", "Africa", "wild animal", "big", "tusks"],
+          "level": "A1",
+          "questions": ["Describe the elephant using adjectives.", "What do elephants eat?", "Why are elephants important for the environment?"]
+        },
+        {
+          "id": "an-006",
+          "name": "Colorful Parrot",
+          "description": "A bright tropical parrot with vivid red, green and yellow feathers",
+          "url": "https://images.unsplash.com/photo-1452570053594-1b985d6ea890?w=800&auto=format&q=80",
+          "tags": ["parrot", "bird", "tropical", "colorful", "feathers"],
+          "level": "A1",
+          "questions": ["What colors can you see in this bird?", "Where do parrots live?", "What makes parrots special among birds?"]
+        },
+        {
+          "id": "an-007",
+          "name": "Butterfly on Flower",
+          "description": "A beautiful butterfly with orange wings resting on a purple flower",
+          "url": "https://images.unsplash.com/photo-1444927714506-02af2c44ad8e?w=800&auto=format&q=80",
+          "tags": ["butterfly", "insect", "flower", "nature", "wings"],
+          "level": "A1",
+          "questions": ["Describe the butterfly's wings.", "What is the butterfly doing?", "What is the life cycle of a butterfly?"]
+        },
+        {
+          "id": "an-008",
+          "name": "Penguins",
+          "description": "A group of penguins waddling on ice and snow",
+          "url": "https://images.unsplash.com/photo-1551358558-0a7e32a5cb44?w=800&auto=format&q=80",
+          "tags": ["penguin", "Antarctica", "ice", "cold", "bird"],
+          "level": "A1",
+          "questions": ["What animals are these?", "Where do penguins live?", "Describe the environment in the picture."]
+        },
+        {
+          "id": "an-009",
+          "name": "Deer in Forest",
+          "description": "A beautiful deer standing among trees in an autumn forest",
+          "url": "https://images.unsplash.com/photo-1484406566174-9da000fda645?w=800&auto=format&q=80",
+          "tags": ["deer", "forest", "wildlife", "autumn", "nature"],
+          "level": "A2",
+          "questions": ["Describe the animal and its surroundings.", "What season is it in the picture? How do you know?", "What do deer eat?"]
+        },
+        {
+          "id": "an-010",
+          "name": "Sea Turtle Underwater",
+          "description": "A majestic sea turtle gliding through clear blue ocean water",
+          "url": "https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?w=800&auto=format&q=80",
+          "tags": ["turtle", "ocean", "underwater", "sea", "marine life"],
+          "level": "A2",
+          "questions": ["Where is this animal?", "Why are sea turtles endangered?", "What does the turtle use to swim?"]
+        },
+        {
+          "id": "an-011",
+          "name": "Duck on a Lake",
+          "description": "A colorful mallard duck floating peacefully on calm water",
+          "url": "https://images.unsplash.com/photo-1522926193341-e9ffd686c60f?w=800&auto=format&q=80",
+          "tags": ["duck", "lake", "water", "bird", "nature"],
+          "level": "A1",
+          "questions": ["What animal is this?", "Where is the duck?", "Describe the duck's appearance."]
+        },
+        {
+          "id": "an-012",
+          "name": "Fox in the Snow",
+          "description": "A red fox standing in snow, looking alert with its bushy tail",
+          "url": "https://images.unsplash.com/photo-1474511320723-9a56873867b5?w=800&auto=format&q=80",
+          "tags": ["fox", "snow", "winter", "wildlife", "red"],
+          "level": "A2",
+          "questions": ["Describe the fox's appearance.", "What season is it? How do you know?", "Where do foxes live?"]
+        }
+      ]
+    },
+    {
+      "id": "places",
+      "name": "Places & Locations",
+      "name_es": "Lugares y Ubicaciones",
+      "level": "A2-B1",
+      "color": "#8B5CF6",
+      "images": [
+        {
+          "id": "pl-001",
+          "name": "Tropical Beach",
+          "description": "A stunning tropical beach with turquoise water, white sand and palm trees",
+          "url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&q=80",
+          "tags": ["beach", "tropical", "ocean", "palm trees", "vacation"],
+          "level": "A1",
+          "questions": ["Describe this place using adjectives.", "Would you like to visit this place? Why?", "What activities can you do at the beach?"]
+        },
+        {
+          "id": "pl-002",
+          "name": "Mountain Lake",
+          "description": "A crystal clear mountain lake reflecting snow-capped peaks",
+          "url": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&auto=format&q=80",
+          "tags": ["mountains", "lake", "nature", "reflection", "peaceful"],
+          "level": "A1",
+          "questions": ["Describe the landscape in the picture.", "What season do you think it is?", "What words would you use to describe this place?"]
+        },
+        {
+          "id": "pl-003",
+          "name": "City Skyline at Night",
+          "description": "A spectacular view of a large city skyline lit up at night",
+          "url": "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&auto=format&q=80",
+          "tags": ["city", "skyline", "night", "buildings", "lights"],
+          "level": "A2",
+          "questions": ["Describe what you can see in the picture.", "Would you prefer to live in a big city or a small town?", "What can you do in a city at night?"]
+        },
+        {
+          "id": "pl-004",
+          "name": "Forest with Sunlight",
+          "description": "Golden rays of sunlight streaming through tall trees in a peaceful forest",
+          "url": "https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&auto=format&q=80",
+          "tags": ["forest", "trees", "sunlight", "nature", "peaceful"],
+          "level": "A1",
+          "questions": ["Describe the mood of this picture.", "What sounds do you think you would hear in this forest?", "Have you ever been in a forest?"]
+        },
+        {
+          "id": "pl-005",
+          "name": "Desert Sand Dunes",
+          "description": "Enormous golden sand dunes stretching across a desert landscape",
+          "url": "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800&auto=format&q=80",
+          "tags": ["desert", "sand dunes", "hot", "dry", "Africa"],
+          "level": "A2",
+          "questions": ["Describe the landscape.", "What adjectives would you use to describe a desert?", "What challenges do animals and people face in the desert?"]
+        },
+        {
+          "id": "pl-006",
+          "name": "City Park",
+          "description": "A beautiful green park in the heart of a city with people relaxing",
+          "url": "https://images.unsplash.com/photo-1519331379826-f10be5486c6f?w=800&auto=format&q=80",
+          "tags": ["park", "city", "green", "relaxing", "people"],
+          "level": "A1",
+          "questions": ["What can people do in a park?", "Describe the park in the picture.", "Is there a park near your home?"]
+        },
+        {
+          "id": "pl-007",
+          "name": "Grand Library",
+          "description": "An impressive library with tall bookshelves and a beautiful reading room",
+          "url": "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&auto=format&q=80",
+          "tags": ["library", "books", "reading", "education", "knowledge"],
+          "level": "A2",
+          "questions": ["Describe the library in the picture.", "How often do you go to a library?", "Why are libraries important?"]
+        },
+        {
+          "id": "pl-008",
+          "name": "Restaurant Interior",
+          "description": "A cozy and elegant restaurant with warm lighting and wooden tables",
+          "url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&q=80",
+          "tags": ["restaurant", "dining", "interior", "food", "elegant"],
+          "level": "A2",
+          "questions": ["Describe the restaurant.", "What type of restaurant is this?", "What do you look for in a good restaurant?"]
+        },
+        {
+          "id": "pl-009",
+          "name": "Hospital",
+          "description": "A modern hospital corridor with doctors and medical equipment",
+          "url": "https://images.unsplash.com/photo-1538108149393-fbbd82ef4b1d?w=800&auto=format&q=80",
+          "tags": ["hospital", "medical", "health", "building", "emergency"],
+          "level": "A2",
+          "questions": ["Where is this place?", "What do you do when you go to a hospital?", "Describe what you can see in the picture."]
+        },
+        {
+          "id": "pl-010",
+          "name": "Tropical Waterfall",
+          "description": "A magnificent waterfall cascading into a turquoise pool in a jungle",
+          "url": "https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=800&auto=format&q=80",
+          "tags": ["waterfall", "jungle", "nature", "water", "tropical"],
+          "level": "A2",
+          "questions": ["Describe the waterfall.", "What sounds do you think you can hear here?", "Would you like to visit this place?"]
+        },
+        {
+          "id": "pl-011",
+          "name": "Airport Terminal",
+          "description": "A busy international airport terminal with people and planes",
+          "url": "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=800&auto=format&q=80",
+          "tags": ["airport", "travel", "terminal", "plane", "transportation"],
+          "level": "A2",
+          "questions": ["Where is this picture taken?", "What do you do when you arrive at an airport?", "Have you ever been to an airport?"]
+        }
+      ]
+    },
+    {
+      "id": "professions",
+      "name": "Professions & Jobs",
+      "name_es": "Profesiones y Trabajos",
+      "level": "A2-B1",
+      "color": "#F59E0B",
+      "images": [
+        {
+          "id": "pr-001",
+          "name": "Doctor",
+          "description": "A friendly doctor in a white coat holding a stethoscope",
+          "url": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&auto=format&q=80",
+          "tags": ["doctor", "medicine", "hospital", "stethoscope", "health"],
+          "level": "A1",
+          "questions": ["What is this person's job?", "What does a doctor do?", "What qualities does a good doctor need?"]
+        },
+        {
+          "id": "pr-002",
+          "name": "Nurse",
+          "description": "A caring nurse in scrubs checking on a patient",
+          "url": "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800&auto=format&q=80",
+          "tags": ["nurse", "healthcare", "hospital", "medical", "care"],
+          "level": "A1",
+          "questions": ["What is this person's job?", "What does a nurse do?", "How is a nurse different from a doctor?"]
+        },
+        {
+          "id": "pr-003",
+          "name": "Chef in the Kitchen",
+          "description": "A professional chef in a white uniform preparing food in a restaurant kitchen",
+          "url": "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=800&auto=format&q=80",
+          "tags": ["chef", "cooking", "kitchen", "restaurant", "food"],
+          "level": "A1",
+          "questions": ["What is this person doing?", "What skills does a chef need?", "Would you like to be a chef? Why or why not?"]
+        },
+        {
+          "id": "pr-004",
+          "name": "Teacher in Classroom",
+          "description": "A teacher writing on a whiteboard in front of students",
+          "url": "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&auto=format&q=80",
+          "tags": ["teacher", "school", "classroom", "education", "whiteboard"],
+          "level": "A1",
+          "questions": ["What is the teacher doing?", "What qualities does a good teacher have?", "Describe your ideal teacher."]
+        },
+        {
+          "id": "pr-005",
+          "name": "Farmer in the Field",
+          "description": "A farmer working in a green field on a sunny day",
+          "url": "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=800&auto=format&q=80",
+          "tags": ["farmer", "agriculture", "field", "crops", "rural"],
+          "level": "A1",
+          "questions": ["What is this person's job?", "What does a farmer do?", "Why is farming important for society?"]
+        },
+        {
+          "id": "pr-006",
+          "name": "Artist Painting",
+          "description": "An artist in a studio painting a colorful picture on a canvas",
+          "url": "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&auto=format&q=80",
+          "tags": ["artist", "painting", "creative", "studio", "art"],
+          "level": "A2",
+          "questions": ["What is this person doing?", "What tools is the artist using?", "Do you enjoy art? What type?"]
+        },
+        {
+          "id": "pr-007",
+          "name": "Firefighter",
+          "description": "A brave firefighter in full gear holding a fire hose",
+          "url": "https://images.unsplash.com/photo-1525369879994-0acb2a2e12d0?w=800&auto=format&q=80",
+          "tags": ["firefighter", "emergency", "brave", "fire", "rescue"],
+          "level": "A1",
+          "questions": ["What is this person's job?", "What does a firefighter do?", "Why is being a firefighter a difficult job?"]
+        },
+        {
+          "id": "pr-008",
+          "name": "Photographer",
+          "description": "A photographer taking pictures with a professional camera",
+          "url": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&auto=format&q=80",
+          "tags": ["photographer", "camera", "photography", "art", "creative"],
+          "level": "A2",
+          "questions": ["What is this person doing?", "What kind of photographer do you think this is?", "Would you like to be a photographer?"]
+        },
+        {
+          "id": "pr-009",
+          "name": "Mechanic Working on Car",
+          "description": "A mechanic in overalls fixing an engine in a garage",
+          "url": "https://images.unsplash.com/photo-1530046339160-ce3e530c7d2f?w=800&auto=format&q=80",
+          "tags": ["mechanic", "car", "repair", "garage", "tools"],
+          "level": "A2",
+          "questions": ["What is this person's job?", "What tools does a mechanic use?", "Have you ever had a car repaired? What was the problem?"]
+        },
+        {
+          "id": "pr-010",
+          "name": "Scientist in Lab",
+          "description": "A scientist in a white coat conducting experiments in a laboratory",
+          "url": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&auto=format&q=80",
+          "tags": ["scientist", "laboratory", "science", "research", "experiments"],
+          "level": "B1",
+          "questions": ["What is the scientist doing?", "What kind of scientist could this person be?", "Why is scientific research important?"]
+        }
+      ]
+    },
+    {
+      "id": "weather-seasons",
+      "name": "Weather & Seasons",
+      "name_es": "Clima y Estaciones",
+      "level": "A1-A2",
+      "color": "#06B6D4",
+      "images": [
+        {
+          "id": "ws-001",
+          "name": "Sunny Day at the Park",
+          "description": "A beautiful sunny day with blue skies and white clouds over a park",
+          "url": "https://images.unsplash.com/photo-1504701954957-2010ec3bcec1?w=800&auto=format&q=80",
+          "tags": ["sunny", "summer", "blue sky", "warm", "park"],
+          "level": "A1",
+          "questions": ["What is the weather like?", "What do you like to do on sunny days?", "Describe the sky in the picture."]
+        },
+        {
+          "id": "ws-002",
+          "name": "Rainy Street",
+          "description": "A city street on a rainy day with people holding umbrellas and puddles reflecting lights",
+          "url": "https://images.unsplash.com/photo-1501691223387-dd0500403074?w=800&auto=format&q=80",
+          "tags": ["rain", "umbrella", "wet", "street", "autumn"],
+          "level": "A1",
+          "questions": ["What is the weather like in the picture?", "What are the people using to stay dry?", "Do you like rainy days? Why or why not?"]
+        },
+        {
+          "id": "ws-003",
+          "name": "Snowy Winter Landscape",
+          "description": "A magical winter scene with snow-covered trees and a frozen lake",
+          "url": "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=800&auto=format&q=80",
+          "tags": ["snow", "winter", "cold", "frozen", "white"],
+          "level": "A1",
+          "questions": ["What season is this?", "Describe the landscape.", "What activities can you do in the snow?"]
+        },
+        {
+          "id": "ws-004",
+          "name": "Beautiful Sunset",
+          "description": "A stunning orange and purple sunset over the ocean with silhouettes",
+          "url": "https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&auto=format&q=80",
+          "tags": ["sunset", "sky", "orange", "evening", "ocean"],
+          "level": "A1",
+          "questions": ["Describe the colours in the sky.", "What time of day is this?", "Do you enjoy watching sunsets?"]
+        },
+        {
+          "id": "ws-005",
+          "name": "Lightning Storm",
+          "description": "A dramatic thunderstorm with lightning bolts over a dark sky",
+          "url": "https://images.unsplash.com/photo-1470115636492-6d2b56f9146d?w=800&auto=format&q=80",
+          "tags": ["storm", "lightning", "thunder", "dark", "dramatic"],
+          "level": "A2",
+          "questions": ["What type of weather is this?", "Are you afraid of thunderstorms?", "What safety measures should you take during a storm?"]
+        },
+        {
+          "id": "ws-006",
+          "name": "Hot Air Balloon Over Fields",
+          "description": "A colorful hot air balloon floating over green fields on a clear day",
+          "url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&q=80",
+          "tags": ["hot air balloon", "sky", "flying", "clear day", "colourful"],
+          "level": "A2",
+          "questions": ["What can you see in the picture?", "Would you like to ride in a hot air balloon? Why?", "Describe the weather in the picture."]
+        },
+        {
+          "id": "ws-007",
+          "name": "Autumn Leaves",
+          "description": "Colourful red, orange and yellow autumn leaves falling from trees",
+          "url": "https://images.unsplash.com/photo-1476611255611-b78c90d72c4d?w=800&auto=format&q=80",
+          "tags": ["autumn", "fall", "leaves", "orange", "season"],
+          "level": "A1",
+          "questions": ["What season is this?", "Describe the colours of the leaves.", "What happens to trees in autumn?"]
+        },
+        {
+          "id": "ws-008",
+          "name": "Cherry Blossoms in Spring",
+          "description": "Beautiful pink cherry blossom trees in full bloom in spring",
+          "url": "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&auto=format&q=80",
+          "tags": ["spring", "cherry blossom", "flowers", "pink", "Japan"],
+          "level": "A2",
+          "questions": ["What season is this?", "Describe the trees.", "These flowers are famous in Japan. What other countries have famous flowers?"]
+        }
+      ]
+    },
+    {
+      "id": "transportation",
+      "name": "Transportation",
+      "name_es": "Transporte",
+      "level": "A1-A2",
+      "color": "#F97316",
+      "images": [
+        {
+          "id": "tr-001",
+          "name": "Red Sports Car",
+          "description": "A sleek, shiny red sports car on a mountain road",
+          "url": "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&auto=format&q=80",
+          "tags": ["car", "sports car", "red", "road", "fast"],
+          "level": "A1",
+          "questions": ["What type of car is this?", "Describe the car.", "What is your dream car?"]
+        },
+        {
+          "id": "tr-002",
+          "name": "Airplane on Runway",
+          "description": "A large commercial airplane taking off from a runway at sunset",
+          "url": "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=800&auto=format&q=80",
+          "tags": ["airplane", "airport", "travel", "flying", "runway"],
+          "level": "A1",
+          "questions": ["What vehicle is this?", "Have you ever been on an airplane?", "How do you feel when you fly?"]
+        },
+        {
+          "id": "tr-003",
+          "name": "Bicycle in the City",
+          "description": "A bicycle parked against a wall in a colorful urban street",
+          "url": "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=800&auto=format&q=80",
+          "tags": ["bicycle", "city", "transport", "eco-friendly", "urban"],
+          "level": "A1",
+          "questions": ["What vehicle is this?", "Do you know how to ride a bike?", "Why is cycling good for the environment?"]
+        },
+        {
+          "id": "tr-004",
+          "name": "Train at Station",
+          "description": "A modern train arriving at a busy station platform",
+          "url": "https://images.unsplash.com/photo-1474487548417-781cb71495f3?w=800&auto=format&q=80",
+          "tags": ["train", "station", "travel", "transport", "passengers"],
+          "level": "A1",
+          "questions": ["What type of transport is this?", "Have you ever travelled by train?", "What are the advantages of trains over cars?"]
+        },
+        {
+          "id": "tr-005",
+          "name": "Sailboat on the Ocean",
+          "description": "A white sailboat on a calm blue ocean with white sails",
+          "url": "https://images.unsplash.com/photo-1570534435060-2dc4bc9e6c45?w=800&auto=format&q=80",
+          "tags": ["sailboat", "ocean", "sea", "sailing", "travel"],
+          "level": "A2",
+          "questions": ["What is this vehicle?", "Describe the scene.", "Would you enjoy sailing? Why or why not?"]
+        },
+        {
+          "id": "tr-006",
+          "name": "Motorcycle on Road",
+          "description": "A powerful motorcycle on an open road with mountains in the background",
+          "url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&auto=format&q=80",
+          "tags": ["motorcycle", "road", "freedom", "travel", "mountains"],
+          "level": "A2",
+          "questions": ["What vehicle is this?", "Is riding a motorcycle dangerous? Why?", "What safety equipment should motorcyclists wear?"]
+        },
+        {
+          "id": "tr-007",
+          "name": "Yellow Taxi Cab",
+          "description": "A classic yellow New York taxi cab in a busy city street",
+          "url": "https://images.unsplash.com/photo-1524634126442-357e0eac3c14?w=800&auto=format&q=80",
+          "tags": ["taxi", "yellow", "New York", "city", "transport"],
+          "level": "A1",
+          "questions": ["What vehicle is this?", "Where do you think this taxi is?", "How is a taxi different from a bus?"]
+        },
+        {
+          "id": "tr-008",
+          "name": "Helicopter",
+          "description": "A helicopter flying over a green landscape",
+          "url": "https://images.unsplash.com/photo-1508614589041-895b88991e3e?w=800&auto=format&q=80",
+          "tags": ["helicopter", "flying", "aircraft", "transport", "aerial"],
+          "level": "A2",
+          "questions": ["What vehicle is this?", "When are helicopters used?", "How is a helicopter different from an airplane?"]
+        },
+        {
+          "id": "tr-009",
+          "name": "School Bus",
+          "description": "A bright yellow school bus on a road in autumn",
+          "url": "https://images.unsplash.com/photo-1544572571-ab94fd872ce4?w=800&auto=format&q=80",
+          "tags": ["school bus", "yellow", "school", "transport", "children"],
+          "level": "A1",
+          "questions": ["What vehicle is this?", "Do students use school buses in your country?", "What colour is a school bus?"]
+        }
+      ]
+    },
+    {
+      "id": "sports-activities",
+      "name": "Sports & Activities",
+      "name_es": "Deportes y Actividades",
+      "level": "A1-B1",
+      "color": "#EC4899",
+      "images": [
+        {
+          "id": "sp-001",
+          "name": "Soccer Match",
+          "description": "A football player kicking the ball in a professional match with a stadium crowd",
+          "url": "https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&auto=format&q=80",
+          "tags": ["soccer", "football", "sport", "match", "kick"],
+          "level": "A1",
+          "questions": ["What sport is this?", "Do you like football?", "What are the rules of football?"]
+        },
+        {
+          "id": "sp-002",
+          "name": "Basketball Court",
+          "description": "A basketball player jumping to shoot a basket on a street court",
+          "url": "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&auto=format&q=80",
+          "tags": ["basketball", "sport", "court", "jump", "ball"],
+          "level": "A1",
+          "questions": ["What sport is this?", "How many players are in a basketball team?", "Have you ever played basketball?"]
+        },
+        {
+          "id": "sp-003",
+          "name": "Swimming",
+          "description": "A swimmer in the middle of a race in a professional swimming pool",
+          "url": "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=800&auto=format&q=80",
+          "tags": ["swimming", "pool", "sport", "race", "water"],
+          "level": "A2",
+          "questions": ["What sport is this?", "Can you swim?", "What swimming techniques do you know?"]
+        },
+        {
+          "id": "sp-004",
+          "name": "Yoga on the Beach",
+          "description": "A woman doing yoga poses on a beach at sunrise",
+          "url": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&auto=format&q=80",
+          "tags": ["yoga", "beach", "exercise", "relaxation", "wellness"],
+          "level": "A2",
+          "questions": ["What activity is the person doing?", "What are the benefits of yoga?", "Have you ever tried yoga?"]
+        },
+        {
+          "id": "sp-005",
+          "name": "Tennis Player",
+          "description": "A tennis player serving the ball with great technique on a clay court",
+          "url": "https://images.unsplash.com/photo-1551773188-0801da12ddae?w=800&auto=format&q=80",
+          "tags": ["tennis", "sport", "court", "racket", "serve"],
+          "level": "A2",
+          "questions": ["What sport is this?", "What equipment do you need to play tennis?", "What famous tennis players do you know?"]
+        },
+        {
+          "id": "sp-006",
+          "name": "Weight Training at Gym",
+          "description": "A person lifting weights in a modern gym",
+          "url": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&auto=format&q=80",
+          "tags": ["gym", "fitness", "weights", "exercise", "training"],
+          "level": "A2",
+          "questions": ["What is the person doing?", "How often do you exercise?", "What are the benefits of going to the gym?"]
+        },
+        {
+          "id": "sp-007",
+          "name": "Mountain Hiking",
+          "description": "A hiker with a backpack trekking up a mountain trail with stunning views",
+          "url": "https://images.unsplash.com/photo-1551632811-561732d1e306?w=800&auto=format&q=80",
+          "tags": ["hiking", "mountains", "nature", "adventure", "outdoor"],
+          "level": "A2",
+          "questions": ["What activity is this?", "What equipment does a hiker need?", "Would you enjoy hiking? Why or why not?"]
+        },
+        {
+          "id": "sp-008",
+          "name": "Surfing Big Waves",
+          "description": "A surfer riding a big wave on a surfboard",
+          "url": "https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=800&auto=format&q=80",
+          "tags": ["surfing", "ocean", "waves", "extreme sport", "summer"],
+          "level": "B1",
+          "questions": ["What sport is this?", "What skills do you need to surf?", "Is surfing a dangerous sport?"]
+        },
+        {
+          "id": "sp-009",
+          "name": "Cycling Race",
+          "description": "Cyclists in brightly coloured jerseys racing on a road",
+          "url": "https://images.unsplash.com/photo-1558703779-3c5e33a61eff?w=800&auto=format&q=80",
+          "tags": ["cycling", "race", "sport", "bicycle", "team"],
+          "level": "A2",
+          "questions": ["What sport is this?", "What protective equipment are the cyclists wearing?", "Have you ever watched a cycling race?"]
+        }
+      ]
+    },
+    {
+      "id": "family-people",
+      "name": "Family & People",
+      "name_es": "Familia y Personas",
+      "level": "A1-A2",
+      "color": "#D97706",
+      "images": [
+        {
+          "id": "fa-001",
+          "name": "Happy Family",
+          "description": "A smiling family of four — parents and two children — in a park",
+          "url": "https://images.unsplash.com/photo-1581952976147-5a2d15560349?w=800&auto=format&q=80",
+          "tags": ["family", "parents", "children", "happy", "park"],
+          "level": "A1",
+          "questions": ["How many people are in this family?", "Describe each person in the picture.", "What is the family doing?"]
+        },
+        {
+          "id": "fa-002",
+          "name": "Mother and Child",
+          "description": "A mother lovingly holding her young child and smiling",
+          "url": "https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&auto=format&q=80",
+          "tags": ["mother", "child", "family", "love", "hugging"],
+          "level": "A1",
+          "questions": ["Who are the people in the picture?", "Describe the relationship between them.", "What emotion do you see in the picture?"]
+        },
+        {
+          "id": "fa-003",
+          "name": "Grandparents with Grandchildren",
+          "description": "A happy elderly couple playing outdoors with their grandchildren",
+          "url": "https://images.unsplash.com/photo-1574701148212-8518049a823d?w=800&auto=format&q=80",
+          "tags": ["grandparents", "grandchildren", "elderly", "family", "generations"],
+          "level": "A1",
+          "questions": ["Describe the people in the picture.", "What are they doing?", "What do you like to do with your grandparents?"]
+        },
+        {
+          "id": "fa-004",
+          "name": "Group of Friends",
+          "description": "A diverse group of young friends laughing and having fun together",
+          "url": "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&auto=format&q=80",
+          "tags": ["friends", "young people", "happy", "laughing", "group"],
+          "level": "A1",
+          "questions": ["How many people are in the group?", "What emotion are they showing?", "What do you think they are talking about?"]
+        },
+        {
+          "id": "fa-005",
+          "name": "Cute Baby",
+          "description": "An adorable baby with big eyes and a curious expression",
+          "url": "https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=800&auto=format&q=80",
+          "tags": ["baby", "infant", "cute", "young", "family"],
+          "level": "A1",
+          "questions": ["How old do you think this baby is?", "Describe the baby's expression.", "What can babies do at this age?"]
+        },
+        {
+          "id": "fa-006",
+          "name": "Children Playing in the Playground",
+          "description": "Happy children playing on swings and slides in a colourful playground",
+          "url": "https://images.unsplash.com/photo-1575783970733-1aaedde1db74?w=800&auto=format&q=80",
+          "tags": ["children", "playground", "playing", "fun", "school"],
+          "level": "A1",
+          "questions": ["What are the children doing?", "Describe the playground.", "What games did you play when you were young?"]
+        },
+        {
+          "id": "fa-007",
+          "name": "Couple Walking Together",
+          "description": "A young couple walking together hand in hand in a park",
+          "url": "https://images.unsplash.com/photo-1516585427167-9f4af9627e6c?w=800&auto=format&q=80",
+          "tags": ["couple", "love", "walking", "park", "relationship"],
+          "level": "A2",
+          "questions": ["Describe the people in the picture.", "Where are they?", "What adjectives describe the mood of this picture?"]
+        },
+        {
+          "id": "fa-008",
+          "name": "Wedding Ceremony",
+          "description": "A beautiful outdoor wedding ceremony with the couple and guests",
+          "url": "https://images.unsplash.com/photo-1519741497674-611481863552?w=800&auto=format&q=80",
+          "tags": ["wedding", "ceremony", "marriage", "celebration", "love"],
+          "level": "A2",
+          "questions": ["What event is this?", "Describe what you see.", "What wedding traditions do you know?"]
+        }
+      ]
+    },
+    {
+      "id": "emotions",
+      "name": "Emotions & Feelings",
+      "name_es": "Emociones y Sentimientos",
+      "level": "A1-A2",
+      "color": "#7C3AED",
+      "images": [
+        {
+          "id": "em-001",
+          "name": "Happy and Smiling",
+          "description": "A young woman with a big, genuine smile, looking very happy",
+          "url": "https://images.unsplash.com/photo-1488716820095-cbe80883c496?w=800&auto=format&q=80",
+          "tags": ["happy", "smile", "joy", "positive", "emotion"],
+          "level": "A1",
+          "questions": ["How does this person feel?", "What makes you happy?", "Describe the expression on the person's face."]
+        },
+        {
+          "id": "em-002",
+          "name": "Sad and Thoughtful",
+          "description": "A person sitting by a rainy window, looking sad and lonely",
+          "url": "https://images.unsplash.com/photo-1541101767792-f9b2b1c4f127?w=800&auto=format&q=80",
+          "tags": ["sad", "lonely", "window", "rain", "emotion"],
+          "level": "A1",
+          "questions": ["How does this person feel?", "What do you think happened?", "What do you do when you feel sad?"]
+        },
+        {
+          "id": "em-003",
+          "name": "Surprised!",
+          "description": "A person with a very surprised and shocked expression, hands on face",
+          "url": "https://images.unsplash.com/photo-1509967419530-da38b4704bc6?w=800&auto=format&q=80",
+          "tags": ["surprised", "shocked", "expression", "emotion", "amazed"],
+          "level": "A1",
+          "questions": ["What emotion is this person showing?", "What do you think surprised them?", "When was the last time you were surprised?"]
+        },
+        {
+          "id": "em-004",
+          "name": "Laughing Out Loud",
+          "description": "A person laughing uncontrollably, very happy and joyful",
+          "url": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&auto=format&q=80",
+          "tags": ["laughing", "joyful", "happy", "funny", "emotion"],
+          "level": "A1",
+          "questions": ["What emotion is this person showing?", "What makes you laugh?", "Describe a funny situation that made you laugh."]
+        },
+        {
+          "id": "em-005",
+          "name": "Thinking and Concentrating",
+          "description": "A person looking up thoughtfully, with finger on chin, thinking deeply",
+          "url": "https://images.unsplash.com/photo-1456406644174-8ddd4cd52a06?w=800&auto=format&q=80",
+          "tags": ["thinking", "concentration", "thoughtful", "pensive", "idea"],
+          "level": "A2",
+          "questions": ["What is this person doing?", "What could they be thinking about?", "Describe the expression on the person's face."]
+        },
+        {
+          "id": "em-006",
+          "name": "Excited and Celebrating",
+          "description": "A group of people celebrating with arms raised in excitement",
+          "url": "https://images.unsplash.com/photo-1544365558-35aa4afcf11f?w=800&auto=format&q=80",
+          "tags": ["excited", "celebrating", "happy", "victory", "emotion"],
+          "level": "A2",
+          "questions": ["How are these people feeling?", "What do you think they are celebrating?", "When do you feel excited?"]
+        },
+        {
+          "id": "em-007",
+          "name": "Scared and Nervous",
+          "description": "A person biting nails and looking anxious and worried",
+          "url": "https://images.unsplash.com/photo-1471897488648-5eae4ac6686b?w=800&auto=format&q=80",
+          "tags": ["scared", "nervous", "anxious", "worried", "emotion"],
+          "level": "A2",
+          "questions": ["How does this person feel?", "What makes you nervous?", "What do you do to calm down when you are nervous?"]
+        }
+      ]
+    },
+    {
+      "id": "clothing",
+      "name": "Clothing & Fashion",
+      "name_es": "Ropa y Moda",
+      "level": "A1-A2",
+      "color": "#BE185D",
+      "images": [
+        {
+          "id": "cl-001",
+          "name": "Business Suit",
+          "description": "A man wearing a smart, formal business suit and tie",
+          "url": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&q=80",
+          "tags": ["suit", "formal", "business", "professional", "tie"],
+          "level": "A1",
+          "questions": ["Describe the clothing the person is wearing.", "When do people wear formal clothes?", "What is the difference between formal and casual clothing?"]
+        },
+        {
+          "id": "cl-002",
+          "name": "Colorful Sneakers",
+          "description": "A pair of bright, colorful athletic sneakers",
+          "url": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&q=80",
+          "tags": ["shoes", "sneakers", "colorful", "sport", "fashion"],
+          "level": "A1",
+          "questions": ["Describe the shoes.", "What type of shoes do you prefer?", "When would you wear these shoes?"]
+        },
+        {
+          "id": "cl-003",
+          "name": "Colourful Summer Dresses",
+          "description": "A selection of vibrant, floral summer dresses on a rack",
+          "url": "https://images.unsplash.com/photo-1572804013427-4d7ca7268217?w=800&auto=format&q=80",
+          "tags": ["dress", "summer", "fashion", "colourful", "feminine"],
+          "level": "A1",
+          "questions": ["Describe the dresses.", "What season are these clothes for?", "What colour is your favourite piece of clothing?"]
+        },
+        {
+          "id": "cl-004",
+          "name": "Hat and Sunglasses",
+          "description": "A person wearing a stylish summer hat and cool sunglasses",
+          "url": "https://images.unsplash.com/photo-1521369909029-2afed882baaa?w=800&auto=format&q=80",
+          "tags": ["hat", "sunglasses", "summer", "accessories", "fashion"],
+          "level": "A1",
+          "questions": ["What accessories is the person wearing?", "When do you wear a hat?", "Why do people wear sunglasses?"]
+        },
+        {
+          "id": "cl-005",
+          "name": "Backpack",
+          "description": "A colourful school backpack with many pockets and zips",
+          "url": "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&q=80",
+          "tags": ["backpack", "school", "bag", "travel", "accessories"],
+          "level": "A1",
+          "questions": ["What is this?", "What do you keep in your backpack?", "Describe the backpack."]
+        },
+        {
+          "id": "cl-006",
+          "name": "Winter Coat and Scarf",
+          "description": "A person wearing a warm winter coat, scarf and gloves in the snow",
+          "url": "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=800&auto=format&q=80",
+          "tags": ["winter coat", "scarf", "gloves", "winter", "warm"],
+          "level": "A1",
+          "questions": ["What clothes is the person wearing?", "Why do we need warm clothes in winter?", "Describe your favourite winter outfit."]
+        }
+      ]
+    },
+    {
+      "id": "technology",
+      "name": "Technology & Gadgets",
+      "name_es": "Tecnología",
+      "level": "A2-B1",
+      "color": "#0EA5E9",
+      "images": [
+        {
+          "id": "te-001",
+          "name": "Modern Laptop",
+          "description": "A clean and modern laptop computer open on a desk with a cup of coffee",
+          "url": "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&auto=format&q=80",
+          "tags": ["laptop", "computer", "technology", "work", "desk"],
+          "level": "A1",
+          "questions": ["What is this?", "What do you use a laptop for?", "Describe what you can see on the desk."]
+        },
+        {
+          "id": "te-002",
+          "name": "Smartphone",
+          "description": "A modern smartphone with a bright, clear screen",
+          "url": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&q=80",
+          "tags": ["smartphone", "phone", "technology", "mobile", "screen"],
+          "level": "A1",
+          "questions": ["What is this?", "What do you use your phone for?", "Can you imagine life without a smartphone?"]
+        },
+        {
+          "id": "te-003",
+          "name": "Humanoid Robot",
+          "description": "A futuristic humanoid robot with a metallic body and lights",
+          "url": "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&auto=format&q=80",
+          "tags": ["robot", "AI", "future", "technology", "science"],
+          "level": "B1",
+          "questions": ["What is this?", "What can robots do?", "Do you think robots will replace human workers in the future?"]
+        },
+        {
+          "id": "te-004",
+          "name": "Wireless Headphones",
+          "description": "A pair of sleek wireless headphones on a white surface",
+          "url": "https://images.unsplash.com/photo-1484704849700-f032a568e944?w=800&auto=format&q=80",
+          "tags": ["headphones", "music", "wireless", "technology", "audio"],
+          "level": "A2",
+          "questions": ["What are these?", "What do you use headphones for?", "Do you prefer headphones or earbuds?"]
+        },
+        {
+          "id": "te-005",
+          "name": "Gaming Setup",
+          "description": "A gaming setup with controllers, screen, and colourful LED lights",
+          "url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=800&auto=format&q=80",
+          "tags": ["gaming", "video games", "controller", "technology", "entertainment"],
+          "level": "A2",
+          "questions": ["Describe the gaming setup.", "Do you play video games?", "What are the advantages and disadvantages of video games?"]
+        },
+        {
+          "id": "te-006",
+          "name": "Camera",
+          "description": "A professional DSLR camera on a tripod ready to shoot",
+          "url": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&auto=format&q=80",
+          "tags": ["camera", "photography", "DSLR", "photo", "technology"],
+          "level": "A2",
+          "questions": ["What is this?", "What kind of photos would you take with this camera?", "Do you prefer to take photos with your phone or a camera?"]
+        },
+        {
+          "id": "te-007",
+          "name": "VR Headset",
+          "description": "A person wearing a virtual reality headset, immersed in a virtual world",
+          "url": "https://images.unsplash.com/photo-1593508512255-86ab42a8e620?w=800&auto=format&q=80",
+          "tags": ["VR", "virtual reality", "technology", "future", "gaming"],
+          "level": "B1",
+          "questions": ["What is the person doing?", "Have you ever tried virtual reality?", "What could VR be used for in education?"]
+        }
+      ]
+    },
+    {
+      "id": "nature-environment",
+      "name": "Nature & Environment",
+      "name_es": "Naturaleza y Medio Ambiente",
+      "level": "A2-B1",
+      "color": "#16A34A",
+      "images": [
+        {
+          "id": "na-001",
+          "name": "Ocean Waves",
+          "description": "Powerful ocean waves crashing on a rocky shore",
+          "url": "https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=800&auto=format&q=80",
+          "tags": ["ocean", "waves", "sea", "nature", "water"],
+          "level": "A1",
+          "questions": ["Describe what you see.", "What sounds do you associate with the ocean?", "Do you prefer mountains or the sea? Why?"]
+        },
+        {
+          "id": "na-002",
+          "name": "Flower Garden",
+          "description": "A beautiful garden full of colourful blooming flowers",
+          "url": "https://images.unsplash.com/photo-1490750967868-88df5691cc40?w=800&auto=format&q=80",
+          "tags": ["flowers", "garden", "colourful", "spring", "nature"],
+          "level": "A1",
+          "questions": ["Name the colours you see in this garden.", "What flowers do you recognise?", "Do you have a garden at home?"]
+        },
+        {
+          "id": "na-003",
+          "name": "Coral Reef",
+          "description": "A vibrant coral reef teeming with colourful tropical fish",
+          "url": "https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=800&auto=format&q=80",
+          "tags": ["coral reef", "ocean", "fish", "underwater", "colourful"],
+          "level": "B1",
+          "questions": ["Describe the underwater scene.", "Why are coral reefs important?", "What threatens coral reefs today?"]
+        },
+        {
+          "id": "na-004",
+          "name": "Volcanic Eruption",
+          "description": "A dramatic volcano erupting with lava and smoke at night",
+          "url": "https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=800&auto=format&q=80",
+          "tags": ["volcano", "eruption", "lava", "nature", "dramatic"],
+          "level": "B1",
+          "questions": ["What natural event is happening?", "Is this natural phenomenon dangerous?", "Name some famous volcanoes around the world."]
+        },
+        {
+          "id": "na-005",
+          "name": "Rainforest",
+          "description": "A lush green tropical rainforest with tall trees and dense vegetation",
+          "url": "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&auto=format&q=80",
+          "tags": ["rainforest", "jungle", "tropical", "green", "nature"],
+          "level": "B1",
+          "questions": ["Describe the rainforest.", "Why are rainforests important?", "What animals live in rainforests?"]
+        },
+        {
+          "id": "na-006",
+          "name": "Northern Lights",
+          "description": "The spectacular aurora borealis dancing in a dark Arctic sky",
+          "url": "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=800&auto=format&q=80",
+          "tags": ["northern lights", "aurora", "night sky", "nature", "Arctic"],
+          "level": "B1",
+          "questions": ["What natural phenomenon is this?", "Describe the colours.", "In which countries can you see the northern lights?"]
+        }
+      ]
+    },
+    {
+      "id": "shopping",
+      "name": "Shopping & Commerce",
+      "name_es": "Compras y Comercio",
+      "level": "A2-B1",
+      "color": "#DC2626",
+      "images": [
+        {
+          "id": "sh-001",
+          "name": "Supermarket Aisle",
+          "description": "A person with a shopping cart browsing long aisles in a supermarket",
+          "url": "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=800&auto=format&q=80",
+          "tags": ["supermarket", "shopping", "groceries", "store", "food"],
+          "level": "A1",
+          "questions": ["Where is this?", "What do you buy at the supermarket?", "Do you prefer to shop online or in a store?"]
+        },
+        {
+          "id": "sh-002",
+          "name": "Shopping Bags",
+          "description": "A person carrying many colourful shopping bags after a big shopping trip",
+          "url": "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&auto=format&q=80",
+          "tags": ["shopping", "bags", "retail", "fashion", "buying"],
+          "level": "A1",
+          "questions": ["What has this person been doing?", "Do you like shopping?", "What did you last buy?"]
+        },
+        {
+          "id": "sh-003",
+          "name": "Shopping Mall",
+          "description": "A large, busy shopping mall with multiple levels and shops",
+          "url": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&q=80",
+          "tags": ["mall", "shopping centre", "shops", "people", "retail"],
+          "level": "A2",
+          "questions": ["Describe the shopping mall.", "What kinds of shops are usually in a mall?", "Do you like shopping malls?"]
+        },
+        {
+          "id": "sh-004",
+          "name": "Farmers Market",
+          "description": "A colourful outdoor farmers' market with fresh produce and people shopping",
+          "url": "https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&auto=format&q=80",
+          "tags": ["market", "farmers market", "fresh", "vegetables", "outdoor"],
+          "level": "A2",
+          "questions": ["Where is this?", "What can you buy at a farmers' market?", "Do you prefer a farmers' market or a supermarket?"]
+        },
+        {
+          "id": "sh-005",
+          "name": "Online Shopping",
+          "description": "A person using a laptop to shop online with a credit card",
+          "url": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&auto=format&q=80",
+          "tags": ["online shopping", "internet", "credit card", "e-commerce", "laptop"],
+          "level": "B1",
+          "questions": ["What is the person doing?", "What are the advantages of online shopping?", "What are the risks of shopping online?"]
+        }
+      ]
+    },
+    {
+      "id": "celebrations",
+      "name": "Celebrations & Events",
+      "name_es": "Celebraciones y Eventos",
+      "level": "A2-B1",
+      "color": "#F59E0B",
+      "images": [
+        {
+          "id": "ce-001",
+          "name": "Birthday Party with Balloons",
+          "description": "A festive birthday party with colourful balloons, cake and decorations",
+          "url": "https://images.unsplash.com/photo-1543269865-cbf427effbad?w=800&auto=format&q=80",
+          "tags": ["birthday", "party", "balloons", "celebration", "cake"],
+          "level": "A1",
+          "questions": ["What event is this?", "How do you celebrate birthdays in your family?", "Describe the decorations in the picture."]
+        },
+        {
+          "id": "ce-002",
+          "name": "Graduation Day",
+          "description": "Students in graduation gowns and caps celebrating at a university",
+          "url": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&auto=format&q=80",
+          "tags": ["graduation", "university", "students", "celebration", "achievement"],
+          "level": "A2",
+          "questions": ["What event is this?", "How does this person feel?", "What do people usually do after graduating?"]
+        },
+        {
+          "id": "ce-003",
+          "name": "New Year Fireworks",
+          "description": "Spectacular fireworks exploding over a city skyline on New Year's Eve",
+          "url": "https://images.unsplash.com/photo-1514569236060-19f28c7b39a0?w=800&auto=format&q=80",
+          "tags": ["fireworks", "New Year", "celebration", "night", "colourful"],
+          "level": "A2",
+          "questions": ["What event does this picture represent?", "Describe the fireworks.", "How do you celebrate New Year?"]
+        },
+        {
+          "id": "ce-004",
+          "name": "Christmas Tree",
+          "description": "A beautifully decorated Christmas tree with lights and ornaments",
+          "url": "https://images.unsplash.com/photo-1467810563316-b1aa2c9d072e?w=800&auto=format&q=80",
+          "tags": ["Christmas", "tree", "decorations", "lights", "winter"],
+          "level": "A1",
+          "questions": ["What holiday does this picture represent?", "Describe the Christmas tree.", "How do you decorate for Christmas?"]
+        },
+        {
+          "id": "ce-005",
+          "name": "Sports Victory",
+          "description": "A team of athletes holding a trophy, celebrating a championship win",
+          "url": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&auto=format&q=80",
+          "tags": ["victory", "trophy", "sport", "team", "celebration"],
+          "level": "A2",
+          "questions": ["What are the people celebrating?", "How do you think they feel?", "What sport do you think this is?"]
+        }
+      ]
+    },
+    {
+      "id": "school-education",
+      "name": "School & Education",
+      "name_es": "Escuela y Educación",
+      "level": "A1-A2",
+      "color": "#2563EB",
+      "images": [
+        {
+          "id": "sc-001",
+          "name": "Students in Classroom",
+          "description": "Students sitting at desks in a bright, modern classroom",
+          "url": "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&auto=format&q=80",
+          "tags": ["school", "classroom", "students", "learning", "education"],
+          "level": "A1",
+          "questions": ["Describe the classroom.", "How many students can you see?", "What do you think the students are doing?"]
+        },
+        {
+          "id": "sc-002",
+          "name": "Students Studying Together",
+          "description": "A group of students studying together with books and laptops at a table",
+          "url": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=800&auto=format&q=80",
+          "tags": ["studying", "library", "teamwork", "books", "university"],
+          "level": "A2",
+          "questions": ["What are the students doing?", "Do you prefer to study alone or with others?", "What subjects do you find most difficult?"]
+        },
+        {
+          "id": "sc-003",
+          "name": "Science Laboratory",
+          "description": "Students performing experiments in a modern school science laboratory",
+          "url": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=800&auto=format&q=80",
+          "tags": ["science lab", "experiment", "school", "chemistry", "learning"],
+          "level": "A2",
+          "questions": ["Where is this?", "What are the students doing?", "What safety equipment can you see?"]
+        },
+        {
+          "id": "sc-004",
+          "name": "School Books and Supplies",
+          "description": "A desk with colourful school books, pencils, ruler and other supplies",
+          "url": "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&q=80",
+          "tags": ["books", "school supplies", "pencil", "studying", "education"],
+          "level": "A1",
+          "questions": ["Name the school supplies you can see.", "What subjects do the books look like they are for?", "What school supplies do you use every day?"]
+        }
+      ]
+    }
+  ]
+}

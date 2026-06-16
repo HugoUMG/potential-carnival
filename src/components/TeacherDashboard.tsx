@@ -1,7 +1,7 @@
-import { Activity, BarChart3, BookOpenCheck, BookText, ClipboardCheck, Database, Eye, LogOut, PlusCircle, School, UserCog, UserPlus, UserRoundCheck } from 'lucide-react';
+import { Activity, BarChart3, BookOpenCheck, BookText, ClipboardCheck, Database, Eye, ImageIcon, LogOut, PlusCircle, School, UserCog, UserPlus, UserRoundCheck } from 'lucide-react';
 import type { UsuarioSesion } from '../services/api';
 
-export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'actividad' | 'vocabulario' | 'lectores';
+export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'actividad' | 'vocabulario' | 'lectores' | 'imagenes';
 
 interface TeacherDashboardProps {
   user: UsuarioSesion;
@@ -25,6 +25,7 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
     { id: 'actividad' as const, label: 'Actividad de estudiantes', icon: Activity },
     { id: 'vocabulario' as const, label: 'Vocabulario', icon: BookText },
     { id: 'lectores' as const, label: 'Lectores', icon: Eye },
+    { id: 'imagenes' as const, label: 'Biblioteca de imágenes', icon: ImageIcon },
   ];
 
   return (
