@@ -98,6 +98,7 @@ class WorksheetJson(BaseModel):
     description: str = ""
     activities: list[Activity] = Field(default_factory=list)
     blocks: list[ActivityBlock] | None = None
+    info_fields: list[str] = Field(default_factory=list)
 
     def iter_activities(self) -> list[Activity]:
         if self.blocks:

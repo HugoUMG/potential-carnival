@@ -145,6 +145,7 @@ export interface Worksheet {
   attemptsUsed?: number | null;
   attemptsRemaining?: number | null;
   dueDate?: string | null;
+  infoFields?: string[];
 }
 
 export interface WorksheetAnalytics {

@@ -81,6 +81,26 @@ def _find_all_keyword_blocks(source: str, keyword: str) -> list[str]:
     return bodies
 
 
+def _parse_info_fields(worksheet_body: str) -> list[str]:
+    """Extrae los campos del bloque opcional info { fields: [...] }."""
+    match = re.search(r"\binfo\s*{", worksheet_body)
+    if not match:
+        return []
+    start = match.end()
+    depth = 1
+    cursor = start
+    while cursor < len(worksheet_body) and depth:
+        if worksheet_body[cursor] == "{":
+            depth += 1
+        elif worksheet_body[cursor] == "}":
+            depth -= 1
+        cursor += 1
+    if depth:
+        return []
+    info_body = worksheet_body[start : cursor - 1]
+    return _get_list(info_body, "fields")
+
+
 def _parse_theme(worksheet_body: str) -> dict[str, str] | None:
     match = re.search(r"\btheme\s*{", worksheet_body)
     if not match:
@@ -277,6 +297,7 @@ def parse_worksheet_script(script: str) -> WorksheetData:
         raise WorksheetScriptError("El título de la hoja es obligatorio")
     description = _get_scalar(worksheet_body, "description", "") or ""
     theme = _parse_theme(worksheet_body)
+    info_fields = _parse_info_fields(worksheet_body)
 
     block_bodies = _find_all_keyword_blocks(worksheet_body, "block")
     if block_bodies:
@@ -288,9 +309,9 @@ def parse_worksheet_script(script: str) -> WorksheetData:
             blocks.append(BlockData(title=block_title, instructions=block_instructions, activities=block_activities))
         if not any(b.activities for b in blocks):
             raise WorksheetScriptError("Se requiere al menos una actividad")
-        return WorksheetData(title=title, description=description, blocks=blocks, theme=theme)
+        return WorksheetData(title=title, description=description, blocks=blocks, theme=theme, info_fields=info_fields)
 
     activities = [parse_activity(activity_type, body) for activity_type, body in _find_activity_blocks(worksheet_body)]
     if not activities:
         raise WorksheetScriptError("Se requiere al menos una actividad")
-    return WorksheetData(title=title, description=description, activities=activities, theme=theme)
+    return WorksheetData(title=title, description=description, activities=activities, theme=theme, info_fields=info_fields)

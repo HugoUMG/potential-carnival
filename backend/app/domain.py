@@ -47,6 +47,7 @@ class WorksheetData:
     activities: list[ActivityData] = field(default_factory=list)
     blocks: list[BlockData] = field(default_factory=list)
     theme: dict[str, str] | None = None
+    info_fields: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
         d: dict[str, object] = {
@@ -56,4 +57,6 @@ class WorksheetData:
         }
         if self.blocks:
             d["blocks"] = [b.to_dict() for b in self.blocks]
+        if self.info_fields:
+            d["info_fields"] = self.info_fields
         return d

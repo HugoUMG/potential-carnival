@@ -66,6 +66,34 @@ export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange
         </div>
       </header>
 
+      {/* ── Campos de identificación (info {}) ─────────────────────────────── */}
+      {(worksheet.infoFields?.length ?? 0) > 0 && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-lg">📋</span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Identificación</p>
+              <h2 className="font-semibold text-slate-900">Datos del estudiante</h2>
+            </div>
+            <span className="ml-auto rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">No calificable</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {worksheet.infoFields!.map((fieldLabel, i) => (
+              <label key={i} className="block">
+                <span className="mb-1 block text-sm font-semibold text-slate-700">{fieldLabel}</span>
+                <input
+                  className="w-full rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                  placeholder={`Escribe tu ${fieldLabel.toLowerCase()}…`}
+                  value={String(answers[`_info_${i}`] ?? '')}
+                  readOnly={readonly}
+                  onChange={(e) => onAnswerChange(`_info_${i}`, e.target.value)}
+                />
+              </label>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="grid gap-6">
         {blocks.map((block, blockIndex) => (
           <section key={`${block.title ?? 'block'}-${blockIndex}`} className="grid gap-5">

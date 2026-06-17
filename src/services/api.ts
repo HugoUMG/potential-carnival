@@ -238,6 +238,7 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     attemptsUsed: worksheet.attempts_used ?? null,
     attemptsRemaining: worksheet.attempts_remaining ?? null,
     analytics: { completionRate: 0, averageScore: 0, attempts: 0, mostMissedQuestions: [] },
+    infoFields: (worksheet.json_content as { info_fields?: string[] }).info_fields ?? [],
   };
 }
 
