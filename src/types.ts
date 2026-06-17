@@ -131,7 +131,6 @@ export interface Worksheet {
   id: string;
   title: string;
   description: string;
-  level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   status: 'draft' | 'published';
   archived: boolean;
   scriptContent: string;
@@ -139,20 +138,12 @@ export interface Worksheet {
   blocks?: ActivityBlock[];
   createdBy: string;
   createdAt: string;
-  analytics: WorksheetAnalytics;
   maxAttempts?: number | null;
   theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
   attemptsUsed?: number | null;
   attemptsRemaining?: number | null;
   dueDate?: string | null;
   infoFields?: string[];
-}
-
-export interface WorksheetAnalytics {
-  completionRate: number;
-  averageScore: number;
-  attempts: number;
-  mostMissedQuestions: string[];
 }
 
 export type StudentAnswer = string | string[] | Record<string, string>;

@@ -55,18 +55,11 @@ export const sampleWorksheet: Worksheet = {
   id: 'hoja-001',
   title: 'Can, Could y Will Be Able To',
   description: 'Práctica A1 de verbos modales con actividades interactivas mixtas.',
-  level: 'A1',
   status: 'draft',
   archived: false,
   scriptContent: sampleScript,
   createdBy: 'Docente de demostración',
   createdAt: '2026-06-01T09:00:00.000Z',
-  analytics: {
-    completionRate: 78,
-    averageScore: 84,
-    attempts: 42,
-    mostMissedQuestions: ['Habilidad futura con will be able to', 'Habilidad pasada con could'],
-  },
   activities: [
     { id: 'a1', type: 'fillblank', text: 'Yo ____ nadar.', answer: 'can' },
     {

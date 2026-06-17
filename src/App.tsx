@@ -48,7 +48,6 @@ import {
   listWorksheetResponses,
   getWorksheetResponseCounts,
   login,
-  logout,
   logoutSession,
   getClassroom,
   getCurrentSession,

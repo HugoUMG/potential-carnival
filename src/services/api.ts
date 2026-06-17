@@ -26,7 +26,7 @@ export interface DetalleRespuesta {
 
 interface BackendActivity {
   id: string;
-  type: ActivityType | 'speaking';
+  type: ActivityType;
   text?: string | null;
   question?: string | null;
   options?: string[] | null;
@@ -186,8 +186,6 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
     case 'matching':
       return withInstructions({ id: activity.id, type: 'matching', left: activity.left ?? [], right: activity.right ?? [] }, activity);
-    case 'speaking':
-      return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
     case 'reading':
       return withInstructions({ id: activity.id, type: 'reading', title: activity.title ?? '', content: activity.content ?? '', questions: activity.questions ?? [] }, activity);
     case 'imagequestion':
@@ -225,7 +223,6 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     id: worksheet.id,
     title: worksheet.title,
     description: worksheet.description,
-    level: 'A1',
     status: worksheet.published ? 'published' : 'draft',
     archived: worksheet.archived,
     scriptContent: worksheet.script_content,
@@ -237,7 +234,6 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     theme: worksheet.theme ?? null,
     attemptsUsed: worksheet.attempts_used ?? null,
     attemptsRemaining: worksheet.attempts_remaining ?? null,
-    analytics: { completionRate: 0, averageScore: 0, attempts: 0, mostMissedQuestions: [] },
     infoFields: (worksheet.json_content as { info_fields?: string[] }).info_fields ?? [],
   };
 }

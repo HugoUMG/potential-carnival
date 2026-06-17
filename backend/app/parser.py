@@ -10,7 +10,6 @@ SUPPORTED_BLOCKS = {
     "multiplechoice",
     "textbox",
     "matching",
-    "speaking",
     "reading",
     "imagequestion",
     "listening",
@@ -255,7 +254,7 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_answer(body))
     if activity_type == "multiplechoice":
         return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_answer(body))
-    if activity_type in {"textbox", "speaking"}:
+    if activity_type == "textbox":
         return ActivityData(**common, prompt=_get_scalar(body, "prompt"))
     if activity_type == "matching":
         return ActivityData(**common, left=_get_list(body, "left"), right=_get_list(body, "right"))
