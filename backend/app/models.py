@@ -55,11 +55,11 @@ class LoginResponse(BaseModel):
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     type: Literal[
-        "fillblank", "multiplechoice", "textbox", "matching",
+        "fillblank", "multiplechoice", "textbox", "matching", "speaking",
         "reading", "imagequestion", "listening",
         "listeningfillblank", "listeningmultiplechoice", "listeningmatching", "listeningtruefalse",
         "truefalse", "readingtruefalse",
-    ]
+    ]  # "speaking" se conserva: datos antiguos en producción pueden contenerlo (no crear nuevas)
     text: str | None = None
     question: str | None = None
     options: list[str] | None = None
