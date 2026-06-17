@@ -7,12 +7,35 @@ import httpx
 # ── API endpoints ──────────────────────────────────────────────────────────────
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 _GROQ_MODEL = "llama-3.3-70b-versatile"
-_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 # ── System prompts ─────────────────────────────────────────────────────────────
 _WORKSHEET_SYSTEM = """You are an expert English worksheet creator for a language learning platform.
 You generate worksheets using a strict DSL format. Follow ALL rules exactly.
 Output ONLY the DSL script — no markdown fences, no explanation, no comments.
+
+=== MANDATORY OUTER STRUCTURE ===
+Every output MUST start with "worksheet {" and end with the closing "}".
+NEVER output bare activities — they must always be inside worksheet { }.
+
+worksheet {
+  title: "Worksheet Title Here"
+  description: "Brief description for students."
+
+  block {
+    title: "Part 1: Section Name"
+    instructions: "Optional instruction for this section."
+    [activities here]
+  }
+
+  block {
+    title: "Part 2: Another Section"
+    [activities here]
+  }
+}
+
+You may also place activities directly inside worksheet { } without block {} wrappers.
+Use block {} when grouping activities by skill or topic makes sense.
 
 === ACTIVITY TYPES ===
 ALLOWED: fillblank, multiplechoice, matching, truefalse, textbox, reading, imagequestion,
@@ -261,7 +284,17 @@ def _ai_call(system: str, user: str) -> str:
 
 # ── Worksheet generation ───────────────────────────────────────────────────────
 def generate_worksheet_script(prompt: str) -> str:
-    return _ai_call(_WORKSHEET_SYSTEM, prompt)
+    raw = _ai_call(_WORKSHEET_SYSTEM, prompt)
+    # Strip markdown fences if the model added them despite instructions
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    raw = raw.strip()
+    # If the model forgot the outer wrapper, add a minimal one so the parser
+    # doesn't crash with "Falta el bloque requerido worksheet".
+    if not raw.startswith("worksheet"):
+        raw = f"worksheet {{\n{raw}\n}}"
+    return raw
 
 
 # ── AI grading ─────────────────────────────────────────────────────────────────
