@@ -317,7 +317,8 @@ class WorksheetRepository:
         with get_connection() as connection:
             rows = connection.execute(
                 """
-                SELECT guest_token, name, classroom_id, classroom_name,
+                SELECT guest_token, MAX(name) AS name, classroom_id,
+                       MAX(classroom_name) AS classroom_name,
                        COUNT(*) AS visit_count, MAX(accessed_at) AS last_accessed_at
                 FROM guest_access_logs
                 GROUP BY guest_token, classroom_id
@@ -352,7 +353,7 @@ class WorksheetRepository:
         with get_connection() as connection:
             rows = connection.execute(
                 """
-                SELECT reader_id, reader_name,
+                SELECT reader_id, MAX(reader_name) AS reader_name,
                        COUNT(*) AS visit_count, MAX(accessed_at) AS last_accessed_at
                 FROM reader_access_logs
                 GROUP BY reader_id
