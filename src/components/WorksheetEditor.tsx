@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Code2, LayoutTemplate, Sparkles, Save, Loader2, Wand2 } from 'lucide-react';
 import { VisualWorksheetBuilder, worksheetToVisualState } from './VisualWorksheetBuilder';
 import { emptyState } from '../utils/dslSerializer';
@@ -100,6 +100,14 @@ export function WorksheetEditor({
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiSuccess, setAiSuccess] = useState('');
+  const scriptTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = scriptTextareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [scriptDraft]);
 
   const buildVisualState = () => {
     const hasContent = worksheet.blocks?.length || worksheet.activities.length;
@@ -250,7 +258,9 @@ export function WorksheetEditor({
             <label className="mt-6 block">
               <span className="text-sm font-semibold text-slate-700">WorksheetScript</span>
               <textarea
-                className="mt-2 min-h-96 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                ref={scriptTextareaRef}
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 resize-none overflow-hidden"
+                style={{ minHeight: '24rem' }}
                 value={scriptDraft}
                 onChange={(event) => onScriptChange(event.target.value)}
               />

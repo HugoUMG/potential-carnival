@@ -150,6 +150,16 @@ def _initialize_sqlite_database() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS reader_access_logs (
+              id TEXT PRIMARY KEY,
+              reader_id TEXT NOT NULL,
+              reader_name TEXT NOT NULL,
+              accessed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
         connection.execute("UPDATE users SET username = 'admin' WHERE id = 'admin-demo' AND username IS NULL")
         connection.execute("UPDATE users SET username = 'profesor' WHERE id = 'teacher-demo' AND username IS NULL")
         connection.execute("UPDATE users SET username = 'estudiante' WHERE id = 'student-demo' AND username IS NULL")

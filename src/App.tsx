@@ -54,8 +54,10 @@ import {
   getTeacherDashboard,
   getTeacherNotifications,
   getGuestAccessLogs,
+  getReaderAccessLogs,
   type TeacherNotification,
   type GuestAccessLog,
+  type ReaderAccessLog,
   publishWorksheet,
   reviewAnswer,
   submitResponse,
@@ -104,6 +106,7 @@ export default function App() {
   const [notificationCount, setNotificationCount] = useState(0);
   const prevNotifCount = useRef(0);
   const [guestLogs, setGuestLogs] = useState<GuestAccessLog[]>([]);
+  const [readerLogs, setReaderLogs] = useState<ReaderAccessLog[]>([]);
   const [worksheets, setWorksheets] = useState<Worksheet[]>([sampleWorksheet]);
   const [activeWorksheet, setActiveWorksheet] = useState<Worksheet>(sampleWorksheet);
   const [scriptDraft, setScriptDraft] = useState(sampleWorksheet.scriptContent);
@@ -188,6 +191,12 @@ export default function App() {
     if (!user || user.role === 'student' || adminMenu !== 'actividad') return;
     void getStudentsActivity().then(setStudentsActivity).catch(() => {});
     void getGuestAccessLogs().then(setGuestLogs).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminMenu, user?.id]);
+
+  useEffect(() => {
+    if (!user || user.role === 'student' || adminMenu !== 'lectores') return;
+    void getReaderAccessLogs().then(setReaderLogs).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminMenu, user?.id]);
 
@@ -1245,6 +1254,36 @@ export default function App() {
                 </div>
               ))}
               {!readers.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay lectores creados. Asígna listas de vocabulario desde el menú Vocabulario.</p>}
+            </div>
+
+            <div className="mt-8">
+              <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">Actividad</p>
+              <h3 className="text-xl font-bold">Registro de sesiones de lectores</h3>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-slate-500">
+                      <th className="pb-3 pr-4 font-semibold">Nombre</th>
+                      <th className="pb-3 pr-4 font-semibold">Último acceso</th>
+                      <th className="pb-3 font-semibold">Sesiones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {readerLogs.map((log) => (
+                      <tr key={log.reader_id} className="border-b last:border-0">
+                        <td className="py-3 pr-4 font-semibold">{log.reader_name}</td>
+                        <td className="py-3 pr-4 text-slate-600">{new Date(log.last_accessed_at).toLocaleString()}</td>
+                        <td className="py-3">
+                          <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">{log.visit_count}×</span>
+                        </td>
+                      </tr>
+                    ))}
+                    {!readerLogs.length && (
+                      <tr><td colSpan={3} className="py-8 text-center text-slate-400">Sin sesiones registradas aún.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
         )}

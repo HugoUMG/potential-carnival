@@ -402,6 +402,21 @@ export async function getGuestAccessLogs(): Promise<GuestAccessLog[]> {
   return request<GuestAccessLog[]>('/teacher/guest-logs');
 }
 
+export interface ReaderAccessLog {
+  reader_id: string;
+  reader_name: string;
+  visit_count: number;
+  last_accessed_at: string;
+}
+
+export async function logReaderSession(): Promise<void> {
+  await request<void>('/reader/log-session', { method: 'POST' });
+}
+
+export async function getReaderAccessLogs(): Promise<ReaderAccessLog[]> {
+  return request<ReaderAccessLog[]>('/teacher/reader-logs');
+}
+
 export async function listWorksheetClassrooms(worksheetId: string): Promise<Classroom[]> {
   return request<Classroom[]>(`/worksheets/${worksheetId}/classrooms`);
 }
