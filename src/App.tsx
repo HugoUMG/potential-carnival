@@ -46,6 +46,7 @@ import {
   listVocabularyLists,
   listWorksheetClassrooms,
   listWorksheetResponses,
+  getWorksheetResponseCounts,
   login,
   logout,
   logoutSession,
@@ -113,6 +114,8 @@ export default function App() {
   const [maxAttemptsDraft, setMaxAttemptsDraft] = useState('unlimited');
   const [answers, setAnswers] = useState<StudentAnswers>({});
   const [responses, setResponses] = useState<RespuestaEstudiante[]>([]);
+  const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
+  const [revisionSelectedId, setRevisionSelectedId] = useState<string | null>(null);
   const [students, setStudents] = useState<UsuarioSesion[]>([]);
   const [teachers, setTeachers] = useState<UsuarioSesion[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
@@ -394,8 +397,10 @@ export default function App() {
 
   async function loadWorksheetResponses(worksheet: Worksheet) {
     setActiveWorksheet(worksheet);
+    setRevisionSelectedId(worksheet.id);
     const loaded = await listWorksheetResponses(worksheet.id);
     setResponses(loaded);
+    setResponseCounts((current) => ({ ...current, [worksheet.id]: loaded.length }));
     const preloaded: Record<string, string> = {};
     for (const resp of loaded) {
       for (const detail of resp.details) {
@@ -406,6 +411,14 @@ export default function App() {
     }
     setReviewComments(preloaded);
     setAdminMenu('revision');
+  }
+
+  async function loadResponseCounts() {
+    try {
+      setResponseCounts(await getWorksheetResponseCounts());
+    } catch {
+      // Conteo es informativo; si falla no bloquea la revisión.
+    }
   }
 
   function exportResponsesCsv() {
@@ -887,7 +900,7 @@ export default function App() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto max-w-7xl px-4 py-4"><h1 className="text-xl font-bold">Panel del profesor</h1><p className="text-sm text-slate-500">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p></div></nav>
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
-        <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} notificationCount={notificationCount} onSelectMenu={(menu) => { if (menu === 'revision') { const key = `teacher_notif_since_${user.id}`; localStorage.setItem(key, new Date().toISOString()); setNotificationCount(0); prevNotifCount.current = 0; } setAdminMenu(menu); }} onLogout={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }} />
+        <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} notificationCount={notificationCount} onSelectMenu={(menu) => { if (menu === 'revision') { const key = `teacher_notif_since_${user.id}`; localStorage.setItem(key, new Date().toISOString()); setNotificationCount(0); prevNotifCount.current = 0; setRevisionSelectedId(null); void loadResponseCounts(); } setAdminMenu(menu); }} onLogout={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }} />
         {adminMenu === 'dashboard' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Dashboard</p>
@@ -1310,8 +1323,47 @@ export default function App() {
             />
           </section>
         )}
-        {adminMenu === 'revision' && (
+        {adminMenu === 'revision' && revisionSelectedId === null && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Revisión</p>
+                <h2 className="text-2xl font-bold">Hojas de trabajo</h2>
+              </div>
+              <button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('revision-counts') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar conteos" disabled={refreshCooldowns.has('revision-counts')} onClick={() => withCooldown('revision-counts', () => loadResponseCounts())}><RefreshCw size={16} /></button>
+            </div>
+            <p className="text-sm text-slate-500">Selecciona una hoja para ver y calificar sus respuestas. El número indica cuántos estudiantes han contestado.</p>
+            <div className="mt-5 grid gap-3">
+              {savedWorksheets.map((worksheet) => {
+                const count = responseCounts[worksheet.id] ?? 0;
+                return (
+                  <button
+                    key={worksheet.id}
+                    type="button"
+                    className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/40"
+                    onClick={() => loadWorksheetResponses(worksheet)}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
+                        <h3 className="truncate text-lg font-bold">{worksheet.title}</h3>
+                      </div>
+                      <p className="mt-1 truncate text-sm text-slate-500"><RichText text={worksheet.description} /></p>
+                    </div>
+                    <div className="shrink-0 text-center">
+                      <p className={`text-3xl font-bold ${count > 0 ? 'text-blue-600' : 'text-slate-300'}`}>{count}</p>
+                      <p className="text-xs text-slate-400">{count === 1 ? 'respuesta' : 'respuestas'}</p>
+                    </div>
+                  </button>
+                );
+              })}
+              {!savedWorksheets.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No hay hojas de trabajo activas.</p>}
+            </div>
+          </section>
+        )}
+        {adminMenu === 'revision' && revisionSelectedId !== null && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <button className="mb-4 inline-flex items-center gap-1 rounded-2xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" onClick={() => { setRevisionSelectedId(null); void loadResponseCounts(); }}><ChevronLeft size={16} /> Volver a la lista</button>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2>
               <div className="flex gap-2">

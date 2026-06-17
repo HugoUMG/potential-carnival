@@ -349,6 +349,11 @@ def list_worksheets(created_by: str | None = None, published: bool | None = None
     return repository.list_worksheets(created_by=owner_id, published=published, archived=archived)
 
 
+@app.get("/worksheets/response-counts")
+def worksheet_response_counts(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, int]:
+    return repository.count_responses_per_worksheet()
+
+
 @app.get("/students/{student_id}/worksheets", response_model=list[Worksheet])
 def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[Worksheet]:
     require_student_owner_or_staff(student_id, current_user)
