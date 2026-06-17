@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Download, LockKeyhole, Pencil, RefreshCw, Search, Send, Trash2, X } from 'lucide-react';
+import { Archive, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, ImageIcon, LockKeyhole, Pencil, RefreshCw, Search, Send, Trash2, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
@@ -419,6 +419,17 @@ export default function App() {
     } catch {
       // Conteo es informativo; si falla no bloquea la revisión.
     }
+  }
+
+  function handleSelectMenu(menu: TeacherMenu) {
+    if (menu === 'revision' && user) {
+      localStorage.setItem(`teacher_notif_since_${user.id}`, new Date().toISOString());
+      setNotificationCount(0);
+      prevNotifCount.current = 0;
+      setRevisionSelectedId(null);
+      void loadResponseCounts();
+    }
+    setAdminMenu(menu);
   }
 
   function exportResponsesCsv() {
@@ -898,9 +909,32 @@ export default function App() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <nav className="border-b border-slate-200 bg-white/85"><div className="mx-auto max-w-7xl px-4 py-4"><h1 className="text-xl font-bold">Panel del profesor</h1><p className="text-sm text-slate-500">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p></div></nav>
+      <nav className="border-b border-slate-200 bg-white/85">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4">
+          <div>
+            <h1 className="text-xl font-bold">Panel del profesor</h1>
+            <p className="text-sm text-slate-500">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              { id: 'vocabulario' as const, label: 'Vocabulario', icon: BookText },
+              { id: 'lectores' as const, label: 'Lectores', icon: Eye },
+              { id: 'imagenes' as const, label: 'Imágenes', icon: ImageIcon },
+            ]).map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => handleSelectMenu(id)}
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${adminMenu === id ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
+              >
+                <Icon size={16} /> {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
-        <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} notificationCount={notificationCount} onSelectMenu={(menu) => { if (menu === 'revision') { const key = `teacher_notif_since_${user.id}`; localStorage.setItem(key, new Date().toISOString()); setNotificationCount(0); prevNotifCount.current = 0; setRevisionSelectedId(null); void loadResponseCounts(); } setAdminMenu(menu); }} onLogout={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }} />
+        <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} notificationCount={notificationCount} onSelectMenu={handleSelectMenu} onLogout={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }} />
         {adminMenu === 'dashboard' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Dashboard</p>
