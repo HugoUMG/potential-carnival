@@ -326,6 +326,10 @@ export async function listWorksheetResponses(worksheetId: string): Promise<Respu
   return request<RespuestaEstudiante[]>(`/worksheets/${worksheetId}/responses`);
 }
 
+export async function getWorksheetResponseCounts(): Promise<Record<string, number>> {
+  return request<Record<string, number>>('/worksheets/response-counts');
+}
+
 export async function reviewAnswer(responseId: string, activityId: string, status: 'correct' | 'incorrect', comment: string): Promise<RespuestaEstudiante> {
   return request<RespuestaEstudiante>(`/responses/${responseId}/review`, { method: 'POST', body: JSON.stringify({ activity_id: activityId, status, comment }) });
 }

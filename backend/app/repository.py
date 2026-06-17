@@ -371,6 +371,18 @@ class WorksheetRepository:
             for r in rows
         ]
 
+    def count_responses_per_worksheet(self) -> dict[str, int]:
+        """Devuelve {worksheet_id: total_respuestas} para todas las hojas en una sola query."""
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT worksheet_id, COUNT(*) AS cnt
+                FROM worksheet_responses
+                GROUP BY worksheet_id
+                """
+            ).fetchall()
+        return {dict(r)["worksheet_id"]: int(dict(r)["cnt"]) for r in rows}
+
     def count_student_attempts(self, worksheet_id: str, student_id: str) -> int:
         placeholder = self._placeholder
         with get_connection() as connection:
