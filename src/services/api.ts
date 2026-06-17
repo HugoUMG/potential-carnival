@@ -422,6 +422,10 @@ export async function listWorksheetClassrooms(worksheetId: string): Promise<Clas
   return request<Classroom[]>(`/worksheets/${worksheetId}/classrooms`);
 }
 
+export async function getWorksheetClassroomAssignments(): Promise<Record<string, Classroom[]>> {
+  return request<Record<string, Classroom[]>>('/worksheets/classroom-assignments');
+}
+
 export async function getTeacherDashboard(): Promise<TeacherStats> {
   return request<TeacherStats>('/dashboard/teacher');
 }

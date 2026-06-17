@@ -354,6 +354,12 @@ def worksheet_response_counts(current_user: PublicUser = Depends(require_teacher
     return repository.count_responses_per_worksheet()
 
 
+@app.get("/worksheets/classroom-assignments", response_model=dict[str, list[Classroom]])
+def worksheet_classroom_assignments(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, list[Classroom]]:
+    owner_id = None if current_user.role == UserRole.admin else current_user.id
+    return repository.list_classrooms_per_worksheet(owner_id)
+
+
 @app.get("/students/{student_id}/worksheets", response_model=list[Worksheet])
 def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[Worksheet]:
     require_student_owner_or_staff(student_id, current_user)

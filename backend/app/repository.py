@@ -650,6 +650,31 @@ class WorksheetRepository:
             ).fetchall()
         return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"]), is_public=bool(dict(r).get("is_public", False))) for r in rows]
 
+    def list_classrooms_per_worksheet(self, owner_id: str | None) -> dict[str, list]:
+        """{worksheet_id: [Classroom...]} para todas las hojas (o las de un profesor) en una query."""
+        from .models import Classroom
+        where = f"WHERE worksheets.created_by = {self._placeholder}" if owner_id is not None else ""
+        params = (owner_id,) if owner_id is not None else ()
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT classroom_worksheets.worksheet_id AS wid, classrooms.*
+                FROM classrooms
+                JOIN classroom_worksheets ON classroom_worksheets.classroom_id = classrooms.id
+                JOIN worksheets ON worksheets.id = classroom_worksheets.worksheet_id
+                {where}
+                ORDER BY classrooms.name
+                """,
+                params,
+            ).fetchall()
+        result: dict[str, list] = {}
+        for row in rows:
+            d = dict(row)
+            result.setdefault(d["wid"], []).append(
+                Classroom(id=d["id"], name=d["name"], created_by=d["created_by"], created_at=_parse_datetime(d["created_at"]), is_public=bool(d.get("is_public", False)))
+            )
+        return result
+
     def list_student_classrooms(self, student_id: str):
         from .models import Classroom
         placeholder = self._placeholder

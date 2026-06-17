@@ -45,6 +45,7 @@ import {
   listVocabularyClassrooms,
   listVocabularyLists,
   listWorksheetClassrooms,
+  getWorksheetClassroomAssignments,
   listWorksheetResponses,
   getWorksheetResponseCounts,
   login,
@@ -251,11 +252,11 @@ export default function App() {
         setVocabularyLists(vocabLists);
         setReaders(allReaders);
         const [classroomAssignments, vocabClassroomAssignments, vocabReaderAssignments] = await Promise.all([
-          Promise.all(sortedWorksheets.map(async (worksheet) => [worksheet.id, await listWorksheetClassrooms(worksheet.id)] as const)),
+          getWorksheetClassroomAssignments(),
           Promise.all(vocabLists.map(async (vl) => [vl.id, await listVocabularyClassrooms(vl.id)] as const)),
           Promise.all(vocabLists.map(async (vl) => [vl.id, (await listReadersForList(vl.id)).map((r) => r.id)] as const)),
         ]);
-        setWorksheetClassrooms(Object.fromEntries(classroomAssignments));
+        setWorksheetClassrooms(classroomAssignments);
         setVocabAssignedClassrooms(Object.fromEntries(vocabClassroomAssignments));
         setVocabAssignedReaders(Object.fromEntries(vocabReaderAssignments));
         if (!activeClassroomId && teacherClassrooms[0]) setActiveClassroomId(teacherClassrooms[0].id);
