@@ -1327,6 +1327,23 @@ export default function App() {
                 <article key={response.id} className="rounded-2xl border p-4">
                   <div className="flex items-start justify-between gap-3"><h3 className="font-bold">{response.student_name}</h3><button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeResponse(response)}>Eliminar respuesta</button></div>
                   <p className="text-sm text-slate-500">Fecha: {new Date(response.submitted_at).toLocaleString()} · Puntuación: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>
+                  {/* Campos de identificación (_info_*) */}
+                  {(activeWorksheet.infoFields?.length ?? 0) > 0 && (() => {
+                    const infoAnswers = activeWorksheet.infoFields!.map((label, i) => ({
+                      label,
+                      value: String((response.answers_json as Record<string, unknown>)?.[`_info_${i}`] ?? '—'),
+                    }));
+                    return (
+                      <div className="mt-3 flex flex-wrap gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                        {infoAnswers.map(({ label, value }) => (
+                          <div key={label} className="text-sm">
+                            <span className="font-semibold text-amber-800">{label}:</span>{' '}
+                            <span className="text-slate-700">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {response.details.map((detail) => {
                     const key = `${response.id}-${detail.activity_id}`;
                     const canReview = detail.status === 'pending' || detail.activity_type === 'fillblank' || detail.activity_type === 'listeningfillblank';
