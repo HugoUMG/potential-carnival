@@ -351,7 +351,14 @@ def list_worksheets(created_by: str | None = None, published: bool | None = None
 
 @app.get("/worksheets/response-counts")
 def worksheet_response_counts(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, int]:
-    return repository.count_responses_per_worksheet()
+    owner_id = None if current_user.role == UserRole.admin else current_user.id
+    return repository.count_responses_per_worksheet(owner_id)
+
+
+@app.get("/worksheets/classroom-assignments", response_model=dict[str, list[Classroom]])
+def worksheet_classroom_assignments(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, list[Classroom]]:
+    owner_id = None if current_user.role == UserRole.admin else current_user.id
+    return repository.list_classrooms_per_worksheet(owner_id)
 
 
 @app.get("/students/{student_id}/worksheets", response_model=list[Worksheet])
