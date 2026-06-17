@@ -13,16 +13,6 @@ class UserRole(str, Enum):
     reader = "reader"  # Solo lectura de vocabulario; contraseña no modificable
 
 
-class User(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid4()))
-    name: str
-    email: str | None = None
-    username: str
-    password_hash: str
-    role: UserRole
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-
 class PublicUser(BaseModel):
     id: str
     name: str
@@ -65,7 +55,7 @@ class LoginResponse(BaseModel):
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     type: Literal[
-        "fillblank", "multiplechoice", "textbox", "matching", "speaking",
+        "fillblank", "multiplechoice", "textbox", "matching",
         "reading", "imagequestion", "listening",
         "listeningfillblank", "listeningmultiplechoice", "listeningmatching", "listeningtruefalse",
         "truefalse", "readingtruefalse",
