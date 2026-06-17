@@ -170,9 +170,13 @@ def _get_scalar(body: str, key: str, default: str | None = None) -> str | None:
 def _get_list(body: str, key: str) -> list[str]:
     key_pattern = _key_pattern(key)
     match = re.search(rf"^\s*{key_pattern}:\s*\n((?:\s*-\s*.+\n?)+)", body, re.MULTILINE)
-    if not match:
-        return []
-    return [_strip_quotes(line.split("-", 1)[1]) for line in match.group(1).splitlines() if line.strip().startswith("-")]
+    if match:
+        return [_strip_quotes(line.split("-", 1)[1]) for line in match.group(1).splitlines() if line.strip().startswith("-")]
+    # ponytail: también acepta el formato inline `key: [a, b, c]`
+    scalar = _get_scalar(body, key)
+    if scalar and scalar.startswith("["):
+        return _parse_inline_array(scalar) or []
+    return []
 
 
 def _parse_inline_array(raw: str) -> list[str] | None:

@@ -371,17 +371,22 @@ class WorksheetRepository:
             for r in rows
         ]
 
-    def count_responses_per_worksheet(self) -> dict[str, int]:
-        """Devuelve {worksheet_id: total_respuestas} para todas las hojas en una sola query."""
+    def count_responses_per_worksheet(self, owner_id: str | None) -> dict[str, int]:
+        """Devuelve {worksheet_id: total_respuestas} de las hojas de un profesor (o todas si admin)."""
+        where = f"WHERE worksheets.created_by = {self._placeholder}" if owner_id is not None else ""
+        params = (owner_id,) if owner_id is not None else ()
         with get_connection() as connection:
             rows = connection.execute(
-                """
-                SELECT worksheet_id, COUNT(*) AS cnt
+                f"""
+                SELECT worksheet_responses.worksheet_id AS wid, COUNT(*) AS cnt
                 FROM worksheet_responses
-                GROUP BY worksheet_id
-                """
+                JOIN worksheets ON worksheets.id = worksheet_responses.worksheet_id
+                {where}
+                GROUP BY worksheet_responses.worksheet_id
+                """,
+                params,
             ).fetchall()
-        return {dict(r)["worksheet_id"]: int(dict(r)["cnt"]) for r in rows}
+        return {dict(r)["wid"]: int(dict(r)["cnt"]) for r in rows}
 
     def count_student_attempts(self, worksheet_id: str, student_id: str) -> int:
         placeholder = self._placeholder
