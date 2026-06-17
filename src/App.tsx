@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Download, LockKeyhole, RefreshCw, Search, Send, Trash2, X } from 'lucide-react';
+import { Archive, BookOpen, Check, ChevronLeft, ChevronRight, Copy, Download, LockKeyhole, Pencil, RefreshCw, Search, Send, Trash2, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
@@ -1318,6 +1318,14 @@ export default function App() {
                 {responses.length > 0 && (
                   <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700 text-sm" type="button" onClick={exportResponsesCsv}><Download className="mr-1 inline" size={15} /> Exportar CSV</button>
                 )}
+                <button
+                  className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 text-sm"
+                  type="button"
+                  title="Editar esta hoja de trabajo"
+                  onClick={() => { setScriptDraft(activeWorksheet.scriptContent); setAdminMenu('crear'); }}
+                >
+                  <Pencil className="mr-1 inline" size={15} /> Editar hoja
+                </button>
                 <button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('responses-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('responses-refresh')} onClick={() => withCooldown('responses-refresh', () => loadWorksheetResponses(activeWorksheet))}><RefreshCw size={16} /></button>
               </div>
             </div>
