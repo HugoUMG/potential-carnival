@@ -337,6 +337,39 @@ class WorksheetRepository:
             for r in rows
         ]
 
+    def log_reader_access(self, reader_id: str, reader_name: str) -> None:
+        from uuid import uuid4 as _uuid4
+        from datetime import datetime, timezone as _tz
+        log_id = str(_uuid4())
+        accessed_at = datetime.now(_tz.utc).isoformat()
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO reader_access_logs (id, reader_id, reader_name, accessed_at) VALUES ({self._placeholders(4)})",
+                (log_id, reader_id, reader_name, accessed_at),
+            )
+
+    def list_reader_access_logs(self) -> list[dict]:
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT reader_id, reader_name,
+                       COUNT(*) AS visit_count, MAX(accessed_at) AS last_accessed_at
+                FROM reader_access_logs
+                GROUP BY reader_id
+                ORDER BY last_accessed_at DESC
+                LIMIT 500
+                """
+            ).fetchall()
+        return [
+            {
+                "reader_id": dict(r)["reader_id"],
+                "reader_name": dict(r)["reader_name"],
+                "visit_count": dict(r)["visit_count"],
+                "last_accessed_at": _parse_datetime(dict(r)["last_accessed_at"]).isoformat(),
+            }
+            for r in rows
+        ]
+
     def count_student_attempts(self, worksheet_id: str, student_id: str) -> int:
         placeholder = self._placeholder
         with get_connection() as connection:

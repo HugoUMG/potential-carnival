@@ -562,6 +562,18 @@ def delete_reader(reader_id: str, _: PublicUser = Depends(require_teacher_or_adm
         raise HTTPException(status_code=404, detail="Lector no encontrado")
 
 
+@app.post("/reader/log-session", status_code=204)
+def log_reader_session(current_user: PublicUser = Depends(get_current_user)) -> None:
+    """El portal de lectores llama este endpoint al cargar para registrar la sesión."""
+    repository.log_reader_access(current_user.id, current_user.name)
+
+
+@app.get("/teacher/reader-logs")
+def list_reader_logs(_: PublicUser = Depends(require_teacher_or_admin)) -> list[dict]:
+    """Historial de sesiones de lectores para el panel del profesor."""
+    return repository.list_reader_access_logs()
+
+
 @app.get("/readers/{reader_id}/vocabulary", response_model=list[VocabularyList])
 def list_reader_vocabulary(reader_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[VocabularyList]:
     if current_user.role == UserRole.reader and current_user.id != reader_id:

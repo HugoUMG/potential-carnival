@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookText } from 'lucide-react';
-import { getCurrentSession, listReaderVocabulary, logoutSession } from '../services/api';
+import { getCurrentSession, listReaderVocabulary, logoutSession, logReaderSession } from '../services/api';
 import { VocabularyViewer } from '../components/VocabularyViewer';
 import type { VocabularyList } from '../types';
 
@@ -17,6 +17,7 @@ export function ReaderPortal() {
 
   useEffect(() => {
     if (!user) return;
+    void logReaderSession().catch(() => {});
     void listReaderVocabulary(user.id)
       .then(setVocabLists)
       .catch(() => {})

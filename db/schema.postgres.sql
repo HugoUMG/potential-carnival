@@ -148,3 +148,13 @@ CREATE TABLE IF NOT EXISTS guest_access_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_guest_access_logs_token ON guest_access_logs(guest_token);
 CREATE INDEX IF NOT EXISTS idx_guest_access_logs_at ON guest_access_logs(accessed_at DESC);
+
+-- Registro de sesiones de lectores (cada login al portal de vocabulario)
+CREATE TABLE IF NOT EXISTS reader_access_logs (
+  id            TEXT PRIMARY KEY,
+  reader_id     TEXT NOT NULL,
+  reader_name   TEXT NOT NULL,
+  accessed_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_reader_access_logs_reader ON reader_access_logs(reader_id);
+CREATE INDEX IF NOT EXISTS idx_reader_access_logs_at ON reader_access_logs(accessed_at DESC);
