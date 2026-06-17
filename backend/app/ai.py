@@ -7,7 +7,7 @@ import httpx
 # ── API endpoints ──────────────────────────────────────────────────────────────
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 _GROQ_MODEL = "llama-3.3-70b-versatile"
-_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
 
 # ── System prompts ─────────────────────────────────────────────────────────────
 _WORKSHEET_SYSTEM = """You are an expert English worksheet creator for a language learning platform.
