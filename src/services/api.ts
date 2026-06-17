@@ -26,7 +26,7 @@ export interface DetalleRespuesta {
 
 interface BackendActivity {
   id: string;
-  type: ActivityType;
+  type: ActivityType | 'speaking';
   text?: string | null;
   question?: string | null;
   options?: string[] | null;
@@ -186,6 +186,9 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
     case 'matching':
       return withInstructions({ id: activity.id, type: 'matching', left: activity.left ?? [], right: activity.right ?? [] }, activity);
+    case 'speaking':
+      // Tipo legado en datos antiguos; se renderiza como textbox.
+      return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
     case 'reading':
       return withInstructions({ id: activity.id, type: 'reading', title: activity.title ?? '', content: activity.content ?? '', questions: activity.questions ?? [] }, activity);
     case 'imagequestion':
