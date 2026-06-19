@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, GraduationCap, LockKeyhole, UserRound } from 'lucide-react';
+import { BookOpen, Eye, EyeOff, GraduationCap, LockKeyhole, UserRound } from 'lucide-react';
 import { getCurrentSession, login } from '../services/api';
 import type { UsuarioSesion } from '../services/api';
 
@@ -21,6 +21,7 @@ export function LoginPage() {
   // El rol reader se activa por un enlace discreto aparte
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState(expiredMessage);
 
   // Si ya hay sesión activa, redirigir directamente al portal
@@ -87,14 +88,25 @@ export function LoginPage() {
           </label>
           <label className="mt-4 block">
             <span className="text-sm font-semibold text-slate-700">Contraseña</span>
-            <input
-              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
-              autoComplete="current-password"
-            />
+            <div className="relative mt-2">
+              <input
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 pr-12 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </label>
           <button
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
