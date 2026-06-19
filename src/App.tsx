@@ -463,6 +463,7 @@ export default function App() {
       setRevisionSelectedId(null);
       void loadResponseCounts();
     }
+    if (menu === 'evaluaciones') void loadResponseCounts();
     setAdminMenu(menu);
   }
 
@@ -1178,7 +1179,14 @@ export default function App() {
                 <article key={worksheet.id} className="rounded-2xl border border-slate-100 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
+                        {(responseCounts[worksheet.id] ?? 0) > 0 ? (
+                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
+                        ) : (
+                          <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Sin respuestas</span>
+                        )}
+                      </div>
                       <h3 className="mt-3 text-lg font-bold">{worksheet.title}</h3>
                       <p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p>
                       <p className="mt-2 text-xs text-slate-400">Intentos: {worksheet.maxAttempts ?? 'Ilimitada'}</p>
