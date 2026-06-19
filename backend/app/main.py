@@ -374,9 +374,8 @@ def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(
         used = attempt_counts.get(worksheet.id, 0)
         worksheet.attempts_used = used
         if worksheet.max_attempts is None:
-            # Sin límite configurado: el índice único permite solo 1 entrega por estudiante.
-            # Si ya entregó, marcar como 0 para que el frontend la mueva a Calificadas.
-            worksheet.attempts_remaining = 0 if worksheet.id in answered_ids else None
+            # Ilimitada: siempre re-intentable (None = sin límite).
+            worksheet.attempts_remaining = None
         else:
             worksheet.attempts_remaining = max(0, worksheet.max_attempts - used)
     return all_worksheets
@@ -391,6 +390,18 @@ def get_teacher_notifications(since: str | None = None, current_user: PublicUser
         since_iso = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
     teacher_id = None if current_user.role == UserRole.admin else current_user.id
     return repository.get_recent_responses_for_teacher(teacher_id, since_iso)
+
+
+@app.get("/teacher/activity-feed")
+def teacher_activity_feed(since: str | None = None, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict]:
+    from datetime import datetime, timezone, timedelta
+    since_iso = since or (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
+    teacher_id = None if current_user.role == UserRole.admin else current_user.id
+    notas = repository.get_recent_responses_for_teacher(teacher_id, since_iso)
+    events = [{"tipo": "nota", "nombre": n["student_name"], "detalle": n["worksheet_title"], "ts": n["submitted_at"]} for n in notas]
+    events += repository.get_recent_ingresos(since_iso)
+    events.sort(key=lambda e: e["ts"], reverse=True)
+    return events[:100]
 
 
 @app.get("/students/{student_id}/responses", response_model=list[WorksheetResponse])
@@ -500,8 +511,7 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
     attempts = repository.count_student_attempts(worksheet.id, current_user.id)
     if worksheet.max_attempts is not None and attempts >= worksheet.max_attempts:
         raise HTTPException(status_code=409, detail="Ya has alcanzado el número máximo de intentos para esta hoja")
-    if worksheet.max_attempts is None and attempts > 0:
-        raise HTTPException(status_code=409, detail="Ya enviaste esta hoja de trabajo")
+    # max_attempts None = ilimitada: no se bloquea por cantidad (el lock de 5s evita doble envío accidental).
     _response_locks[lock_key] = now
 
     details = _build_answer_details(worksheet, payload.answers_json)

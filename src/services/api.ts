@@ -329,6 +329,18 @@ export async function getWorksheetResponseCounts(): Promise<Record<string, numbe
   return request<Record<string, number>>('/worksheets/response-counts');
 }
 
+export interface ActivityEvent {
+  tipo: 'nota' | 'ingreso_invitado' | 'ingreso_lector' | 'ingreso_alumno';
+  nombre: string;
+  detalle: string;
+  ts: string;
+}
+
+export async function getTeacherActivityFeed(since?: string): Promise<ActivityEvent[]> {
+  const q = since ? `?since=${encodeURIComponent(since)}` : '';
+  return request<ActivityEvent[]>(`/teacher/activity-feed${q}`);
+}
+
 export async function reviewAnswer(responseId: string, activityId: string, status: 'correct' | 'incorrect', comment: string): Promise<RespuestaEstudiante> {
   return request<RespuestaEstudiante>(`/responses/${responseId}/review`, { method: 'POST', body: JSON.stringify({ activity_id: activityId, status, comment }) });
 }

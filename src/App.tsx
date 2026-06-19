@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, ImageIcon, LockKeyhole, Pencil, RefreshCw, Search, Send, Trash2, X } from 'lucide-react';
+import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, LockKeyhole, Pencil, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
@@ -48,6 +48,8 @@ import {
   getWorksheetClassroomAssignments,
   listWorksheetResponses,
   getWorksheetResponseCounts,
+  getTeacherActivityFeed,
+  type ActivityEvent,
   login,
   logoutSession,
   getClassroom,
@@ -100,12 +102,32 @@ function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
   );
 }
 
+const FEED_META: Record<ActivityEvent['tipo'], { label: string; icon: typeof Bell; color: string }> = {
+  nota: { label: 'Nueva entrega', icon: Check, color: 'text-emerald-600 bg-emerald-50' },
+  ingreso_alumno: { label: 'Ingreso de alumno', icon: GraduationCap, color: 'text-blue-600 bg-blue-50' },
+  ingreso_invitado: { label: 'Ingreso de invitado', icon: Users, color: 'text-amber-600 bg-amber-50' },
+  ingreso_lector: { label: 'Ingreso de lector', icon: UserCircle, color: 'text-violet-600 bg-violet-50' },
+};
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  return new Date(iso).toLocaleDateString();
+}
+
 export default function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState<UsuarioSesion | null>(() => getCurrentSession());
   const [adminMenu, setAdminMenu] = useState<TeacherMenu>('crear');
   const [notificationCount, setNotificationCount] = useState(0);
   const prevNotifCount = useRef(0);
+  const [feed, setFeed] = useState<ActivityEvent[]>([]);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [bellSeen, setBellSeen] = useState<string>('1970-01-01T00:00:00.000Z');
   const [guestLogs, setGuestLogs] = useState<GuestAccessLog[]>([]);
   const [readerLogs, setReaderLogs] = useState<ReaderAccessLog[]>([]);
   const [worksheets, setWorksheets] = useState<Worksheet[]>([sampleWorksheet]);
@@ -237,6 +259,21 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // Feed de actividad para la campanita (ingresos + notas)
+  useEffect(() => {
+    if (!user || user.role === 'student') return;
+    setBellSeen(localStorage.getItem(`teacher_bell_seen_${user.id}`) ?? '1970-01-01T00:00:00.000Z');
+    async function pollFeed() {
+      try {
+        setFeed(await getTeacherActivityFeed());
+      } catch { /* silencioso — no interrumpe la UI */ }
+    }
+    void pollFeed();
+    const id = setInterval(() => void pollFeed(), 30_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   async function refreshData(currentUser = user) {
     if (!currentUser) return;
     try {
@@ -273,11 +310,8 @@ export default function App() {
         setStudentClassrooms(myClassrooms);
         setStudentVocabularyLists(myVocab);
         // Seleccionar la primera hoja que aún tenga intentos disponibles
-        const answeredIds = new Set(studentResponses.map((r) => r.worksheet_id));
         const firstActive = availableWorksheets.find((w) =>
-          w.status === 'published' &&
-          w.attemptsRemaining !== 0 &&
-          !(( w.attemptsRemaining === null || w.attemptsRemaining === undefined) && answeredIds.has(w.id))
+          w.status === 'published' && w.attemptsRemaining !== 0
         );
         if (firstActive) setActiveWorksheet(firstActive);
       }
@@ -430,6 +464,16 @@ export default function App() {
       void loadResponseCounts();
     }
     setAdminMenu(menu);
+  }
+
+  function toggleBell() {
+    const willOpen = !bellOpen;
+    setBellOpen(willOpen);
+    if (willOpen && user) {
+      const now = new Date().toISOString();
+      setBellSeen(now);
+      localStorage.setItem(`teacher_bell_seen_${user.id}`, now);
+    }
   }
 
   function exportResponsesCsv() {
@@ -628,8 +672,7 @@ export default function App() {
     const activeWorksheets = worksheets.filter((w) => {
       if (w.status !== 'published') return false;
       if (w.attemptsRemaining === 0) return false;
-      // Sin límite de intentos pero ya entregada → el índice único impide reenvío, mover a Calificadas
-      if ((w.attemptsRemaining === null || w.attemptsRemaining === undefined) && responseByWorksheet.has(w.id)) return false;
+      // Ilimitada o con intentos restantes → permanece en Activas para re-hacerla.
       return true;
     });
     // Calificadas: tiene al menos una respuesta enviada
@@ -930,6 +973,52 @@ export default function App() {
                 <Icon size={16} /> {label}
               </button>
             ))}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={toggleBell}
+                title="Notificaciones"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:border-blue-300 hover:text-blue-700"
+              >
+                <Bell size={18} />
+                {feed.filter((e) => e.ts > bellSeen).length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                    {feed.filter((e) => e.ts > bellSeen).length > 99 ? '99+' : feed.filter((e) => e.ts > bellSeen).length}
+                  </span>
+                )}
+              </button>
+              {bellOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
+                  <div className="absolute right-0 z-50 mt-2 max-h-[28rem] w-80 overflow-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                      <h3 className="font-bold text-slate-900">Notificaciones</h3>
+                      <span className="text-xs text-slate-400">Últimas 48 h</span>
+                    </div>
+                    {feed.length === 0 ? (
+                      <p className="px-4 py-6 text-center text-sm text-slate-500">Sin actividad reciente.</p>
+                    ) : (
+                      <ul className="divide-y divide-slate-50">
+                        {feed.map((e, i) => {
+                          const meta = FEED_META[e.tipo];
+                          const MetaIcon = meta.icon;
+                          return (
+                            <li key={i} className="flex items-start gap-3 px-4 py-3">
+                              <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${meta.color}`}><MetaIcon size={16} /></span>
+                              <div className="min-w-0">
+                                <p className="text-sm text-slate-800"><span className="font-semibold">{e.nombre}</span> · {meta.label}</p>
+                                {e.detalle && <p className="truncate text-xs text-slate-500">{e.detalle}</p>}
+                                <p className="text-xs text-slate-400">{timeAgo(e.ts)}</p>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </nav>

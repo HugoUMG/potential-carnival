@@ -129,6 +129,9 @@ def _initialize_sqlite_database() -> None:
         _ensure_admin_role_supported(connection)
         _add_column_if_missing(connection, "worksheets", "archived INTEGER NOT NULL DEFAULT 0")
         connection.executescript(SQLITE_SCHEMA_PATH.read_text(encoding="utf-8"))
+        # El schema crea un UNIQUE INDEX (worksheet_id, student_id) que rompe max_attempts > 1.
+        # Se elimina aquí (los intentos se cuentan por filas).
+        connection.execute("DROP INDEX IF EXISTS idx_responses_unique_attempt")
         _add_column_if_missing(connection, "users", "username TEXT")
         _add_column_if_missing(connection, "worksheets", "max_attempts INTEGER")
         _add_column_if_missing(connection, "worksheets", "theme TEXT")
