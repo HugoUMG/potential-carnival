@@ -221,7 +221,9 @@ class PasswordUpdate(BaseModel):
 class TeacherDashboardStats(BaseModel):
     total_students: int
     active_worksheets: int
+    total_responses: int = 0
     avg_scores: list[dict[str, float | str]] = Field(default_factory=list)
+    worksheet_stats: list[dict[str, float | int | str]] = Field(default_factory=list)
     total_correct: int
     total_incorrect: int
     students_per_classroom: list[dict[str, int | str]] = Field(default_factory=list)

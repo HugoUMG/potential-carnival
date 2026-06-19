@@ -96,7 +96,9 @@ export interface ClassroomDetail extends Classroom {
 export interface TeacherStats {
   total_students: number;
   active_worksheets: number;
+  total_responses: number;
   avg_scores: { worksheet_title: string; average_score: number }[];
+  worksheet_stats: { worksheet_title: string; responses: number; correct: number; incorrect: number; average_score: number }[];
   total_correct: number;
   total_incorrect: number;
   students_per_classroom: { classroom_name: string; student_count: number }[];

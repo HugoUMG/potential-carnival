@@ -807,12 +807,27 @@ class WorksheetRepository:
         responses = self.list_responses()
         worksheet_ids = {worksheet.id for worksheet in worksheets}
         scoped_responses = [response for response in responses if response.worksheet_id in worksheet_ids]
+        def _status(detail) -> str | None:
+            return detail.get("status") if isinstance(detail, dict) else getattr(detail, "status", None)
+
         avg_scores = []
+        worksheet_stats = []
         for worksheet in worksheets:
-            scores = [response.score for response in scoped_responses if response.worksheet_id == worksheet.id and response.score is not None]
-            avg_scores.append({"worksheet_title": worksheet.title, "average_score": round(sum(scores) / len(scores), 2) if scores else 0.0})
+            wr = [r for r in scoped_responses if r.worksheet_id == worksheet.id]
+            scores = [r.score for r in wr if r.score is not None]
+            avg = round(sum(scores) / len(scores), 2) if scores else 0.0
+            correct = sum(r.correct_count for r in wr)
+            incorrect = sum(1 for r in wr for d in r.details if _status(d) == "incorrect")
+            avg_scores.append({"worksheet_title": worksheet.title, "average_score": avg})
+            worksheet_stats.append({
+                "worksheet_title": worksheet.title,
+                "responses": len(wr),
+                "correct": correct,
+                "incorrect": incorrect,
+                "average_score": avg,
+            })
         total_correct = sum(response.correct_count for response in scoped_responses)
-        total_incorrect = sum(1 for response in scoped_responses for detail in response.details if getattr(detail, "status", None) == "incorrect" or (isinstance(detail, dict) and detail.get("status") == "incorrect"))
+        total_incorrect = sum(1 for response in scoped_responses for detail in response.details if _status(detail) == "incorrect")
         classrooms = self.list_classrooms(created_by=teacher_id)
         students_per_classroom = [
             {"classroom_name": classroom.name, "student_count": len(self.list_classroom_students(classroom.id))}
@@ -821,7 +836,9 @@ class WorksheetRepository:
         return {
             "total_students": len(students),
             "active_worksheets": len(worksheets),
+            "total_responses": len(scoped_responses),
             "avg_scores": avg_scores,
+            "worksheet_stats": worksheet_stats,
             "total_correct": total_correct,
             "total_incorrect": total_incorrect,
             "students_per_classroom": students_per_classroom,

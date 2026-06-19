@@ -1029,25 +1029,55 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Dashboard</p>
             <h2 className="text-2xl font-bold">Resumen del profesor</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl bg-blue-50 p-5"><p className="text-sm text-blue-700">Total de estudiantes</p><strong className="text-4xl">{teacherStats?.total_students ?? students.length}</strong></div>
-              <div className="rounded-2xl bg-emerald-50 p-5"><p className="text-sm text-emerald-700">Hojas activas</p><strong className="text-4xl">{teacherStats?.active_worksheets ?? publishedCount}</strong></div>
+            {(() => {
+              const correct = teacherStats?.total_correct ?? 0;
+              const incorrect = teacherStats?.total_incorrect ?? 0;
+              const graded = correct + incorrect;
+              const accuracy = graded ? Math.round((correct / graded) * 100) : 0;
+              return (
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl bg-blue-50 p-5"><p className="text-sm text-blue-700">Total de estudiantes</p><strong className="text-4xl">{teacherStats?.total_students ?? students.length}</strong></div>
+                  <div className="rounded-2xl bg-emerald-50 p-5"><p className="text-sm text-emerald-700">Hojas activas</p><strong className="text-4xl">{teacherStats?.active_worksheets ?? publishedCount}</strong></div>
+                  <div className="rounded-2xl bg-violet-50 p-5"><p className="text-sm text-violet-700">Respuestas recibidas</p><strong className="text-4xl">{teacherStats?.total_responses ?? 0}</strong></div>
+                  <div className="rounded-2xl bg-amber-50 p-5"><p className="text-sm text-amber-700">% de acierto global</p><strong className="text-4xl">{accuracy}%</strong></div>
+                </div>
+              );
+            })()}
+
+            <div className="mt-6 rounded-2xl border p-4">
+              <h3 className="font-bold">Rendimiento por hoja activa</h3>
+              <p className="text-sm text-slate-500">Aciertos y desaciertos de cada hoja publicada.</p>
+              <div className="mt-4 grid gap-4">
+                {(teacherStats?.worksheet_stats ?? []).map((w) => {
+                  const graded = w.correct + w.incorrect;
+                  const pct = graded ? Math.round((w.correct / graded) * 100) : 0;
+                  return (
+                    <div key={w.worksheet_title} className="rounded-2xl border border-slate-100 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="font-semibold text-slate-900">{w.worksheet_title}</h4>
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">{w.responses} {w.responses === 1 ? 'respuesta' : 'respuestas'}</span>
+                          <span className="font-bold text-emerald-700">✓ {w.correct}</span>
+                          <span className="font-bold text-red-600">✗ {w.incorrect}</span>
+                          <span className="font-bold text-blue-700">{w.average_score}%</span>
+                        </div>
+                      </div>
+                      {graded > 0 && (
+                        <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-slate-100">
+                          <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                          <div className="h-full bg-red-400" style={{ width: `${100 - pct}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {!(teacherStats?.worksheet_stats?.some((w) => w.responses > 0)) && <p className="text-sm text-slate-500">Aún no hay respuestas en las hojas activas.</p>}
+              </div>
             </div>
+
             <div className="mt-6 grid gap-5 xl:grid-cols-2">
               <div className="rounded-2xl border p-4">
-                <h3 className="font-bold">Promedio de notas por hoja</h3>
-                <div className="mt-4 grid gap-3">
-                  {(teacherStats?.avg_scores ?? []).map((item) => (
-                    <div key={item.worksheet_title}>
-                      <div className="mb-1 flex justify-between text-sm"><span>{item.worksheet_title}</span><strong>{item.average_score}%</strong></div>
-                      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(100, item.average_score)}%` }} /></div>
-                    </div>
-                  ))}
-                  {!(teacherStats?.avg_scores?.length) && <p className="text-sm text-slate-500">Aún no hay notas para graficar.</p>}
-                </div>
-              </div>
-              <div className="rounded-2xl border p-4">
-                <h3 className="font-bold">Aciertos vs desaciertos</h3>
+                <h3 className="font-bold">Aciertos vs desaciertos (global)</h3>
                 {(() => {
                   const correct = teacherStats?.total_correct ?? 0;
                   const incorrect = teacherStats?.total_incorrect ?? 0;
@@ -1056,7 +1086,7 @@ export default function App() {
                   return <div className="mt-4 flex items-center gap-5"><div className="h-32 w-32 rounded-full" style={{ background: `conic-gradient(#10b981 0 ${correctPct}%, #ef4444 ${correctPct}% 100%)` }} /><div className="grid gap-2 text-sm"><span className="font-semibold text-emerald-700">Aciertos: {correct}</span><span className="font-semibold text-red-600">Desaciertos: {incorrect}</span></div></div>;
                 })()}
               </div>
-              <div className="rounded-2xl border p-4 xl:col-span-2">
+              <div className="rounded-2xl border p-4">
                 <h3 className="font-bold">Alumnos por aula</h3>
                 <div className="mt-4 grid gap-3">
                   {(teacherStats?.students_per_classroom ?? []).map((item) => (
