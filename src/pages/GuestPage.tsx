@@ -21,17 +21,27 @@ interface PublicClassroom {
   name: string;
 }
 
+// Token determinístico: la misma aula + el mismo nombre producen el mismo token en
+// cualquier dispositivo, de modo que las respuestas se comparten ("merge") entre ellos.
+function guestToken(classroomId: string, name: string): string {
+  const normalized = name.trim().toLowerCase().replace(/\s+/g, ' ');
+  return `g:${classroomId}:${normalized}`;
+}
+
 function getOrCreateSession(): GuestSession | null {
   try {
     const stored = localStorage.getItem('guestSession');
     if (stored) {
       const parsed = JSON.parse(stored) as GuestSession;
-      // Descartar sesiones antiguas sin classroomId
-      if (!parsed.classroomId) {
+      // Descartar sesiones antiguas sin classroomId o sin nombre
+      if (!parsed.classroomId || !parsed.name) {
         localStorage.removeItem('guestSession');
         return null;
       }
-      return parsed;
+      // Recalcular el token determinístico (actualiza sesiones antiguas con token aleatorio)
+      const upgraded = { ...parsed, token: guestToken(parsed.classroomId, parsed.name) };
+      localStorage.setItem('guestSession', JSON.stringify(upgraded));
+      return upgraded;
     }
   } catch {}
   return null;
@@ -189,7 +199,7 @@ export function GuestPage() {
   const [error, setError] = useState('');
 
   function handleEnterName(name: string, classroom: PublicClassroom) {
-    const token = crypto.randomUUID();
+    const token = guestToken(classroom.id, name);
     const s: GuestSession = { name, token, classroomId: classroom.id, classroomName: classroom.name };
     saveSession(s);
     setSession(s);
