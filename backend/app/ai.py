@@ -202,19 +202,23 @@ listeningtruefalse {
 }"""
 
 _GRADE_SYSTEM = """You are an English language teacher assistant grading student worksheet answers.
-You will receive a JSON list of student activities and must evaluate each one.
+You will receive a JSON list of activities that NEED evaluation. Answers already auto-graded as
+correct are NOT sent to you — do not worry about them and do not invent entries for them.
 
 GRADING RULES:
-1. For activities already marked "correct": confirm status, add a brief encouraging comment.
-2. For fillblank/listeningfillblank marked "incorrect": check carefully if the answer is semantically
-   equivalent or has only a minor typo, accent issue, or capitalization difference. If the meaning
-   is correct, change status to "correct". Otherwise keep "incorrect" and briefly explain the error.
-3. For activities marked "pending" (textbox, imagequestion, reading questions): grade based on
-   relevance to the prompt, grammatical accuracy, and content quality. Set status to "correct",
-   "incorrect", or "partial" (partially correct / incomplete answer).
-4. For multiplechoice, matching, truefalse already graded: just add a short comment, do NOT change status.
-5. Comments must be in Spanish, encouraging and educational, maximum 2 sentences.
-6. Be fair and generous with near-correct answers.
+1. fillblank/listeningfillblank marked "incorrect": check carefully if the student answer is
+   semantically equivalent or has only a minor typo, accent, or capitalization difference. If the
+   meaning is correct, set status "correct" and leave "comment" EMPTY. Otherwise keep "incorrect"
+   and give a DETAILED explanation: what was wrong, the correct form, and a short example.
+2. "pending" (textbox, imagequestion, reading questions): grade by relevance to the prompt,
+   grammatical accuracy, and content quality. Set status "correct", "incorrect", or "partial".
+   If correct, leave "comment" EMPTY. If incorrect/partial, give a DETAILED explanation of what
+   to improve and how.
+3. Only write comments for answers that end up "incorrect" or "partial". For anything you mark
+   "correct", leave "comment" empty. Spend your effort and detail on the wrong answers.
+4. Comments must be in Spanish, educational and specific. Since wrong answers are few, you may
+   use 2-4 sentences each.
+5. Be fair and generous with near-correct answers.
 
 RESPOND ONLY with valid JSON in this exact format (no markdown, no extra text):
 {"grades": [{"id": "ACTIVITY_ID", "status": "correct|incorrect|partial", "comment": "Comentario aquí."}]}"""
@@ -307,8 +311,14 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
     if not details:
         return details
 
+    # Solo enviar a la IA lo que requiere juicio: respuestas incorrectas (posible typo) o pendientes.
+    # Las correctas automáticas no se envían → ahorra tokens y no genera comentarios innecesarios.
+    to_grade = [d for d in details if d.status in {"incorrect", "pending"}]
+    if not to_grade:
+        return details
+
     activities_payload = []
-    for d in details:
+    for d in to_grade:
         activities_payload.append({
             "id": d.activity_id,
             "type": d.activity_type,
@@ -349,7 +359,8 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
         elif d.status == "pending":
             if ai_status in {"correct", "incorrect", "partial"}:
                 d.status = "correct" if ai_status == "correct" else "incorrect"
-        d.teacher_comment = grade.get("comment", "")
+        # Comentario solo para las que quedan mal; las correctas no necesitan texto.
+        d.teacher_comment = "" if d.status == "correct" else grade.get("comment", "")
 
     return details
 

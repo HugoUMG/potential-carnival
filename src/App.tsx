@@ -273,11 +273,8 @@ export default function App() {
         setStudentClassrooms(myClassrooms);
         setStudentVocabularyLists(myVocab);
         // Seleccionar la primera hoja que aún tenga intentos disponibles
-        const answeredIds = new Set(studentResponses.map((r) => r.worksheet_id));
         const firstActive = availableWorksheets.find((w) =>
-          w.status === 'published' &&
-          w.attemptsRemaining !== 0 &&
-          !(( w.attemptsRemaining === null || w.attemptsRemaining === undefined) && answeredIds.has(w.id))
+          w.status === 'published' && w.attemptsRemaining !== 0
         );
         if (firstActive) setActiveWorksheet(firstActive);
       }
@@ -628,8 +625,7 @@ export default function App() {
     const activeWorksheets = worksheets.filter((w) => {
       if (w.status !== 'published') return false;
       if (w.attemptsRemaining === 0) return false;
-      // Sin límite de intentos pero ya entregada → el índice único impide reenvío, mover a Calificadas
-      if ((w.attemptsRemaining === null || w.attemptsRemaining === undefined) && responseByWorksheet.has(w.id)) return false;
+      // Ilimitada o con intentos restantes → permanece en Activas para re-hacerla.
       return true;
     });
     // Calificadas: tiene al menos una respuesta enviada

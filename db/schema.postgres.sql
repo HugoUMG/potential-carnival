@@ -85,9 +85,13 @@ CREATE INDEX IF NOT EXISTS idx_sessions_logged_in ON user_sessions(logged_in_at)
 CREATE INDEX IF NOT EXISTS idx_classrooms_created_by ON classrooms(created_by);
 CREATE INDEX IF NOT EXISTS idx_classroom_students_student_id ON classroom_students(student_id);
 CREATE INDEX IF NOT EXISTS idx_classroom_worksheets_worksheet_id ON classroom_worksheets(worksheet_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_responses_unique_attempt
-ON worksheet_responses (worksheet_id, student_id)
-WHERE student_id IS NOT NULL;
+-- Antes había un UNIQUE INDEX (worksheet_id, student_id) que impedía más de una
+-- respuesta por estudiante → rompía max_attempts > 1 e "ilimitada". Se elimina y se
+-- reemplaza por un índice NO único (los intentos se cuentan por filas; el doble envío
+-- accidental se evita con el bloqueo de 5s y el conteo de intentos en la app).
+DROP INDEX IF EXISTS idx_responses_unique_attempt;
+CREATE INDEX IF NOT EXISTS idx_responses_worksheet_student
+ON worksheet_responses (worksheet_id, student_id);
 
 -- Vocabulario
 CREATE TABLE IF NOT EXISTS vocabulary_lists (
