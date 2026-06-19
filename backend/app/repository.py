@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from .database import get_connection, get_database_backend
@@ -13,6 +13,15 @@ def _parse_datetime(value: str | datetime) -> datetime:
     if isinstance(value, datetime):
         return value
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _to_naive_utc(value: str | datetime) -> datetime:
+    """Normaliza a UTC sin tzinfo para comparar fechas guardadas en formatos mixtos
+    (SQLite CURRENT_TIMESTAMP es naive; isoformat trae offset; psycopg trae aware)."""
+    dt = _parse_datetime(value)
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def _decode_json(value: object, fallback: object | None = None) -> object:
@@ -754,6 +763,37 @@ class WorksheetRepository:
             }
             for r in rows
         ]
+
+    def get_recent_ingresos(self, since_iso: str) -> list[dict]:
+        """Ingresos recientes (invitados, lectores, alumnos) posteriores a since_iso.
+        Filtra en Python normalizando a UTC para evitar problemas de formato entre SQLite y Postgres."""
+        since = _to_naive_utc(since_iso)
+        with get_connection() as connection:
+            guests = [dict(r) for r in connection.execute(
+                "SELECT name, classroom_name, accessed_at FROM guest_access_logs ORDER BY accessed_at DESC LIMIT 200"
+            ).fetchall()]
+            readers = [dict(r) for r in connection.execute(
+                "SELECT reader_name, accessed_at FROM reader_access_logs ORDER BY accessed_at DESC LIMIT 200"
+            ).fetchall()]
+            students = [dict(r) for r in connection.execute(
+                "SELECT u.name AS name, s.logged_in_at AS ts FROM user_sessions s "
+                "JOIN users u ON u.id = s.user_id WHERE u.role = 'student' ORDER BY s.logged_in_at DESC LIMIT 200"
+            ).fetchall()]
+
+        events: list[dict] = []
+        for d in guests:
+            ts = _to_naive_utc(d["accessed_at"])
+            if ts > since:
+                events.append({"tipo": "ingreso_invitado", "nombre": d["name"], "detalle": d.get("classroom_name") or "", "ts": ts.replace(tzinfo=timezone.utc).isoformat()})
+        for d in readers:
+            ts = _to_naive_utc(d["accessed_at"])
+            if ts > since:
+                events.append({"tipo": "ingreso_lector", "nombre": d["reader_name"], "detalle": "", "ts": ts.replace(tzinfo=timezone.utc).isoformat()})
+        for d in students:
+            ts = _to_naive_utc(d["ts"])
+            if ts > since:
+                events.append({"tipo": "ingreso_alumno", "nombre": d["name"], "detalle": "", "ts": ts.replace(tzinfo=timezone.utc).isoformat()})
+        return events
 
     def delete_response(self, response_id: str) -> bool:
         placeholder = self._placeholder
