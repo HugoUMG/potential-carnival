@@ -1,7 +1,7 @@
-import { Activity, BarChart3, BookOpenCheck, ClipboardCheck, Database, LogOut, PlusCircle, School, UserCog, UserPlus, UserRoundCheck } from 'lucide-react';
+import { Activity, BarChart3, BookOpenCheck, ClipboardCheck, Database, FolderArchive, LogOut, PlusCircle, School, UserCog, UserPlus, UserRoundCheck } from 'lucide-react';
 import type { UsuarioSesion } from '../services/api';
 
-export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'actividad' | 'vocabulario' | 'lectores' | 'imagenes';
+export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'archivadas' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'actividad' | 'vocabulario' | 'lectores' | 'imagenes';
 
 interface TeacherDashboardProps {
   user: UsuarioSesion;
@@ -18,6 +18,7 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
     { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
     { id: 'crear' as const, label: 'Crear evaluación', icon: PlusCircle },
     { id: 'evaluaciones' as const, label: 'Evaluaciones guardadas', icon: BookOpenCheck },
+    { id: 'archivadas' as const, label: 'Archivadas', icon: FolderArchive },
     { id: 'aulas' as const, label: 'Aulas', icon: School },
     { id: 'estudiantes' as const, label: 'Crear estudiante', icon: UserPlus },
     ...(user.role === 'admin' ? [{ id: 'profesores' as const, label: 'Crear profesor', icon: UserCog }] : []),

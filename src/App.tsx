@@ -463,7 +463,7 @@ export default function App() {
       setRevisionSelectedId(null);
       void loadResponseCounts();
     }
-    if (menu === 'evaluaciones') void loadResponseCounts();
+    if (menu === 'evaluaciones' || menu === 'archivadas') void loadResponseCounts();
     setAdminMenu(menu);
   }
 
@@ -1216,27 +1216,40 @@ export default function App() {
                 </div>
               </div>
             )}
-            <div className="mt-8 border-t border-slate-100 pt-5">
-              <h3 className="text-lg font-bold">Archivadas</h3>
-              <p className="text-sm text-slate-500">Las hojas archivadas quedan almacenadas, pero los estudiantes no pueden verlas ni ver sus respuestas hasta desarchivarlas.</p>
-              <div className="mt-4 grid gap-3">
-                {archivedWorksheets.map((worksheet) => (
-                  <article key={worksheet.id} className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
+          </section>
+        )}
+        {adminMenu === 'archivadas' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Archivadas</p>
+            <h2 className="text-2xl font-bold">Almacén de hojas</h2>
+            <p className="mt-1 text-sm text-slate-500">Las hojas archivadas quedan almacenadas, pero los estudiantes no pueden verlas ni ver sus respuestas hasta desarchivarlas.</p>
+            <div className="mt-5 grid gap-3">
+              {archivedWorksheets.map((worksheet) => (
+                <article key={worksheet.id} className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Archivada</span>
-                        <h4 className="mt-3 font-bold">{worksheet.title}</h4>
-                        <p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p>
+                        {(responseCounts[worksheet.id] ?? 0) > 0 ? (
+                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
+                        ) : (
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-500">Sin respuestas</span>
+                        )}
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button className="rounded-2xl border border-amber-200 bg-white px-4 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}>Desarchivar</button>
-                        <button className="rounded-2xl border border-red-200 bg-white px-4 py-2 font-semibold text-red-600" onClick={() => removeWorksheet(worksheet)}><Trash2 className="mr-1 inline" size={16} /> Borrar</button>
-                      </div>
+                      <h4 className="mt-3 font-bold">{worksheet.title}</h4>
+                      <p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p>
                     </div>
-                  </article>
-                ))}
-                {!archivedWorksheets.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay evaluaciones archivadas.</p>}
-              </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(responseCounts[worksheet.id] ?? 0) > 0 && (
+                        <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button>
+                      )}
+                      <button className="rounded-2xl border border-amber-200 bg-white px-4 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}>Desarchivar</button>
+                      <button className="rounded-2xl border border-red-200 bg-white px-4 py-2 font-semibold text-red-600" onClick={() => removeWorksheet(worksheet)}><Trash2 className="mr-1 inline" size={16} /> Borrar</button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+              {!archivedWorksheets.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No hay evaluaciones archivadas.</p>}
             </div>
           </section>
         )}
