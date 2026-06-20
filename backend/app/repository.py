@@ -185,8 +185,8 @@ class WorksheetRepository:
         with get_connection() as connection:
             connection.execute(
                 f"""
-                INSERT INTO worksheets (id, title, description, script_content, json_content, created_by, created_at, published, archived, max_attempts, theme)
-                VALUES ({self._placeholders(11)})
+                INSERT INTO worksheets (id, title, description, script_content, json_content, created_by, created_at, published, archived, max_attempts, theme, ai_grading)
+                VALUES ({self._placeholders(12)})
                 """,
                 (
                     worksheet.id,
@@ -200,6 +200,7 @@ class WorksheetRepository:
                     self._bool_param(worksheet.archived),
                     worksheet.max_attempts,
                     self._json_param(worksheet.theme) if worksheet.theme is not None else None,
+                    self._bool_param(worksheet.ai_grading),
                 ),
             )
         return worksheet
@@ -599,6 +600,7 @@ class WorksheetRepository:
             archived=False,
             max_attempts=original.max_attempts,
             theme=original.theme,
+            ai_grading=original.ai_grading,
         )
         return self.add_worksheet(new_ws)
 
@@ -862,6 +864,7 @@ class WorksheetRepository:
             archived=bool(data.get("archived")),
             max_attempts=data.get("max_attempts"),
             theme=_decode_json(data.get("theme"), None),
+            ai_grading=bool(data["ai_grading"]) if data.get("ai_grading") is not None else True,
         )
 
     def _response_from_row(self, row: object) -> WorksheetResponse:
