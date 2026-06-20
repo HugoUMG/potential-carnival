@@ -57,9 +57,11 @@ import {
   getTeacherDashboard,
   getTeacherNotifications,
   getGuestAccessLogs,
+  getGuestDetail,
   getReaderAccessLogs,
   type TeacherNotification,
   type GuestAccessLog,
+  type GuestDetail,
   type ReaderAccessLog,
   publishWorksheet,
   reviewAnswer,
@@ -129,6 +131,9 @@ export default function App() {
   const [bellOpen, setBellOpen] = useState(false);
   const [bellSeen, setBellSeen] = useState<string>('1970-01-01T00:00:00.000Z');
   const [guestLogs, setGuestLogs] = useState<GuestAccessLog[]>([]);
+  const [selectedGuest, setSelectedGuest] = useState<GuestAccessLog | null>(null);
+  const [guestDetail, setGuestDetail] = useState<GuestDetail | null>(null);
+  const [expandedResponseId, setExpandedResponseId] = useState<string | null>(null);
   const [readerLogs, setReaderLogs] = useState<ReaderAccessLog[]>([]);
   const [worksheets, setWorksheets] = useState<Worksheet[]>([sampleWorksheet]);
   const [activeWorksheet, setActiveWorksheet] = useState<Worksheet>(sampleWorksheet);
@@ -455,6 +460,17 @@ export default function App() {
     }
   }
 
+  async function openGuest(log: GuestAccessLog) {
+    setSelectedGuest(log);
+    setGuestDetail(null);
+    setExpandedResponseId(null);
+    try {
+      setGuestDetail(await getGuestDetail(log.guest_token, log.classroom_id));
+    } catch {
+      setGuestDetail({ responses: [], pending: [] });
+    }
+  }
+
   function handleSelectMenu(menu: TeacherMenu) {
     if (menu === 'revision' && user) {
       localStorage.setItem(`teacher_notif_since_${user.id}`, new Date().toISOString());
@@ -464,6 +480,7 @@ export default function App() {
       void loadResponseCounts();
     }
     if (menu === 'evaluaciones' || menu === 'archivadas') void loadResponseCounts();
+    if (menu === 'invitados') { setSelectedGuest(null); setGuestDetail(null); void getGuestAccessLogs().then(setGuestLogs).catch(() => {}); }
     setAdminMenu(menu);
   }
 
@@ -1029,25 +1046,55 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Dashboard</p>
             <h2 className="text-2xl font-bold">Resumen del profesor</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl bg-blue-50 p-5"><p className="text-sm text-blue-700">Total de estudiantes</p><strong className="text-4xl">{teacherStats?.total_students ?? students.length}</strong></div>
-              <div className="rounded-2xl bg-emerald-50 p-5"><p className="text-sm text-emerald-700">Hojas activas</p><strong className="text-4xl">{teacherStats?.active_worksheets ?? publishedCount}</strong></div>
+            {(() => {
+              const correct = teacherStats?.total_correct ?? 0;
+              const incorrect = teacherStats?.total_incorrect ?? 0;
+              const graded = correct + incorrect;
+              const accuracy = graded ? Math.round((correct / graded) * 100) : 0;
+              return (
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl bg-blue-50 p-5"><p className="text-sm text-blue-700">Total de estudiantes</p><strong className="text-4xl">{teacherStats?.total_students ?? students.length}</strong></div>
+                  <div className="rounded-2xl bg-emerald-50 p-5"><p className="text-sm text-emerald-700">Hojas activas</p><strong className="text-4xl">{teacherStats?.active_worksheets ?? publishedCount}</strong></div>
+                  <div className="rounded-2xl bg-violet-50 p-5"><p className="text-sm text-violet-700">Respuestas recibidas</p><strong className="text-4xl">{teacherStats?.total_responses ?? 0}</strong></div>
+                  <div className="rounded-2xl bg-amber-50 p-5"><p className="text-sm text-amber-700">% de acierto global</p><strong className="text-4xl">{accuracy}%</strong></div>
+                </div>
+              );
+            })()}
+
+            <div className="mt-6 rounded-2xl border p-4">
+              <h3 className="font-bold">Rendimiento por hoja activa</h3>
+              <p className="text-sm text-slate-500">Aciertos y desaciertos de cada hoja publicada.</p>
+              <div className="mt-4 grid gap-4">
+                {(teacherStats?.worksheet_stats ?? []).map((w) => {
+                  const graded = w.correct + w.incorrect;
+                  const pct = graded ? Math.round((w.correct / graded) * 100) : 0;
+                  return (
+                    <div key={w.worksheet_title} className="rounded-2xl border border-slate-100 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="font-semibold text-slate-900">{w.worksheet_title}</h4>
+                        <div className="flex items-center gap-3 text-sm">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">{w.responses} {w.responses === 1 ? 'respuesta' : 'respuestas'}</span>
+                          <span className="font-bold text-emerald-700">✓ {w.correct}</span>
+                          <span className="font-bold text-red-600">✗ {w.incorrect}</span>
+                          <span className="font-bold text-blue-700">{w.average_score}%</span>
+                        </div>
+                      </div>
+                      {graded > 0 && (
+                        <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-slate-100">
+                          <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                          <div className="h-full bg-red-400" style={{ width: `${100 - pct}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {!(teacherStats?.worksheet_stats?.some((w) => w.responses > 0)) && <p className="text-sm text-slate-500">Aún no hay respuestas en las hojas activas.</p>}
+              </div>
             </div>
+
             <div className="mt-6 grid gap-5 xl:grid-cols-2">
               <div className="rounded-2xl border p-4">
-                <h3 className="font-bold">Promedio de notas por hoja</h3>
-                <div className="mt-4 grid gap-3">
-                  {(teacherStats?.avg_scores ?? []).map((item) => (
-                    <div key={item.worksheet_title}>
-                      <div className="mb-1 flex justify-between text-sm"><span>{item.worksheet_title}</span><strong>{item.average_score}%</strong></div>
-                      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(100, item.average_score)}%` }} /></div>
-                    </div>
-                  ))}
-                  {!(teacherStats?.avg_scores?.length) && <p className="text-sm text-slate-500">Aún no hay notas para graficar.</p>}
-                </div>
-              </div>
-              <div className="rounded-2xl border p-4">
-                <h3 className="font-bold">Aciertos vs desaciertos</h3>
+                <h3 className="font-bold">Aciertos vs desaciertos (global)</h3>
                 {(() => {
                   const correct = teacherStats?.total_correct ?? 0;
                   const incorrect = teacherStats?.total_incorrect ?? 0;
@@ -1056,7 +1103,7 @@ export default function App() {
                   return <div className="mt-4 flex items-center gap-5"><div className="h-32 w-32 rounded-full" style={{ background: `conic-gradient(#10b981 0 ${correctPct}%, #ef4444 ${correctPct}% 100%)` }} /><div className="grid gap-2 text-sm"><span className="font-semibold text-emerald-700">Aciertos: {correct}</span><span className="font-semibold text-red-600">Desaciertos: {incorrect}</span></div></div>;
                 })()}
               </div>
-              <div className="rounded-2xl border p-4 xl:col-span-2">
+              <div className="rounded-2xl border p-4">
                 <h3 className="font-bold">Alumnos por aula</h3>
                 <div className="mt-4 grid gap-3">
                   {(teacherStats?.students_per_classroom ?? []).map((item) => (
@@ -1346,42 +1393,6 @@ export default function App() {
                 </tbody>
               </table>
             </div>
-
-            <div className="mt-8">
-              <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Invitados</p>
-              <h3 className="text-xl font-bold">Registro de accesos de invitados</h3>
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-slate-500">
-                      <th className="pb-3 pr-4 font-semibold">Nombre</th>
-                      <th className="pb-3 pr-4 font-semibold">Aula</th>
-                      <th className="pb-3 pr-4 font-semibold">Último acceso</th>
-                      <th className="pb-3 pr-4 font-semibold">Visitas</th>
-                      <th className="pb-3 font-semibold">Token</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {guestLogs.map((log) => (
-                      <tr key={`${log.guest_token}-${log.classroom_id}`} className="border-b last:border-0">
-                        <td className="py-3 pr-4 font-semibold">{log.name}</td>
-                        <td className="py-3 pr-4">
-                          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{log.classroom_name}</span>
-                        </td>
-                        <td className="py-3 pr-4 text-slate-600">{new Date(log.last_accessed_at).toLocaleString()}</td>
-                        <td className="py-3 pr-4">
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{log.visit_count}×</span>
-                        </td>
-                        <td className="py-3 font-mono text-xs text-slate-400">{log.guest_token.slice(0, 8)}…</td>
-                      </tr>
-                    ))}
-                    {!guestLogs.length && (
-                      <tr><td colSpan={5} className="py-8 text-center text-slate-400">Sin accesos de invitados registrados aún.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </section>
         )}
         {adminMenu === 'lectores' && (
@@ -1587,6 +1598,95 @@ export default function App() {
               ))}
               {!responses.length && <p className="rounded-2xl bg-slate-50 p-5">Esta evaluación aún no tiene respuestas.</p>}
             </div>
+          </section>
+        )}
+        {adminMenu === 'invitados' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            {!selectedGuest ? (
+              <>
+                <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Invitados</p>
+                <h2 className="text-2xl font-bold">Seguimiento de invitados</h2>
+                <p className="mt-1 text-sm text-slate-500">Cada invitado se identifica por aula + nombre. Haz clic para ver su progreso y respuestas.</p>
+                <div className="mt-5 grid gap-3">
+                  {guestLogs.map((log) => (
+                    <button
+                      key={`${log.guest_token}-${log.classroom_id}`}
+                      type="button"
+                      onClick={() => void openGuest(log)}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 p-4 text-left transition-colors hover:border-violet-300 hover:bg-violet-50/40"
+                    >
+                      <div>
+                        <h3 className="text-lg font-bold">{log.name}</h3>
+                        <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{log.classroom_name}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                        <span>Último acceso: {new Date(log.last_accessed_at).toLocaleString()}</span>
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{log.visit_count}× ingresos</span>
+                      </div>
+                    </button>
+                  ))}
+                  {!guestLogs.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">Sin invitados registrados aún.</p>}
+                </div>
+              </>
+            ) : (
+              <>
+                <button className="mb-4 inline-flex items-center gap-1 rounded-2xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" onClick={() => setSelectedGuest(null)}><ChevronLeft size={16} /> Volver a la lista</button>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-bold">{selectedGuest.name}</h2>
+                    <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{selectedGuest.classroom_name}</span>
+                  </div>
+                  <div className="grid gap-1 text-right text-sm text-slate-500">
+                    <span>Última sesión: {new Date(selectedGuest.last_accessed_at).toLocaleString()}</span>
+                    <span>Ingresos: <strong className="text-emerald-700">{selectedGuest.visit_count}</strong></span>
+                  </div>
+                </div>
+
+                {!guestDetail ? (
+                  <p className="mt-6 text-sm text-slate-500">Cargando…</p>
+                ) : (
+                  <div className="mt-6 grid gap-6">
+                    <div>
+                      <h3 className="font-bold">Hojas pendientes <span className="text-sm font-normal text-slate-400">({guestDetail.pending.length})</span></h3>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {guestDetail.pending.map((w) => (
+                          <span key={w.id} className="rounded-full bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">{w.title}</span>
+                        ))}
+                        {!guestDetail.pending.length && <p className="text-sm text-slate-500">Sin hojas pendientes. ¡Completó todo lo habilitado! 🎉</p>}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold">Hojas realizadas <span className="text-sm font-normal text-slate-400">({guestDetail.responses.length})</span></h3>
+                      <div className="mt-3 grid gap-3">
+                        {guestDetail.responses.map((response) => (
+                          <article key={response.id} className="rounded-2xl border p-4">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedResponseId(expandedResponseId === response.id ? null : response.id)}
+                              className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+                            >
+                              <div>
+                                <h4 className="font-bold">{response.worksheet_title}</h4>
+                                <p className="text-xs text-slate-500">Enviada: {new Date(response.submitted_at).toLocaleString()}</p>
+                              </div>
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className="font-bold text-blue-700">{response.score ?? '—'}%</span>
+                                <span className="font-bold text-emerald-700">✓ {response.correct_count}</span>
+                                {response.pending_count > 0 && <span className="font-bold text-amber-600">⏳ {response.pending_count}</span>}
+                                <ChevronRight size={16} className={`transition-transform ${expandedResponseId === response.id ? 'rotate-90' : ''}`} />
+                              </div>
+                            </button>
+                            {expandedResponseId === response.id && <ResponseDetails response={response} />}
+                          </article>
+                        ))}
+                        {!guestDetail.responses.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">Aún no ha enviado ninguna hoja.</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </section>
         )}
         {adminMenu === 'imagenes' && <ImageLibraryPage />}

@@ -96,7 +96,9 @@ export interface ClassroomDetail extends Classroom {
 export interface TeacherStats {
   total_students: number;
   active_worksheets: number;
+  total_responses: number;
   avg_scores: { worksheet_title: string; average_score: number }[];
+  worksheet_stats: { worksheet_title: string; responses: number; correct: number; incorrect: number; average_score: number }[];
   total_correct: number;
   total_incorrect: number;
   students_per_classroom: { classroom_name: string; student_count: number }[];
@@ -147,6 +149,42 @@ export async function logoutSession(): Promise<void> {
   }
 }
 
+interface ValidationErrorItem {
+  loc?: (string | number)[];
+  msg?: string;
+  type?: string;
+  ctx?: { min_length?: number; max_length?: number };
+}
+
+const FIELD_LABELS_ES: Record<string, string> = {
+  password: 'La contraseña',
+  new_password: 'La nueva contraseña',
+  current_password: 'La contraseña actual',
+  username: 'El usuario',
+  name: 'El nombre',
+  email: 'El correo',
+  title: 'El título',
+};
+
+// FastAPI devuelve los errores de validación (422) como un array de objetos.
+// Esto los convierte en un mensaje legible en español en vez de "[object Object]".
+function formatErrorDetail(detail: unknown): string {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const messages = (detail as ValidationErrorItem[]).map((item) => {
+      const field = Array.isArray(item.loc) ? String(item.loc[item.loc.length - 1]) : '';
+      const label = FIELD_LABELS_ES[field] ?? field ?? 'Este campo';
+      if (item.type === 'string_too_short' && item.ctx?.min_length != null) {
+        return `${label} debe tener al menos ${item.ctx.min_length} caracteres.`;
+      }
+      if (item.type === 'missing') return `${label} es obligatorio.`;
+      return item.msg ? `${label}: ${item.msg}` : 'Dato inválido.';
+    });
+    return messages.filter(Boolean).join(' · ') || 'Datos inválidos.';
+  }
+  return 'Error inesperado';
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = getStoredSession()?.accessToken;
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -155,7 +193,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Error inesperado' }));
-    const detail: string = error.detail ?? 'Error inesperado';
+    const detail: string = formatErrorDetail(error.detail);
     if (response.status === 401) {
       // Si es el endpoint de login, el 401 significa credenciales incorrectas — mostrar mensaje real
       if (path === '/auth/login') {
@@ -416,6 +454,15 @@ export interface GuestAccessLog {
 
 export async function getGuestAccessLogs(): Promise<GuestAccessLog[]> {
   return request<GuestAccessLog[]>('/teacher/guest-logs');
+}
+
+export interface GuestDetail {
+  responses: (RespuestaEstudiante & { worksheet_title: string })[];
+  pending: { id: string; title: string }[];
+}
+
+export async function getGuestDetail(guestToken: string, classroomId: string): Promise<GuestDetail> {
+  return request<GuestDetail>(`/teacher/guest-detail?guest_token=${encodeURIComponent(guestToken)}&classroom_id=${encodeURIComponent(classroomId)}`);
 }
 
 export interface ReaderAccessLog {
