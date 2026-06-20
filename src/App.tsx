@@ -57,9 +57,11 @@ import {
   getTeacherDashboard,
   getTeacherNotifications,
   getGuestAccessLogs,
+  getGuestDetail,
   getReaderAccessLogs,
   type TeacherNotification,
   type GuestAccessLog,
+  type GuestDetail,
   type ReaderAccessLog,
   publishWorksheet,
   reviewAnswer,
@@ -129,6 +131,9 @@ export default function App() {
   const [bellOpen, setBellOpen] = useState(false);
   const [bellSeen, setBellSeen] = useState<string>('1970-01-01T00:00:00.000Z');
   const [guestLogs, setGuestLogs] = useState<GuestAccessLog[]>([]);
+  const [selectedGuest, setSelectedGuest] = useState<GuestAccessLog | null>(null);
+  const [guestDetail, setGuestDetail] = useState<GuestDetail | null>(null);
+  const [expandedResponseId, setExpandedResponseId] = useState<string | null>(null);
   const [readerLogs, setReaderLogs] = useState<ReaderAccessLog[]>([]);
   const [worksheets, setWorksheets] = useState<Worksheet[]>([sampleWorksheet]);
   const [activeWorksheet, setActiveWorksheet] = useState<Worksheet>(sampleWorksheet);
@@ -455,6 +460,17 @@ export default function App() {
     }
   }
 
+  async function openGuest(log: GuestAccessLog) {
+    setSelectedGuest(log);
+    setGuestDetail(null);
+    setExpandedResponseId(null);
+    try {
+      setGuestDetail(await getGuestDetail(log.guest_token, log.classroom_id));
+    } catch {
+      setGuestDetail({ responses: [], pending: [] });
+    }
+  }
+
   function handleSelectMenu(menu: TeacherMenu) {
     if (menu === 'revision' && user) {
       localStorage.setItem(`teacher_notif_since_${user.id}`, new Date().toISOString());
@@ -464,6 +480,7 @@ export default function App() {
       void loadResponseCounts();
     }
     if (menu === 'evaluaciones' || menu === 'archivadas') void loadResponseCounts();
+    if (menu === 'invitados') { setSelectedGuest(null); setGuestDetail(null); void getGuestAccessLogs().then(setGuestLogs).catch(() => {}); }
     setAdminMenu(menu);
   }
 
@@ -1376,42 +1393,6 @@ export default function App() {
                 </tbody>
               </table>
             </div>
-
-            <div className="mt-8">
-              <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Invitados</p>
-              <h3 className="text-xl font-bold">Registro de accesos de invitados</h3>
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-slate-500">
-                      <th className="pb-3 pr-4 font-semibold">Nombre</th>
-                      <th className="pb-3 pr-4 font-semibold">Aula</th>
-                      <th className="pb-3 pr-4 font-semibold">Último acceso</th>
-                      <th className="pb-3 pr-4 font-semibold">Visitas</th>
-                      <th className="pb-3 font-semibold">Token</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {guestLogs.map((log) => (
-                      <tr key={`${log.guest_token}-${log.classroom_id}`} className="border-b last:border-0">
-                        <td className="py-3 pr-4 font-semibold">{log.name}</td>
-                        <td className="py-3 pr-4">
-                          <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{log.classroom_name}</span>
-                        </td>
-                        <td className="py-3 pr-4 text-slate-600">{new Date(log.last_accessed_at).toLocaleString()}</td>
-                        <td className="py-3 pr-4">
-                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{log.visit_count}×</span>
-                        </td>
-                        <td className="py-3 font-mono text-xs text-slate-400">{log.guest_token.slice(0, 8)}…</td>
-                      </tr>
-                    ))}
-                    {!guestLogs.length && (
-                      <tr><td colSpan={5} className="py-8 text-center text-slate-400">Sin accesos de invitados registrados aún.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </section>
         )}
         {adminMenu === 'lectores' && (
@@ -1617,6 +1598,95 @@ export default function App() {
               ))}
               {!responses.length && <p className="rounded-2xl bg-slate-50 p-5">Esta evaluación aún no tiene respuestas.</p>}
             </div>
+          </section>
+        )}
+        {adminMenu === 'invitados' && (
+          <section className="rounded-3xl bg-white p-5 shadow-sm">
+            {!selectedGuest ? (
+              <>
+                <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Invitados</p>
+                <h2 className="text-2xl font-bold">Seguimiento de invitados</h2>
+                <p className="mt-1 text-sm text-slate-500">Cada invitado se identifica por aula + nombre. Haz clic para ver su progreso y respuestas.</p>
+                <div className="mt-5 grid gap-3">
+                  {guestLogs.map((log) => (
+                    <button
+                      key={`${log.guest_token}-${log.classroom_id}`}
+                      type="button"
+                      onClick={() => void openGuest(log)}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 p-4 text-left transition-colors hover:border-violet-300 hover:bg-violet-50/40"
+                    >
+                      <div>
+                        <h3 className="text-lg font-bold">{log.name}</h3>
+                        <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{log.classroom_name}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                        <span>Último acceso: {new Date(log.last_accessed_at).toLocaleString()}</span>
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">{log.visit_count}× ingresos</span>
+                      </div>
+                    </button>
+                  ))}
+                  {!guestLogs.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">Sin invitados registrados aún.</p>}
+                </div>
+              </>
+            ) : (
+              <>
+                <button className="mb-4 inline-flex items-center gap-1 rounded-2xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" onClick={() => setSelectedGuest(null)}><ChevronLeft size={16} /> Volver a la lista</button>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-2xl font-bold">{selectedGuest.name}</h2>
+                    <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{selectedGuest.classroom_name}</span>
+                  </div>
+                  <div className="grid gap-1 text-right text-sm text-slate-500">
+                    <span>Última sesión: {new Date(selectedGuest.last_accessed_at).toLocaleString()}</span>
+                    <span>Ingresos: <strong className="text-emerald-700">{selectedGuest.visit_count}</strong></span>
+                  </div>
+                </div>
+
+                {!guestDetail ? (
+                  <p className="mt-6 text-sm text-slate-500">Cargando…</p>
+                ) : (
+                  <div className="mt-6 grid gap-6">
+                    <div>
+                      <h3 className="font-bold">Hojas pendientes <span className="text-sm font-normal text-slate-400">({guestDetail.pending.length})</span></h3>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {guestDetail.pending.map((w) => (
+                          <span key={w.id} className="rounded-full bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">{w.title}</span>
+                        ))}
+                        {!guestDetail.pending.length && <p className="text-sm text-slate-500">Sin hojas pendientes. ¡Completó todo lo habilitado! 🎉</p>}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold">Hojas realizadas <span className="text-sm font-normal text-slate-400">({guestDetail.responses.length})</span></h3>
+                      <div className="mt-3 grid gap-3">
+                        {guestDetail.responses.map((response) => (
+                          <article key={response.id} className="rounded-2xl border p-4">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedResponseId(expandedResponseId === response.id ? null : response.id)}
+                              className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+                            >
+                              <div>
+                                <h4 className="font-bold">{response.worksheet_title}</h4>
+                                <p className="text-xs text-slate-500">Enviada: {new Date(response.submitted_at).toLocaleString()}</p>
+                              </div>
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className="font-bold text-blue-700">{response.score ?? '—'}%</span>
+                                <span className="font-bold text-emerald-700">✓ {response.correct_count}</span>
+                                {response.pending_count > 0 && <span className="font-bold text-amber-600">⏳ {response.pending_count}</span>}
+                                <ChevronRight size={16} className={`transition-transform ${expandedResponseId === response.id ? 'rotate-90' : ''}`} />
+                              </div>
+                            </button>
+                            {expandedResponseId === response.id && <ResponseDetails response={response} />}
+                          </article>
+                        ))}
+                        {!guestDetail.responses.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">Aún no ha enviado ninguna hoja.</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </section>
         )}
         {adminMenu === 'imagenes' && <ImageLibraryPage />}

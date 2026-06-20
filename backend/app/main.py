@@ -715,6 +715,32 @@ def list_guest_logs(_: PublicUser = Depends(require_teacher_or_admin)) -> list[d
     return repository.list_guest_access_logs()
 
 
+@app.get("/teacher/guest-detail")
+def guest_detail(guest_token: str, classroom_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Detalle de seguimiento de un invitado: respuestas (con título) y hojas pendientes del aula."""
+    responses = repository.list_responses_by_guest_token(guest_token)
+    classroom_worksheets = repository.list_classroom_worksheets(classroom_id)
+    title_by_id = {w.id: w.title for w in classroom_worksheets}
+    answered = {r.worksheet_id for r in responses}
+
+    resp_payload = []
+    for r in responses:
+        title = title_by_id.get(r.worksheet_id)
+        if title is None:
+            w = repository.get_worksheet(r.worksheet_id)
+            title = w.title if w else "(hoja eliminada)"
+        data = r.model_dump(mode="json")
+        data["worksheet_title"] = title
+        resp_payload.append(data)
+
+    pending = [
+        {"id": w.id, "title": w.title}
+        for w in classroom_worksheets
+        if w.published and not w.archived and w.id not in answered
+    ]
+    return {"responses": resp_payload, "pending": pending}
+
+
 # ── Vocabulario público (sin autenticación) ───────────────────────────────────
 
 @app.get("/public/readers-vocabulary")

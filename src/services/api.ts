@@ -456,6 +456,15 @@ export async function getGuestAccessLogs(): Promise<GuestAccessLog[]> {
   return request<GuestAccessLog[]>('/teacher/guest-logs');
 }
 
+export interface GuestDetail {
+  responses: (RespuestaEstudiante & { worksheet_title: string })[];
+  pending: { id: string; title: string }[];
+}
+
+export async function getGuestDetail(guestToken: string, classroomId: string): Promise<GuestDetail> {
+  return request<GuestDetail>(`/teacher/guest-detail?guest_token=${encodeURIComponent(guestToken)}&classroom_id=${encodeURIComponent(classroomId)}`);
+}
+
 export interface ReaderAccessLog {
   reader_id: string;
   reader_name: string;
