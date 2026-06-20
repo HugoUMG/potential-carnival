@@ -9,6 +9,13 @@ import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
+function answerText(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k} → ${v}`).join('\n');
+  return String(value);
+}
+
 interface GuestSession {
   name: string;
   token: string;
@@ -360,8 +367,8 @@ export function GuestPage() {
                     {resp.details.map((d) => (
                       <div key={d.activity_id} className={`rounded-2xl border p-4 text-sm ${d.status === 'correct' ? 'border-emerald-100 bg-emerald-50' : d.status === 'incorrect' ? 'border-red-100 bg-red-50' : 'border-amber-100 bg-amber-50'}`}>
                         <p className={`font-semibold ${d.status === 'correct' ? 'text-emerald-800' : d.status === 'incorrect' ? 'text-red-800' : 'text-amber-800'}`}>{d.prompt}</p>
-                        <p className="mt-1 text-slate-600">Respuesta: <span className="font-medium">"{String(d.student_answer ?? '')}"</span></p>
-                        {d.status !== 'pending' && <p className="text-slate-500">Correcta: {String(d.correct_answer ?? '')}</p>}
+                        <p className="mt-1 text-slate-600">Respuesta: <span className="font-medium"><RichText text={answerText(d.student_answer)} /></span></p>
+                        {d.status !== 'pending' && <p className="text-slate-500">Correcta: <RichText text={answerText(d.correct_answer)} /></p>}
                         {d.teacher_comment && <p className="mt-1 italic text-slate-500">✦ {d.teacher_comment}</p>}
                       </div>
                     ))}

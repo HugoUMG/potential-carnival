@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, LockKeyhole, Pencil, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, LockKeyhole, LogOut, Pencil, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
@@ -89,14 +89,21 @@ function statusBadge(status: DetalleRespuesta['status']) {
   return 'bg-amber-50 text-amber-700 border-amber-200';
 }
 
+function answerText(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'object') return Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k} → ${v}`).join('\n');
+  return String(value);
+}
+
 function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
   return (
     <div className="mt-3 grid gap-2">
       {response.details.map((detail) => (
         <div key={detail.activity_id} className={`rounded-xl border p-3 text-sm ${statusBadge(detail.status)}`}>
           <div className="font-semibold"><RichText text={detail.prompt} /></div>
-          <div>Respuesta: {JSON.stringify(detail.student_answer ?? '')}</div>
-          {detail.correct_answer !== null && <div>Correcta: {JSON.stringify(detail.correct_answer)}</div>}
+          <div>Respuesta: <RichText text={answerText(detail.student_answer)} /></div>
+          {detail.correct_answer !== null && <div>Correcta: <RichText text={answerText(detail.correct_answer)} /></div>}
           {detail.teacher_comment && <div className="mt-1 italic opacity-80">💬 {detail.teacher_comment}</div>}
         </div>
       ))}
@@ -1039,6 +1046,15 @@ export default function App() {
                 </>
               )}
             </div>
+            <button
+              type="button"
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+              onClick={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </div>
       </nav>
@@ -1573,8 +1589,8 @@ export default function App() {
                             <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">✦ IA</span>
                           )}
                         </div>
-                        <p className="text-sm">Respuesta: {JSON.stringify(detail.student_answer ?? '')}</p>
-                        {detail.correct_answer !== null && <p className="text-sm">Correcta: {JSON.stringify(detail.correct_answer)}</p>}
+                        <p className="text-sm">Respuesta: <RichText text={answerText(detail.student_answer)} /></p>
+                        {detail.correct_answer !== null && <p className="text-sm">Correcta: <RichText text={answerText(detail.correct_answer)} /></p>}
                         {hasAiComment && !canReview && (
                           <p className="mt-1 text-sm italic opacity-80">💬 {detail.teacher_comment}</p>
                         )}
