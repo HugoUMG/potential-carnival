@@ -62,6 +62,7 @@ interface BackendWorksheet {
   archived: boolean;
   max_attempts?: number | null;
   theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
+  ai_grading?: boolean;
   attempts_used?: number | null;
   attempts_remaining?: number | null;
 }
@@ -275,6 +276,7 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     theme: worksheet.theme ?? null,
     attemptsUsed: worksheet.attempts_used ?? null,
     attemptsRemaining: worksheet.attempts_remaining ?? null,
+    aiGrading: worksheet.ai_grading ?? true,
     infoFields: (worksheet.json_content as { info_fields?: string[] }).info_fields ?? [],
   };
 }
@@ -310,8 +312,8 @@ export async function deleteTeacher(teacherId: string): Promise<void> {
   await request<void>(`/teachers/${teacherId}`, { method: 'DELETE' });
 }
 
-export async function createWorksheet(scriptContent: string, createdBy: string, maxAttempts: number | null): Promise<Worksheet> {
-  const worksheet = await request<BackendWorksheet>('/worksheets', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, created_by: createdBy, max_attempts: maxAttempts }) });
+export async function createWorksheet(scriptContent: string, createdBy: string, maxAttempts: number | null, aiGrading = true): Promise<Worksheet> {
+  const worksheet = await request<BackendWorksheet>('/worksheets', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, created_by: createdBy, max_attempts: maxAttempts, ai_grading: aiGrading }) });
   return normalizeWorksheet(worksheet);
 }
 

@@ -329,6 +329,7 @@ def create_worksheet(payload: WorksheetCreate, current_user: PublicUser = Depend
         created_by=payload.created_by,
         max_attempts=payload.max_attempts,
         theme=worksheet_data.theme or payload.theme,
+        ai_grading=payload.ai_grading,
     )
     return repository.add_worksheet(worksheet)
 
@@ -515,7 +516,8 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
     _response_locks[lock_key] = now
 
     details = _build_answer_details(worksheet, payload.answers_json)
-    details = ai_grade_activities(details, worksheet.title)
+    if worksheet.ai_grading:
+        details = ai_grade_activities(details, worksheet.title)
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,
@@ -679,7 +681,8 @@ def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
     _response_locks[lock_key] = now
 
     details = _build_answer_details(worksheet, payload.answers_json)
-    details = ai_grade_activities(details, worksheet.title)
+    if worksheet.ai_grading:
+        details = ai_grade_activities(details, worksheet.title)
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,

@@ -144,6 +144,7 @@ export interface Worksheet {
   attemptsRemaining?: number | null;
   dueDate?: string | null;
   infoFields?: string[];
+  aiGrading?: boolean;
 }
 
 export type StudentAnswer = string | string[] | Record<string, string>;

@@ -135,6 +135,7 @@ def _initialize_sqlite_database() -> None:
         _add_column_if_missing(connection, "users", "username TEXT")
         _add_column_if_missing(connection, "worksheets", "max_attempts INTEGER")
         _add_column_if_missing(connection, "worksheets", "theme TEXT")
+        _add_column_if_missing(connection, "worksheets", "ai_grading INTEGER NOT NULL DEFAULT 1")
         _add_column_if_missing(connection, "worksheets", "archived INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(connection, "worksheet_responses", "details_json TEXT NOT NULL DEFAULT '[]'")
         _add_column_if_missing(connection, "worksheet_responses", "correct_count INTEGER NOT NULL DEFAULT 0")

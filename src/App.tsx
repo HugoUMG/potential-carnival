@@ -139,6 +139,7 @@ export default function App() {
   const [activeWorksheet, setActiveWorksheet] = useState<Worksheet>(sampleWorksheet);
   const [scriptDraft, setScriptDraft] = useState(sampleWorksheet.scriptContent);
   const [maxAttemptsDraft, setMaxAttemptsDraft] = useState('unlimited');
+  const [aiGradingDraft, setAiGradingDraft] = useState(true);
   const [answers, setAnswers] = useState<StudentAnswers>({});
   const [responses, setResponses] = useState<RespuestaEstudiante[]>([]);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
@@ -306,6 +307,7 @@ export default function App() {
           setActiveWorksheet(sortedWorksheets[0]);
           setScriptDraft(sortedWorksheets[0].scriptContent);
           setMaxAttemptsDraft(sortedWorksheets[0].maxAttempts ? String(sortedWorksheets[0].maxAttempts) : 'unlimited');
+          setAiGradingDraft(sortedWorksheets[0].aiGrading ?? true);
           setResponses(await listWorksheetResponses(sortedWorksheets[0].id));
         }
       } else {
@@ -335,7 +337,7 @@ export default function App() {
     setMessage('');
     try {
       const maxAttempts = maxAttemptsDraft === 'unlimited' ? null : Number(maxAttemptsDraft);
-      const worksheet = await createWorksheet(scriptDraft, user.id, maxAttempts);
+      const worksheet = await createWorksheet(scriptDraft, user.id, maxAttempts, aiGradingDraft);
       setActiveWorksheet(worksheet);
       setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== sampleWorksheet.id)]);
       setSelectedActivityId(worksheet.activities[0]?.id ?? '');
@@ -1172,7 +1174,7 @@ export default function App() {
             </div>
           </section>
         )}
-        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} isSaving={isSaving} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onSaveScript={saveScript} />}
+        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} isSaving={isSaving} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onSaveScript={saveScript} />}
         {adminMenu === 'estudiantes' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <h2 className="text-2xl font-bold">Crear estudiante</h2>
@@ -1529,7 +1531,7 @@ export default function App() {
                   className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 text-sm"
                   type="button"
                   title="Editar esta hoja de trabajo"
-                  onClick={() => { setScriptDraft(activeWorksheet.scriptContent); setAdminMenu('crear'); }}
+                  onClick={() => { setScriptDraft(activeWorksheet.scriptContent); setMaxAttemptsDraft(activeWorksheet.maxAttempts ? String(activeWorksheet.maxAttempts) : 'unlimited'); setAiGradingDraft(activeWorksheet.aiGrading ?? true); setAdminMenu('crear'); }}
                 >
                   <Pencil className="mr-1 inline" size={15} /> Editar hoja
                 </button>

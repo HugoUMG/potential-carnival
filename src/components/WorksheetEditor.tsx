@@ -79,20 +79,22 @@ interface WorksheetEditorProps {
   selectedActivity?: WorksheetActivity;
   scriptDraft: string;
   maxAttemptsDraft: string;
+  aiGradingDraft: boolean;
   isSaving?: boolean;
   message?: string;
   userId: string;
   onAddActivity: (activity: WorksheetActivity) => void;
   onScriptChange: (script: string) => void;
   onMaxAttemptsChange: (value: string) => void;
+  onAiGradingChange: (value: boolean) => void;
   onSaveScript: () => void;
 }
 
 type EditorMode = 'script' | 'visual' | 'ai';
 
 export function WorksheetEditor({
-  worksheet, selectedActivity, scriptDraft, maxAttemptsDraft, isSaving, message, userId,
-  onAddActivity, onScriptChange, onMaxAttemptsChange, onSaveScript,
+  worksheet, selectedActivity, scriptDraft, maxAttemptsDraft, aiGradingDraft, isSaving, message, userId,
+  onAddActivity, onScriptChange, onMaxAttemptsChange, onAiGradingChange, onSaveScript,
 }: WorksheetEditorProps) {
   const [mode, setMode] = useState<EditorMode>('script');
   const [skippedWarning, setSkippedWarning] = useState<number | null>(null);
@@ -279,6 +281,18 @@ export function WorksheetEditor({
                 <option value="4">4 intentos</option>
                 <option value="5">5 intentos</option>
               </select>
+            </label>
+            <label className="mt-4 flex max-w-xl items-start gap-3 rounded-2xl border border-slate-200 p-4">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
+                checked={aiGradingDraft}
+                onChange={(event) => onAiGradingChange(event.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-semibold text-slate-700">Autoevaluación con IA</span>
+                <span className="block text-xs text-slate-500">Si está activa, la IA califica y comenta las respuestas abiertas/incorrectas al enviarse. Solo tú ves esta opción; el alumno no la percibe.</span>
+              </span>
             </label>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-slate-500">Al guardar, el backend valida el script y almacena la evaluación.</p>

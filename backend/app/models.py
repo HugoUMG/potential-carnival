@@ -108,6 +108,7 @@ class Worksheet(BaseModel):
     archived: bool = False
     max_attempts: int | None = None
     theme: dict[str, str] | None = None
+    ai_grading: bool = True
     attempts_used: int | None = None
     attempts_remaining: int | None = None
     due_date: datetime | None = None
@@ -118,6 +119,7 @@ class WorksheetCreate(BaseModel):
     created_by: str
     max_attempts: int | None = None
     theme: dict[str, str] | None = None
+    ai_grading: bool = True
 
 
 class AiGenerateRequest(BaseModel):
