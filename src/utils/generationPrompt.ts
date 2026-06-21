@@ -49,6 +49,18 @@ multiplechoice {
   answer: "He plays soccer."
 }
 
+# multiselect — VARIAS respuestas correctas (el alumno marca todas las que apliquen).
+# "answer" es una lista con TODAS las opciones correctas.
+multiselect {
+  question: "Select all the verbs in the simple present."
+  options:
+  - runs
+  - running
+  - eats
+  - eaten
+  answer: ["runs", "eats"]
+}
+
 # truefalse — varios enunciados, cada uno true o false.
 truefalse {
   statements:

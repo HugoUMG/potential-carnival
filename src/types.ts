@@ -3,6 +3,7 @@ import type React from 'react';
 export type ActivityType =
   | 'fillblank'
   | 'multiplechoice'
+  | 'multiselect'
   | 'textbox'
   | 'matching'
   | 'reading'
@@ -34,6 +35,13 @@ export interface MultipleChoiceActivity extends BaseActivity {
   question: string;
   options: string[];
   answer: string | string[];
+}
+
+export interface MultiSelectActivity extends BaseActivity {
+  type: 'multiselect';
+  question: string;
+  options: string[];
+  answer: string[];
 }
 
 export interface TextBoxActivity extends BaseActivity {
@@ -109,6 +117,7 @@ export interface ReadingTrueFalseActivity extends BaseActivity {
 export type WorksheetActivity =
   | FillBlankActivity
   | MultipleChoiceActivity
+  | MultiSelectActivity
   | TextBoxActivity
   | MatchingActivity
   | ReadingActivity

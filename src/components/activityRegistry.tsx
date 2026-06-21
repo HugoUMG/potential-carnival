@@ -10,6 +10,7 @@ import type {
   ListeningTrueFalseActivity,
   MatchingActivity,
   MultipleChoiceActivity,
+  MultiSelectActivity,
   ReadingActivity,
   ReadingTrueFalseActivity,
   ListeningActivity,
@@ -89,6 +90,34 @@ function MultipleChoiceRenderer({ activity, value, readonly, onChange }: Activit
               type="radio"
               checked={value === option}
               onChange={() => onChange(activity.id, option)}
+            />
+            <span className="text-sm text-slate-700">{option}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function MultiSelectRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultiSelectActivity>) {
+  const selected = Array.isArray(value) ? value : [];
+  const toggle = (option: string) => {
+    const next = selected.includes(option) ? selected.filter((o) => o !== option) : [...selected, option];
+    onChange(activity.id, next);
+  };
+  return (
+    <fieldset>
+      <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
+      <p className="mt-1 text-xs font-semibold text-blue-600">Puedes elegir más de una opción.</p>
+      <ActivityInstructions instructions={activity.instructions} />
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {activity.options.map((option) => (
+          <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
+            <input
+              disabled={readonly}
+              type="checkbox"
+              checked={selected.includes(option)}
+              onChange={() => toggle(option)}
             />
             <span className="text-sm text-slate-700">{option}</span>
           </label>
@@ -393,6 +422,14 @@ export const activityRegistry = {
     icon: '✅',
     create: () => ({ id: nextId('multiplechoice'), type: 'multiplechoice', question: 'Choose the correct answer.', options: ['am', 'is', 'are'], answer: 'am' }),
     Renderer: MultipleChoiceRenderer,
+  },
+  multiselect: {
+    type: 'multiselect',
+    label: 'Multiple answers',
+    description: 'The student can choose several correct options.',
+    icon: '🗹',
+    create: () => ({ id: nextId('multiselect'), type: 'multiselect', question: 'Select all that apply.', options: ['run', 'runs', 'running', 'ran'], answer: ['run', 'runs'] }),
+    Renderer: MultiSelectRenderer,
   },
   textbox: {
     type: 'textbox',

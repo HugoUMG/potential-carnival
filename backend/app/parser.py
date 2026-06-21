@@ -8,6 +8,7 @@ from .domain import ActivityData, BlockData, WorksheetData
 SUPPORTED_BLOCKS = {
     "fillblank",
     "multiplechoice",
+    "multiselect",
     "textbox",
     "matching",
     "speaking",
@@ -259,6 +260,11 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_answer(body))
     if activity_type == "multiplechoice":
         return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_answer(body))
+    if activity_type == "multiselect":
+        answer = _get_answer(body)
+        if not isinstance(answer, list):
+            answer = [answer] if answer else []
+        return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=answer)
     if activity_type in {"textbox", "speaking"}:
         return ActivityData(**common, prompt=_get_scalar(body, "prompt"))
     if activity_type == "matching":

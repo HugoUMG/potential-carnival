@@ -55,7 +55,7 @@ class LoginResponse(BaseModel):
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     type: Literal[
-        "fillblank", "multiplechoice", "textbox", "matching", "speaking",
+        "fillblank", "multiplechoice", "multiselect", "textbox", "matching", "speaking",
         "reading", "imagequestion", "listening",
         "listeningfillblank", "listeningmultiplechoice", "listeningmatching", "listeningtruefalse",
         "truefalse", "readingtruefalse",
