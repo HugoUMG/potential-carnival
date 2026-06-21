@@ -141,6 +141,8 @@ export default function App() {
   // Conteo de respuestas "ya visto" por hoja (se actualiza al abrir esa hoja en Revisión).
   // Si hay más respuestas que las vistas → marca roja "!" pendiente hasta que el profesor entre.
   const [responseSeen, setResponseSeen] = useState<Record<string, number>>({});
+  // IDs de respuestas individuales ya vistas → botón de alumno en rojo "!" hasta seleccionarla.
+  const [seenResponseIds, setSeenResponseIds] = useState<Set<string>>(new Set());
   const [guestLogs, setGuestLogs] = useState<GuestAccessLog[]>([]);
   const [selectedGuest, setSelectedGuest] = useState<GuestAccessLog | null>(null);
   const [guestDetail, setGuestDetail] = useState<GuestDetail | null>(null);
@@ -282,6 +284,7 @@ export default function App() {
     if (!user || user.role === 'student') return;
     setBellSeen(localStorage.getItem(`teacher_bell_seen_${user.id}`) ?? '1970-01-01T00:00:00.000Z');
     try { setResponseSeen(JSON.parse(localStorage.getItem(`review_seen_${user.id}`) ?? '{}')); } catch { /* vacío */ }
+    try { setSeenResponseIds(new Set(JSON.parse(localStorage.getItem(`review_seen_resp_${user.id}`) ?? '[]'))); } catch { /* vacío */ }
     async function pollFeed() {
       try {
         setFeed(await getTeacherActivityFeed());
@@ -456,6 +459,7 @@ export default function App() {
     const loaded = await listWorksheetResponses(worksheet.id);
     setResponses(loaded);
     setSelectedResponseId(loaded[0]?.id ?? null);
+    if (loaded[0]) markResponseSeen(loaded[0].id);
     setResponseCounts((current) => ({ ...current, [worksheet.id]: loaded.length }));
     markWorksheetReviewed(worksheet.id, loaded.length);
     const preloaded: Record<string, string> = {};
@@ -482,6 +486,16 @@ export default function App() {
     setResponseSeen((current) => {
       const next = { ...current, [worksheetId]: count };
       if (user) localStorage.setItem(`review_seen_${user.id}`, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function markResponseSeen(responseId: string) {
+    setSeenResponseIds((current) => {
+      if (current.has(responseId)) return current;
+      const next = new Set(current);
+      next.add(responseId);
+      if (user) localStorage.setItem(`review_seen_resp_${user.id}`, JSON.stringify([...next]));
       return next;
     });
   }
@@ -1588,15 +1602,18 @@ export default function App() {
               <div className="mt-5 flex flex-wrap gap-2">
                 {responses.map((r) => {
                   const active = (selectedResponseId ?? responses[0]?.id) === r.id;
+                  const isNew = !active && !seenResponseIds.has(r.id);
                   return (
                     <button
                       key={r.id}
                       type="button"
-                      onClick={() => setSelectedResponseId(r.id)}
-                      className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${active ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
+                      onClick={() => { setSelectedResponseId(r.id); markResponseSeen(r.id); }}
+                      title={isNew ? 'Respuesta nueva sin revisar' : undefined}
+                      className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${active ? 'bg-blue-600 text-white shadow-sm' : isNew ? 'border border-red-300 bg-red-50 text-red-700 hover:bg-red-100' : 'border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
                     >
+                      {isNew && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white">!</span>}
                       {r.student_name}
-                      <span className={`rounded-full px-1.5 text-xs font-bold ${active ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}>{r.score ?? '—'}</span>
+                      <span className={`rounded-full px-1.5 text-xs font-bold ${active ? 'bg-white/20' : isNew ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'}`}>{r.score ?? '—'}</span>
                     </button>
                   );
                 })}
