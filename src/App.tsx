@@ -141,6 +141,8 @@ export default function App() {
   // Conteo de respuestas "ya visto" por hoja (se actualiza al abrir esa hoja en Revisión).
   // Si hay más respuestas que las vistas → marca roja "!" pendiente hasta que el profesor entre.
   const [responseSeen, setResponseSeen] = useState<Record<string, number>>({});
+  // IDs de respuestas individuales ya vistas → botón de alumno en rojo "!" hasta seleccionarla.
+  const [seenResponseIds, setSeenResponseIds] = useState<Set<string>>(new Set());
   const [guestLogs, setGuestLogs] = useState<GuestAccessLog[]>([]);
   const [selectedGuest, setSelectedGuest] = useState<GuestAccessLog | null>(null);
   const [guestDetail, setGuestDetail] = useState<GuestDetail | null>(null);
@@ -155,6 +157,7 @@ export default function App() {
   const [responses, setResponses] = useState<RespuestaEstudiante[]>([]);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
   const [revisionSelectedId, setRevisionSelectedId] = useState<string | null>(null);
+  const [selectedResponseId, setSelectedResponseId] = useState<string | null>(null);
   const [students, setStudents] = useState<UsuarioSesion[]>([]);
   const [teachers, setTeachers] = useState<UsuarioSesion[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
@@ -281,6 +284,7 @@ export default function App() {
     if (!user || user.role === 'student') return;
     setBellSeen(localStorage.getItem(`teacher_bell_seen_${user.id}`) ?? '1970-01-01T00:00:00.000Z');
     try { setResponseSeen(JSON.parse(localStorage.getItem(`review_seen_${user.id}`) ?? '{}')); } catch { /* vacío */ }
+    try { setSeenResponseIds(new Set(JSON.parse(localStorage.getItem(`review_seen_resp_${user.id}`) ?? '[]'))); } catch { /* vacío */ }
     async function pollFeed() {
       try {
         setFeed(await getTeacherActivityFeed());
@@ -454,6 +458,8 @@ export default function App() {
     setRevisionSelectedId(worksheet.id);
     const loaded = await listWorksheetResponses(worksheet.id);
     setResponses(loaded);
+    setSelectedResponseId(loaded[0]?.id ?? null);
+    if (loaded[0]) markResponseSeen(loaded[0].id);
     setResponseCounts((current) => ({ ...current, [worksheet.id]: loaded.length }));
     markWorksheetReviewed(worksheet.id, loaded.length);
     const preloaded: Record<string, string> = {};
@@ -480,6 +486,16 @@ export default function App() {
     setResponseSeen((current) => {
       const next = { ...current, [worksheetId]: count };
       if (user) localStorage.setItem(`review_seen_${user.id}`, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function markResponseSeen(responseId: string) {
+    setSeenResponseIds((current) => {
+      if (current.has(responseId)) return current;
+      const next = new Set(current);
+      next.add(responseId);
+      if (user) localStorage.setItem(`review_seen_resp_${user.id}`, JSON.stringify([...next]));
       return next;
     });
   }
@@ -1261,9 +1277,11 @@ export default function App() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        {(responseCounts[worksheet.id] ?? 0) > (responseSeen[worksheet.id] ?? 0) && (
-                          <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-xs font-black text-white" title="Respuestas nuevas sin revisar">! Nuevas</span>
-                        )}
+                        {(() => {
+                          const newCount = (responseCounts[worksheet.id] ?? 0) - (responseSeen[worksheet.id] ?? 0);
+                          if (newCount <= 0) return null;
+                          return <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-black text-white" title={`${newCount} respuesta${newCount !== 1 ? 's' : ''} nueva${newCount !== 1 ? 's' : ''} sin revisar`}>{newCount === 1 ? '!' : newCount}</span>;
+                        })()}
                         <span className={`rounded-full px-3 py-1 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
                         {(responseCounts[worksheet.id] ?? 0) > 0 ? (
                           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
@@ -1528,7 +1546,8 @@ export default function App() {
             <div className="mt-5 grid gap-3">
               {savedWorksheets.map((worksheet) => {
                 const count = responseCounts[worksheet.id] ?? 0;
-                const hasNew = count > (responseSeen[worksheet.id] ?? 0);
+                const newCount = count - (responseSeen[worksheet.id] ?? 0);
+                const hasNew = newCount > 0;
                 return (
                   <button
                     key={worksheet.id}
@@ -1539,7 +1558,7 @@ export default function App() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         {hasNew && (
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500 text-xs font-black text-white" title="Respuestas nuevas sin revisar">!</span>
+                          <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-black text-white" title={`${newCount} respuesta${newCount !== 1 ? 's' : ''} nueva${newCount !== 1 ? 's' : ''} sin revisar`}>{newCount === 1 ? '!' : newCount}</span>
                         )}
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
                         <h3 className="truncate text-lg font-bold">{worksheet.title}</h3>
@@ -1578,8 +1597,34 @@ export default function App() {
               </div>
             </div>
             <p className="text-sm text-slate-500">Nombre, fecha, puntuación, aciertos y pendientes permanecen guardados aunque la evaluación se deshabilite. Las respuestas incorrectas de fill in the blank se pueden corregir manualmente por errores de escritura.</p>
-            <div className="mt-5 grid gap-4">
-              {responses.map((response) => (
+            {/* Botones por alumno: seleccionar para ver solo sus respuestas */}
+            {responses.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {responses.map((r) => {
+                  const active = (selectedResponseId ?? responses[0]?.id) === r.id;
+                  const isNew = !active && !seenResponseIds.has(r.id);
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => { setSelectedResponseId(r.id); markResponseSeen(r.id); }}
+                      title={isNew ? 'Respuesta nueva sin revisar' : undefined}
+                      className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${active ? 'bg-blue-600 text-white shadow-sm' : isNew ? 'border border-red-300 bg-red-50 text-red-700 hover:bg-red-100' : 'border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
+                    >
+                      {isNew && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white">!</span>}
+                      {r.student_name}
+                      <span className={`rounded-full px-1.5 text-xs font-bold ${active ? 'bg-white/20' : isNew ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'}`}>{r.score ?? '—'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {!responses.length && <p className="mt-5 rounded-2xl bg-slate-50 p-5">Esta evaluación aún no tiene respuestas.</p>}
+            <div className="mt-4">
+              {(() => {
+                const response = responses.find((r) => r.id === selectedResponseId) ?? responses[0];
+                if (!response) return null;
+                return (
                 <article key={response.id} className="rounded-2xl border p-4">
                   <div className="flex items-start justify-between gap-3"><h3 className="font-bold">{response.student_name}</h3><button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeResponse(response)}>Eliminar respuesta</button></div>
                   <p className="text-sm text-slate-500">Fecha: {new Date(response.submitted_at).toLocaleString()} · Puntuación: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>
@@ -1636,8 +1681,8 @@ export default function App() {
                     );
                   })}
                 </article>
-              ))}
-              {!responses.length && <p className="rounded-2xl bg-slate-50 p-5">Esta evaluación aún no tiene respuestas.</p>}
+                );
+              })()}
             </div>
           </section>
         )}
