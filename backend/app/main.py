@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, generate_worksheet_script
+from .ai import ai_grade_activities, generate_worksheet_script, summarize_worksheet_performance as ai_summarize
 from .database import initialize_database
 from .models import (
     AiGenerateRequest,
@@ -399,6 +399,39 @@ def get_teacher_notifications(since: str | None = None, current_user: PublicUser
         since_iso = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
     teacher_id = None if current_user.role == UserRole.admin else current_user.id
     return repository.get_recent_responses_for_teacher(teacher_id, since_iso)
+
+
+@app.get("/teacher/worksheet-summary/{worksheet_id}")
+def worksheet_summary(worksheet_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, str]:
+    worksheet = repository.get_worksheet(worksheet_id)
+    if not worksheet:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    if current_user.role != UserRole.admin and worksheet.created_by != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes analizar evaluaciones de otro profesor")
+
+    responses = repository.list_responses(worksheet_id=worksheet_id)
+    if not responses:
+        return {"summary": ""}
+
+    # Agregar por actividad: aciertos, fallos y ejemplos de respuestas incorrectas.
+    by_activity: dict[str, dict] = {}
+    for response in responses:
+        for detail in response.details:
+            prompt = (detail.prompt or "").strip() or detail.activity_id
+            stat = by_activity.setdefault(prompt, {"prompt": prompt, "correct": 0, "incorrect": 0, "sample_wrong": []})
+            if detail.status == "correct":
+                stat["correct"] += 1
+            elif detail.status == "incorrect":
+                stat["incorrect"] += 1
+                if len(stat["sample_wrong"]) < 5 and detail.student_answer not in (None, "", []):
+                    stat["sample_wrong"].append(str(detail.student_answer)[:120])
+
+    activities = [
+        {**v, "total": v["correct"] + v["incorrect"]}
+        for v in by_activity.values()
+        if (v["correct"] + v["incorrect"]) > 0
+    ]
+    return {"summary": ai_summarize(worksheet.title, activities)}
 
 
 @app.get("/teacher/activity-feed")

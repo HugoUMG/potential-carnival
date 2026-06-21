@@ -822,6 +822,7 @@ class WorksheetRepository:
             incorrect = sum(1 for r in wr for d in r.details if _status(d) == "incorrect")
             avg_scores.append({"worksheet_title": worksheet.title, "average_score": avg})
             worksheet_stats.append({
+                "worksheet_id": worksheet.id,
                 "worksheet_title": worksheet.title,
                 "responses": len(wr),
                 "correct": correct,
