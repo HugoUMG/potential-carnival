@@ -1261,9 +1261,11 @@ export default function App() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        {(responseCounts[worksheet.id] ?? 0) > (responseSeen[worksheet.id] ?? 0) && (
-                          <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-xs font-black text-white" title="Respuestas nuevas sin revisar">! Nuevas</span>
-                        )}
+                        {(() => {
+                          const newCount = (responseCounts[worksheet.id] ?? 0) - (responseSeen[worksheet.id] ?? 0);
+                          if (newCount <= 0) return null;
+                          return <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-black text-white" title={`${newCount} respuesta${newCount !== 1 ? 's' : ''} nueva${newCount !== 1 ? 's' : ''} sin revisar`}>{newCount === 1 ? '!' : newCount}</span>;
+                        })()}
                         <span className={`rounded-full px-3 py-1 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
                         {(responseCounts[worksheet.id] ?? 0) > 0 ? (
                           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
@@ -1528,7 +1530,8 @@ export default function App() {
             <div className="mt-5 grid gap-3">
               {savedWorksheets.map((worksheet) => {
                 const count = responseCounts[worksheet.id] ?? 0;
-                const hasNew = count > (responseSeen[worksheet.id] ?? 0);
+                const newCount = count - (responseSeen[worksheet.id] ?? 0);
+                const hasNew = newCount > 0;
                 return (
                   <button
                     key={worksheet.id}
@@ -1539,7 +1542,7 @@ export default function App() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         {hasNew && (
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500 text-xs font-black text-white" title="Respuestas nuevas sin revisar">!</span>
+                          <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-black text-white" title={`${newCount} respuesta${newCount !== 1 ? 's' : ''} nueva${newCount !== 1 ? 's' : ''} sin revisar`}>{newCount === 1 ? '!' : newCount}</span>
                         )}
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
                         <h3 className="truncate text-lg font-bold">{worksheet.title}</h3>
