@@ -138,6 +138,9 @@ export default function App() {
   const [feed, setFeed] = useState<ActivityEvent[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
   const [bellSeen, setBellSeen] = useState<string>('1970-01-01T00:00:00.000Z');
+  // Conteo de respuestas "ya visto" por hoja → marca roja "!" cuando llegan nuevas.
+  const [responseSeen, setResponseSeen] = useState<Record<string, number>>({});
+  const seenBaselined = useRef(false);
   const [guestLogs, setGuestLogs] = useState<GuestAccessLog[]>([]);
   const [selectedGuest, setSelectedGuest] = useState<GuestAccessLog | null>(null);
   const [guestDetail, setGuestDetail] = useState<GuestDetail | null>(null);
@@ -277,9 +280,11 @@ export default function App() {
   useEffect(() => {
     if (!user || user.role === 'student') return;
     setBellSeen(localStorage.getItem(`teacher_bell_seen_${user.id}`) ?? '1970-01-01T00:00:00.000Z');
+    try { setResponseSeen(JSON.parse(localStorage.getItem(`review_seen_${user.id}`) ?? '{}')); } catch { /* vacío */ }
     async function pollFeed() {
       try {
         setFeed(await getTeacherActivityFeed());
+        await loadResponseCounts();
       } catch { /* silencioso — no interrumpe la UI */ }
     }
     void pollFeed();
@@ -450,6 +455,7 @@ export default function App() {
     const loaded = await listWorksheetResponses(worksheet.id);
     setResponses(loaded);
     setResponseCounts((current) => ({ ...current, [worksheet.id]: loaded.length }));
+    markWorksheetReviewed(worksheet.id, loaded.length);
     const preloaded: Record<string, string> = {};
     for (const resp of loaded) {
       for (const detail of resp.details) {
@@ -464,10 +470,27 @@ export default function App() {
 
   async function loadResponseCounts() {
     try {
-      setResponseCounts(await getWorksheetResponseCounts());
+      const counts = await getWorksheetResponseCounts();
+      setResponseCounts(counts);
+      // Primera carga: tomar lo existente como "ya visto" para que solo lo NUEVO se resalte.
+      if (!seenBaselined.current && user) {
+        seenBaselined.current = true;
+        if (localStorage.getItem(`review_seen_${user.id}`) === null) {
+          setResponseSeen(counts);
+          localStorage.setItem(`review_seen_${user.id}`, JSON.stringify(counts));
+        }
+      }
     } catch {
       // Conteo es informativo; si falla no bloquea la revisión.
     }
+  }
+
+  function markWorksheetReviewed(worksheetId: string, count: number) {
+    setResponseSeen((current) => {
+      const next = { ...current, [worksheetId]: count };
+      if (user) localStorage.setItem(`review_seen_${user.id}`, JSON.stringify(next));
+      return next;
+    });
   }
 
   async function openGuest(log: GuestAccessLog) {
@@ -1247,6 +1270,9 @@ export default function App() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
+                        {(responseCounts[worksheet.id] ?? 0) > (responseSeen[worksheet.id] ?? 0) && (
+                          <span className="flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-xs font-black text-white" title="Respuestas nuevas sin revisar">! Nuevas</span>
+                        )}
                         <span className={`rounded-full px-3 py-1 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
                         {(responseCounts[worksheet.id] ?? 0) > 0 ? (
                           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
@@ -1511,22 +1537,26 @@ export default function App() {
             <div className="mt-5 grid gap-3">
               {savedWorksheets.map((worksheet) => {
                 const count = responseCounts[worksheet.id] ?? 0;
+                const hasNew = count > (responseSeen[worksheet.id] ?? 0);
                 return (
                   <button
                     key={worksheet.id}
                     type="button"
-                    className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/40"
+                    className={`flex items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/40 ${hasNew ? 'border-red-300 bg-red-50/40' : 'border-slate-100'}`}
                     onClick={() => loadWorksheetResponses(worksheet)}
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
+                        {hasNew && (
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500 text-xs font-black text-white" title="Respuestas nuevas sin revisar">!</span>
+                        )}
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
                         <h3 className="truncate text-lg font-bold">{worksheet.title}</h3>
                       </div>
                       <p className="mt-1 truncate text-sm text-slate-500"><RichText text={worksheet.description} /></p>
                     </div>
                     <div className="shrink-0 text-center">
-                      <p className={`text-3xl font-bold ${count > 0 ? 'text-blue-600' : 'text-slate-300'}`}>{count}</p>
+                      <p className={`text-3xl font-bold ${hasNew ? 'text-red-600' : count > 0 ? 'text-blue-600' : 'text-slate-300'}`}>{count}</p>
                       <p className="text-xs text-slate-400">{count === 1 ? 'respuesta' : 'respuestas'}</p>
                     </div>
                   </button>
