@@ -221,6 +221,8 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'fillblank', text: activity.text ?? '', answer: activity.answer ?? '' }, activity);
     case 'multiplechoice':
       return withInstructions({ id: activity.id, type: 'multiplechoice', question: activity.question ?? '', options: activity.options ?? [], answer: activity.answer ?? '' }, activity);
+    case 'multiselect':
+      return withInstructions({ id: activity.id, type: 'multiselect', question: activity.question ?? '', options: activity.options ?? [], answer: Array.isArray(activity.answer) ? activity.answer : (activity.answer ? [activity.answer] : []) }, activity);
     case 'textbox':
       return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
     case 'matching':

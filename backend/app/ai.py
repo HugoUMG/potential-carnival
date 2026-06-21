@@ -38,7 +38,7 @@ You may also place activities directly inside worksheet { } without block {} wra
 Use block {} when grouping activities by skill or topic makes sense.
 
 === ACTIVITY TYPES ===
-ALLOWED: fillblank, multiplechoice, matching, truefalse, textbox, reading, imagequestion,
+ALLOWED: fillblank, multiplechoice, multiselect, matching, truefalse, textbox, reading, imagequestion,
          listening, listeningmultiplechoice, listeningfillblank, listeningmatching, listeningtruefalse
 NEVER USE: speaking
 
@@ -81,6 +81,18 @@ multiplechoice {
   - She goes to school.
   - She going to school.
   answer: "She goes to school."
+}
+
+── multiselect (varias respuestas correctas) ──────────────────
+Fields: question, options (list), answer (LIST of all correct options)
+multiselect {
+  question: "Select all the verbs in the simple present."
+  options:
+  - runs
+  - running
+  - eats
+  - eaten
+  answer: ["runs", "eats"]
 }
 
 ── matching ───────────────────────────────────────────────────

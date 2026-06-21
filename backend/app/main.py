@@ -893,6 +893,14 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             is_correct = str(student_answer or "").strip().lower() == str(activity.answer).strip().lower()
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue
+        if activity.type == "multiselect" and activity.answer:
+            # Varias opciones correctas: acierto si el conjunto elegido coincide exactamente.
+            correct_set = {_norm_answer(a) for a in _resolve_correct_answers(activity.answer)}
+            selected = student_answer if isinstance(student_answer, list) else ([student_answer] if student_answer else [])
+            selected_set = {_norm_answer(s) for s in selected}
+            is_correct = bool(correct_set) and selected_set == correct_set
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            continue
         if activity.type == "matching" and activity.left and activity.right:
             selected_matches = student_answer if isinstance(student_answer, dict) else {}
             for index, left_item in enumerate(activity.left):
