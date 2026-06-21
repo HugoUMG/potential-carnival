@@ -99,7 +99,7 @@ export interface TeacherStats {
   active_worksheets: number;
   total_responses: number;
   avg_scores: { worksheet_title: string; average_score: number }[];
-  worksheet_stats: { worksheet_title: string; responses: number; correct: number; incorrect: number; average_score: number }[];
+  worksheet_stats: { worksheet_id: string; worksheet_title: string; responses: number; correct: number; incorrect: number; average_score: number }[];
   total_correct: number;
   total_incorrect: number;
   students_per_classroom: { classroom_name: string; student_count: number }[];
@@ -494,6 +494,11 @@ export async function getWorksheetClassroomAssignments(): Promise<Record<string,
 
 export async function getTeacherDashboard(): Promise<TeacherStats> {
   return request<TeacherStats>('/dashboard/teacher');
+}
+
+export async function getWorksheetSummary(worksheetId: string): Promise<string> {
+  const res = await request<{ summary: string }>(`/teacher/worksheet-summary/${worksheetId}`);
+  return res.summary;
 }
 
 export async function getStudentsActivity(): Promise<StudentActivity[]> {

@@ -383,6 +383,37 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
     return details
 
 
+_SUMMARY_SYSTEM = """Eres un asistente pedagógico. Recibes estadísticas de una hoja de trabajo de inglés
+(por actividad: cuántos acertaron/fallaron y ejemplos de respuestas incorrectas). Escribe un
+resumen BREVE y útil para el profesor, en español, con EXACTAMENTE estas tres secciones y sin
+markdown de encabezados (usa los títulos tal cual, en mayúsculas, seguidos de viñetas con "- "):
+
+ERRORES COMUNES
+- (2-4 viñetas con los patrones de error más frecuentes; cita el tema, no al alumno)
+
+CONCEPTOS A REFORZAR
+- (2-3 viñetas con la gramática/vocabulario a repasar)
+
+RECOMENDACIONES
+- (2-3 viñetas con acciones concretas para la próxima clase)
+
+Sé concreto y conciso. Si casi todo está correcto, dilo y felicita brevemente."""
+
+
+def summarize_worksheet_performance(worksheet_title: str, activities: list[dict]) -> str:
+    """Genera un resumen de desempeño de una hoja a partir de estadísticas por actividad."""
+    if not activities:
+        return ""
+    user_prompt = (
+        f'Hoja: "{worksheet_title}"\n\n'
+        f"Estadísticas por actividad:\n{json.dumps(activities, ensure_ascii=False, indent=2)}"
+    )
+    try:
+        return _ai_call(_SUMMARY_SYSTEM, user_prompt).strip()
+    except Exception:
+        return ""
+
+
 def _serialize(value: Any) -> Any:
     if value is None:
         return None

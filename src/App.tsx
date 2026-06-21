@@ -49,6 +49,7 @@ import {
   getWorksheetClassroomAssignments,
   listWorksheetResponses,
   getWorksheetResponseCounts,
+  getWorksheetSummary,
   getTeacherActivityFeed,
   type ActivityEvent,
   login,
@@ -169,6 +170,8 @@ export default function App() {
   const [assignmentWorksheet, setAssignmentWorksheet] = useState<Worksheet | null>(null);
   const [selectedAssignmentClassrooms, setSelectedAssignmentClassrooms] = useState<string[]>([]);
   const [teacherStats, setTeacherStats] = useState<TeacherStats | null>(null);
+  const [summaryByWs, setSummaryByWs] = useState<Record<string, string>>({});
+  const [summaryLoading, setSummaryLoading] = useState<string | null>(null);
   const [worksheetClassrooms, setWorksheetClassrooms] = useState<Record<string, Classroom[]>>({});
   const [studentForm, setStudentForm] = useState({ name: '', username: '', password: '' });
   const [teacherForm, setTeacherForm] = useState({ name: '', username: '', password: '', email: '' });
@@ -498,6 +501,23 @@ export default function App() {
       if (user) localStorage.setItem(`review_seen_resp_${user.id}`, JSON.stringify([...next]));
       return next;
     });
+  }
+
+  async function loadSummary(worksheetId: string) {
+    setSummaryLoading(worksheetId);
+    try {
+      const s = await getWorksheetSummary(worksheetId);
+      setSummaryByWs((cur) => ({ ...cur, [worksheetId]: s || 'No hay datos suficientes para un resumen.' }));
+    } catch {
+      setSummaryByWs((cur) => ({ ...cur, [worksheetId]: 'No se pudo generar el resumen. Intenta de nuevo.' }));
+    } finally {
+      setSummaryLoading(null);
+    }
+  }
+
+  function openWorksheetResponsesById(worksheetId: string) {
+    const ws = worksheets.find((w) => w.id === worksheetId);
+    if (ws) void loadWorksheetResponses(ws);
   }
 
   async function openGuest(log: GuestAccessLog) {
@@ -1119,20 +1139,43 @@ export default function App() {
                   const graded = w.correct + w.incorrect;
                   const pct = graded ? Math.round((w.correct / graded) * 100) : 0;
                   return (
-                    <div key={w.worksheet_title} className="rounded-2xl border border-slate-100 p-4">
+                    <div key={w.worksheet_id} className="rounded-2xl border border-slate-100 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h4 className="font-semibold text-slate-900">{w.worksheet_title}</h4>
+                        <button
+                          type="button"
+                          onClick={() => openWorksheetResponsesById(w.worksheet_id)}
+                          className="text-left font-semibold text-slate-900 hover:text-blue-700 hover:underline"
+                          title="Ver respuestas de esta hoja"
+                        >
+                          {w.worksheet_title}
+                        </button>
                         <div className="flex items-center gap-3 text-sm">
                           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">{w.responses} {w.responses === 1 ? 'respuesta' : 'respuestas'}</span>
                           <span className="font-bold text-emerald-700">✓ {w.correct}</span>
                           <span className="font-bold text-red-600">✗ {w.incorrect}</span>
                           <span className="font-bold text-blue-700">{w.average_score}%</span>
+                          {w.responses > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => void loadSummary(w.worksheet_id)}
+                              disabled={summaryLoading === w.worksheet_id}
+                              className="rounded-full border border-violet-300 px-3 py-1 text-xs font-bold text-violet-700 transition hover:bg-violet-50 disabled:opacity-60"
+                            >
+                              {summaryLoading === w.worksheet_id ? 'Analizando…' : '✦ Resumen IA'}
+                            </button>
+                          )}
                         </div>
                       </div>
                       {graded > 0 && (
                         <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-slate-100">
                           <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
                           <div className="h-full bg-red-400" style={{ width: `${100 - pct}%` }} />
+                        </div>
+                      )}
+                      {summaryByWs[w.worksheet_id] && (
+                        <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-violet-700">✦ Resumen de desempeño (IA)</p>
+                          <p className="whitespace-pre-line text-sm leading-6 text-slate-700">{summaryByWs[w.worksheet_id]}</p>
                         </div>
                       )}
                     </div>
