@@ -138,9 +138,9 @@ export default function App() {
   const [feed, setFeed] = useState<ActivityEvent[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
   const [bellSeen, setBellSeen] = useState<string>('1970-01-01T00:00:00.000Z');
-  // Conteo de respuestas "ya visto" por hoja → marca roja "!" cuando llegan nuevas.
+  // Conteo de respuestas "ya visto" por hoja (se actualiza al abrir esa hoja en Revisión).
+  // Si hay más respuestas que las vistas → marca roja "!" pendiente hasta que el profesor entre.
   const [responseSeen, setResponseSeen] = useState<Record<string, number>>({});
-  const seenBaselined = useRef(false);
   const [guestLogs, setGuestLogs] = useState<GuestAccessLog[]>([]);
   const [selectedGuest, setSelectedGuest] = useState<GuestAccessLog | null>(null);
   const [guestDetail, setGuestDetail] = useState<GuestDetail | null>(null);
@@ -470,16 +470,7 @@ export default function App() {
 
   async function loadResponseCounts() {
     try {
-      const counts = await getWorksheetResponseCounts();
-      setResponseCounts(counts);
-      // Primera carga: tomar lo existente como "ya visto" para que solo lo NUEVO se resalte.
-      if (!seenBaselined.current && user) {
-        seenBaselined.current = true;
-        if (localStorage.getItem(`review_seen_${user.id}`) === null) {
-          setResponseSeen(counts);
-          localStorage.setItem(`review_seen_${user.id}`, JSON.stringify(counts));
-        }
-      }
+      setResponseCounts(await getWorksheetResponseCounts());
     } catch {
       // Conteo es informativo; si falla no bloquea la revisión.
     }
