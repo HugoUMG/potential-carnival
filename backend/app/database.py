@@ -142,6 +142,7 @@ def _initialize_sqlite_database() -> None:
         _add_column_if_missing(connection, "worksheet_responses", "pending_count INTEGER NOT NULL DEFAULT 0")
         _add_column_if_missing(connection, "worksheet_responses", "guest_token TEXT")
         _add_column_if_missing(connection, "classrooms", "is_public INTEGER NOT NULL DEFAULT 0")
+        _add_column_if_missing(connection, "classroom_worksheets", "due_date TEXT")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS guest_access_logs (

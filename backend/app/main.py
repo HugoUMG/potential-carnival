@@ -366,9 +366,17 @@ def worksheet_classroom_assignments(current_user: PublicUser = Depends(require_t
 def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[Worksheet]:
     require_student_owner_or_staff(student_id, current_user)
     assigned = repository.list_student_assigned_worksheets(student_id)
+    assigned_ids = {item.id for item in assigned}
     answered_ids = {response.worksheet_id for response in repository.list_responses(student_id=student_id, include_archived=False)}
-    answered_unpublished = [w for w in assigned if w.id in answered_ids and not w.published]
-    all_worksheets = assigned + [w for w in answered_unpublished if w.id not in {item.id for item in assigned}]
+    # Incluir hojas ya respondidas que dejaron de estar asignadas/publicadas (p. ej. tras
+    # archivar y desarchivar, que deja la hoja despublicada) para que el historial conserve
+    # el título y sigan apareciendo en "Calificadas". Las archivadas siguen ocultas.
+    extra_answered = []
+    for worksheet_id in answered_ids - assigned_ids:
+        worksheet = repository.get_worksheet(worksheet_id)
+        if worksheet and not worksheet.archived:
+            extra_answered.append(worksheet)
+    all_worksheets = assigned + extra_answered
     # Poblar attempts_used / attempts_remaining en una sola query
     attempt_counts = repository.count_attempts_per_worksheet(student_id, [w.id for w in all_worksheets])
     for worksheet in all_worksheets:
