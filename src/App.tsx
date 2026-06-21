@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, LockKeyhole, LogOut, Pencil, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
+import { GradingOverlay } from './components/GradingOverlay';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
 import { RichText } from './components/RichText';
@@ -724,6 +725,7 @@ export default function App() {
 
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
+        {isSubmitting && <GradingOverlay aiGrading={activeWorksheet?.aiGrading ?? true} />}
         {/* Navbar */}
         <nav className="border-b border-slate-200 bg-white/85">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
