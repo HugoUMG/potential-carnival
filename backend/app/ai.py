@@ -210,14 +210,14 @@ GRADING RULES:
    semantically equivalent or has only a minor typo, accent, or capitalization difference. If the
    meaning is correct, set status "correct" and leave "comment" EMPTY. Otherwise keep "incorrect"
    and give a DETAILED explanation: what was wrong, the correct form, and a short example.
-2. "pending" (textbox, imagequestion, reading questions): grade by relevance to the prompt,
-   grammatical accuracy, and content quality. Set status "correct", "incorrect", or "partial".
-   If correct, leave "comment" EMPTY. If incorrect/partial, give a DETAILED explanation of what
-   to improve and how.
-3. Only write comments for answers that end up "incorrect" or "partial". For anything you mark
-   "correct", leave "comment" empty. Spend your effort and detail on the wrong answers.
-4. Comments must be in Spanish, educational and specific. Since wrong answers are few, you may
-   use 2-4 sentences each.
+2. "pending" (textbox, imagequestion, reading questions) — these are OPEN answers. Grade by
+   relevance to the prompt, grammatical accuracy, and content quality. Set status "correct",
+   "incorrect", or "partial".
+   - If CORRECT: write a SHORT encouraging comment (1 sentence) noting what they did well.
+   - If incorrect/partial: give a DETAILED explanation (2-4 sentences) of what to improve and how.
+3. So comments go on: every incorrect/partial answer (detailed), AND every CORRECT OPEN answer
+   (brief praise). A fillblank/listeningfillblank that you flip to "correct" keeps its comment EMPTY.
+4. Comments must be in Spanish, educational and specific.
 5. Be fair and generous with near-correct answers.
 
 RESPOND ONLY with valid JSON in this exact format (no markdown, no extra text):
@@ -351,6 +351,7 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
         grade = grades_by_id.get(d.activity_id)
         if not grade:
             continue
+        original_status = d.status
         ai_status = grade.get("status", d.status)
         # Only allow AI to change status for fillblank/listeningfillblank and pending
         if d.status == "incorrect" and d.activity_type in {"fillblank", "listeningfillblank"}:
@@ -359,8 +360,13 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
         elif d.status == "pending":
             if ai_status in {"correct", "incorrect", "partial"}:
                 d.status = "correct" if ai_status == "correct" else "incorrect"
-        # Comentario solo para las que quedan mal; las correctas no necesitan texto.
-        d.teacher_comment = "" if d.status == "correct" else grade.get("comment", "")
+        # Comentario: siempre en las incorrectas/parciales; en las correctas SOLO si era
+        # una respuesta abierta (originalmente "pending"). Un fillblank que se corrige por
+        # typo no lleva comentario.
+        if d.status != "correct" or original_status == "pending":
+            d.teacher_comment = grade.get("comment", "")
+        else:
+            d.teacher_comment = ""
 
     return details
 
