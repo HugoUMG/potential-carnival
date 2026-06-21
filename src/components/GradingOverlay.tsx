@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, ClipboardCheck } from 'lucide-react';
 
 // Overlay mostrado mientras se envía/califica una hoja. La calificación con IA puede
 // tardar varios segundos; una barra que avanza evita que el alumno crea que se trabó.
@@ -15,9 +15,9 @@ export function GradingOverlay({ aiGrading = true }: { aiGrading?: boolean }) {
     return () => clearInterval(id);
   }, []);
 
-  const title = aiGrading ? 'Calificando con IA…' : 'Enviando…';
+  const title = aiGrading ? 'Revisando tus respuestas…' : 'Enviando…';
   const subtitle = aiGrading
-    ? 'La IA está revisando tus respuestas. Esto puede tomar unos segundos — no cierres la página.'
+    ? 'Estamos revisando y calificando tus respuestas con cuidado. Esto puede tomar un momento — no cierres la página.'
     : 'Guardando tus respuestas…';
 
   return (
@@ -25,7 +25,7 @@ export function GradingOverlay({ aiGrading = true }: { aiGrading?: boolean }) {
       <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl">
         <div className="relative mx-auto grid h-20 w-20 place-items-center">
           <Loader2 className="absolute animate-spin text-blue-200" size={80} strokeWidth={1.5} />
-          {aiGrading ? <Sparkles className="text-blue-600" size={30} /> : <Loader2 className="animate-spin text-blue-600" size={30} />}
+          {aiGrading ? <ClipboardCheck className="text-blue-600" size={28} /> : <Loader2 className="animate-spin text-blue-600" size={30} />}
         </div>
         <h2 className="mt-5 text-xl font-bold text-slate-900">{title}</h2>
         <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
