@@ -223,14 +223,26 @@ GRADING RULES:
 1. fillblank/listeningfillblank marked "incorrect": check carefully if the student answer is
    semantically equivalent or has only a minor typo, accent, or capitalization difference. If the
    meaning is correct, set status "correct" and leave "comment" EMPTY. Otherwise keep "incorrect"
-   and give a DETAILED explanation: what was wrong, the correct form, and a short example.
+   and EXPLAIN the error (see EXPLANATION FORMAT below).
 2. "pending" (textbox, imagequestion, reading questions) — these are OPEN answers. Grade by
    relevance to the prompt, grammatical accuracy, and content quality. Set status "correct",
    "incorrect", or "partial".
    - If CORRECT: write a SHORT encouraging comment (1 sentence) noting what they did well.
-   - If incorrect/partial: give a DETAILED explanation (2-4 sentences) of what to improve and how.
-3. So comments go on: every incorrect/partial answer (detailed), AND every CORRECT OPEN answer
-   (brief praise). A fillblank/listeningfillblank that you flip to "correct" keeps its comment EMPTY.
+   - If incorrect/partial: EXPLAIN the error (see EXPLANATION FORMAT below).
+3. So comments go on: every incorrect/partial answer (real explanation), AND every CORRECT OPEN
+   answer (brief praise). A fillblank/listeningfillblank flipped to "correct" keeps its comment EMPTY.
+
+EXPLANATION FORMAT (for every incorrect/partial answer) — in Spanish, 2-3 sentences:
+   a) Di QUÉ está mal exactamente en lo que escribió (cita su palabra/parte equivocada).
+   b) Explica POR QUÉ está mal: la regla concreta (tiempo verbal, concordancia, ortografía, etc.).
+   c) Da la forma CORRECTA y un ejemplo corto.
+   Ejemplo bueno: "Escribiste 'she go'. En presente simple, la tercera persona (he/she/it) lleva -s,
+   por eso el verbo debe ser 'goes': 'She goes to school.'"
+
+PROHIBIDO escribir comentarios vagos o de relleno como "te equivocaste", "incorrecto",
+"pon más atención", "revisa de nuevo", "casi" o "inténtalo otra vez" SIN explicar el error.
+Cada comentario de error debe enseñar algo concreto.
+
 4. Comments must be in Spanish, educational and specific.
 5. Be fair and generous with near-correct answers.
 
