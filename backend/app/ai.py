@@ -295,21 +295,26 @@ def _call_gemini(prompt: str) -> str:
 _ai_lock = threading.Lock()
 
 
-def _ai_call(system: str, user: str) -> str:
-    """Llama a la IA (Gemini → Groq), serializado y con reintentos ante errores transitorios."""
+def _ai_call(system: str, user: str, prefer_fast: bool = False) -> str:
+    """Llama a la IA, serializado y con reintentos ante errores transitorios.
+    prefer_fast=True usa Groq primero (mucho más rápido) y Gemini como respaldo —
+    ideal para calificar. Por defecto usa Gemini primero (mejor para generar hojas)."""
     gemini_key = os.getenv("GEMINI_API_KEY", "")
+
+    def _gemini() -> str:
+        return _call_gemini(f"{system}\n\n{user}")
+
+    providers = ([_call_groq, _gemini] if prefer_fast else [_gemini, _call_groq])
     last_error: Exception | None = None
     with _ai_lock:
         for attempt in range(2):
-            if gemini_key:
+            for provider in providers:
+                if provider is _gemini and not gemini_key:
+                    continue
                 try:
-                    return _call_gemini(f"{system}\n\n{user}")
+                    return provider(system, user) if provider is _call_groq else provider()
                 except Exception as exc:
                     last_error = exc
-            try:
-                return _call_groq(system, user)
-            except Exception as exc:
-                last_error = exc
             if attempt == 0:
                 time.sleep(1.5)  # backoff antes del segundo intento
     raise last_error or RuntimeError("AI call failed")
@@ -363,7 +368,7 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
     )
 
     try:
-        raw = _ai_call(_GRADE_SYSTEM, user_prompt)
+        raw = _ai_call(_GRADE_SYSTEM, user_prompt, prefer_fast=True)
         raw = raw.strip()
         # Strip markdown code fences if present
         if raw.startswith("```"):
@@ -426,7 +431,7 @@ def summarize_worksheet_performance(worksheet_title: str, activities: list[dict]
         f"Estadísticas por actividad:\n{json.dumps(activities, ensure_ascii=False, indent=2)}"
     )
     try:
-        return _ai_call(_SUMMARY_SYSTEM, user_prompt).strip()
+        return _ai_call(_SUMMARY_SYSTEM, user_prompt, prefer_fast=True).strip()
     except Exception:
         return ""
 
