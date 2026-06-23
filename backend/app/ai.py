@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+import time
 from typing import Any
 
 import httpx
@@ -221,14 +223,26 @@ GRADING RULES:
 1. fillblank/listeningfillblank marked "incorrect": check carefully if the student answer is
    semantically equivalent or has only a minor typo, accent, or capitalization difference. If the
    meaning is correct, set status "correct" and leave "comment" EMPTY. Otherwise keep "incorrect"
-   and give a DETAILED explanation: what was wrong, the correct form, and a short example.
+   and EXPLAIN the error (see EXPLANATION FORMAT below).
 2. "pending" (textbox, imagequestion, reading questions) — these are OPEN answers. Grade by
    relevance to the prompt, grammatical accuracy, and content quality. Set status "correct",
    "incorrect", or "partial".
    - If CORRECT: write a SHORT encouraging comment (1 sentence) noting what they did well.
-   - If incorrect/partial: give a DETAILED explanation (2-4 sentences) of what to improve and how.
-3. So comments go on: every incorrect/partial answer (detailed), AND every CORRECT OPEN answer
-   (brief praise). A fillblank/listeningfillblank that you flip to "correct" keeps its comment EMPTY.
+   - If incorrect/partial: EXPLAIN the error (see EXPLANATION FORMAT below).
+3. So comments go on: every incorrect/partial answer (real explanation), AND every CORRECT OPEN
+   answer (brief praise). A fillblank/listeningfillblank flipped to "correct" keeps its comment EMPTY.
+
+EXPLANATION FORMAT (for every incorrect/partial answer) — in Spanish, 2-3 sentences:
+   a) Di QUÉ está mal exactamente en lo que escribió (cita su palabra/parte equivocada).
+   b) Explica POR QUÉ está mal: la regla concreta (tiempo verbal, concordancia, ortografía, etc.).
+   c) Da la forma CORRECTA y un ejemplo corto.
+   Ejemplo bueno: "Escribiste 'she go'. En presente simple, la tercera persona (he/she/it) lleva -s,
+   por eso el verbo debe ser 'goes': 'She goes to school.'"
+
+PROHIBIDO escribir comentarios vagos o de relleno como "te equivocaste", "incorrecto",
+"pon más atención", "revisa de nuevo", "casi" o "inténtalo otra vez" SIN explicar el error.
+Cada comentario de error debe enseñar algo concreto.
+
 4. Comments must be in Spanish, educational and specific.
 5. Be fair and generous with near-correct answers.
 
@@ -287,15 +301,35 @@ def _call_gemini(prompt: str) -> str:
         return data["candidates"][0]["content"]["parts"][0]["text"]
 
 
-def _ai_call(system: str, user: str) -> str:
-    """Try Gemini first, fall back to Groq."""
+# Serializa las llamadas a la IA: con varios envíos casi simultáneos (todos con IA),
+# las peticiones concurrentes chocaban con el rate-limit del proveedor y una quedaba
+# sin calificar. El lock las pone en fila y los reintentos cubren fallos transitorios.
+_ai_lock = threading.Lock()
+
+
+def _ai_call(system: str, user: str, prefer_fast: bool = False) -> str:
+    """Llama a la IA, serializado y con reintentos ante errores transitorios.
+    prefer_fast=True usa Groq primero (mucho más rápido) y Gemini como respaldo —
+    ideal para calificar. Por defecto usa Gemini primero (mejor para generar hojas)."""
     gemini_key = os.getenv("GEMINI_API_KEY", "")
-    if gemini_key:
-        try:
-            return _call_gemini(f"{system}\n\n{user}")
-        except Exception:
-            pass
-    return _call_groq(system, user)
+
+    def _gemini() -> str:
+        return _call_gemini(f"{system}\n\n{user}")
+
+    providers = ([_call_groq, _gemini] if prefer_fast else [_gemini, _call_groq])
+    last_error: Exception | None = None
+    with _ai_lock:
+        for attempt in range(2):
+            for provider in providers:
+                if provider is _gemini and not gemini_key:
+                    continue
+                try:
+                    return provider(system, user) if provider is _call_groq else provider()
+                except Exception as exc:
+                    last_error = exc
+            if attempt == 0:
+                time.sleep(1.5)  # backoff antes del segundo intento
+    raise last_error or RuntimeError("AI call failed")
 
 
 # ── Worksheet generation ───────────────────────────────────────────────────────
@@ -346,7 +380,7 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
     )
 
     try:
-        raw = _ai_call(_GRADE_SYSTEM, user_prompt)
+        raw = _ai_call(_GRADE_SYSTEM, user_prompt, prefer_fast=True)
         raw = raw.strip()
         # Strip markdown code fences if present
         if raw.startswith("```"):
@@ -409,7 +443,7 @@ def summarize_worksheet_performance(worksheet_title: str, activities: list[dict]
         f"Estadísticas por actividad:\n{json.dumps(activities, ensure_ascii=False, indent=2)}"
     )
     try:
-        return _ai_call(_SUMMARY_SYSTEM, user_prompt).strip()
+        return _ai_call(_SUMMARY_SYSTEM, user_prompt, prefer_fast=True).strip()
     except Exception:
         return ""
 
