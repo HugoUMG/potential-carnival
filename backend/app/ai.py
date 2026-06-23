@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+import time
 from typing import Any
 
 import httpx
@@ -287,15 +289,30 @@ def _call_gemini(prompt: str) -> str:
         return data["candidates"][0]["content"]["parts"][0]["text"]
 
 
+# Serializa las llamadas a la IA: con varios envíos casi simultáneos (todos con IA),
+# las peticiones concurrentes chocaban con el rate-limit del proveedor y una quedaba
+# sin calificar. El lock las pone en fila y los reintentos cubren fallos transitorios.
+_ai_lock = threading.Lock()
+
+
 def _ai_call(system: str, user: str) -> str:
-    """Try Gemini first, fall back to Groq."""
+    """Llama a la IA (Gemini → Groq), serializado y con reintentos ante errores transitorios."""
     gemini_key = os.getenv("GEMINI_API_KEY", "")
-    if gemini_key:
-        try:
-            return _call_gemini(f"{system}\n\n{user}")
-        except Exception:
-            pass
-    return _call_groq(system, user)
+    last_error: Exception | None = None
+    with _ai_lock:
+        for attempt in range(2):
+            if gemini_key:
+                try:
+                    return _call_gemini(f"{system}\n\n{user}")
+                except Exception as exc:
+                    last_error = exc
+            try:
+                return _call_groq(system, user)
+            except Exception as exc:
+                last_error = exc
+            if attempt == 0:
+                time.sleep(1.5)  # backoff antes del segundo intento
+    raise last_error or RuntimeError("AI call failed")
 
 
 # ── Worksheet generation ───────────────────────────────────────────────────────
