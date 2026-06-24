@@ -26,7 +26,7 @@ export interface DetalleRespuesta {
 
 interface BackendActivity {
   id: string;
-  type: ActivityType | 'speaking';
+  type: ActivityType;
   text?: string | null;
   question?: string | null;
   options?: string[] | null;
@@ -40,6 +40,7 @@ interface BackendActivity {
   image?: string | null;
   instructions?: string | null;
   audio_text?: string | null;
+  target?: string | null;
   pairs?: { audio_text: string; match: string }[] | null;
   statements?: { text: string; answer: boolean }[] | null;
 }
@@ -228,8 +229,7 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
     case 'matching':
       return withInstructions({ id: activity.id, type: 'matching', left: activity.left ?? [], right: activity.right ?? [] }, activity);
     case 'speaking':
-      // Tipo legado en datos antiguos; se renderiza como textbox.
-      return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
+      return withInstructions({ id: activity.id, type: 'speaking', prompt: activity.prompt ?? '', target: activity.target ?? undefined }, activity);
     case 'reading':
       return withInstructions({ id: activity.id, type: 'reading', title: activity.title ?? '', content: activity.content ?? '', questions: activity.questions ?? [] }, activity);
     case 'imagequestion':

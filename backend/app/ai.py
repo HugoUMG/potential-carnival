@@ -41,8 +41,8 @@ Use block {} when grouping activities by skill or topic makes sense.
 
 === ACTIVITY TYPES ===
 ALLOWED: fillblank, multiplechoice, multiselect, matching, truefalse, textbox, reading, imagequestion,
-         listening, listeningmultiplechoice, listeningfillblank, listeningmatching, listeningtruefalse
-NEVER USE: speaking
+         listening, listeningmultiplechoice, listeningfillblank, listeningmatching, listeningtruefalse,
+         speaking
 
 === GENERAL DSL RULES ===
 - block {} groups activities with a shared title and instructions
@@ -95,6 +95,15 @@ multiselect {
   - eats
   - eaten
   answer: ["runs", "eats"]
+}
+
+── speaking (usa el micrófono) ─────────────────────────────────
+Fields: prompt, target (opcional)
+- Con target: el alumno LEE EN VOZ ALTA la oración 'target'; se compara su pronunciación.
+- Sin target: pregunta abierta hablada (la IA evalúa lo que dijo).
+speaking {
+  prompt: "Read the sentence aloud."
+  target: "She goes to school every day."
 }
 
 ── matching ───────────────────────────────────────────────────

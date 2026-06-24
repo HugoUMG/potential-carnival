@@ -875,6 +875,20 @@ def _norm_answer(v: Any) -> str:
     return s
 
 
+def _speaking_match(said: Any, target: str) -> bool:
+    """Compara lo dicho (transcripción) con la oración objetivo de forma tolerante:
+    correcto si al menos el 80% de las palabras del objetivo aparecen en la transcripción."""
+    import re
+    def words(t: Any) -> list[str]:
+        return re.sub(r"[^\w\s]", "", str(t or "").lower()).split()
+    want = words(target)
+    if not want:
+        return False
+    heard = set(words(said))
+    matched = sum(1 for w in want if w in heard)
+    return matched / len(want) >= 0.8
+
+
 def _resolve_correct_answers(answer: Any) -> list[str]:
     """Convierte el campo answer de una actividad en lista normalizada.
     Maneja tres formatos:
@@ -999,6 +1013,16 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
                     correct_answer=correct,
                     status="correct" if is_correct else "incorrect",
                 ))
+            continue
+        if activity.type == "speaking":
+            target = (activity.target or "").strip()
+            if target:
+                # Modo "leer en voz alta": se compara la transcripción con la oración objetivo.
+                is_correct = _speaking_match(student_answer, target)
+                details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=target, status="correct" if is_correct else "incorrect"))
+            else:
+                # Modo pregunta abierta: la IA evalúa la transcripción (pendiente).
+                details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending"))
             continue
         details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending"))
     return details

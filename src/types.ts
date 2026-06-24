@@ -14,7 +14,8 @@ export type ActivityType =
   | 'listeningmatching'
   | 'listeningtruefalse'
   | 'truefalse'
-  | 'readingtruefalse';
+  | 'readingtruefalse'
+  | 'speaking';
 
 export interface BaseActivity {
   id: string;
@@ -114,6 +115,12 @@ export interface ReadingTrueFalseActivity extends BaseActivity {
   statements: { text: string; answer: boolean }[];
 }
 
+export interface SpeakingActivity extends BaseActivity {
+  type: 'speaking';
+  prompt: string;
+  target?: string; // oración a leer en voz alta; si falta, es pregunta abierta (IA)
+}
+
 export type WorksheetActivity =
   | FillBlankActivity
   | MultipleChoiceActivity
@@ -128,7 +135,8 @@ export type WorksheetActivity =
   | ListeningMatchingActivity
   | ListeningTrueFalseActivity
   | TrueFalseActivity
-  | ReadingTrueFalseActivity;
+  | ReadingTrueFalseActivity
+  | SpeakingActivity;
 
 export interface ActivityBlock {
   title?: string | null;

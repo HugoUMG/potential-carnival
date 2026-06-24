@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
+import { useState } from 'react';
 import type {
   ActivityDefinition,
   ActivityRendererProps,
@@ -11,6 +12,7 @@ import type {
   MatchingActivity,
   MultipleChoiceActivity,
   MultiSelectActivity,
+  SpeakingActivity,
   ReadingActivity,
   ReadingTrueFalseActivity,
   ListeningActivity,
@@ -269,6 +271,76 @@ function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: Activ
   );
 }
 
+function speakingMatches(said: string, target: string): boolean {
+  const words = (t: string) => t.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean);
+  const want = words(target);
+  if (!want.length) return false;
+  const heard = new Set(words(said));
+  return want.filter((w) => heard.has(w)).length / want.length >= 0.8;
+}
+
+function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<SpeakingActivity>) {
+  const [listening, setListening] = useState(false);
+  const [error, setError] = useState('');
+  const transcript = asString(value);
+  const target = activity.target?.trim();
+  const matched = target ? speakingMatches(transcript, target) : null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const SR = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : undefined;
+
+  const start = () => {
+    setError('');
+    if (!SR) { setError('Tu navegador no permite reconocimiento de voz (usa Chrome/Edge, o escribe tu respuesta abajo).'); return; }
+    const rec = new SR();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (e: any) => { onChange(activity.id, String(e.results?.[0]?.[0]?.transcript ?? '')); };
+    rec.onerror = () => { setError('No se pudo capturar el audio. Revisa el permiso del micrófono.'); setListening(false); };
+    rec.onend = () => setListening(false);
+    setListening(true);
+    try { rec.start(); } catch { setListening(false); }
+  };
+
+  return (
+    <div className="grid gap-3">
+      <RichText className="text-base font-medium text-slate-800" text={activity.prompt} />
+      <ActivityInstructions instructions={activity.instructions} />
+      {target && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <AudioPlayer text={target} />
+          <p className="text-lg font-semibold text-slate-900">“{target}”</p>
+        </div>
+      )}
+      {!readonly && SR && (
+        <button
+          type="button"
+          onClick={start}
+          disabled={listening}
+          className={`flex w-fit items-center gap-2 rounded-2xl px-5 py-3 font-semibold text-white transition ${listening ? 'animate-pulse bg-red-500' : 'bg-blue-600 hover:bg-blue-700'}`}
+        >
+          🎤 {listening ? 'Escuchando…' : transcript ? 'Repetir' : (target ? 'Leer en voz alta' : 'Hablar')}
+        </button>
+      )}
+      {transcript && (
+        <div className={`rounded-2xl border p-3 text-sm ${matched === null ? 'border-slate-200 bg-white' : matched ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+          <p className="text-slate-700">Dijiste: <span className="font-semibold">“{transcript}”</span></p>
+          {matched === true && <p className="mt-1 font-semibold text-emerald-700">✓ ¡Bien! Coincide con la oración. Puedes continuar.</p>}
+          {matched === false && <p className="mt-1 font-semibold text-amber-700">Aún no coincide del todo. Escucha 🔊 la oración e inténtalo otra vez.</p>}
+        </div>
+      )}
+      {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+      {!SR && (
+        <label className="block text-sm">
+          <span className="text-slate-500">Tu navegador no permite micrófono aquí. Escribe lo que dirías:</span>
+          <input className={inputClass} disabled={readonly} value={transcript} onChange={(e) => onChange(activity.id, e.target.value)} />
+        </label>
+      )}
+    </div>
+  );
+}
+
 function ListeningRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningActivity>) {
   return (
     <div className="grid gap-3">
@@ -518,6 +590,14 @@ export const activityRegistry = {
     icon: '📖❓',
     create: () => ({ id: nextId('readingtruefalse'), type: 'readingtruefalse', title: 'My School', content: 'My school is very big. There are many classrooms and a large library.', statements: [{ text: 'The school has a library.', answer: true }, { text: 'The school is small.', answer: false }] }),
     Renderer: ReadingTrueFalseRenderer,
+  },
+  speaking: {
+    type: 'speaking',
+    label: 'Speaking (micrófono)',
+    description: 'Read a sentence aloud (or answer by voice); uses the microphone.',
+    icon: '🎤',
+    create: () => ({ id: nextId('speaking'), type: 'speaking', prompt: 'Read the sentence aloud.', target: 'She goes to school every day.' }),
+    Renderer: SpeakingRenderer,
   },
 } satisfies { [Type in WorksheetActivity['type']]: ActivityDefinition<Extract<WorksheetActivity, { type: Type }>> };
 
