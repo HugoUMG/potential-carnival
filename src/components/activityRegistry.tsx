@@ -279,9 +279,19 @@ function speakingMatches(said: string, target: string): boolean {
   return want.filter((w) => heard.has(w)).length / want.length >= 0.8;
 }
 
+const SPEECH_ERRORS: Record<string, string> = {
+  'not-allowed': 'El micrófono está bloqueado. Permítelo en el candado 🔒 de la barra de direcciones y recarga.',
+  'service-not-allowed': 'El micrófono está bloqueado por el sistema o el navegador. Revisa los permisos y recarga.',
+  'audio-capture': 'No se encontró un micrófono. Conecta uno y vuelve a intentar.',
+  'no-speech': 'No se detectó tu voz. Acércate al micrófono y vuelve a pulsar 🎤.',
+  'aborted': 'Se canceló la grabación. Inténtalo de nuevo.',
+  'network': 'El servicio de reconocimiento de voz no respondió (problema de red). Inténtalo otra vez o escribe tu respuesta abajo.',
+};
+
 function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<SpeakingActivity>) {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
+  const [showFallback, setShowFallback] = useState(false);
   const transcript = asString(value);
   const target = activity.target?.trim();
   const matched = target ? speakingMatches(transcript, target) : null;
@@ -290,14 +300,21 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
 
   const start = () => {
     setError('');
-    if (!SR) { setError('Tu navegador no permite reconocimiento de voz (usa Chrome/Edge, o escribe tu respuesta abajo).'); return; }
+    if (!SR) { setShowFallback(true); return; }
     const rec = new SR();
     rec.lang = 'en-US';
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => { onChange(activity.id, String(e.results?.[0]?.[0]?.transcript ?? '')); };
-    rec.onerror = () => { setError('No se pudo capturar el audio. Revisa el permiso del micrófono.'); setListening(false); };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onerror = (e: any) => {
+      const code = String(e?.error ?? 'unknown');
+      setError(SPEECH_ERRORS[code] ?? `No se pudo capturar el audio (${code}).`);
+      // En errores que no son "reintenta", ofrece el campo de texto como respaldo.
+      if (['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(code)) setShowFallback(true);
+      setListening(false);
+    };
     rec.onend = () => setListening(false);
     setListening(true);
     try { rec.start(); } catch { setListening(false); }
@@ -331,9 +348,9 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
         </div>
       )}
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
-      {!SR && (
+      {(!SR || showFallback) && (
         <label className="block text-sm">
-          <span className="text-slate-500">Tu navegador no permite micrófono aquí. Escribe lo que dirías:</span>
+          <span className="text-slate-500">¿Problemas con el micrófono? Escribe lo que dirías:</span>
           <input className={inputClass} disabled={readonly} value={transcript} onChange={(e) => onChange(activity.id, e.target.value)} />
         </label>
       )}
