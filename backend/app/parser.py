@@ -265,8 +265,11 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         if not isinstance(answer, list):
             answer = [answer] if answer else []
         return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=answer)
-    if activity_type in {"textbox", "speaking"}:
+    if activity_type == "textbox":
         return ActivityData(**common, prompt=_get_scalar(body, "prompt"))
+    if activity_type == "speaking":
+        # target: oración a leer en voz alta (modo lectura). Sin target = pregunta abierta (IA).
+        return ActivityData(**common, prompt=_get_scalar(body, "prompt"), target=_get_scalar(body, "target"))
     if activity_type == "matching":
         return ActivityData(**common, left=_get_list(body, "left"), right=_get_list(body, "right"))
     if activity_type == "reading":

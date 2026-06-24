@@ -81,6 +81,13 @@ matching {
 # textbox — respuesta abierta larga.
 textbox { prompt: "Describe your daily routine." }
 
+# speaking — usa el micrófono. Con "target" el alumno lee esa oración en voz alta
+# (se evalúa la pronunciación); sin "target" es una pregunta hablada que evalúa la IA.
+speaking {
+  prompt: "Read the sentence aloud."
+  target: "She goes to school every day."
+}
+
 # reading — texto + preguntas abiertas.
 reading {
   title: "School Rules"

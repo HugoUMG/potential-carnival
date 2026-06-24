@@ -73,6 +73,7 @@ class Activity(BaseModel):
     questions: list[str] | None = None
     image: str | None = None
     audio_text: str | None = None
+    target: str | None = None
     pairs: list[dict] | None = None
     statements: list[dict] | None = None
 
