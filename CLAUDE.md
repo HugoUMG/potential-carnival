@@ -148,7 +148,7 @@ Las hojas se crean con un DSL propio. El backend lo parsea (`backend/app/parser.
 | `listeningmultiplechoice` | Audio TTS + selección múltiple. | OK |
 | `listeningmatching` | N audios independientes + dropdown por cada uno. `pairs[].audio_text` oculto. | OK |
 | `listeningtruefalse` | Un audio + botones True/False por enunciado. `statements[].answer` es boolean. | OK |
-| `speaking` | **NO IMPLEMENTADO — no usar jamás.** | NO USAR |
+| `speaking` | **Legado — no crear nuevas.** El parser lo acepta (igual que `textbox`) y el frontend lo renderiza como `textbox`. Existe solo para no romper datos antiguos en producción. | SOLO LECTURA |
 
 ### Formato del Script DSL
 
@@ -288,7 +288,7 @@ worksheet {
 - `info {}` define campos de identificación no calificados (nombre, fecha, clase). No se suman al puntaje.
 - `_____` (5 guiones bajos exactos) es el marcador de espacio en `fillblank`.
 - `\n` literal en strings se convierte a salto de línea real en el frontend.
-- `speaking` no existe — no implementar.
+- `speaking` es legado — el parser lo acepta pero lo trata como `textbox`. No crear actividades nuevas de este tipo; el builder visual y la IA lo excluyen explícitamente.
 - `answer` en `fillblank` puede ser un string o un array JSON `["opcion1", "opcion2"]` para múltiples blanks.
 
 ---
@@ -604,7 +604,7 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - Todos los endpoints nuevos deben respetar la autenticación JWT existente (usar las dependencias FastAPI de auth).
 - Contraseñas siempre hasheadas con PBKDF2-SHA256 (`security.hash_password()`).
 - TTS usa `edge-tts` con voz `en-US-GuyNeural` y retorna `audio/mpeg`.
-- La actividad `speaking` no existe y **no debe implementarse jamás**.
+- La actividad `speaking` es legado: el parser la parsea como `textbox`, el frontend la renderiza como `textbox`, pero **no crear actividades nuevas de este tipo**. La IA tiene instrucción explícita de nunca generarla.
 - El parser DSL está en `backend/app/parser.py`. Al modificarlo, mantener retrocompatibilidad: hojas sin `block {}` deben seguir funcionando.
 - Los campos `audio_text` de actividades de listening **nunca deben enviarse al estudiante** en el JSON de respuesta.
 - La calificación IA se hace en `ai.py`. Solo puede cambiar status de actividades `pending` e `incorrect`, nunca de `correct`.
