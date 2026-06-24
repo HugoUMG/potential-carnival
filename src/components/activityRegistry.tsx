@@ -274,10 +274,16 @@ function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: Activ
 
 function speakingMatches(said: string, target: string): boolean {
   const words = (t: string) => t.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean);
-  const want = words(target);
-  if (!want.length) return false;
-  const heard = new Set(words(said));
-  return want.filter((w) => heard.has(w)).length / want.length >= 0.8;
+  const a = words(target);
+  const b = words(said);
+  if (!a.length) return false;
+  // Similitud por secuencia (LCS) → Dice. Detecta palabras erróneas y orden, no solo presencia.
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  return (2 * dp[m][n]) / (m + n) >= 0.85;
 }
 
 function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<SpeakingActivity>) {

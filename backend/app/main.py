@@ -891,17 +891,22 @@ def _norm_answer(v: Any) -> str:
 
 
 def _speaking_match(said: Any, target: str) -> bool:
-    """Compara lo dicho (transcripción) con la oración objetivo de forma tolerante:
-    correcto si al menos el 80% de las palabras del objetivo aparecen en la transcripción."""
+    """Compara la transcripción con la oración objetivo por SECUENCIA de palabras (LCS).
+    Correcto si la similitud (Dice sobre la subsecuencia común) ≥ 0.85, de modo que un
+    error en una palabra clave de una frase corta (p. ej. 'studies' vs 'studied') no pase."""
     import re
     def words(t: Any) -> list[str]:
         return re.sub(r"[^\w\s]", "", str(t or "").lower()).split()
-    want = words(target)
-    if not want:
+    a, b = words(target), words(said)
+    if not a:
         return False
-    heard = set(words(said))
-    matched = sum(1 for w in want if w in heard)
-    return matched / len(want) >= 0.8
+    m, n = len(a), len(b)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            dp[i][j] = dp[i - 1][j - 1] + 1 if a[i - 1] == b[j - 1] else max(dp[i - 1][j], dp[i][j - 1])
+    lcs = dp[m][n]
+    return (2 * lcs) / (m + n) >= 0.85 if (m + n) else False
 
 
 def _resolve_correct_answers(answer: Any) -> list[str]:
