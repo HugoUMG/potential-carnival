@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { transcribeAudio } from '../services/api';
 import type {
   ActivityDefinition,
   ActivityRendererProps,
@@ -279,46 +280,53 @@ function speakingMatches(said: string, target: string): boolean {
   return want.filter((w) => heard.has(w)).length / want.length >= 0.8;
 }
 
-const SPEECH_ERRORS: Record<string, string> = {
-  'not-allowed': 'El micrófono está bloqueado. Permítelo en el candado 🔒 de la barra de direcciones y recarga.',
-  'service-not-allowed': 'El micrófono está bloqueado por el sistema o el navegador. Revisa los permisos y recarga.',
-  'audio-capture': 'No se encontró un micrófono. Conecta uno y vuelve a intentar.',
-  'no-speech': 'No se detectó tu voz. Acércate al micrófono y vuelve a pulsar 🎤.',
-  'aborted': 'Se canceló la grabación. Inténtalo de nuevo.',
-  'network': 'El servicio de reconocimiento de voz no respondió (problema de red). Inténtalo otra vez o escribe tu respuesta abajo.',
-};
-
 function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<SpeakingActivity>) {
-  const [listening, setListening] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [error, setError] = useState('');
   const [showFallback, setShowFallback] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const transcript = asString(value);
   const target = activity.target?.trim();
   const matched = target ? speakingMatches(transcript, target) : null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const SR = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : undefined;
+  const canRecord = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
 
-  const start = () => {
+  const start = async () => {
     setError('');
-    if (!SR) { setShowFallback(true); return; }
-    const rec = new SR();
-    rec.lang = 'en-US';
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rec.onresult = (e: any) => { onChange(activity.id, String(e.results?.[0]?.[0]?.transcript ?? '')); };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rec.onerror = (e: any) => {
-      const code = String(e?.error ?? 'unknown');
-      setError(SPEECH_ERRORS[code] ?? `No se pudo capturar el audio (${code}).`);
-      // En errores que no son "reintenta", ofrece el campo de texto como respaldo.
-      if (['not-allowed', 'service-not-allowed', 'audio-capture', 'network'].includes(code)) setShowFallback(true);
-      setListening(false);
-    };
-    rec.onend = () => setListening(false);
-    setListening(true);
-    try { rec.start(); } catch { setListening(false); }
+    if (!canRecord) { setShowFallback(true); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const rec = new MediaRecorder(stream);
+      recorderRef.current = rec;
+      rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      rec.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        if (!blob.size) { setError('No se grabó audio. Inténtalo de nuevo.'); return; }
+        setTranscribing(true);
+        try {
+          const text = await transcribeAudio(blob);
+          onChange(activity.id, text);
+          if (!text.trim()) setError('No se entendió el audio. Habla claro y vuelve a intentar.');
+        } catch {
+          setError('No se pudo transcribir el audio. Inténtalo de nuevo o escribe tu respuesta abajo.');
+          setShowFallback(true);
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      rec.start();
+      setRecording(true);
+    } catch {
+      setError('No se pudo acceder al micrófono. Revisa el permiso (candado 🔒) o escribe tu respuesta abajo.');
+      setShowFallback(true);
+    }
   };
+
+  const stop = () => { recorderRef.current?.stop(); };
 
   return (
     <div className="grid gap-3">
@@ -330,14 +338,14 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
           <p className="text-lg font-semibold text-slate-900">“{target}”</p>
         </div>
       )}
-      {!readonly && SR && (
+      {!readonly && canRecord && (
         <button
           type="button"
-          onClick={start}
-          disabled={listening}
-          className={`flex w-fit items-center gap-2 rounded-2xl px-5 py-3 font-semibold text-white transition ${listening ? 'animate-pulse bg-red-500' : 'bg-blue-600 hover:bg-blue-700'}`}
+          onClick={recording ? stop : start}
+          disabled={transcribing}
+          className={`flex w-fit items-center gap-2 rounded-2xl px-5 py-3 font-semibold text-white transition disabled:opacity-60 ${recording ? 'animate-pulse bg-red-500' : 'bg-blue-600 hover:bg-blue-700'}`}
         >
-          🎤 {listening ? 'Escuchando…' : transcript ? 'Repetir' : (target ? 'Leer en voz alta' : 'Hablar')}
+          {transcribing ? '⏳ Transcribiendo…' : recording ? '⏹ Detener' : `🎤 ${transcript ? 'Repetir' : (target ? 'Leer en voz alta' : 'Hablar')}`}
         </button>
       )}
       {transcript && (
@@ -348,7 +356,7 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
         </div>
       )}
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
-      {(!SR || showFallback) && (
+      {(!canRecord || showFallback) && (
         <label className="block text-sm">
           <span className="text-slate-500">¿Problemas con el micrófono? Escribe lo que dirías:</span>
           <input className={inputClass} disabled={readonly} value={transcript} onChange={(e) => onChange(activity.id, e.target.value)} />

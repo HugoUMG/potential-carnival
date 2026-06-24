@@ -9,6 +9,8 @@ import httpx
 # ── API endpoints ──────────────────────────────────────────────────────────────
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 _GROQ_MODEL = "llama-3.3-70b-versatile"
+_GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
+_WHISPER_MODEL = "whisper-large-v3-turbo"
 _GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
 
 # ── System prompts ─────────────────────────────────────────────────────────────
@@ -455,6 +457,30 @@ def summarize_worksheet_performance(worksheet_title: str, activities: list[dict]
         return _ai_call(_SUMMARY_SYSTEM, user_prompt, prefer_fast=True).strip()
     except Exception:
         return ""
+
+
+def transcribe_audio(audio: bytes, filename: str, content_type: str) -> str:
+    """Transcribe audio a texto con Groq Whisper. Lanza si no hay clave o falla."""
+    key = os.getenv("GROQ_API_KEY", "")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY not set")
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            with httpx.Client(timeout=60) as client:
+                resp = client.post(
+                    _GROQ_TRANSCRIBE_URL,
+                    headers={"Authorization": f"Bearer {key}"},
+                    files={"file": (filename, audio, content_type or "audio/webm")},
+                    data={"model": _WHISPER_MODEL, "language": "en", "response_format": "json"},
+                )
+                resp.raise_for_status()
+                return str(resp.json().get("text", "")).strip()
+        except Exception as exc:
+            last_error = exc
+            if attempt == 0:
+                time.sleep(1.0)
+    raise last_error or RuntimeError("transcription failed")
 
 
 def _serialize(value: Any) -> Any:

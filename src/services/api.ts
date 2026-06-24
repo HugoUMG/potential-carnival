@@ -496,6 +496,17 @@ export async function getTeacherDashboard(): Promise<TeacherStats> {
   return request<TeacherStats>('/dashboard/teacher');
 }
 
+export async function transcribeAudio(blob: Blob): Promise<string> {
+  const ext = blob.type.includes('mp4') ? 'mp4' : blob.type.includes('ogg') ? 'ogg' : blob.type.includes('wav') ? 'wav' : 'webm';
+  const form = new FormData();
+  form.append('file', blob, `speech.${ext}`);
+  // multipart: no fijar Content-Type (el navegador pone el boundary). Endpoint público.
+  const response = await fetch(`${API_BASE_URL}/public/transcribe`, { method: 'POST', body: form });
+  if (!response.ok) throw new Error('No se pudo transcribir el audio');
+  const data = await response.json() as { transcript?: string };
+  return data.transcript ?? '';
+}
+
 export async function getWorksheetSummary(worksheetId: string): Promise<string> {
   const res = await request<{ summary: string }>(`/teacher/worksheet-summary/${worksheetId}`);
   return res.summary;

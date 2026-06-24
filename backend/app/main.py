@@ -2,12 +2,12 @@ from typing import Any
 import asyncio
 import time
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, generate_worksheet_script, summarize_worksheet_performance as ai_summarize
+from .ai import ai_grade_activities, generate_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import initialize_database
 from .models import (
     AiGenerateRequest,
@@ -751,6 +751,21 @@ def list_guest_responses(guest_token: str) -> list[WorksheetResponse]:
 def log_guest_session(payload: GuestSessionLog) -> None:
     """Registra un acceso de invitado. Sin autenticación."""
     repository.log_guest_access(payload.guest_token, payload.name, payload.classroom_id, payload.classroom_name)
+
+
+@app.post("/public/transcribe")
+async def transcribe(file: UploadFile = File(...)) -> dict[str, str]:
+    """Transcribe el audio del micrófono (actividad speaking) con Groq Whisper. Público."""
+    audio = await file.read()
+    if not audio:
+        raise HTTPException(status_code=422, detail="Audio vacío")
+    if len(audio) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="El audio es demasiado largo (máx 10 MB)")
+    try:
+        text = ai_transcribe(audio, file.filename or "speech.webm", file.content_type or "audio/webm")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="No se pudo transcribir el audio") from exc
+    return {"transcript": text}
 
 
 @app.get("/teacher/guest-logs")
