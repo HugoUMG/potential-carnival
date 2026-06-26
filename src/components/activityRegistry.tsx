@@ -272,6 +272,27 @@ function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: Activ
   );
 }
 
+// Alinea la transcripción con la oración objetivo (LCS) y marca cada palabra del
+// objetivo como dicha correctamente (ok) o no. Devuelve las palabras ORIGINALES para mostrar.
+function speakingWordStatus(said: string, target: string): { word: string; ok: boolean }[] {
+  const clean = (w: string) => w.toLowerCase().replace(/[^\w]/g, '');
+  const targetWords = target.split(/\s+/).filter(Boolean);
+  const a = targetWords.map(clean);
+  const b = said.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean);
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  const matched = new Set<number>();
+  let i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (a[i - 1] === b[j - 1]) { matched.add(i - 1); i--; j--; }
+    else if (dp[i - 1][j] >= dp[i][j - 1]) i--; else j--;
+  }
+  return targetWords.map((word, idx) => ({ word, ok: matched.has(idx) }));
+}
+
 function speakingMatches(said: string, target: string): boolean {
   const words = (t: string) => t.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean);
   const a = words(target);
@@ -357,8 +378,21 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
       {transcript && (
         <div className={`rounded-2xl border p-3 text-sm ${matched === null ? 'border-slate-200 bg-white' : matched ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
           <p className="text-slate-700">Dijiste: <span className="font-semibold">“{transcript}”</span></p>
-          {matched === true && <p className="mt-1 font-semibold text-emerald-700">✓ ¡Bien! Coincide con la oración. Puedes continuar.</p>}
-          {matched === false && <p className="mt-1 font-semibold text-amber-700">Aún no coincide del todo. Escucha 🔊 la oración e inténtalo otra vez.</p>}
+          {target && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {speakingWordStatus(transcript, target).map((w, idx) => (
+                <span
+                  key={idx}
+                  className={`rounded-md px-2 py-0.5 text-sm font-semibold ${w.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700 line-through decoration-red-400'}`}
+                  title={w.ok ? 'Bien pronunciada' : 'No coincidió — repite esta palabra'}
+                >
+                  {w.word}
+                </span>
+              ))}
+            </div>
+          )}
+          {matched === true && <p className="mt-2 font-semibold text-emerald-700">✓ ¡Bien! Coincide con la oración. Puedes continuar.</p>}
+          {matched === false && <p className="mt-2 font-semibold text-amber-700">Repite las palabras en rojo. Escucha 🔊 la oración e inténtalo otra vez.</p>}
         </div>
       )}
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
