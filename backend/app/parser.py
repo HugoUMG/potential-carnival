@@ -9,6 +9,7 @@ SUPPORTED_BLOCKS = {
     "fillblank",
     "multiplechoice",
     "multiselect",
+    "dragdrop",
     "textbox",
     "matching",
     "speaking",
@@ -258,6 +259,12 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
     common = {"id": str(uuid4()), "type": activity_type, "instructions": _get_scalar(body, "instructions")}
     if activity_type == "fillblank":
         return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_answer(body))
+    if activity_type == "dragdrop":
+        # Oración con _____ + banco de palabras arrastrables. answer = palabra correcta por hueco.
+        answer = _get_answer(body)
+        if not isinstance(answer, list):
+            answer = [answer] if answer else []
+        return ActivityData(**common, text=_get_scalar(body, "text"), answer=answer, bank=_get_list(body, "bank"))
     if activity_type == "multiplechoice":
         return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_answer(body))
     if activity_type == "multiselect":

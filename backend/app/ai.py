@@ -42,7 +42,7 @@ You may also place activities directly inside worksheet { } without block {} wra
 Use block {} when grouping activities by skill or topic makes sense.
 
 === ACTIVITY TYPES ===
-ALLOWED: fillblank, multiplechoice, multiselect, matching, truefalse, textbox, reading, imagequestion,
+ALLOWED: fillblank, multiplechoice, multiselect, dragdrop, matching, truefalse, textbox, reading, imagequestion,
          listening, listeningmultiplechoice, listeningfillblank, listeningmatching, listeningtruefalse,
          speaking
 
@@ -85,6 +85,18 @@ multiplechoice {
   - She goes to school.
   - She going to school.
   answer: "She goes to school."
+}
+
+── dragdrop (arrastrar palabras a huecos) ─────────────────────
+Fields: text (con _____ por hueco), answer (LISTA, palabra correcta por hueco en orden), bank (LISTA de palabras: correctas + distractores)
+dragdrop {
+  text: "She _____ to school and _____ English every day."
+  answer: ["goes", "studies"]
+  bank:
+  - goes
+  - go
+  - studies
+  - study
 }
 
 ── multiselect (varias respuestas correctas) ──────────────────

@@ -41,6 +41,7 @@ interface BackendActivity {
   instructions?: string | null;
   audio_text?: string | null;
   target?: string | null;
+  bank?: string[] | null;
   pairs?: { audio_text: string; match: string }[] | null;
   statements?: { text: string; answer: boolean }[] | null;
 }
@@ -224,6 +225,8 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'multiplechoice', question: activity.question ?? '', options: activity.options ?? [], answer: activity.answer ?? '' }, activity);
     case 'multiselect':
       return withInstructions({ id: activity.id, type: 'multiselect', question: activity.question ?? '', options: activity.options ?? [], answer: Array.isArray(activity.answer) ? activity.answer : (activity.answer ? [activity.answer] : []) }, activity);
+    case 'dragdrop':
+      return withInstructions({ id: activity.id, type: 'dragdrop', text: activity.text ?? '', answer: Array.isArray(activity.answer) ? activity.answer : (activity.answer ? [activity.answer] : []), bank: activity.bank ?? [] }, activity);
     case 'textbox':
       return withInstructions({ id: activity.id, type: 'textbox', prompt: activity.prompt ?? '' }, activity);
     case 'matching':

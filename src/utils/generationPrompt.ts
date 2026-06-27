@@ -78,6 +78,18 @@ matching {
   - works
 }
 
+# dragdrop — arrastrar palabras de un banco a los huecos _____.
+# answer = palabra correcta por hueco (en orden); bank = palabras arrastrables (correctas + distractores).
+dragdrop {
+  text: "She _____ to school and _____ English every day."
+  answer: ["goes", "studies"]
+  bank:
+  - goes
+  - go
+  - studies
+  - study
+}
+
 # textbox — respuesta abierta larga.
 textbox { prompt: "Describe your daily routine." }
 
