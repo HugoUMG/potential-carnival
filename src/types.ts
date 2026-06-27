@@ -4,6 +4,7 @@ export type ActivityType =
   | 'fillblank'
   | 'multiplechoice'
   | 'multiselect'
+  | 'dragdrop'
   | 'textbox'
   | 'matching'
   | 'reading'
@@ -43,6 +44,13 @@ export interface MultiSelectActivity extends BaseActivity {
   question: string;
   options: string[];
   answer: string[];
+}
+
+export interface DragDropActivity extends BaseActivity {
+  type: 'dragdrop';
+  text: string;        // oración con _____ por cada hueco
+  answer: string[];    // palabra correcta por hueco (en orden)
+  bank: string[];      // banco de palabras arrastrables (correctas + distractores)
 }
 
 export interface TextBoxActivity extends BaseActivity {
@@ -125,6 +133,7 @@ export type WorksheetActivity =
   | FillBlankActivity
   | MultipleChoiceActivity
   | MultiSelectActivity
+  | DragDropActivity
   | TextBoxActivity
   | MatchingActivity
   | ReadingActivity

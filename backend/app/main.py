@@ -950,7 +950,7 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
     for activity in worksheet.json_content.iter_activities():
         student_answer = answers.get(activity.id)
         prompt = activity.text or activity.question or activity.prompt or activity.title or activity.type
-        if activity.type == "fillblank" and activity.answer:
+        if activity.type in {"fillblank", "dragdrop"} and activity.answer:
             correct_answers = _resolve_correct_answers(activity.answer)
             student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
             is_correct = len(student_answers) >= len(correct_answers) and all(_norm_answer(student_answers[index]) == correct for index, correct in enumerate(correct_answers))

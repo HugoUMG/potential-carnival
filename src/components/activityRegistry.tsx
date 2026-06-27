@@ -13,6 +13,7 @@ import type {
   MatchingActivity,
   MultipleChoiceActivity,
   MultiSelectActivity,
+  DragDropActivity,
   SpeakingActivity,
   ReadingActivity,
   ReadingTrueFalseActivity,
@@ -127,6 +128,73 @@ function MultiSelectRenderer({ activity, value, readonly, onChange }: ActivityRe
         ))}
       </div>
     </fieldset>
+  );
+}
+
+function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<DragDropActivity>) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const parts = activity.text.replace(/\\n/g, '\n').split('_____');
+  const blanks = parts.length - 1;
+  const placed: string[] = Array.from({ length: blanks }, (_, i) => (Array.isArray(value) ? String(value[i] ?? '') : ''));
+
+  // Banco disponible = palabras del banco menos las ya colocadas (por cantidad).
+  const usedCopy = placed.filter(Boolean);
+  const available: { word: string; key: number }[] = [];
+  activity.bank.forEach((word, i) => {
+    const idx = usedCopy.indexOf(word);
+    if (idx >= 0) usedCopy.splice(idx, 1);
+    else available.push({ word, key: i });
+  });
+
+  const setBlank = (index: number, word: string) => {
+    const next = [...placed];
+    next[index] = word;
+    onChange(activity.id, next);
+    setSelected(null);
+  };
+
+  return (
+    <div className="grid gap-4">
+      <ActivityInstructions instructions={activity.instructions} />
+      <div className="text-base font-medium leading-10 text-slate-800 whitespace-pre-line">
+        {parts.map((part, index) => (
+          <span key={`${activity.id}-${index}`}>
+            {part}
+            {index < blanks && (
+              <span
+                onDragOver={(e) => { if (!readonly) e.preventDefault(); }}
+                onDrop={(e) => { if (readonly) return; e.preventDefault(); const w = e.dataTransfer.getData('text/plain'); if (w) setBlank(index, w); }}
+                onClick={() => { if (readonly) return; if (selected) setBlank(index, selected); else if (placed[index]) setBlank(index, ''); }}
+                className={`mx-1 inline-flex min-w-[90px] cursor-pointer items-center justify-center rounded-lg border-2 border-dashed px-3 py-1 align-middle text-sm transition ${placed[index] ? 'border-blue-400 bg-blue-50 font-semibold text-blue-800' : 'border-slate-300 bg-slate-50 text-slate-400'}`}
+                title={placed[index] ? 'Clic para quitar' : 'Arrastra o toca una palabra aquí'}
+              >
+                {placed[index] || '⬚'}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+
+      {!readonly && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Banco de palabras — arrastra o toca para colocar</p>
+          <div className="flex flex-wrap gap-2">
+            {available.map(({ word, key }) => (
+              <span
+                key={key}
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData('text/plain', word)}
+                onClick={() => setSelected(selected === word ? null : word)}
+                className={`cursor-grab select-none rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm transition active:cursor-grabbing ${selected === word ? 'border-blue-500 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'}`}
+              >
+                {word}
+              </span>
+            ))}
+            {!available.length && <span className="text-sm text-slate-400">Todas las palabras están colocadas.</span>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -567,6 +635,14 @@ export const activityRegistry = {
     icon: '🗹',
     create: () => ({ id: nextId('multiselect'), type: 'multiselect', question: 'Select all that apply.', options: ['run', 'runs', 'running', 'ran'], answer: ['run', 'runs'] }),
     Renderer: MultiSelectRenderer,
+  },
+  dragdrop: {
+    type: 'dragdrop',
+    label: 'Arrastrar palabras',
+    description: 'Word bank dragged into blanks.',
+    icon: '🧩',
+    create: () => ({ id: nextId('dragdrop'), type: 'dragdrop', text: 'She _____ to school and _____ English.', answer: ['goes', 'studies'], bank: ['goes', 'go', 'studies', 'study'] }),
+    Renderer: DragDropRenderer,
   },
   textbox: {
     type: 'textbox',
