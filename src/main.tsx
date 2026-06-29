@@ -8,6 +8,11 @@ import { ReaderPortal } from './pages/ReaderPortal';
 import { VocabPublicPage } from './pages/VocabPublicPage';
 import { GuestPage } from './pages/GuestPage';
 import { getCurrentSession } from './services/api';
+import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
+
+// Windows no renderiza banderas (muestra "MX"/"GT"); este polyfill carga la fuente
+// "Twemoji Country Flags" para que se vean igual en PC y Android.
+polyfillCountryFlagEmojis();
 
 /** Redirige desde / al portal correcto según el rol, o a /login si no hay sesión. */
 function RootRedirect() {

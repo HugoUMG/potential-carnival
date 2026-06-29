@@ -134,7 +134,6 @@ function MultiSelectRenderer({ activity, value, readonly, onChange }: ActivityRe
 type DragPayload = { word: string; from: 'bank' | number };
 
 function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<DragDropActivity>) {
-  const [selected, setSelected] = useState<string | null>(null);
   const [dragKey, setDragKey] = useState<string | null>(null); // qué se está arrastrando (para la silueta)
   const [overBlank, setOverBlank] = useState<number | null>(null);
   const parts = activity.text.replace(/\\n/g, '\n').split('_____');
@@ -150,7 +149,7 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
     else available.push({ word, key: i });
   });
 
-  const apply = (next: string[]) => { onChange(activity.id, next); setSelected(null); };
+  const apply = (next: string[]) => onChange(activity.id, next);
 
   const startDrag = (e: DragEvent, payload: DragPayload, key: string) => {
     e.dataTransfer.setData('text/plain', JSON.stringify(payload));
@@ -166,17 +165,16 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
     if (p.from === 'bank') {
       next[targetIdx] = p.word; // el ocupante anterior vuelve al banco (se recalcula)
     } else {
-      // mover desde otro hueco → si el destino tiene palabra, se intercambian
-      next[targetIdx] = p.word;
+      next[targetIdx] = p.word;        // mover desde otro hueco → intercambia si el destino tiene palabra
       next[p.from] = placed[targetIdx];
     }
     apply(next);
   };
 
-  const tapBlank = (index: number) => {
-    if (readonly) return;
-    if (selected) apply(Object.assign([...placed], { [index]: selected }));
-    else if (placed[index]) apply(Object.assign([...placed], { [index]: '' }));
+  // Clic simple en una palabra del banco → la coloca en el próximo hueco vacío.
+  const placeNext = (word: string) => {
+    const empty = placed.findIndex((p) => !p);
+    if (empty >= 0) apply(Object.assign([...placed], { [empty]: word }));
   };
 
   return (
@@ -188,25 +186,17 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
             {part}
             {index < blanks && (
               <span
+                draggable={!readonly && !!placed[index]}
+                onDragStart={(e) => { if (placed[index]) startDrag(e, { word: placed[index], from: index }, `blank-${index}`); }}
+                onDragEnd={() => setDragKey(null)}
                 onDragOver={(e) => { if (!readonly) { e.preventDefault(); setOverBlank(index); } }}
                 onDragLeave={() => setOverBlank((o) => (o === index ? null : o))}
                 onDrop={(e) => { if (readonly) return; e.preventDefault(); setOverBlank(null); const p = readPayload(e); if (p) dropOnBlank(index, p); }}
-                className={`mx-1 inline-flex min-w-[90px] items-center justify-center rounded-lg border-2 border-dashed px-3 py-1 align-middle text-sm transition ${overBlank === index ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-300' : placed[index] ? 'border-blue-400 bg-blue-50' : 'border-slate-300 bg-slate-50'}`}
+                onClick={() => { if (!readonly && placed[index]) apply(Object.assign([...placed], { [index]: '' })); }}
+                title={placed[index] ? 'Arrastra a otro hueco, o clic para quitar' : 'Arrastra una palabra aquí'}
+                className={`mx-1 inline-flex min-w-[90px] items-center justify-center rounded-lg border-2 border-dashed px-3 py-1 align-middle text-sm transition ${placed[index] ? 'cursor-grab active:cursor-grabbing font-semibold text-blue-800' : 'text-slate-400'} ${overBlank === index ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-300' : placed[index] ? 'border-blue-400 bg-blue-50' : 'border-slate-300 bg-slate-50'} ${dragKey === `blank-${index}` ? 'opacity-40' : ''}`}
               >
-                {placed[index] ? (
-                  <span
-                    draggable={!readonly}
-                    onDragStart={(e) => startDrag(e, { word: placed[index], from: index }, `blank-${index}`)}
-                    onDragEnd={() => setDragKey(null)}
-                    onClick={() => tapBlank(index)}
-                    title="Arrastra a otro hueco, o clic para quitar"
-                    className={`cursor-grab font-semibold text-blue-800 active:cursor-grabbing ${dragKey === `blank-${index}` ? 'opacity-40' : ''}`}
-                  >
-                    {placed[index]}
-                  </span>
-                ) : (
-                  <span className="cursor-pointer text-slate-400" onClick={() => tapBlank(index)}>⬚</span>
-                )}
+                {placed[index] || '⬚'}
               </span>
             )}
           </span>
@@ -219,19 +209,20 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); const p = readPayload(e); if (p && typeof p.from === 'number') apply(Object.assign([...placed], { [p.from]: '' })); }}
         >
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Banco de palabras — arrastra o toca para colocar</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Banco de palabras — toca para colocar o arrastra a un hueco</p>
           <div className="flex flex-wrap gap-2">
             {available.map(({ word, key }) => (
-              <span
+              <button
                 key={key}
+                type="button"
                 draggable
                 onDragStart={(e) => startDrag(e, { word, from: 'bank' }, `bank-${key}`)}
                 onDragEnd={() => setDragKey(null)}
-                onClick={() => setSelected(selected === word ? null : word)}
-                className={`cursor-grab select-none rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm transition active:cursor-grabbing ${dragKey === `bank-${key}` ? 'opacity-40 ring-2 ring-blue-300' : ''} ${selected === word ? 'border-blue-500 bg-blue-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300'}`}
+                onClick={() => placeNext(word)}
+                className={`cursor-grab select-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 active:cursor-grabbing ${dragKey === `bank-${key}` ? 'opacity-40 ring-2 ring-blue-300' : ''}`}
               >
                 {word}
-              </span>
+              </button>
             ))}
             {!available.length && <span className="text-sm text-slate-400">Todas las palabras están colocadas. Arrastra una de vuelta aquí para quitarla.</span>}
           </div>
