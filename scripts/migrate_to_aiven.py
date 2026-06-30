@@ -48,23 +48,35 @@ def ensure_schema(conn: psycopg.Connection) -> None:
     conn.commit()
 
 
+def _dest_columns(dst: psycopg.Connection, table: str) -> set[str]:
+    with dst.cursor() as cur:
+        cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = %s", (table,))
+        return {r[0] for r in cur.fetchall()}
+
+
 def copy_table(src: psycopg.Connection, dst: psycopg.Connection, table: str) -> int:
+    destcols = _dest_columns(dst, table)
     with src.cursor() as cur:
         cur.execute(f"SELECT * FROM {table}")
-        cols = [d.name for d in cur.description]
+        srccols = [d.name for d in cur.description]
         rows = cur.fetchall()
     if not rows:
         print(f"  {table}: 0 filas")
         return 0
+    # Solo columnas presentes en AMBAS bases (ignora columnas viejas como 'group_id').
+    cols = [c for c in srccols if c in destcols]
+    idxs = [srccols.index(c) for c in cols]
+    skipped = [c for c in srccols if c not in destcols]
     collist = ", ".join(cols)
     placeholders = ", ".join(["%s"] * len(cols))
     insert = f"INSERT INTO {table} ({collist}) VALUES ({placeholders}) ON CONFLICT DO NOTHING"
     with dst.cursor() as cur:
         for row in rows:
-            values = [Jsonb(v) if isinstance(v, (dict, list)) else v for v in row]
+            values = [Jsonb(row[i]) if isinstance(row[i], (dict, list)) else row[i] for i in idxs]
             cur.execute(insert, values)
     dst.commit()
-    print(f"  {table}: {len(rows)} filas")
+    extra = f" (ignoradas: {', '.join(skipped)})" if skipped else ""
+    print(f"  {table}: {len(rows)} filas{extra}")
     return len(rows)
 
 
