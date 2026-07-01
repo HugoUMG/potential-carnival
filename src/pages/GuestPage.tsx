@@ -3,7 +3,7 @@ import { BookOpen, Check, Send, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { RichText } from '../components/RichText';
-import { RocketFueling, RocketResult } from '../components/RocketLaunch';
+import { RocketFueling, SubmitResult } from '../components/submitAnimations';
 import type { RespuestaEstudiante } from '../services/api';
 import { normalizeWorksheet } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
@@ -383,9 +383,9 @@ export function GuestPage() {
         </div>
       )}
 
-      {/* ── MODAL resultado ── */}
+      {/* ── MODAL resultado (animación al azar) ── */}
       {submitResult && (
-        <RocketResult
+        <SubmitResult
           score={submitResult.score}
           correct={submitResult.correct}
           incorrect={submitResult.incorrect}
