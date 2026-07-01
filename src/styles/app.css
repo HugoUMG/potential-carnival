@@ -82,10 +82,17 @@ select {
   20% { opacity: 1; }
   100% { transform: translateY(-70px); opacity: 0; }
 }
-@keyframes rocket-float-sky {
-  0% { transform: translate(-10px, 0) rotate(-6deg); }
-  50% { transform: translate(10px, -14px) rotate(-2deg); }
-  100% { transform: translate(-10px, 0) rotate(-6deg); }
+/* Escena final (todo correcto): cohete grande orbitando de fondo tras la tarjeta. */
+@keyframes rocket-orbit {
+  0%    { transform: translate(0, -230px) rotate(0deg) scale(0.9); }
+  12.5% { transform: translate(142px, -163px) rotate(10deg) scale(0.95); }
+  25%   { transform: translate(200px, 0) rotate(18deg) scale(1); }
+  37.5% { transform: translate(142px, 163px) rotate(10deg) scale(1.05); }
+  50%   { transform: translate(0, 230px) rotate(0deg) scale(1.1); }
+  62.5% { transform: translate(-142px, 163px) rotate(-10deg) scale(1.05); }
+  75%   { transform: translate(-200px, 0) rotate(-18deg) scale(1); }
+  87.5% { transform: translate(-142px, -163px) rotate(-10deg) scale(0.95); }
+  100%  { transform: translate(0, -230px) rotate(0deg) scale(0.9); }
 }
 @keyframes rocket-flame {
   0%, 100% { transform: scaleY(1) scaleX(1); opacity: 0.9; }
@@ -175,7 +182,7 @@ select {
 .rk-bob { animation: rocket-bob 2s ease-in-out infinite; }
 .rk-twinkle { animation: rocket-twinkle 1.8s ease-in-out infinite; }
 .rk-rise { animation: rocket-rise 2.4s ease-in infinite; }
-.rk-float { animation: rocket-float-sky 4s ease-in-out infinite; }
+.rk-orbit { animation: rocket-orbit 9s linear infinite; }
 .rk-flame { animation: rocket-flame 0.4s ease-in-out infinite; transform-origin: top center; }
 .rk-rumble { animation: rocket-rumble 0.18s linear infinite; }
 .rk-rumble-soft { animation: rocket-rumble-soft 0.3s linear infinite; }

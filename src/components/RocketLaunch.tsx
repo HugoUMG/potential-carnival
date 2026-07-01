@@ -126,7 +126,7 @@ export function RocketResult({ score, correct, incorrect, worksheetTitle, onSeeA
     return () => clearTimeout(t);
   }, [phase, launched]);
 
-  const inSpace = phase === 'stabilize' || phase === 'space';
+  const inSpace = phase === 'stabilize' || phase === 'space' || (phase === 'card' && launched);
   const bg = launched ? 'from-indigo-900 to-slate-900' : 'from-slate-800 to-rose-950';
 
   return (
@@ -136,10 +136,10 @@ export function RocketResult({ score, correct, incorrect, worksheetTitle, onSeeA
       {inSpace && (
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black via-indigo-950 to-slate-950 transition-opacity duration-1000"
-          style={{ opacity: phase === 'space' ? 1 : 0.4 }}
+          style={{ opacity: phase === 'stabilize' ? 0.4 : 1 }}
         />
       )}
-      {phase === 'space' && <Planets />}
+      {(phase === 'space' || (phase === 'card' && launched)) && <Planets />}
       {phase === 'fall' && <div className="pointer-events-none absolute inset-0 animate-pulse bg-rose-600/20" />}
 
       {phase !== 'card' ? (
@@ -200,8 +200,12 @@ export function RocketResult({ score, correct, incorrect, worksheetTitle, onSeeA
         </div>
       ) : (
         <>
-          <div className="pointer-events-none absolute inset-0 grid place-items-center opacity-25">
-            {launched ? <span className="rk-float text-[9rem]">🚀</span> : <span className="text-[9rem]">🚀💥</span>}
+          <div className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden">
+            {launched ? (
+              <span className="rk-orbit text-[9rem] drop-shadow-[0_0_45px_rgba(129,140,248,0.65)]">🚀</span>
+            ) : (
+              <span className="text-[9rem] opacity-25">🚀💥</span>
+            )}
           </div>
           <div className="relative w-full max-w-sm rounded-3xl bg-white/95 p-8 text-center shadow-2xl backdrop-blur">
             <div className="text-5xl">{launched ? '🚀' : '💥'}</div>
