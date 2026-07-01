@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, LockKeyhole, LogOut, Pencil, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
-import { GradingOverlay } from './components/GradingOverlay';
+import { RocketFueling, RocketResult } from './components/RocketLaunch';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
 import { RichText } from './components/RichText';
@@ -180,7 +180,7 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
   const [refreshCooldowns, setRefreshCooldowns] = useState<Set<string>>(new Set());
   const [studentTab, setStudentTab] = useState<'activas' | 'calificadas' | 'vocabulario' | 'perfil'>('activas');
@@ -401,7 +401,8 @@ export default function App() {
       const response = await submitResponse(activeWorksheet, user, answers);
       setResponses((current) => [response, ...current]);
       setAnswers({});
-      setSubmitResult({ score: response.score, worksheetId: activeWorksheet.id, worksheetTitle: activeWorksheet.title });
+      const incorrect = response.details.filter((d) => d.status === 'incorrect').length;
+      setSubmitResult({ score: response.score, worksheetId: activeWorksheet.id, worksheetTitle: activeWorksheet.title, correct: response.correct_count, incorrect });
       // Refrescar lista para que attempts_remaining se actualice y la hoja se mueva de pestaña
       void refreshData(user);
     } catch (error) {
@@ -775,7 +776,7 @@ export default function App() {
 
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        {isSubmitting && <GradingOverlay aiGrading={activeWorksheet?.aiGrading ?? true} />}
+        {isSubmitting && <RocketFueling />}
         {/* Navbar */}
         <nav className="border-b border-slate-200 bg-white/85">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
@@ -985,38 +986,21 @@ export default function App() {
             </section>
           </div>
         )}
-      {/* ── MODAL: resultado de envío ── */}
+      {/* ── Resultado de envío (cohete) ── */}
       {submitResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-2xl text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <Check className="text-emerald-600" size={32} />
-            </div>
-            <h2 className="text-2xl font-extrabold text-slate-900">¡Entregado!</h2>
-            <p className="mt-1 text-sm text-slate-500">{submitResult.worksheetTitle}</p>
-            <div className="mt-4 rounded-2xl bg-blue-50 px-6 py-4">
-              <p className="text-4xl font-black text-blue-700">{submitResult.score !== null ? submitResult.score : '—'}</p>
-              <p className="text-sm font-semibold text-blue-500">Puntuación</p>
-            </div>
-            <button
-              className="mt-6 w-full rounded-2xl bg-violet-600 px-6 py-3 font-semibold text-white hover:bg-violet-700"
-              onClick={() => {
-                const ws = [...activeWorksheets, ...gradedWorksheets].find((w) => w.id === submitResult.worksheetId);
-                if (ws) setActiveWorksheet(ws);
-                setStudentTab('calificadas');
-                setSubmitResult(null);
-              }}
-            >
-              Ver mis respuestas →
-            </button>
-            <button
-              className="mt-3 w-full rounded-2xl px-6 py-2 text-sm text-slate-500 hover:bg-slate-50"
-              onClick={() => setSubmitResult(null)}
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
+        <RocketResult
+          score={submitResult.score}
+          correct={submitResult.correct}
+          incorrect={submitResult.incorrect}
+          worksheetTitle={submitResult.worksheetTitle}
+          onSeeAnswers={() => {
+            const ws = [...activeWorksheets, ...gradedWorksheets].find((w) => w.id === submitResult.worksheetId);
+            if (ws) setActiveWorksheet(ws);
+            setStudentTab('calificadas');
+            setSubmitResult(null);
+          }}
+          onClose={() => setSubmitResult(null)}
+        />
       )}
       </main>
     );

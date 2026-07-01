@@ -67,3 +67,52 @@ select {
   border-color: #2563eb;
   color: #2563eb;
 }
+
+/* ── Animaciones del cohete (pantalla de envío/resultado) ─────────────────── */
+@keyframes rocket-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes rocket-twinkle {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+@keyframes rocket-rise {
+  0% { transform: translateY(40px); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-70px); opacity: 0; }
+}
+@keyframes rocket-launch {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(6px) scale(1.03); }
+  100% { transform: translateY(-120vh) scale(0.7); }
+}
+@keyframes rocket-crash {
+  0% { transform: translateY(0) rotate(0deg); }
+  15% { transform: translateX(-6px) rotate(-6deg); }
+  30% { transform: translateX(6px) rotate(6deg); }
+  45% { transform: translateX(-4px) rotate(-4deg); }
+  60% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(55vh) rotate(160deg); opacity: 0.1; }
+}
+@keyframes rocket-float-sky {
+  0% { transform: translate(-10px, 0) rotate(-6deg); }
+  50% { transform: translate(10px, -14px) rotate(-2deg); }
+  100% { transform: translate(-10px, 0) rotate(-6deg); }
+}
+@keyframes rocket-flame {
+  0%, 100% { transform: scaleY(1); opacity: 0.9; }
+  50% { transform: scaleY(1.4); opacity: 1; }
+}
+
+/* Estáticos por defecto; solo animan si el usuario no pidió reducir movimiento. */
+.rk-bob, .rk-twinkle, .rk-rise, .rk-launch, .rk-crash, .rk-float, .rk-flame { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .rk-bob { animation: rocket-bob 2s ease-in-out infinite; }
+  .rk-twinkle { animation: rocket-twinkle 1.8s ease-in-out infinite; }
+  .rk-rise { animation: rocket-rise 2.4s ease-in infinite; }
+  .rk-launch { animation: rocket-launch 1.6s cubic-bezier(0.4, 0, 0.9, 0.2) forwards; }
+  .rk-crash { animation: rocket-crash 1.7s ease-in forwards; }
+  .rk-float { animation: rocket-float-sky 4s ease-in-out infinite; }
+  .rk-flame { animation: rocket-flame 0.4s ease-in-out infinite; transform-origin: top center; }
+}
