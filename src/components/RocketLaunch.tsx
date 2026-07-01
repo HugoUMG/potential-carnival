@@ -115,8 +115,7 @@ export function RocketResult({ score, correct, incorrect, worksheetTitle, onSeeA
   onClose: () => void;
 }) {
   const launched = score !== null ? score >= 51 : correct >= incorrect;
-  const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const [phase, setPhase] = useState<Phase>(reduce ? 'card' : 'pad');
+  const [phase, setPhase] = useState<Phase>('pad');
 
   useEffect(() => {
     if (phase === 'card') return;
