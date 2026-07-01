@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, LockKeyhole, LogOut, Pencil, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
-import { RocketFueling, RocketResult } from './components/RocketLaunch';
+import { RocketFueling, SubmitResult } from './components/submitAnimations';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
 import { RichText } from './components/RichText';
@@ -986,9 +986,9 @@ export default function App() {
             </section>
           </div>
         )}
-      {/* ── Resultado de envío (cohete) ── */}
+      {/* ── Resultado de envío (animación al azar) ── */}
       {submitResult && (
-        <RocketResult
+        <SubmitResult
           score={submitResult.score}
           correct={submitResult.correct}
           incorrect={submitResult.incorrect}
