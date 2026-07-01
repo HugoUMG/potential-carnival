@@ -276,12 +276,12 @@ function RocketScene(props: SceneProps) {
 // ── Animación 2: pastelero (bowl → pastel) ──────────────────────────────────
 
 const INGREDIENTS = [
-  { emoji: '🥚', left: '30%', delay: '0s' },
-  { emoji: '🥛', left: '55%', delay: '0.25s' },
-  { emoji: '🧈', left: '40%', delay: '0.5s' },
-  { emoji: '🍫', left: '62%', delay: '0.75s' },
-  { emoji: '🍓', left: '35%', delay: '1s' },
-  { emoji: '🍯', left: '52%', delay: '1.25s' },
+  { emoji: '🥚', off: '-80px', delay: '0s' },
+  { emoji: '🥛', off: '60px', delay: '0.22s' },
+  { emoji: '🧈', off: '-20px', delay: '0.44s' },
+  { emoji: '🍫', off: '90px', delay: '0.66s' },
+  { emoji: '🍓', off: '-90px', delay: '0.88s' },
+  { emoji: '🍯', off: '30px', delay: '1.1s' },
 ];
 
 type BakePhase = 'kitchen' | 'mixing' | 'whisk' | 'oven' | 'reveal' | 'burnt';
@@ -305,44 +305,49 @@ function BakerScene(props: SceneProps) {
   return (
     <Overlay bg={bg} shake={phase === 'whisk'}>
       {/* encimera de la cocina */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-amber-800/40 to-amber-950/70" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-amber-800/40 to-amber-950/70" />
 
       {phase !== 'card' ? (
         <div className="relative h-full w-full">
-          <div className="absolute bottom-24 left-1/2 flex -translate-x-1/2 flex-col items-center">
-            <span className="text-6xl">👩‍🍳</span>
-
+          {/* Close-up: la acción ocupa la pantalla, centrada en primer plano. */}
+          <div className="absolute inset-0 grid place-items-center">
             {withBowl && (
-              <div className="relative -mt-1">
-                <span className={`block text-6xl ${phase === 'mixing' || phase === 'whisk' ? 'bake-shake' : ''}`}>🥣</span>
-                {phase === 'whisk' && <span className="bake-whisk absolute -top-5 left-1/2 -translate-x-1/2 text-4xl">🥄</span>}
-                {phase === 'mixing' && INGREDIENTS.map((ing, i) => (
-                  <span key={i} className="bake-drop absolute -top-24 text-3xl" style={{ left: ing.left, animationDelay: ing.delay }}>{ing.emoji}</span>
-                ))}
+              <div className="relative flex flex-col items-center">
+                <span className="text-8xl">👩‍🍳</span>
+                <div className="relative -mt-6">
+                  <span className={`block text-[11rem] leading-none ${phase === 'mixing' || phase === 'whisk' ? 'bake-shake' : ''}`}>🥣</span>
+                  {phase === 'whisk' && <span className="bake-whisk absolute -top-14 left-1/2 -translate-x-1/2 text-7xl">🥄</span>}
+                  {phase === 'mixing' && INGREDIENTS.map((ing, i) => (
+                    <div key={i} className="absolute left-1/2 top-2 -translate-x-1/2" style={{ marginLeft: ing.off }}>
+                      <span className="bake-drop-cu block text-6xl" style={{ animationDelay: ing.delay }}>{ing.emoji}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             {phase === 'oven' && (
-              <div className="relative -mt-1 grid place-items-center">
-                <span className="text-6xl">🔥</span>
-                <div className="absolute inset-0 -z-10 animate-pulse rounded-full bg-orange-500/50 blur-xl" />
+              <div className="relative grid place-items-center">
+                <span className="text-[13rem] leading-none" style={{ filter: 'brightness(0.75)' }}>🎂</span>
+                <div className="absolute inset-8 animate-pulse rounded-full bg-orange-500/50 blur-2xl" />
+                <span className="absolute -bottom-2 text-6xl">🔥🔥🔥</span>
               </div>
             )}
 
             {phase === 'reveal' && (
-              <div className="relative -mt-1">
-                <span className="bake-cake-pop block text-7xl">🎂</span>
-                {['✨', '🎉', '⭐', '✨'].map((s, i) => (
-                  <span key={i} className="bake-sparkle absolute text-2xl" style={{ left: `${[8, 78, 18, 68][i]}%`, top: `${[-4, 6, 62, 54][i]}%`, animationDelay: `${i * 0.2}s` }}>{s}</span>
+              <div className="relative">
+                <span className="bake-cake-pop block text-[14rem] leading-none drop-shadow-[0_0_45px_rgba(251,191,36,0.7)]">🎂</span>
+                {['✨', '🎉', '⭐', '✨', '🎊', '⭐'].map((s, i) => (
+                  <span key={i} className="bake-sparkle absolute text-4xl" style={{ left: `${[0, 86, 12, 78, 42, 58][i]}%`, top: `${[-8, 2, 74, 66, -12, 82][i]}%`, animationDelay: `${i * 0.18}s` }}>{s}</span>
                 ))}
               </div>
             )}
 
             {phase === 'burnt' && (
-              <div className="relative -mt-1">
-                <span className="bake-shake block text-7xl" style={{ filter: 'brightness(0.35) saturate(0.4)' }}>🎂</span>
-                {[0, 1, 2].map((i) => (
-                  <span key={i} className="bake-steam absolute left-1/2 -translate-x-1/2 text-3xl" style={{ animationDelay: `${i * 0.3}s` }}>💨</span>
+              <div className="relative">
+                <span className="bake-shake block text-[14rem] leading-none" style={{ filter: 'brightness(0.3) saturate(0.35)' }}>🎂</span>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <span key={i} className="bake-steam absolute text-5xl" style={{ left: `${16 + i * 16}%`, top: '-10%', animationDelay: `${i * 0.25}s` }}>💨</span>
                 ))}
               </div>
             )}
@@ -368,14 +373,23 @@ function BakerScene(props: SceneProps) {
 
 // ── Animación 3: paracaidista ───────────────────────────────────────────────
 
-// Colores de los "parches" (respuestas) sobre el paracaídas.
+// Nubes que suben rápido: dan la sensación de caída sin mover al personaje.
+const RUSH_CLOUDS = [
+  { left: '18%', delay: '0s' },
+  { left: '62%', delay: '0.3s' },
+  { left: '38%', delay: '0.6s' },
+  { left: '80%', delay: '0.85s' },
+  { left: '8%', delay: '1.1s' },
+];
+
+// Colores de los "parches" (respuestas) cosidos sobre la vela del paracaídas.
 const PATCHES = ['#ef4444', '#22c55e', '#eab308', '#3b82f6'];
 
 function ChutePatches() {
   return (
     <>
       {PATCHES.map((c, i) => (
-        <span key={i} className="patch-pop absolute h-4 w-4 rounded-sm border border-white/60" style={{ background: c, left: `${18 + i * 18}%`, top: '10px', animationDelay: `${i * 0.15}s` }} />
+        <span key={i} className="patch-pop absolute h-7 w-7 rounded border-2 border-white/70 shadow-md" style={{ background: c, left: `${24 + i * 15}%`, top: '15%', animationDelay: `${i * 0.15}s` }} />
       ))}
     </>
   );
@@ -396,70 +410,60 @@ function SkydiverScene(props: SceneProps) {
   const ok = passed(props);
   const phase = useScenes(ok ? SKY_OK : SKY_FAIL);
   const bg = ok ? 'from-sky-400 to-sky-200' : 'from-sky-600 to-slate-500';
+  const falling = phase === 'jump' || phase === 'plummet';
   const showGround = phase === 'land' || (phase === 'card' && ok);
 
   return (
     <Overlay bg={bg}>
+      {/* En caída libre las nubes suben rápido (sensación de caer); si no, van lentas. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {CLOUDS.map((c, i) => (
-          <span key={i} className="rk-cloud absolute text-4xl" style={{ left: c.left, top: c.top, animationDelay: c.delay }}>☁️</span>
-        ))}
+        {falling
+          ? RUSH_CLOUDS.map((c, i) => (
+              <span key={i} className="sky-rush absolute text-6xl" style={{ left: c.left, bottom: '-10%', animationDelay: c.delay }}>☁️</span>
+            ))
+          : CLOUDS.map((c, i) => (
+              <span key={i} className="rk-cloud absolute text-4xl" style={{ left: c.left, top: c.top, animationDelay: c.delay }}>☁️</span>
+            ))}
       </div>
 
       {showGround && (
         <>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-emerald-500 to-emerald-800" />
-          <span className="pointer-events-none absolute bottom-14 left-[15%] text-4xl">🌳</span>
-          <span className="pointer-events-none absolute bottom-14 right-[15%] text-4xl">🌲</span>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-emerald-500 to-emerald-800" />
+          <span className="pointer-events-none absolute bottom-16 left-[12%] text-5xl">🌳</span>
+          <span className="pointer-events-none absolute bottom-16 right-[12%] text-5xl">🌲</span>
         </>
       )}
-      {phase === 'plummet' && <div className="pointer-events-none absolute inset-0 animate-pulse bg-rose-600/15" />}
+      {phase === 'plummet' && <div className="pointer-events-none absolute inset-0 animate-pulse bg-rose-600/20" />}
 
       {phase !== 'card' ? (
         <div className="relative h-full w-full">
-          {phase === 'plane' && (
-            <div className="absolute left-1/2 top-16 -translate-x-1/2">
-              <span className="sky-plane-bob block text-6xl">✈️</span>
-            </div>
-          )}
+          {/* Close-up: el paracaidista ocupa la pantalla; el fondo da el movimiento. */}
+          <div className="absolute inset-0 grid place-items-center">
+            {phase === 'plane' && <span className="sky-plane-bob text-[10rem] leading-none">✈️</span>}
 
-          {phase === 'jump' && (
-            <div className="absolute left-1/2 top-1/4 -translate-x-1/2">
-              <div className="sky-freefall relative">
-                <span className="block text-6xl">🧑</span>
-                {[0, 1, 2].map((i) => (
-                  <span key={i} className="sky-wind absolute left-1/2 -translate-x-1/2 text-2xl font-black text-white/70" style={{ left: `${35 + i * 15}%`, animationDelay: `${i * 0.2}s` }}>ᛁ</span>
-                ))}
-              </div>
-            </div>
-          )}
+            {phase === 'jump' && <span className="sky-wobble text-[12rem] leading-none">🧑</span>}
 
-          {phase === 'deploy' && (
-            <div className="absolute left-1/2 top-24 -translate-x-1/2">
+            {phase === 'deploy' && (
               <div className="sky-chute-open relative">
-                <span className="block text-7xl">🪂</span>
+                <span className="block text-[14rem] leading-none">🪂</span>
                 <ChutePatches />
               </div>
-            </div>
-          )}
+            )}
 
-          {phase === 'land' && (
-            <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
-              <div className="sky-drift relative">
-                <span className="block text-7xl">🪂</span>
+            {phase === 'land' && (
+              <div className="sky-sway relative">
+                <span className="block text-[13rem] leading-none">🪂</span>
                 <ChutePatches />
               </div>
-            </div>
-          )}
+            )}
 
-          {phase === 'plummet' && (
-            <div className="absolute left-1/2 top-10 -translate-x-1/2">
-              <div className="sky-plummet relative">
-                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-4xl opacity-70">🪂</span>
-                <span className="block text-6xl">🧑</span>
+            {phase === 'plummet' && (
+              <div className="relative grid place-items-center">
+                <span className="sky-spin block text-[12rem] leading-none">🧑</span>
+                <span className="absolute -top-20 text-6xl opacity-70">🪂</span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <Caption text={SKY_CAPTIONS[phase]} />
         </div>
