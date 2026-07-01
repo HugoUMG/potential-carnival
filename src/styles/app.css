@@ -170,26 +170,22 @@ select {
   100% { transform: translate(var(--dx), var(--dy)) scale(0.3); opacity: 0; }
 }
 
-/* Estáticos por defecto; solo animan si el usuario no pidió reducir movimiento. */
-.rk-bob, .rk-twinkle, .rk-rise, .rk-float, .rk-flame, .rk-rumble, .rk-rumble-soft, .rk-screenshake,
-.rk-cloud, .rk-smoke, .rk-journey-success, .rk-journey-fail, .rk-turbo, .rk-flame-out, .rk-planet-in,
-.rk-explode, .rk-debris { animation: none; }
-@media (prefers-reduced-motion: no-preference) {
-  .rk-bob { animation: rocket-bob 2s ease-in-out infinite; }
-  .rk-twinkle { animation: rocket-twinkle 1.8s ease-in-out infinite; }
-  .rk-rise { animation: rocket-rise 2.4s ease-in infinite; }
-  .rk-float { animation: rocket-float-sky 4s ease-in-out infinite; }
-  .rk-flame { animation: rocket-flame 0.4s ease-in-out infinite; transform-origin: top center; }
-  .rk-rumble { animation: rocket-rumble 0.18s linear infinite; }
-  .rk-rumble-soft { animation: rocket-rumble-soft 0.3s linear infinite; }
-  .rk-screenshake { animation: rocket-screenshake 0.7s ease-in-out 1; }
-  .rk-cloud { animation: rocket-cloud-drift 1.8s ease-out infinite; }
-  .rk-smoke { animation: rocket-smoke 1.1s ease-out infinite; }
-  .rk-journey-success { animation: rocket-journey-success 3.8s cubic-bezier(0.3, 0, 0.4, 1) forwards; }
-  .rk-journey-fail { animation: rocket-journey-fail 3.65s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
-  .rk-turbo { animation: rocket-turbo 0.45s ease-out forwards; transform-origin: top center; }
-  .rk-flame-out { animation: rocket-flame-out 0.3s ease-in forwards; transform-origin: top center; }
-  .rk-planet-in { animation: rocket-planet-in 0.9s ease-out forwards; }
-  .rk-explode { animation: rocket-explode 0.6s ease-out forwards; }
-  .rk-debris { animation: rocket-debris 0.6s ease-out forwards; }
-}
+/* La animación del cohete se muestra siempre (a petición explícita), sin gatear por
+   prefers-reduced-motion. */
+.rk-bob { animation: rocket-bob 2s ease-in-out infinite; }
+.rk-twinkle { animation: rocket-twinkle 1.8s ease-in-out infinite; }
+.rk-rise { animation: rocket-rise 2.4s ease-in infinite; }
+.rk-float { animation: rocket-float-sky 4s ease-in-out infinite; }
+.rk-flame { animation: rocket-flame 0.4s ease-in-out infinite; transform-origin: top center; }
+.rk-rumble { animation: rocket-rumble 0.18s linear infinite; }
+.rk-rumble-soft { animation: rocket-rumble-soft 0.3s linear infinite; }
+.rk-screenshake { animation: rocket-screenshake 0.7s ease-in-out 1; }
+.rk-cloud { animation: rocket-cloud-drift 1.8s ease-out infinite; }
+.rk-smoke { animation: rocket-smoke 1.1s ease-out infinite; }
+.rk-journey-success { animation: rocket-journey-success 3.8s cubic-bezier(0.3, 0, 0.4, 1) forwards; }
+.rk-journey-fail { animation: rocket-journey-fail 3.65s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
+.rk-turbo { animation: rocket-turbo 0.45s ease-out forwards; transform-origin: top center; }
+.rk-flame-out { animation: rocket-flame-out 0.3s ease-in forwards; transform-origin: top center; }
+.rk-planet-in { animation: rocket-planet-in 0.9s ease-out forwards; }
+.rk-explode { animation: rocket-explode 0.6s ease-out forwards; }
+.rk-debris { animation: rocket-debris 0.6s ease-out forwards; }
