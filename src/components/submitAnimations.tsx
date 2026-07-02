@@ -396,8 +396,8 @@ function ChutePatches() {
 }
 
 type SkyPhase = 'plane' | 'jump' | 'deploy' | 'land' | 'plummet';
-const SKY_OK: Array<[SkyPhase, number]> = [['plane', 800], ['jump', 1000], ['deploy', 900], ['land', 1300]];
-const SKY_FAIL: Array<[SkyPhase, number]> = [['plane', 800], ['jump', 1000], ['plummet', 1100]];
+const SKY_OK: Array<[SkyPhase, number]> = [['plane', 1400], ['jump', 1900], ['deploy', 1600], ['land', 2400]];
+const SKY_FAIL: Array<[SkyPhase, number]> = [['plane', 1400], ['jump', 1900], ['plummet', 2000]];
 const SKY_CAPTIONS: Record<SkyPhase, string> = {
   plane: '✈️ Listo para saltar…',
   jump: '🪂 ¡Saltó del avión!',
@@ -441,7 +441,7 @@ function SkydiverScene(props: SceneProps) {
           <div className="absolute inset-0 grid place-items-center">
             {phase === 'plane' && <span className="sky-plane-bob text-[10rem] leading-none">✈️</span>}
 
-            {phase === 'jump' && <span className="sky-wobble text-[12rem] leading-none">🧑</span>}
+            {phase === 'jump' && <span className="sky-wobble text-[12rem] leading-none">🕴️</span>}
 
             {phase === 'deploy' && (
               <div className="sky-chute-open relative">
@@ -459,7 +459,7 @@ function SkydiverScene(props: SceneProps) {
 
             {phase === 'plummet' && (
               <div className="relative grid place-items-center">
-                <span className="sky-spin block text-[12rem] leading-none">🧑</span>
+                <span className="sky-spin block text-[12rem] leading-none">🕴️</span>
                 <span className="absolute -top-20 text-6xl opacity-70">🪂</span>
               </div>
             )}
