@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BookText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { VocabularyViewer } from '../components/VocabularyViewer';
+import { Spinner } from '../components/LoadingScreen';
 import type { VocabularyList } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -54,7 +55,9 @@ export function VocabPublicPage() {
 
       <div className="mx-auto max-w-5xl px-4 py-8">
         {loading ? (
-          <p className="py-16 text-center text-sm text-slate-400">Cargando vocabulario…</p>
+          <div className="flex flex-col items-center gap-3 py-16 text-sm text-slate-400">
+            <Spinner size={40} /> Cargando vocabulario…
+          </div>
         ) : readers.length === 0 ? (
           <p className="py-16 text-center text-sm text-slate-400">No hay listas de vocabulario disponibles.</p>
         ) : (
