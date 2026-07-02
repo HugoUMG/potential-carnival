@@ -28,8 +28,39 @@ function passed({ score, correct, incorrect }: Pick<SceneProps, 'score' | 'corre
   return score !== null ? score >= PASS_THRESHOLD : correct >= incorrect;
 }
 
-/** Máquina de escenas: recorre los pasos [nombre, ms] en orden y termina en 'card'. */
-function useScenes<T extends string>(steps: Array<[T, number]>): T | 'card' {
+// ── Efectos de sonido (ZzFX: sintetizados, sin archivos de audio) ────────────
+// Cada efecto son parámetros de ZzFX (zzfx.3d2k.com). Se carga en diferido y se
+// "primeé" dentro del gesto de envío para que el navegador permita reproducirlo.
+type SfxName = 'launch' | 'success' | 'explosion' | 'pop' | 'whoosh' | 'ding';
+// `u` = parámetro por defecto de ZzFX (evita arrays con huecos que el linter rechaza).
+const u = undefined;
+const SFX: Record<SfxName, (number | undefined)[]> = {
+  launch: [1.2, u, 80, 0.1, 0.5, 0.6, 4, 1.5, u, u, u, u, u, 0.4],
+  success: [u, u, 1675, u, 0.06, 0.24, 1, 1.82, u, u, 837, 0.06],
+  explosion: [1.6, u, 333, 0.01, 0, 0.9, 4, 1.9, u, u, u, u, u, 0.5, u, 0.6],
+  pop: [u, u, 500, u, 0.03, 0.1, 1],
+  whoosh: [1, u, 120, 0.05, 0.25, 0.3, 4, u, u, u, u, u, u, 0.7],
+  ding: [u, u, 1046, u, 0.1, 0.25, u, 1.5, u, u, 400, 0.05],
+};
+
+let _zzfx: Promise<(...p: (number | undefined)[]) => void> | null = null;
+function _loadZzfx() {
+  if (!_zzfx) {
+    _zzfx = import('zzfx').then((m) => {
+      try { m.ZZFX.audioContext.resume?.(); } catch { /* bloqueado por el navegador */ }
+      return m.zzfx;
+    });
+  }
+  return _zzfx;
+}
+/** Prepara el audio dentro del gesto del usuario (al enviar) para poder sonar luego. */
+function primeSfx() { _loadZzfx().catch(() => {}); }
+/** Reproduce un efecto (best-effort; silencioso si el navegador lo bloquea). */
+function playSfx(name: SfxName) { _loadZzfx().then((zzfx) => zzfx(...SFX[name])).catch(() => {}); }
+
+/** Máquina de escenas: recorre los pasos [nombre, ms] en orden y termina en 'card'.
+ *  `sounds` reproduce un efecto al ENTRAR a cada fase indicada. */
+function useScenes<T extends string>(steps: Array<[T, number]>, sounds?: Partial<Record<T, SfxName>>): T | 'card' {
   const [phase, setPhase] = useState<T | 'card'>(steps[0][0]);
   useEffect(() => {
     if (phase === 'card') return;
@@ -37,6 +68,9 @@ function useScenes<T extends string>(steps: Array<[T, number]>): T | 'card' {
     const t = setTimeout(() => setPhase(steps[idx + 1]?.[0] ?? 'card'), steps[idx][1]);
     return () => clearTimeout(t);
   }, [phase, steps]);
+  useEffect(() => {
+    if (phase !== 'card' && sounds?.[phase as T]) playSfx(sounds[phase as T]!);
+  }, [phase, sounds]);
   return phase;
 }
 
@@ -111,6 +145,7 @@ function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitl
 export function RocketFueling() {
   const [progress, setProgress] = useState(8);
   useEffect(() => {
+    primeSfx(); // el envío es un gesto del usuario: habilita el audio para las escenas siguientes.
     const id = setInterval(() => setProgress((p) => (p >= 92 ? p : p + Math.max(1, Math.round((96 - p) / 14)))), 350);
     return () => clearInterval(id);
   }, []);
@@ -169,8 +204,11 @@ function RocketGround() {
 }
 
 type RocketPhase = 'pad' | 'ignite' | 'ascend' | 'stabilize' | 'space' | 'turbo' | 'enginefail' | 'fall';
-const ROCKET_OK: Array<[RocketPhase, number]> = [['pad', 500], ['ignite', 700], ['ascend', 900], ['stabilize', 600], ['space', 1100]];
-const ROCKET_FAIL: Array<[RocketPhase, number]> = [['pad', 500], ['ignite', 700], ['ascend', 900], ['turbo', 450], ['enginefail', 300], ['fall', 700]];
+// La suma de cada lista debe igualar la duración de rocket-journey-* en app.css
+// (OK = 5.6s, FAIL = 5.3s) para que el cohete llegue arriba/caiga justo con las fases.
+const ROCKET_OK: Array<[RocketPhase, number]> = [['pad', 700], ['ignite', 1000], ['ascend', 1400], ['stabilize', 900], ['space', 1600]];
+const ROCKET_FAIL: Array<[RocketPhase, number]> = [['pad', 700], ['ignite', 1000], ['ascend', 1400], ['turbo', 700], ['enginefail', 500], ['fall', 1000]];
+const ROCKET_SFX: Partial<Record<RocketPhase, SfxName>> = { ignite: 'launch', turbo: 'launch', space: 'success', fall: 'explosion' };
 const ROCKET_CAPTIONS: Record<RocketPhase, string> = {
   pad: 'Preparando el cohete…',
   ignite: '🔥 ¡Ignición!',
@@ -184,7 +222,7 @@ const ROCKET_CAPTIONS: Record<RocketPhase, string> = {
 
 function RocketScene(props: SceneProps) {
   const ok = passed(props);
-  const phase = useScenes(ok ? ROCKET_OK : ROCKET_FAIL);
+  const phase = useScenes(ok ? ROCKET_OK : ROCKET_FAIL, ROCKET_SFX);
   const inSpace = phase === 'stabilize' || phase === 'space' || (phase === 'card' && ok);
   const bg = ok ? 'from-indigo-900 to-slate-900' : 'from-slate-800 to-rose-950';
 
@@ -285,8 +323,9 @@ const INGREDIENTS = [
 ];
 
 type BakePhase = 'kitchen' | 'mixing' | 'whisk' | 'oven' | 'reveal' | 'burnt';
-const BAKE_OK: Array<[BakePhase, number]> = [['kitchen', 600], ['mixing', 1400], ['whisk', 900], ['oven', 1000], ['reveal', 1300]];
-const BAKE_FAIL: Array<[BakePhase, number]> = [['kitchen', 600], ['mixing', 1400], ['whisk', 900], ['oven', 1000], ['burnt', 1300]];
+const BAKE_OK: Array<[BakePhase, number]> = [['kitchen', 900], ['mixing', 2000], ['whisk', 1400], ['oven', 1500], ['reveal', 1800]];
+const BAKE_FAIL: Array<[BakePhase, number]> = [['kitchen', 900], ['mixing', 2000], ['whisk', 1400], ['oven', 1500], ['burnt', 1800]];
+const BAKE_SFX: Partial<Record<BakePhase, SfxName>> = { mixing: 'pop', whisk: 'whoosh', reveal: 'success', burnt: 'explosion' };
 const BAKE_CAPTIONS: Record<BakePhase, string> = {
   kitchen: '👩‍🍳 Alistando la cocina…',
   mixing: '🥣 Agregando ingredientes…',
@@ -298,7 +337,7 @@ const BAKE_CAPTIONS: Record<BakePhase, string> = {
 
 function BakerScene(props: SceneProps) {
   const ok = passed(props);
-  const phase = useScenes(ok ? BAKE_OK : BAKE_FAIL);
+  const phase = useScenes(ok ? BAKE_OK : BAKE_FAIL, BAKE_SFX);
   const bg = ok ? 'from-amber-200 to-rose-300' : 'from-stone-600 to-stone-900';
   const withBowl = phase === 'kitchen' || phase === 'mixing' || phase === 'whisk';
 
@@ -398,6 +437,7 @@ function ChutePatches() {
 type SkyPhase = 'plane' | 'jump' | 'deploy' | 'land' | 'plummet';
 const SKY_OK: Array<[SkyPhase, number]> = [['plane', 1400], ['jump', 1900], ['deploy', 1600], ['land', 2400]];
 const SKY_FAIL: Array<[SkyPhase, number]> = [['plane', 1400], ['jump', 1900], ['plummet', 2000]];
+const SKY_SFX: Partial<Record<SkyPhase, SfxName>> = { jump: 'whoosh', deploy: 'pop', land: 'success', plummet: 'whoosh' };
 const SKY_CAPTIONS: Record<SkyPhase, string> = {
   plane: '✈️ Listo para saltar…',
   jump: '🪂 ¡Saltó del avión!',
@@ -408,7 +448,7 @@ const SKY_CAPTIONS: Record<SkyPhase, string> = {
 
 function SkydiverScene(props: SceneProps) {
   const ok = passed(props);
-  const phase = useScenes(ok ? SKY_OK : SKY_FAIL);
+  const phase = useScenes(ok ? SKY_OK : SKY_FAIL, SKY_SFX);
   const bg = ok ? 'from-sky-400 to-sky-200' : 'from-sky-600 to-slate-500';
   const falling = phase === 'jump' || phase === 'plummet';
   const showGround = phase === 'land' || (phase === 'card' && ok);
