@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { BookText } from 'lucide-react';
 import { getCurrentSession, listReaderVocabulary, logoutSession, logReaderSession } from '../services/api';
 import { VocabularyViewer } from '../components/VocabularyViewer';
+import { Spinner } from '../components/LoadingScreen';
 import type { VocabularyList } from '../types';
 
 export function ReaderPortal() {
@@ -59,7 +60,7 @@ export function ReaderPortal() {
       {/* Contenido */}
       <div className="mx-auto max-w-5xl px-4 py-8">
         {loading
-          ? <p className="text-center text-sm text-slate-400 py-12">Cargando vocabulario…</p>
+          ? <div className="flex flex-col items-center gap-3 py-12 text-sm text-slate-400"><Spinner size={40} /> Cargando vocabulario…</div>
           : <VocabularyViewer lists={vocabLists} />}
       </div>
     </main>

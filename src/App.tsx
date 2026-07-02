@@ -4,6 +4,7 @@ import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Co
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { RocketFueling, SubmitResult } from './components/submitAnimations';
+import { LoadingScreen } from './components/LoadingScreen';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
 import { RichText } from './components/RichText';
@@ -203,6 +204,8 @@ export default function App() {
   const [assignDueDate, setAssignDueDate] = useState('');
   // Duplicate loading state
   const [isDuplicating, setIsDuplicating] = useState<string | null>(null);
+  // Primera carga de datos desde la BD (Aiven puede tardar unos segundos): muestra spinner.
+  const [initialLoading, setInitialLoading] = useState(true);
 
   function withCooldown(key: string, fn: () => void) {
     if (refreshCooldowns.has(key)) return;
@@ -344,6 +347,8 @@ export default function App() {
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo conectar con el backend.');
+    } finally {
+      setInitialLoading(false);
     }
   }
 
@@ -740,6 +745,9 @@ export default function App() {
   // ProtectedRoute en main.tsx garantiza que user no es null en estas rutas.
   // Este fallback solo se activa si App se renderiza fuera del contexto esperado.
   if (!user) return null;
+
+  // Primera carga de datos: spinner en vez de un portal vacío mientras responde la BD.
+  if (initialLoading) return <LoadingScreen message="Cargando tu información…" />;
 
   if (user.role === 'student') {
     const responseByWorksheet = responses.reduce((latestResponses, response) => {

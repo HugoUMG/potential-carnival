@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { RichText } from '../components/RichText';
 import { RocketFueling, SubmitResult } from '../components/submitAnimations';
+import { LoadingScreen, Spinner } from '../components/LoadingScreen';
 import type { RespuestaEstudiante } from '../services/api';
 import { normalizeWorksheet } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
@@ -146,7 +147,9 @@ function NameEntry({ onEnter }: { onEnter: (name: string, classroom: PublicClass
         {/* Selector de aula */}
         <div className="mt-5 grid gap-2">
           {classrooms.length === 0 && (
-            <p className="text-sm text-slate-400">Cargando aulas…</p>
+            <div className="flex items-center justify-center gap-2 py-3 text-sm text-slate-400">
+              <Spinner size={20} /> Cargando aulas…
+            </div>
           )}
           {classrooms.map((c) => (
             <button
@@ -205,6 +208,9 @@ export function GuestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
   const [error, setError] = useState('');
+  // Primera carga desde la BD (Aiven puede tardar): spinner para hojas y para resultados.
+  const [loadingWorksheets, setLoadingWorksheets] = useState(true);
+  const [loadingResponses, setLoadingResponses] = useState(true);
 
   function handleEnterName(name: string, classroom: PublicClassroom) {
     const token = guestToken(classroom.id, name);
@@ -218,8 +224,16 @@ export function GuestPage() {
     if (!session) return;
     // Log returning visits (session already existed in localStorage)
     void logGuestAccess(session);
-    void fetchClassroomWorksheets(session.classroomId).then(setWorksheets).catch(() => setError('No se pudieron cargar las evaluaciones.'));
-    void fetchGuestResponses(session.token).then(setResponses).catch(() => {});
+    setLoadingWorksheets(true);
+    setLoadingResponses(true);
+    void fetchClassroomWorksheets(session.classroomId)
+      .then(setWorksheets)
+      .catch(() => setError('No se pudieron cargar las evaluaciones.'))
+      .finally(() => setLoadingWorksheets(false));
+    void fetchGuestResponses(session.token)
+      .then(setResponses)
+      .catch(() => {})
+      .finally(() => setLoadingResponses(false));
   }, [session?.token]);
 
   useEffect(() => {
@@ -230,6 +244,9 @@ export function GuestPage() {
   }, [worksheets, responses, session?.token]);
 
   if (!session) return <NameEntry onEnter={handleEnterName} />;
+
+  // Spinner mientras llegan las evaluaciones (evita ver el portal vacío durante el delay de la BD).
+  if (loadingWorksheets) return <LoadingScreen message="Cargando tus evaluaciones…" />;
 
   const answeredIds = new Set(responses.map((r) => r.worksheet_id));
   const activeWorksheets = worksheets.filter((w) => !answeredIds.has(w.id));
@@ -328,7 +345,14 @@ export function GuestPage() {
       )}
 
       {/* ── CALIFICADAS ── */}
-      {tab === 'calificadas' && (
+      {tab === 'calificadas' && loadingResponses && (
+        <div className="mx-auto max-w-7xl px-4 py-16">
+          <div className="flex flex-col items-center gap-3 text-sm text-slate-400">
+            <Spinner size={40} /> Cargando tus resultados…
+          </div>
+        </div>
+      )}
+      {tab === 'calificadas' && !loadingResponses && (
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[320px_1fr]">
           <aside className="rounded-3xl bg-white p-5 shadow-sm">
             <h2 className="font-bold">Evaluaciones calificadas</h2>

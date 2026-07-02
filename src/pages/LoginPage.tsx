@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BookOpen, Eye, EyeOff, GraduationCap, LockKeyhole, UserRound } from 'lucide-react';
 import { getCurrentSession, login } from '../services/api';
+import { Spinner } from '../components/LoadingScreen';
 import type { UsuarioSesion } from '../services/api';
 
 function roleRoute(role: UsuarioSesion['role']): string {
@@ -23,6 +24,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState(expiredMessage);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Si ya hay sesión activa, redirigir directamente al portal
   useEffect(() => {
@@ -31,13 +33,17 @@ export function LoginPage() {
   }, [navigate]);
 
   async function handleLogin() {
+    if (isLoggingIn) return;
     setMessage('');
+    setIsLoggingIn(true);
     try {
       const user = await login(username, password, role);
       navigate(roleRoute(user.role), { replace: true });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo iniciar sesión. Revisa que el backend esté activo.');
+      setIsLoggingIn(false);
     }
+    // En éxito no reactivamos: navegamos fuera y el spinner sigue hasta el cambio de ruta.
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -109,11 +115,12 @@ export function LoginPage() {
             </div>
           </label>
           <button
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:opacity-70"
             type="button"
+            disabled={isLoggingIn}
             onClick={() => void handleLogin()}
           >
-            <LockKeyhole size={18} /> Entrar
+            {isLoggingIn ? <><Spinner size={18} className="border-white/40 border-t-white" /> Entrando…</> : <><LockKeyhole size={18} /> Entrar</>}
           </button>
           {message && (
             <p className={`mt-4 rounded-2xl p-3 text-sm font-semibold ${message === expiredMessage && expiredMessage ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'}`}>
