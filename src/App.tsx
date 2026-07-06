@@ -467,8 +467,7 @@ export default function App() {
     setRevisionSelectedId(worksheet.id);
     const loaded = await listWorksheetResponses(worksheet.id);
     setResponses(loaded);
-    setSelectedResponseId(loaded[0]?.id ?? null);
-    if (loaded[0]) markResponseSeen(loaded[0].id);
+    setSelectedResponseId(null); // al entrar no hay ningún alumno seleccionado
     setResponseCounts((current) => ({ ...current, [worksheet.id]: loaded.length }));
     markWorksheetReviewed(worksheet.id, loaded.length);
     const preloaded: Record<string, string> = {};
@@ -1636,7 +1635,7 @@ export default function App() {
             {responses.length > 0 && (
               <div className="mt-5 flex flex-wrap gap-2">
                 {responses.map((r) => {
-                  const active = (selectedResponseId ?? responses[0]?.id) === r.id;
+                  const active = selectedResponseId === r.id;
                   const isNew = !active && !seenResponseIds.has(r.id);
                   return (
                     <button
@@ -1657,8 +1656,10 @@ export default function App() {
             {!responses.length && <p className="mt-5 rounded-2xl bg-slate-50 p-5">Esta evaluación aún no tiene respuestas.</p>}
             <div className="mt-4">
               {(() => {
-                const response = responses.find((r) => r.id === selectedResponseId) ?? responses[0];
-                if (!response) return null;
+                const response = responses.find((r) => r.id === selectedResponseId);
+                if (!response) return responses.length
+                  ? <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">Selecciona un alumno arriba para ver sus respuestas.</p>
+                  : null;
                 return (
                 <article key={response.id} className="rounded-2xl border p-4">
                   <div className="flex items-start justify-between gap-3"><h3 className="font-bold">{response.student_name}</h3><button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeResponse(response)}>Eliminar respuesta</button></div>
