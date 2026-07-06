@@ -189,8 +189,8 @@ select {
 .rk-screenshake { animation: rocket-screenshake 0.7s ease-in-out 1; }
 .rk-cloud { animation: rocket-cloud-drift 1.8s ease-out infinite; }
 .rk-smoke { animation: rocket-smoke 1.1s ease-out infinite; }
-.rk-journey-success { animation: rocket-journey-success 5.6s cubic-bezier(0.3, 0, 0.4, 1) forwards; }
-.rk-journey-fail { animation: rocket-journey-fail 5.3s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
+.rk-journey-success { animation: rocket-journey-success 4.9s cubic-bezier(0.3, 0, 0.4, 1) forwards; }
+.rk-journey-fail { animation: rocket-journey-fail 4.6s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
 .rk-turbo { animation: rocket-turbo 0.45s ease-out forwards; transform-origin: top center; }
 .rk-flame-out { animation: rocket-flame-out 0.3s ease-in forwards; transform-origin: top center; }
 .rk-planet-in { animation: rocket-planet-in 0.9s ease-out forwards; }

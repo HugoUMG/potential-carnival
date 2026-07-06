@@ -28,6 +28,23 @@ function passed({ score, correct, incorrect }: Pick<SceneProps, 'score' | 'corre
   return score !== null ? score >= PASS_THRESHOLD : correct >= incorrect;
 }
 
+// La animación se elige AL EMPEZAR el envío (en RocketFueling) para que la pantalla de
+// carga explique qué serán las respuestas y coincida con la escena final.
+type SceneKind = 'rocket' | 'baker' | 'skydiver';
+const KINDS: SceneKind[] = ['rocket', 'baker', 'skydiver'];
+let _pickedKind: SceneKind | null = null;
+function pickKind(): SceneKind {
+  _pickedKind = KINDS[Math.floor(Math.random() * KINDS.length)];
+  return _pickedKind;
+}
+
+// Texto e íconos de la pantalla de carga según la animación que saldrá al final.
+const LOADING: Record<SceneKind, { emoji: string; rising: string[]; bg: string; big: string; sub: string }> = {
+  rocket: { emoji: '🚀', rising: ['📝', '✏️', '📚', '⛽'], bg: 'from-slate-900 to-indigo-900', big: '⛽ Tus respuestas son la gasolina del cohete', sub: '¿Alcanzará para llegar al espacio?' },
+  baker: { emoji: '👩‍🍳', rising: ['🥚', '🥛', '🧈', '🍫'], bg: 'from-amber-700 to-rose-800', big: '🥣 Tus respuestas son los ingredientes del chef', sub: '¿Saldrá un pastel delicioso?' },
+  skydiver: { emoji: '🪂', rising: ['🩹', '🧵', '🪡', '🪂'], bg: 'from-sky-600 to-indigo-800', big: '🪂 Tus respuestas son los parches del paracaídas', sub: '¿Aguantará el salto hasta la tierra?' },
+};
+
 // ── Efectos de sonido (ZzFX: sintetizados, sin archivos de audio) ────────────
 // Cada efecto son parámetros de ZzFX (zzfx.3d2k.com). Se carga en diferido y se
 // "primeé" dentro del gesto de envío para que el navegador permita reproducirlo.
@@ -141,27 +158,30 @@ function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitl
   );
 }
 
-/** Overlay mostrado mientras se envía/califica: cohete cargando "combustible". */
+/** Pantalla de carga durante el envío. Elige la animación y explica EN GRANDE qué serán
+ *  las respuestas (gasolina / ingredientes / parches), según la escena que saldrá. */
 export function RocketFueling() {
+  const [kind] = useState<SceneKind>(pickKind); // siempre re-elige al iniciar un envío
   const [progress, setProgress] = useState(8);
   useEffect(() => {
     primeSfx(); // el envío es un gesto del usuario: habilita el audio para las escenas siguientes.
     const id = setInterval(() => setProgress((p) => (p >= 92 ? p : p + Math.max(1, Math.round((96 - p) / 14)))), 350);
     return () => clearInterval(id);
   }, []);
-  const materials = ['📝', '✏️', '📚', '⛽'];
+  const t = LOADING[kind];
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-gradient-to-b from-slate-900 to-indigo-900 p-6">
+    <div className={`fixed inset-0 z-50 grid place-items-center overflow-hidden bg-gradient-to-b ${t.bg} p-6`}>
       <StarField />
-      <div className="relative w-full max-w-sm text-center text-white">
+      <div className="relative w-full max-w-md text-center text-white">
         <div className="relative mx-auto h-40 w-24">
-          {materials.map((m, i) => (
+          {t.rising.map((m, i) => (
             <span key={i} className="rk-rise absolute bottom-0 left-1/2 -translate-x-1/2 text-2xl" style={{ animationDelay: `${i * 0.6}s` }}>{m}</span>
           ))}
-          <div className="rk-bob absolute bottom-0 left-1/2 -translate-x-1/2 text-6xl">🚀</div>
+          <div className="rk-bob absolute bottom-0 left-1/2 -translate-x-1/2 text-6xl">{t.emoji}</div>
         </div>
-        <h2 className="mt-4 text-xl font-bold">Preparando el envío…</h2>
-        <p className="mt-1 text-sm text-white/70">Procesando tus respuestas ✨</p>
+        <h2 className="mt-4 text-2xl font-black leading-snug">{t.big}</h2>
+        <p className="mt-2 text-base font-bold text-white/85">{t.sub}</p>
+        <p className="mt-1 text-sm text-white/55">Procesando tus respuestas ✨</p>
         <div className="mx-auto mt-5 h-3 max-w-xs overflow-hidden rounded-full bg-white/15">
           <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
         </div>
@@ -203,14 +223,15 @@ function RocketGround() {
   );
 }
 
-type RocketPhase = 'pad' | 'ignite' | 'ascend' | 'stabilize' | 'space' | 'turbo' | 'enginefail' | 'fall';
-// La suma de cada lista debe igualar la duración de rocket-journey-* en app.css
-// (OK = 5.6s, FAIL = 5.3s) para que el cohete llegue arriba/caiga justo con las fases.
-const ROCKET_OK: Array<[RocketPhase, number]> = [['pad', 700], ['ignite', 1000], ['ascend', 1400], ['stabilize', 900], ['space', 1600]];
-const ROCKET_FAIL: Array<[RocketPhase, number]> = [['pad', 700], ['ignite', 1000], ['ascend', 1400], ['turbo', 700], ['enginefail', 500], ['fall', 1000]];
+type RocketPhase = 'fuel' | 'suspense' | 'ignite' | 'ascend' | 'stabilize' | 'space' | 'turbo' | 'enginefail' | 'fall';
+// El cohete solo "viaja" en las fases de vuelo; la suma de esas fases debe igualar la
+// duración de rocket-journey-* en app.css (OK vuelo = 4.9s, FAIL vuelo = 4.6s).
+const ROCKET_OK: Array<[RocketPhase, number]> = [['fuel', 2000], ['suspense', 1700], ['ignite', 1000], ['ascend', 1400], ['stabilize', 900], ['space', 1600]];
+const ROCKET_FAIL: Array<[RocketPhase, number]> = [['fuel', 2000], ['suspense', 1700], ['ignite', 1000], ['ascend', 1400], ['turbo', 700], ['enginefail', 500], ['fall', 1000]];
 const ROCKET_SFX: Partial<Record<RocketPhase, SfxName>> = { ignite: 'launch', turbo: 'launch', space: 'success', fall: 'explosion' };
 const ROCKET_CAPTIONS: Record<RocketPhase, string> = {
-  pad: 'Preparando el cohete…',
+  fuel: '⛽ Tus respuestas son la gasolina del cohete',
+  suspense: '¿Podrá despegar el cohete? 🤔',
   ignite: '🔥 ¡Ignición!',
   ascend: '🚀 ¡Despegando!',
   stabilize: '🛰️ Estabilizando…',
@@ -223,6 +244,7 @@ const ROCKET_CAPTIONS: Record<RocketPhase, string> = {
 function RocketScene(props: SceneProps) {
   const ok = passed(props);
   const phase = useScenes(ok ? ROCKET_OK : ROCKET_FAIL, ROCKET_SFX);
+  const onPad = phase === 'fuel' || phase === 'suspense'; // aún en tierra: sin viaje ni llama
   const inSpace = phase === 'stabilize' || phase === 'space' || (phase === 'card' && ok);
   const bg = ok ? 'from-indigo-900 to-slate-900' : 'from-slate-800 to-rose-950';
 
@@ -250,11 +272,20 @@ function RocketScene(props: SceneProps) {
           )}
 
           <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
-            <div className={ok ? 'rk-journey-success' : 'rk-journey-fail'}>
-              <div className={phase === 'ignite' || phase === 'turbo' ? 'rk-rumble' : phase === 'ascend' ? 'rk-rumble-soft' : ''}>
+            {phase === 'suspense' && <div className="pointer-events-none absolute inset-0 -z-10 animate-pulse rounded-full bg-amber-400/25 blur-2xl" />}
+            {phase === 'fuel' && (
+              <>
+                <span className="rk-bob absolute -left-20 bottom-1 text-5xl">⛽</span>
+                {['📝', '✏️', '📚'].map((m, i) => (
+                  <span key={i} className="rk-rise absolute -left-7 bottom-0 text-2xl" style={{ animationDelay: `${i * 0.5}s` }}>{m}</span>
+                ))}
+              </>
+            )}
+            <div className={onPad ? '' : (ok ? 'rk-journey-success' : 'rk-journey-fail')}>
+              <div className={phase === 'ignite' || phase === 'turbo' ? 'rk-rumble' : (phase === 'ascend' || phase === 'suspense') ? 'rk-rumble-soft' : ''}>
                 <div className="rk-bob flex flex-col items-center">
                   <span className="text-7xl">🚀</span>
-                  {phase !== 'pad' && phase !== 'fall' && (
+                  {!onPad && phase !== 'fall' && (
                     <span
                       className={
                         phase === 'turbo' ? 'rk-turbo -mt-2 text-4xl'
@@ -322,14 +353,15 @@ const INGREDIENTS = [
   { emoji: '🍯', off: '30px', delay: '1.1s' },
 ];
 
-type BakePhase = 'kitchen' | 'mixing' | 'whisk' | 'oven' | 'reveal' | 'burnt';
-const BAKE_OK: Array<[BakePhase, number]> = [['kitchen', 900], ['mixing', 2000], ['whisk', 1400], ['oven', 1500], ['reveal', 1800]];
-const BAKE_FAIL: Array<[BakePhase, number]> = [['kitchen', 900], ['mixing', 2000], ['whisk', 1400], ['oven', 1500], ['burnt', 1800]];
+type BakePhase = 'kitchen' | 'mixing' | 'whisk' | 'suspense' | 'oven' | 'reveal' | 'burnt';
+const BAKE_OK: Array<[BakePhase, number]> = [['kitchen', 700], ['mixing', 2000], ['whisk', 1200], ['suspense', 1600], ['oven', 1300], ['reveal', 1800]];
+const BAKE_FAIL: Array<[BakePhase, number]> = [['kitchen', 700], ['mixing', 2000], ['whisk', 1200], ['suspense', 1600], ['oven', 1300], ['burnt', 1800]];
 const BAKE_SFX: Partial<Record<BakePhase, SfxName>> = { mixing: 'pop', whisk: 'whoosh', reveal: 'success', burnt: 'explosion' };
 const BAKE_CAPTIONS: Record<BakePhase, string> = {
   kitchen: '👩‍🍳 Alistando la cocina…',
-  mixing: '🥣 Agregando ingredientes…',
+  mixing: '🥣 Tus respuestas son los ingredientes del chef',
   whisk: '🥄 ¡Batiendo la mezcla!',
+  suspense: '¿Saldrá bien el pastel? 🤔',
   oven: '🔥 Al horno…',
   reveal: '🎂 ¡Pastel perfecto!',
   burnt: '💨 Uy… se quemó',
@@ -362,6 +394,17 @@ function BakerScene(props: SceneProps) {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {phase === 'suspense' && (
+              <div className="relative flex flex-col items-center">
+                <span className="text-8xl">👩‍🍳</span>
+                <div className="relative -mt-4">
+                  <span className="block text-[11rem] leading-none">🥣</span>
+                  <div className="absolute inset-6 -z-10 animate-pulse rounded-full bg-amber-400/40 blur-2xl" />
+                </div>
+                <span className="mt-1 animate-bounce text-5xl">🤔</span>
               </div>
             )}
 
@@ -434,12 +477,13 @@ function ChutePatches() {
   );
 }
 
-type SkyPhase = 'plane' | 'jump' | 'deploy' | 'land' | 'plummet';
-const SKY_OK: Array<[SkyPhase, number]> = [['plane', 1400], ['jump', 1900], ['deploy', 1600], ['land', 2400]];
-const SKY_FAIL: Array<[SkyPhase, number]> = [['plane', 1400], ['jump', 1900], ['plummet', 2000]];
-const SKY_SFX: Partial<Record<SkyPhase, SfxName>> = { jump: 'whoosh', deploy: 'pop', land: 'success', plummet: 'whoosh' };
+type SkyPhase = 'prep' | 'suspense' | 'jump' | 'deploy' | 'land' | 'plummet';
+const SKY_OK: Array<[SkyPhase, number]> = [['prep', 2000], ['suspense', 1600], ['jump', 1800], ['deploy', 1500], ['land', 2000]];
+const SKY_FAIL: Array<[SkyPhase, number]> = [['prep', 2000], ['suspense', 1600], ['jump', 1800], ['plummet', 2000]];
+const SKY_SFX: Partial<Record<SkyPhase, SfxName>> = { prep: 'pop', jump: 'whoosh', deploy: 'pop', land: 'success', plummet: 'whoosh' };
 const SKY_CAPTIONS: Record<SkyPhase, string> = {
-  plane: '✈️ Listo para saltar…',
+  prep: '🪂 Tus respuestas son los parches del paracaídas',
+  suspense: '¿Aguantará el paracaídas? 🤔',
   jump: '🪂 ¡Saltó del avión!',
   deploy: '🪂 ¡Paracaídas abierto!',
   land: '🌳 ¡Aterrizaje perfecto!',
@@ -479,7 +523,20 @@ function SkydiverScene(props: SceneProps) {
         <div className="relative h-full w-full">
           {/* Close-up: el paracaidista ocupa la pantalla; el fondo da el movimiento. */}
           <div className="absolute inset-0 grid place-items-center">
-            {phase === 'plane' && <span className="sky-plane-bob text-[10rem] leading-none">✈️</span>}
+            {phase === 'prep' && (
+              <div className="relative">
+                <span className="rk-bob block text-[14rem] leading-none">🪂</span>
+                <ChutePatches />
+              </div>
+            )}
+
+            {phase === 'suspense' && (
+              <div className="relative flex flex-col items-center">
+                <div className="pointer-events-none absolute inset-0 -z-10 animate-pulse rounded-full bg-white/30 blur-2xl" />
+                <span className="sky-plane-bob text-[9rem] leading-none">✈️</span>
+                <span className="mt-2 animate-bounce text-6xl">🕴️</span>
+              </div>
+            )}
 
             {phase === 'jump' && <span className="sky-wobble text-[12rem] leading-none">🕴️</span>}
 
@@ -531,15 +588,19 @@ function SkydiverScene(props: SceneProps) {
 }
 
 // ── Registro ────────────────────────────────────────────────────────────────
-// Agrega aquí nuevas animaciones. El portal elige una al azar por envío.
-const SUBMIT_ANIMATIONS: Array<{ id: string; label: string; component: (p: SceneProps) => ReactNode }> = [
+// Agrega aquí nuevas animaciones. Para añadir una: define el `SceneKind`, súmala a
+// KINDS y LOADING (arriba), y regístrala aquí.
+const SUBMIT_ANIMATIONS: Array<{ id: SceneKind; label: string; component: (p: SceneProps) => ReactNode }> = [
   { id: 'rocket', label: 'Cohete al espacio', component: RocketScene },
   { id: 'baker', label: 'Pastelero', component: BakerScene },
   { id: 'skydiver', label: 'Paracaidista', component: SkydiverScene },
 ];
 
-/** Elige una animación de resultado al azar (fija durante la vida del modal). */
+/** Usa la animación que la pantalla de carga ya eligió (para que carga y final coincidan). */
 export function SubmitResult(props: SceneProps) {
-  const [Scene] = useState(() => SUBMIT_ANIMATIONS[Math.floor(Math.random() * SUBMIT_ANIMATIONS.length)].component);
+  const [Scene] = useState(() => {
+    const kind = _pickedKind ?? pickKind();
+    return SUBMIT_ANIMATIONS.find((a) => a.id === kind)!.component;
+  });
   return <Scene {...props} />;
 }
