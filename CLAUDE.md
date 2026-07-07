@@ -141,7 +141,7 @@ Lista canónica de tipos soportados: `SUPPORTED_BLOCKS` en `backend/app/parser.p
 | `multiplechoice` | Selección con **una** respuesta correcta. `options` (lista) + `answer`. | Auto | OK |
 | `multiselect` | Varias respuestas correctas. `answer` es **lista** de todas las correctas. | Auto | OK |
 | `dragdrop` | Arrastrar palabras del banco a huecos `_____`. `answer` (lista por hueco) + `bank` (correctas + distractores). | Auto | OK |
-| `matching` | Emparejar columna izquierda↔derecha via dropdowns. Correcto = mismo índice. | Auto | OK |
+| `matching` | Emparejar columna izquierda↔derecha **uniendo con líneas** (arrastrar desde el punto o tocar uno de cada lado; cada par toma un color). Correcto = mismo índice. Respuesta = `{ textoIzquierdo: valorDerecho }`. | Auto | OK |
 | `truefalse` | Enunciados con `- texto \| true/false`. | Auto | OK |
 | `textbox` | Respuesta abierta de texto largo (`prompt`). | Pendiente → IA/profesor | OK |
 | `reading` | Texto de lectura (`content`, `\n`) + `questions` (abiertas) + botón TTS. Puede ir sin preguntas como referencia. | Preguntas: pendiente → IA/profesor | OK |
