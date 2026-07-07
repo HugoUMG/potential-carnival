@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useRef, useState, type DragEvent } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { transcribeAudio } from '../services/api';
 import type {
   ActivityDefinition,
@@ -259,32 +259,207 @@ function getShuffledMatches(activity: MatchingActivity): string[] {
   return keptOriginalOrder && shuffled.length > 1 ? [...shuffled.slice(1), shuffled[0]] : shuffled;
 }
 
+// Colores por par: el elemento izquierdo y el derecho unido comparten color (además de la línea).
+const MATCH_COLORS = ['#2563eb', '#16a34a', '#db2777', '#f59e0b', '#7c3aed', '#0891b2', '#dc2626', '#4f46e5'];
+
+/** Matching por líneas: se ven ambas columnas y se unen arrastrando (o tocando uno de cada lado).
+ *  Mantiene el mismo modelo de respuesta { textoIzquierdo: valorDerechoElegido } que la versión anterior. */
 function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MatchingActivity>) {
-  const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? value : {};
+  const selections: Record<string, string> = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
+  const leftItems = activity.left;
+  const rightItems = useMemo(() => getShuffledMatches(activity), [activity]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const leftDots = useRef<Array<HTMLSpanElement | null>>([]);
+  const rightDots = useRef<Array<HTMLSpanElement | null>>([]);
+  const [pos, setPos] = useState<{ left: Array<{ x: number; y: number }>; right: Array<{ x: number; y: number }> }>({ left: [], right: [] });
+  const [drag, setDrag] = useState<{ side: 'l' | 'r'; from: number; x: number; y: number } | null>(null);
+  const [activeLeft, setActiveLeft] = useState<number | null>(null);
+  const gestureRef = useRef<{ side: 'l' | 'r'; from: number; sx: number; sy: number; moved: boolean } | null>(null);
+
+  const colorForLeft = (i: number) => MATCH_COLORS[i % MATCH_COLORS.length];
+
+  // Mide el centro de cada punto de conexión relativo al contenedor.
+  const measure = useCallback(() => {
+    const c = containerRef.current;
+    if (!c) return;
+    const cr = c.getBoundingClientRect();
+    const dot = (el: HTMLElement | null) => {
+      if (!el) return { x: 0, y: 0 };
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2 - cr.left, y: r.top + r.height / 2 - cr.top };
+    };
+    setPos({ left: leftItems.map((_, i) => dot(leftDots.current[i])), right: rightItems.map((_, j) => dot(rightDots.current[j])) });
+  }, [leftItems, rightItems]);
+
+  useLayoutEffect(() => {
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener('resize', measure);
+    const t = setTimeout(measure, 300); // por si emojis/fuentes reflowean después
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); clearTimeout(t); };
+  }, [measure]);
+
+  // right index -> left index (para pintar el lado derecho del color de su izquierdo)
+  const rightToLeft = new Map<number, number>();
+  leftItems.forEach((li, i) => {
+    const rv = selections[li];
+    if (rv != null) { const j = rightItems.indexOf(rv); if (j >= 0) rightToLeft.set(j, i); }
+  });
+
+  function connect(li: number, rj: number) {
+    const lv = leftItems[li];
+    const rv = rightItems[rj];
+    const next: Record<string, string> = { ...selections };
+    for (const k of Object.keys(next)) if (next[k] === rv && k !== lv) delete next[k]; // uno-a-uno
+    next[lv] = rv;
+    onChange(activity.id, next);
+    setActiveLeft(null);
+  }
+  function disconnectLeft(li: number) {
+    const lv = leftItems[li];
+    if (selections[lv] == null) return;
+    const next = { ...selections }; delete next[lv];
+    onChange(activity.id, next);
+  }
+  function disconnectRight(rj: number) {
+    const rv = rightItems[rj];
+    const lk = Object.keys(selections).find((k) => selections[k] === rv);
+    if (lk == null) return;
+    const next = { ...selections }; delete next[lk];
+    onChange(activity.id, next);
+  }
+
+  // Toque simple (sin arrastrar): selecciona/une/desune.
+  function tapCard(side: 'l' | 'r', index: number) {
+    if (side === 'l') {
+      if (selections[leftItems[index]] != null) { disconnectLeft(index); setActiveLeft(null); return; }
+      setActiveLeft((cur) => (cur === index ? null : index));
+    } else {
+      if (activeLeft != null) { connect(activeLeft, index); return; }
+      if (rightToLeft.has(index)) disconnectRight(index); // tocar un derecho ya unido lo suelta
+    }
+  }
+
+  // Toda la casilla inicia/recibe la línea. Distinguimos toque vs arrastre por el movimiento.
+  function onCardPointerDown(side: 'l' | 'r', index: number, e: ReactPointerEvent) {
+    if (readonly) return;
+    e.preventDefault();
+    gestureRef.current = { side, from: index, sx: e.clientX, sy: e.clientY, moved: false };
+    const move = (ev: PointerEvent) => {
+      const g = gestureRef.current;
+      if (!g) return;
+      if (!g.moved && Math.hypot(ev.clientX - g.sx, ev.clientY - g.sy) > 6) g.moved = true;
+      if (!g.moved) return;
+      ev.preventDefault();
+      const cr = containerRef.current?.getBoundingClientRect();
+      if (cr) setDrag({ side: g.side, from: g.from, x: ev.clientX - cr.left, y: ev.clientY - cr.top });
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      const g = gestureRef.current;
+      gestureRef.current = null;
+      setDrag(null);
+      if (!g) return;
+      if (g.moved) {
+        const targetSel = g.side === 'l' ? '[data-match-right]' : '[data-match-left]';
+        const el = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest(targetSel);
+        if (el) {
+          const idx = Number((el as HTMLElement).dataset[g.side === 'l' ? 'matchRight' : 'matchLeft']);
+          if (g.side === 'l') connect(g.from, idx); else connect(idx, g.from);
+        }
+      } else {
+        tapCard(g.side, g.from);
+      }
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', up);
+  }
 
   return (
     <div>
-      <p className="text-base font-medium text-slate-800">Match each item with its meaning.</p>
+      <p className="text-base font-medium text-slate-800">Une cada elemento con su pareja: arrastra desde una casilla a la otra, o toca una de cada lado.</p>
       <ActivityInstructions instructions={activity.instructions} />
-      <div className="mt-4 grid gap-3">
-        {activity.left.map((leftItem) => (
-          <label key={leftItem} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_2fr] sm:items-center">
-            <span className="font-semibold text-slate-700">{leftItem}</span>
-            <select
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              disabled={readonly}
-              value={selections[leftItem] ?? ''}
-              onChange={(event) => onChange(activity.id, { ...selections, [leftItem]: event.target.value })}
-            >
-              <option value="">Select a match</option>
-              {getShuffledMatches(activity).map((rightItem) => (
-                <option key={rightItem} value={rightItem}>
-                  {rightItem}
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
+      <div ref={containerRef} className="relative mt-4 select-none">
+        <svg className="pointer-events-none absolute inset-0 h-full w-full" style={{ overflow: 'visible' }} aria-hidden>
+          {leftItems.map((li, i) => {
+            const rv = selections[li];
+            if (rv == null) return null;
+            const j = rightItems.indexOf(rv);
+            const a = pos.left[i];
+            const b = pos.right[j];
+            if (j < 0 || !a || !b) return null;
+            return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={colorForLeft(i)} strokeWidth={3} strokeLinecap="round" />;
+          })}
+          {drag && (() => {
+            const o = drag.side === 'l' ? pos.left[drag.from] : pos.right[drag.from];
+            if (!o) return null;
+            const stroke = drag.side === 'l' ? colorForLeft(drag.from) : '#0f172a';
+            return <line x1={o.x} y1={o.y} x2={drag.x} y2={drag.y} stroke={stroke} strokeWidth={3} strokeDasharray="6 5" strokeLinecap="round" />;
+          })()}
+        </svg>
+
+        <div className="grid grid-cols-2 gap-x-10 sm:gap-x-16">
+          {/* Columna izquierda */}
+          <div className="grid content-start gap-3">
+            {leftItems.map((li, i) => {
+              const connected = selections[li] != null;
+              const active = activeLeft === i;
+              const color = connected ? colorForLeft(i) : active ? '#0f172a' : '#cbd5e1';
+              return (
+                <button
+                  key={li}
+                  type="button"
+                  data-match-left={i}
+                  disabled={readonly}
+                  onPointerDown={(e) => onCardPointerDown('l', i, e)}
+                  style={{ borderColor: color, background: connected ? `${colorForLeft(i)}14` : undefined, touchAction: 'none', cursor: readonly ? 'default' : 'grab' }}
+                  className={`flex items-center justify-between gap-2 rounded-xl border-2 bg-white px-3 py-3 text-left transition ${active ? 'ring-2 ring-slate-400' : ''}`}
+                >
+                  <span className="pointer-events-none text-sm font-semibold text-slate-800">{li}</span>
+                  <span
+                    ref={(el) => { leftDots.current[i] = el; }}
+                    className="pointer-events-none grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 bg-white"
+                    style={{ borderColor: color }}
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Columna derecha */}
+          <div className="grid content-start gap-3">
+            {rightItems.map((rj, j) => {
+              const linkedLeft = rightToLeft.get(j);
+              const connected = linkedLeft != null;
+              const color = connected ? colorForLeft(linkedLeft) : '#cbd5e1';
+              return (
+                <button
+                  key={rj + ':' + j}
+                  type="button"
+                  data-match-right={j}
+                  disabled={readonly}
+                  onPointerDown={(e) => onCardPointerDown('r', j, e)}
+                  style={{ borderColor: color, background: connected ? `${color}14` : undefined, touchAction: 'none', cursor: readonly ? 'default' : 'grab' }}
+                  className={`flex items-center gap-2 rounded-xl border-2 bg-white px-3 py-3 text-left transition ${activeLeft != null && !connected ? 'ring-1 ring-slate-300' : ''}`}
+                >
+                  <span
+                    ref={(el) => { rightDots.current[j] = el; }}
+                    className="pointer-events-none grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 bg-white"
+                    style={{ borderColor: color }}
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                  </span>
+                  <span className="pointer-events-none text-sm font-semibold text-slate-800"><RichText text={rj} /></span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
