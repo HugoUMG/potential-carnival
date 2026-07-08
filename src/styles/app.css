@@ -324,6 +324,16 @@ select {
 .wp-blank-sm { min-width: 26px; }
 .wp-writeline { border-bottom: 1px solid #94a3b8; height: 1.5em; }
 
+/* Vocabulario impreso (compacto) */
+.wp-vlist { display: grid; gap: 4px; margin-top: 4px; }
+.wp-vrow { break-inside: avoid; }
+.wp-vword { font-weight: 700; }
+.wp-ves { color: #374151; }
+.wp-vtype { margin-left: 6px; font-size: 9.5px; font-style: italic; color: #6b7280; }
+.wp-vforms { display: flex; flex-wrap: wrap; gap: 1px 14px; margin: 1px 0 3px 14px; font-size: 10.5px; }
+.wp-vform { white-space: nowrap; }
+.wp-vform-l { color: #6b7280; margin-right: 3px; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+
 @media print {
   #root { display: none !important; }
   .wp-no-print { display: none !important; }
