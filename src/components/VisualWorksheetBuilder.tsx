@@ -632,12 +632,13 @@ interface VisualWorksheetBuilderProps {
   initialState: VisualState;
   maxAttemptsDraft: string;
   isSaving?: boolean;
+  isEditing?: boolean;
   message?: string;
   onMaxAttemptsChange: (value: string) => void;
   onSave: (script: string) => void;
 }
 
-export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, message, onMaxAttemptsChange, onSave }: VisualWorksheetBuilderProps) {
+export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, isEditing, message, onMaxAttemptsChange, onSave }: VisualWorksheetBuilderProps) {
   const [state, setState] = useState<VisualState>(initialState);
 
   const updateBlock = (id: string, block: VisualBlock) =>
@@ -710,7 +711,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
           </label>
           <button type="button" disabled={isSaving} onClick={() => onSave(serializeToScript(state))}
             className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:opacity-60">
-            <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : 'Guardar evaluación'}
+            <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar evaluación'}
           </button>
         </div>
         {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm font-medium text-blue-700">{message}</p>}

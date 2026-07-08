@@ -322,6 +322,12 @@ export async function createWorksheet(scriptContent: string, createdBy: string, 
   return normalizeWorksheet(worksheet);
 }
 
+/** Edita en el sitio una hoja existente (409 si ya tiene respuestas registradas). */
+export async function updateWorksheet(worksheetId: string, scriptContent: string, maxAttempts: number | null, aiGrading = true): Promise<Worksheet> {
+  const worksheet = await request<BackendWorksheet>(`/worksheets/${worksheetId}`, { method: 'PUT', body: JSON.stringify({ script_content: scriptContent, max_attempts: maxAttempts, ai_grading: aiGrading }) });
+  return normalizeWorksheet(worksheet);
+}
+
 export async function listTeacherWorksheets(createdBy?: string): Promise<Worksheet[]> {
   const path = createdBy ? `/worksheets?created_by=${createdBy}` : '/worksheets';
   const worksheets = await request<BackendWorksheet[]>(path);

@@ -36,6 +36,7 @@ from .models import (
     VocabularyListCreate,
     Worksheet,
     WorksheetCreate,
+    WorksheetUpdate,
     WorksheetJson,
     GuestResponseCreate,
     GuestSessionLog,
@@ -332,6 +333,37 @@ def create_worksheet(payload: WorksheetCreate, current_user: PublicUser = Depend
         ai_grading=payload.ai_grading,
     )
     return repository.add_worksheet(worksheet)
+
+
+@app.put("/worksheets/{worksheet_id}", response_model=Worksheet)
+def update_worksheet(worksheet_id: str, payload: WorksheetUpdate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Worksheet:
+    require_worksheet_manager(worksheet_id, current_user)
+    existing = repository.get_worksheet(worksheet_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    # Candado: no se puede editar en el sitio si ya hay respuestas (para no invalidar lo entregado).
+    if repository.count_responses(worksheet_id) > 0:
+        raise HTTPException(status_code=409, detail="La evaluación ya tiene respuestas; no se puede editar. Duplícala para hacer cambios.")
+    try:
+        worksheet_data = parse_worksheet_script(payload.script_content)
+        worksheet_json = WorksheetJson(**worksheet_data.to_dict())
+    except WorksheetScriptError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    updated = Worksheet(
+        title=worksheet_json.title,
+        description=worksheet_json.description,
+        script_content=payload.script_content,
+        json_content=worksheet_json,
+        created_by=existing.created_by,
+        max_attempts=payload.max_attempts,
+        theme=worksheet_data.theme or payload.theme,
+        ai_grading=payload.ai_grading,
+    )
+    result = repository.update_worksheet_content(worksheet_id, updated)
+    if not result:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    return result
 
 
 @app.post("/worksheets/ai-generate", response_model=Worksheet)

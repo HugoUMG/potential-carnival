@@ -124,6 +124,13 @@ class WorksheetCreate(BaseModel):
     ai_grading: bool = True
 
 
+class WorksheetUpdate(BaseModel):
+    script_content: str
+    max_attempts: int | None = None
+    theme: dict[str, str] | None = None
+    ai_grading: bool = True
+
+
 class AiGenerateRequest(BaseModel):
     prompt: str
     created_by: str
