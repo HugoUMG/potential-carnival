@@ -330,6 +330,7 @@ potential-carnival/
 │   │   ├── WorksheetEditor.tsx    — Editor de hojas para el profesor
 │   │   ├── submitAnimations.tsx   — Animaciones de resultado de envío (cohete/pastel/paracaidista) + SFX ZzFX
 │   │   ├── LoadingScreen.tsx      — Spinner / pantalla de carga compartida
+│   │   ├── WorksheetPrint.tsx     — Vista imprimible (papel) + impresión nativa → PDF; omite listening/speaking
 │   │   └── RichText.tsx           — Renderiza texto con saltos de línea
 │   └── ...
 ├── db/
@@ -613,6 +614,7 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - **Spinners de carga** (`LoadingScreen`/`Spinner`) en portales, login, hojas y respuestas — por la latencia de Aiven.
 - **Revisión de respuestas (profesor):** al entrar **ninguna** respuesta viene seleccionada; se elige un alumno para ver su detalle. `fillblank`/`listeningfillblank` muestran siempre controles de corrección manual.
 - Portal del estudiante con pestañas "Activas" / "Calificadas"; drag&drop con click-to-place.
+- **Imprimir hoja en papel / PDF** (`WorksheetPrint.tsx`): botón "Imprimir PDF" en el portal del profesor (lista de evaluaciones y barra de revisión). Vista de papel compacta vía `createPortal(document.body)` + impresión nativa (`window.print()` → Guardar como PDF); en `@media print` se oculta `#root`. Omite actividades `listening*`/`speaking` (no pasan a papel) y deja líneas/casillas para escribir.
 
 ### Pendientes (menores)
 - Bug 3: `\n` puede faltar en algún campo específico no cubierto por `RichText`

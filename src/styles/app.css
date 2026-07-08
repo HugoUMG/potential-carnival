@@ -281,3 +281,53 @@ select {
 .sky-spin { animation: sky-spin 1.9s ease-in forwards; }
 .sky-rush { animation: sky-rush 1s linear infinite; }
 .patch-pop { animation: patch-pop 0.3s ease-out forwards; }
+
+/* ── Impresión de hojas de trabajo (formato papel) ────────────────────────── */
+/* En pantalla: modal a pantalla completa. Al imprimir: solo la hoja. */
+.wp-portal { position: fixed; inset: 0; z-index: 60; overflow: auto; background: #e2e8f0; }
+.wp-sheet {
+  max-width: 800px;
+  margin: 16px auto 40px;
+  background: white;
+  color: #111827;
+  padding: 40px 44px;
+  box-shadow: 0 12px 40px rgb(15 23 42 / 0.18);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.wp-head { border-bottom: 2px solid #111827; padding-bottom: 10px; margin-bottom: 14px; }
+.wp-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+.wp-desc { margin-top: 3px; font-size: 11.5px; color: #374151; }
+.wp-fields { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 10px; font-size: 11.5px; font-weight: 600; }
+.wp-field { white-space: nowrap; }
+.wp-block { margin-top: 14px; break-inside: avoid; }
+.wp-block-title { font-size: 13.5px; font-weight: 800; background: #f1f5f9; padding: 3px 8px; border-left: 3px solid #334155; }
+.wp-block-instr { font-size: 11px; font-style: italic; color: #4b5563; margin: 3px 0 6px; }
+.wp-block-body { display: grid; gap: 9px; }
+.wp-activity { break-inside: avoid; }
+.wp-num { font-weight: 700; margin-right: 2px; }
+.wp-instr { font-size: 10.5px; font-style: italic; color: #6b7280; }
+.wp-hint { font-size: 10.5px; font-style: italic; color: #6b7280; }
+.wp-bank { margin-top: 2px; font-size: 11px; font-weight: 600; color: #374151; }
+.wp-reading { margin-top: 3px; white-space: pre-line; background: #f8fafc; border: 1px solid #e5e7eb; padding: 7px 9px; }
+.wp-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; margin-top: 3px; }
+.wp-opt { display: flex; align-items: flex-start; gap: 6px; }
+.wp-mark { font-weight: 700; }
+.wp-tf { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.wp-tf-opt { white-space: nowrap; font-weight: 700; letter-spacing: 1px; }
+.wp-subq { font-size: 11.5px; }
+.wp-match { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 22px; margin-top: 3px; }
+.wp-match-row { padding: 1px 0; }
+.wp-img { max-height: 190px; max-width: 100%; margin: 5px 0; border: 1px solid #e5e7eb; }
+.wp-empty { margin-top: 18px; font-style: italic; color: #6b7280; }
+.wp-blank { display: inline-block; min-width: 92px; border-bottom: 1px solid #111827; vertical-align: baseline; }
+.wp-blank-sm { min-width: 26px; }
+.wp-writeline { border-bottom: 1px solid #94a3b8; height: 1.5em; }
+
+@media print {
+  #root { display: none !important; }
+  .wp-no-print { display: none !important; }
+  .wp-portal { position: static; overflow: visible; background: white; }
+  .wp-sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; }
+  @page { size: A4; margin: 14mm; }
+}
