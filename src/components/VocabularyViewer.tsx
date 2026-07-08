@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import type { VocabularyItem, VocabularyList, VocabularyWordType } from '../types';
 import { TtsButton } from './AudioPlayer';
 import { RichText } from './RichText';
+import { VocabularyPrint } from './VocabularyPrint';
 
 // ── Colores por tipo de palabra ───────────────────────────────────────────────
 
@@ -100,6 +101,7 @@ interface VocabularyViewerProps {
 export function VocabularyViewer({ lists }: VocabularyViewerProps) {
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [printList, setPrintList] = useState<VocabularyList | null>(null);
 
   if (!lists.length) {
     return (
@@ -162,10 +164,19 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
 
         return (
           <section key={list.id} className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-slate-900">{list.title}</h3>
-              {list.description && <p className="text-sm text-slate-500"><RichText text={list.description} /></p>}
-              <p className="mt-1 text-xs text-slate-400">{filtered.length} {filtered.length === 1 ? 'palabra' : 'palabras'}</p>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold text-slate-900">{list.title}</h3>
+                {list.description && <p className="text-sm text-slate-500"><RichText text={list.description} /></p>}
+                <p className="mt-1 text-xs text-slate-400">{filtered.length} {filtered.length === 1 ? 'palabra' : 'palabras'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPrintList(list)}
+                className="flex shrink-0 items-center gap-1.5 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                <Printer size={14} /> Imprimir PDF
+              </button>
             </div>
             {groups.map((group, gi) => (
               <div key={gi} className={gi > 0 ? 'mt-8' : ''}>
@@ -185,6 +196,8 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
           </section>
         );
       })}
+
+      {printList && <VocabularyPrint list={printList} onClose={() => setPrintList(null)} />}
     </div>
   );
 }
@@ -269,6 +282,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [expandedListId, setExpandedListId] = useState<string | null>(null);
+  const [printList, setPrintList] = useState<VocabularyList | null>(null);
 
   function handleCsvChange(value: string) {
     setCsvText(value);
@@ -367,6 +381,12 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
                     {expandedListId === list.id ? 'Ocultar' : 'Ver palabras'}
                   </button>
                   <button
+                    className="flex items-center gap-1.5 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600"
+                    onClick={() => setPrintList(list)}
+                  >
+                    <Printer size={15} /> Imprimir PDF
+                  </button>
+                  <button
                     className="rounded-2xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600"
                     onClick={() => { if (window.confirm(`¿Eliminar la lista "${list.title}"?`)) onDeleted(list.id); }}
                   >
@@ -428,6 +448,8 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
           {!lists.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">Aún no has creado ninguna lista.</p>}
         </div>
       </section>
+
+      {printList && <VocabularyPrint list={printList} onClose={() => setPrintList(null)} />}
     </div>
   );
 }
