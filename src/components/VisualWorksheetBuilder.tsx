@@ -8,9 +8,9 @@ import { useState } from 'react';
 import {
   AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2,
   GripVertical, List, PlusCircle, Save, Trash2, ToggleLeft,
-  Volume2, Image, BookOpen, Headphones,
+  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic,
 } from 'lucide-react';
-import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ActivityBlock } from '../types';
+import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock } from '../types';
 import {
   serializeToScript, emptyActivity, emptyBlock, emptyState,
   type VisualActivity, type VisualBlock, type VisualState, type VisualStatement, type VisualPair, type VisualActivityType,
@@ -19,15 +19,17 @@ import {
 // ── Constantes de tipos ───────────────────────────────────────────────────────
 
 const VISUAL_TYPES: VisualActivityType[] = [
-  'fillblank', 'multiplechoice', 'matching', 'textbox', 'truefalse',
+  'fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse',
   'listening', 'listeningfillblank', 'listeningmultiplechoice',
   'listeningmatching', 'listeningtruefalse',
-  'reading', 'imagequestion',
+  'reading', 'readingtruefalse', 'imagequestion', 'speaking',
 ];
 
 const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
   fillblank:              { label: 'Fill in the Blank',        icon: <AlignLeft size={14} />,    color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
   multiplechoice:         { label: 'Multiple Choice',          icon: <CheckSquare size={14} />,  color: 'text-violet-700',  bg: 'bg-violet-50 border-violet-200' },
+  multiselect:            { label: 'Multi-Select',             icon: <ListChecks size={14} />,   color: 'text-sky-700',     bg: 'bg-sky-50 border-sky-200' },
+  dragdrop:               { label: 'Drag & Drop',              icon: <Move size={14} />,         color: 'text-pink-700',    bg: 'bg-pink-50 border-pink-200' },
   matching:               { label: 'Matching',                 icon: <Columns2 size={14} />,     color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
   textbox:                { label: 'Open Answer',              icon: <List size={14} />,         color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200' },
   truefalse:              { label: 'True / False',             icon: <ToggleLeft size={14} />,   color: 'text-rose-700',    bg: 'bg-rose-50 border-rose-200' },
@@ -37,14 +39,16 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
   listeningmatching:      { label: 'Listening + Matching',     icon: <Headphones size={14} />,   color: 'text-purple-700',  bg: 'bg-purple-50 border-purple-200' },
   listeningtruefalse:     { label: 'Listening + True/False',   icon: <Headphones size={14} />,   color: 'text-fuchsia-700', bg: 'bg-fuchsia-50 border-fuchsia-200' },
   reading:                { label: 'Reading',                  icon: <BookOpen size={14} />,     color: 'text-lime-700',    bg: 'bg-lime-50 border-lime-200' },
+  readingtruefalse:       { label: 'Reading + True/False',     icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
   imagequestion:          { label: 'Image Question',           icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
+  speaking:               { label: 'Speaking (mic)',           icon: <Mic size={14} />,          color: 'text-red-700',     bg: 'bg-red-50 border-red-200' },
 };
 
 // Grupos para el picker de actividades
 const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
-  { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'matching', 'textbox', 'truefalse'] },
+  { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse'] },
   { label: 'Listening', types: ['listening', 'listeningfillblank', 'listeningmultiplechoice', 'listeningmatching', 'listeningtruefalse'] },
-  { label: 'Otras', types: ['reading', 'imagequestion'] },
+  { label: 'Otras', types: ['reading', 'readingtruefalse', 'imagequestion', 'speaking'] },
 ];
 
 // ── Importar hoja existente al estado visual ──────────────────────────────────
@@ -58,8 +62,8 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     id: act.id,
     type: act.type as VisualActivityType,
     instructions: act.instructions ?? '',
-    text: '', answer: '', question: '', options: [], correctOption: '',
-    left: [], right: [], prompt: '', statements: [],
+    text: '', answer: '', bank: [], question: '', options: [], correctOption: '', correctOptions: [],
+    left: [], right: [], prompt: '', target: '', statements: [],
     audioText: '', pairs: [],
     readingTitle: '', readingContent: '', readingQuestions: [],
     imageUrl: '',
@@ -73,6 +77,14 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     const mc = act as MultipleChoiceActivity;
     const correct = Array.isArray(mc.answer) ? mc.answer[0] : (mc.answer ?? '');
     return { ...base, question: mc.question, options: [...mc.options], correctOption: correct };
+  }
+  if (act.type === 'multiselect') {
+    const ms = act as MultiSelectActivity;
+    return { ...base, question: ms.question, options: [...ms.options], correctOptions: Array.isArray(ms.answer) ? [...ms.answer] : (ms.answer ? [ms.answer] : []) };
+  }
+  if (act.type === 'dragdrop') {
+    const dd = act as DragDropActivity;
+    return { ...base, text: dd.text, answer: Array.isArray(dd.answer) ? dd.answer.join(', ') : (dd.answer ?? ''), bank: [...(dd.bank ?? [])] };
   }
   if (act.type === 'matching') {
     const m = act as MatchingActivity;
@@ -111,9 +123,17 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     const a = act as any;
     return { ...base, readingTitle: a.title ?? '', readingContent: a.content ?? '', readingQuestions: a.questions ?? [] };
   }
+  if (act.type === 'readingtruefalse') {
+    const rtf = act as ReadingTrueFalseActivity;
+    return { ...base, readingTitle: rtf.title ?? '', readingContent: rtf.content ?? '', statements: (rtf.statements ?? []).map((s) => ({ id: crypto.randomUUID(), text: s.text, answer: s.answer })) };
+  }
   if (act.type === 'imagequestion') {
     const a = act as any;
     return { ...base, imageUrl: a.image ?? '', prompt: a.prompt ?? '' };
+  }
+  if (act.type === 'speaking') {
+    const sp = act as SpeakingActivity;
+    return { ...base, prompt: sp.prompt ?? '', target: sp.target ?? '' };
   }
   return null;
 }
@@ -132,20 +152,27 @@ export function worksheetToVisualState(worksheet: Worksheet): { state: VisualSta
     ? worksheet.blocks.reduce((n, b) => n + b.activities.length, 0)
     : worksheet.activities.length;
 
+  const theme = {
+    primary_color: worksheet.theme?.primary_color ?? '',
+    background_color: worksheet.theme?.background_color ?? '',
+    text_color: worksheet.theme?.text_color ?? '',
+  };
+
   let state: VisualState;
 
   if (worksheet.blocks?.length) {
     const blocks = worksheet.blocks.map(blockToVisual);
-    state = { title: worksheet.title, description: worksheet.description, blocks };
+    state = { title: worksheet.title, description: worksheet.description, theme, blocks };
   } else if (worksheet.activities.length) {
     const activities = worksheet.activities.map(activityToVisual).filter((a): a is VisualActivity => a !== null);
     state = {
       title: worksheet.title,
       description: worksheet.description,
+      theme,
       blocks: [{ id: crypto.randomUUID(), title: '', instructions: '', activities }],
     };
   } else {
-    state = emptyState();
+    state = { ...emptyState(), theme };
   }
 
   const imported = state.blocks.reduce((n, b) => n + b.activities.length, 0);
@@ -471,12 +498,97 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
   );
 }
 
+function MultiSelectEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  const toggleCorrect = (opt: string) => {
+    const set = act.correctOptions.includes(opt) ? act.correctOptions.filter((o) => o !== opt) : [...act.correctOptions, opt];
+    onChange({ ...act, correctOptions: set });
+  };
+  return (
+    <div className="grid gap-4">
+      <label className="block"><FieldLabel>Pregunta</FieldLabel><TextInput value={act.question} onChange={(v) => onChange({ ...act, question: v })} /></label>
+      <div>
+        <FieldLabel>Opciones</FieldLabel>
+        <p className="mb-2 text-xs text-slate-400">Marca la casilla de <strong>todas</strong> las opciones correctas.</p>
+        <div className="grid gap-2">
+          {act.options.map((opt, i) => {
+            const checked = act.correctOptions.includes(opt) && !!opt.trim();
+            return (
+              <div key={i} className="flex items-center gap-2">
+                <button type="button" onClick={() => toggleCorrect(opt)}
+                  className={`grid h-5 w-5 shrink-0 place-items-center rounded border-2 text-xs font-bold text-white transition ${checked ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'}`}>{checked ? '✓' : ''}</button>
+                <input className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  value={opt}
+                  onChange={(e) => {
+                    const next = [...act.options];
+                    const was = act.correctOptions.includes(opt);
+                    next[i] = e.target.value;
+                    onChange({ ...act, options: next, correctOptions: was ? act.correctOptions.map((c) => (c === opt ? e.target.value : c)) : act.correctOptions });
+                  }} />
+                <button type="button" className="rounded-xl border border-red-100 p-2 text-red-400 transition hover:bg-red-50"
+                  onClick={() => onChange({ ...act, options: act.options.filter((_, j) => j !== i), correctOptions: act.correctOptions.filter((c) => c !== opt) })}><Trash2 size={14} /></button>
+              </div>
+            );
+          })}
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-blue-400 hover:text-blue-600"
+            onClick={() => onChange({ ...act, options: [...act.options, ''] })}><PlusCircle size={14} /> Agregar opción</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DragDropEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  const blanks = (act.text.match(/_____/g) ?? []).length;
+  return (
+    <div className="grid gap-4">
+      <label className="block">
+        <FieldLabel>Texto (usa _____ para cada hueco)</FieldLabel>
+        <TextArea value={act.text} onChange={(v) => onChange({ ...act, text: v })} />
+        <p className="mt-1 text-xs text-slate-400">{blanks} hueco{blanks !== 1 ? 's' : ''} — separa las respuestas con coma, en orden.</p>
+      </label>
+      <label className="block">
+        <FieldLabel>Respuestas correctas (en orden, separadas por coma)</FieldLabel>
+        <TextInput value={act.answer} onChange={(v) => onChange({ ...act, answer: v })} placeholder="goes, studies" />
+      </label>
+      <div>
+        <FieldLabel>Banco de palabras (correctas + distractores)</FieldLabel>
+        <div className="mt-2"><StringListEditor items={act.bank} onChange={(bank) => onChange({ ...act, bank })} placeholder="Palabra..." addLabel="Agregar palabra" /></div>
+      </div>
+    </div>
+  );
+}
+
+function ReadingTrueFalseEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  return (
+    <div className="grid gap-4">
+      <label className="block"><FieldLabel>Título del texto</FieldLabel><TextInput value={act.readingTitle} onChange={(v) => onChange({ ...act, readingTitle: v })} placeholder="Título del texto..." /></label>
+      <label className="block"><FieldLabel>Contenido del texto</FieldLabel><TextArea rows={5} value={act.readingContent} onChange={(v) => onChange({ ...act, readingContent: v })} placeholder="Texto de lectura. Usa \\n para saltos de línea." /></label>
+      <div><FieldLabel>Enunciados True/False sobre el texto</FieldLabel><div className="mt-2"><StatementsEditor statements={act.statements} onChange={(statements) => onChange({ ...act, statements })} /></div></div>
+    </div>
+  );
+}
+
+function SpeakingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  return (
+    <div className="grid gap-4">
+      <label className="block"><FieldLabel>Instrucción / pregunta hablada</FieldLabel><TextArea value={act.prompt} onChange={(v) => onChange({ ...act, prompt: v })} placeholder="Introduce yourself. Say your name and age." /></label>
+      <label className="block">
+        <FieldLabel>Oración a leer en voz alta (opcional)</FieldLabel>
+        <TextInput value={act.target} onChange={(v) => onChange({ ...act, target: v })} placeholder="Déjalo vacío para una pregunta abierta" />
+        <p className="mt-1 text-xs text-slate-400">Con texto: el alumno lee esa oración (se compara la pronunciación). Vacío: pregunta abierta hablada (la IA evalúa).</p>
+      </label>
+    </div>
+  );
+}
+
 // ── Tarjeta de actividad ──────────────────────────────────────────────────────
 
 function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
   switch (act.type) {
     case 'fillblank':              return <FillBlankEditor act={act} onChange={onChange} />;
     case 'multiplechoice':         return <MultipleChoiceEditor act={act} onChange={onChange} />;
+    case 'multiselect':            return <MultiSelectEditor act={act} onChange={onChange} />;
+    case 'dragdrop':               return <DragDropEditor act={act} onChange={onChange} />;
     case 'matching':               return <MatchingEditor act={act} onChange={onChange} />;
     case 'textbox':                return <TextboxEditor act={act} onChange={onChange} />;
     case 'truefalse':              return <TrueFalseEditor act={act} onChange={onChange} />;
@@ -486,7 +598,9 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
     case 'listeningmatching':      return <ListeningMatchingEditor act={act} onChange={onChange} />;
     case 'listeningtruefalse':     return <ListeningTrueFalseEditor act={act} onChange={onChange} />;
     case 'reading':                return <ReadingEditor act={act} onChange={onChange} />;
+    case 'readingtruefalse':       return <ReadingTrueFalseEditor act={act} onChange={onChange} />;
     case 'imagequestion':          return <ImageQuestionEditor act={act} onChange={onChange} />;
+    case 'speaking':               return <SpeakingEditor act={act} onChange={onChange} />;
     default:                       return null;
   }
 }
@@ -632,12 +746,13 @@ interface VisualWorksheetBuilderProps {
   initialState: VisualState;
   maxAttemptsDraft: string;
   isSaving?: boolean;
+  isEditing?: boolean;
   message?: string;
   onMaxAttemptsChange: (value: string) => void;
   onSave: (script: string) => void;
 }
 
-export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, message, onMaxAttemptsChange, onSave }: VisualWorksheetBuilderProps) {
+export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, isEditing, message, onMaxAttemptsChange, onSave }: VisualWorksheetBuilderProps) {
   const [state, setState] = useState<VisualState>(initialState);
 
   const updateBlock = (id: string, block: VisualBlock) =>
@@ -680,6 +795,26 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
               onChange={(e) => setState((s) => ({ ...s, description: e.target.value }))} />
           </label>
         </div>
+        <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">🎨 Colores del tema (opcional)</summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {([
+              ['primary_color', 'Primario', '#7C3AED'],
+              ['background_color', 'Fondo', '#F5F3FF'],
+              ['text_color', 'Texto', '#2E1065'],
+            ] as const).map(([key, label, ph]) => (
+              <label key={key} className="block">
+                <span className="text-xs font-semibold text-slate-500">{label}</span>
+                <div className="mt-1 flex items-center gap-2">
+                  <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
+                    value={state.theme[key] || ph} onChange={(e) => setState((s) => ({ ...s, theme: { ...s.theme, [key]: e.target.value } }))} />
+                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                    placeholder={ph} value={state.theme[key]} onChange={(e) => setState((s) => ({ ...s, theme: { ...s.theme, [key]: e.target.value } }))} />
+                </div>
+              </label>
+            ))}
+          </div>
+        </details>
       </div>
 
       {state.blocks.map((block, i) => (
@@ -710,7 +845,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
           </label>
           <button type="button" disabled={isSaving} onClick={() => onSave(serializeToScript(state))}
             className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:opacity-60">
-            <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : 'Guardar evaluación'}
+            <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar evaluación'}
           </button>
         </div>
         {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm font-medium text-blue-700">{message}</p>}

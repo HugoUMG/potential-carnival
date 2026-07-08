@@ -259,6 +259,39 @@ class WorksheetRepository:
             connection.execute(f"UPDATE worksheets SET archived = {placeholder} WHERE id = {placeholder}", (self._bool_param(False), worksheet_id))
         return self.get_worksheet(worksheet_id)
 
+    def count_responses(self, worksheet_id: str) -> int:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT COUNT(*) AS total FROM worksheet_responses WHERE worksheet_id = {placeholder}",
+                (worksheet_id,),
+            ).fetchone()
+        return int(dict(row)["total"]) if row else 0
+
+    def update_worksheet_content(self, worksheet_id: str, worksheet: Worksheet) -> Worksheet | None:
+        """Reemplaza el contenido editable de la hoja (no toca created_by/created_at/published/archived)."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"""
+                UPDATE worksheets
+                SET title = {placeholder}, description = {placeholder}, script_content = {placeholder},
+                    json_content = {placeholder}, max_attempts = {placeholder}, theme = {placeholder}, ai_grading = {placeholder}
+                WHERE id = {placeholder}
+                """,
+                (
+                    worksheet.title,
+                    worksheet.description,
+                    worksheet.script_content,
+                    self._json_param(worksheet.json_content.model_dump(mode="json")),
+                    worksheet.max_attempts,
+                    self._json_param(worksheet.theme) if worksheet.theme is not None else None,
+                    self._bool_param(worksheet.ai_grading),
+                    worksheet_id,
+                ),
+            )
+        return self.get_worksheet(worksheet_id)
+
     def delete_worksheet(self, worksheet_id: str) -> bool:
         placeholder = self._placeholder
         with get_connection() as connection:

@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { transcribeAudio } from '../services/api';
+import { playSfx } from '../utils/sfx';
 import type {
   ActivityDefinition,
   ActivityRendererProps,
@@ -93,7 +94,7 @@ function MultipleChoiceRenderer({ activity, value, readonly, onChange }: Activit
               name={activity.id}
               type="radio"
               checked={value === option}
-              onChange={() => onChange(activity.id, option)}
+              onChange={() => { playSfx('select'); onChange(activity.id, option); }}
             />
             <span className="text-sm text-slate-700">{option}</span>
           </label>
@@ -106,6 +107,7 @@ function MultipleChoiceRenderer({ activity, value, readonly, onChange }: Activit
 function MultiSelectRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultiSelectActivity>) {
   const selected = Array.isArray(value) ? value : [];
   const toggle = (option: string) => {
+    playSfx('toggle');
     const next = selected.includes(option) ? selected.filter((o) => o !== option) : [...selected, option];
     onChange(activity.id, next);
   };
@@ -149,7 +151,7 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
     else available.push({ word, key: i });
   });
 
-  const apply = (next: string[]) => onChange(activity.id, next);
+  const apply = (next: string[]) => { playSfx('place'); onChange(activity.id, next); };
 
   const startDrag = (e: DragEvent, payload: DragPayload, key: string) => {
     e.dataTransfer.setData('text/plain', JSON.stringify(payload));
@@ -309,6 +311,7 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
   });
 
   function connect(li: number, rj: number) {
+    playSfx('select');
     const lv = leftItems[li];
     const rv = rightItems[rj];
     const next: Record<string, string> = { ...selections };
@@ -468,11 +471,11 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
 function TrueFalseButtons({ index, selected, readonly, onChange }: { index: number; selected: string | undefined; readonly?: boolean; onChange: (val: string) => void }) {
   return (
     <div className="flex gap-2">
-      <button type="button" disabled={readonly} onClick={() => onChange('true')}
+      <button type="button" disabled={readonly} onClick={() => { playSfx('toggle'); onChange('true'); }}
         className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${selected === 'true' ? 'bg-emerald-500 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:border-emerald-300'}`}>
         True
       </button>
-      <button type="button" disabled={readonly} onClick={() => onChange('false')}
+      <button type="button" disabled={readonly} onClick={() => { playSfx('toggle'); onChange('false'); }}
         className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${selected === 'false' ? 'bg-red-500 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:border-red-300'}`}>
         False
       </button>
@@ -739,7 +742,7 @@ function ListeningMultipleChoiceRenderer({ activity, value, readonly, onChange }
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {activity.options.map((option) => (
             <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
-              <input disabled={readonly} name={activity.id} type="radio" checked={value === option} onChange={() => onChange(activity.id, option)} />
+              <input disabled={readonly} name={activity.id} type="radio" checked={value === option} onChange={() => { playSfx('select'); onChange(activity.id, option); }} />
               <span className="text-sm text-slate-700">{option}</span>
             </label>
           ))}
@@ -764,7 +767,7 @@ function ListeningMatchingRenderer({ activity, value, readonly, onChange }: Acti
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 self-center"
             disabled={readonly}
             value={selections[String(index)] ?? ''}
-            onChange={(e) => onChange(activity.id, { ...selections, [String(index)]: e.target.value })}
+            onChange={(e) => { playSfx('select'); onChange(activity.id, { ...selections, [String(index)]: e.target.value }); }}
           >
             <option value="">Select...</option>
             {activity.options.map((opt) => (
@@ -792,13 +795,13 @@ function ListeningTrueFalseRenderer({ activity, value, readonly, onChange }: Act
               <button
                 type="button"
                 disabled={readonly}
-                onClick={() => onChange(activity.id, { ...selections, [String(index)]: 'true' })}
+                onClick={() => { playSfx('toggle'); onChange(activity.id, { ...selections, [String(index)]: 'true' }); }}
                 className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${selected === 'true' ? 'bg-emerald-500 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:border-emerald-300'}`}
               >True</button>
               <button
                 type="button"
                 disabled={readonly}
-                onClick={() => onChange(activity.id, { ...selections, [String(index)]: 'false' })}
+                onClick={() => { playSfx('toggle'); onChange(activity.id, { ...selections, [String(index)]: 'false' }); }}
                 className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${selected === 'false' ? 'bg-red-500 text-white' : 'border border-slate-200 bg-white text-slate-700 hover:border-red-300'}`}
               >False</button>
             </div>

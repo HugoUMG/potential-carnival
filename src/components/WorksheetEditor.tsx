@@ -82,6 +82,7 @@ interface WorksheetEditorProps {
   maxAttemptsDraft: string;
   aiGradingDraft: boolean;
   isSaving?: boolean;
+  isEditing?: boolean;
   message?: string;
   userId: string;
   onAddActivity: (activity: WorksheetActivity) => void;
@@ -94,7 +95,7 @@ interface WorksheetEditorProps {
 type EditorMode = 'script' | 'visual' | 'ai';
 
 export function WorksheetEditor({
-  worksheet, scriptDraft, maxAttemptsDraft, aiGradingDraft, isSaving, message, userId,
+  worksheet, scriptDraft, maxAttemptsDraft, aiGradingDraft, isSaving, isEditing, message, userId,
   onScriptChange, onMaxAttemptsChange, onAiGradingChange, onSaveScript,
 }: WorksheetEditorProps) {
   const [mode, setMode] = useState<EditorMode>('script');
@@ -197,7 +198,7 @@ export function WorksheetEditor({
 
         {mode === 'visual' && (
           <VisualWorksheetBuilder initialState={visualState} maxAttemptsDraft={maxAttemptsDraft}
-            isSaving={isSaving} message={message} onMaxAttemptsChange={onMaxAttemptsChange} onSave={handleVisualSave} />
+            isSaving={isSaving} isEditing={isEditing} message={message} onMaxAttemptsChange={onMaxAttemptsChange} onSave={handleVisualSave} />
         )}
 
         {mode === 'ai' && <AiPanel aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} isGenerating={isGenerating}
@@ -227,9 +228,9 @@ export function WorksheetEditor({
       <div className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Modo Script</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">{isEditing ? '✎ Editando evaluación existente' : 'Modo Script'}</p>
             <h2 className="text-2xl font-bold text-slate-900">{worksheet.title}</h2>
-            <p className="mt-1 text-sm text-slate-500">Pega o escribe WorksheetScript y guárdalo en la base de datos.</p>
+            <p className="mt-1 text-sm text-slate-500">{isEditing ? 'Editas la MISMA hoja (no se crea una copia). Solo se puede mientras no tenga respuestas.' : 'Pega o escribe WorksheetScript y guárdalo en la base de datos.'}</p>
           </div>
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">{worksheet.activities.length} actividades</span>
         </div>
@@ -301,7 +302,7 @@ export function WorksheetEditor({
             disabled={isSaving}
             onClick={onSaveScript}
           >
-            <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : 'Guardar evaluación'}
+            <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar evaluación'}
           </button>
         </div>
         {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm font-medium text-blue-700">{message}</p>}

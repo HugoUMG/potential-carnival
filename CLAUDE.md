@@ -381,6 +381,7 @@ PUT    /users/{id}/password                  — Cambiar contraseña (readers no
 
 ```
 POST   /worksheets                           — Crear hoja desde script DSL
+PUT    /worksheets/{id}                       — Editar hoja en el sitio (409 si ya tiene respuestas)
 POST   /worksheets/ai-generate               — Generar hoja con IA desde prompt
 GET    /worksheets                           — Listar hojas (filtradas por dueño)
 GET    /worksheets/{id}                      — Detalle de hoja
@@ -614,6 +615,10 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - **Spinners de carga** (`LoadingScreen`/`Spinner`) en portales, login, hojas y respuestas — por la latencia de Aiven.
 - **Revisión de respuestas (profesor):** al entrar **ninguna** respuesta viene seleccionada; se elige un alumno para ver su detalle. `fillblank`/`listeningfillblank` muestran siempre controles de corrección manual.
 - Portal del estudiante con pestañas "Activas" / "Calificadas"; drag&drop con click-to-place.
+- **Editar hoja en el sitio** (`PUT /worksheets/{id}`, `updateWorksheet`): "Editar" abre la MISMA hoja en el editor (script o visual) y "Guardar cambios" la actualiza (no crea copia). Bloqueado (409 + botón deshabilitado) si ya tiene respuestas. Estado `editingWorksheetId` en `App.tsx`.
+- **Constructor visual completo**: soporta los **16 tipos** (agregados multiselect, dragdrop, readingtruefalse, speaking) y round-trip del `theme`. Ver `dslSerializer.ts` (serialización) y `VisualWorksheetBuilder.tsx` (import `activityToVisual` + editores). Pendiente menor: campos `info {}` aún no round-trip.
+- **Vista previa al crear/editar**: al guardar (script o visual) se abre la vista previa del estudiante (`WorksheetRenderer` readonly) con botón "Editar".
+- **Sonidos de clic** (`utils/sfx.ts`, ZzFX): al elegir opción, multiselect, drag&drop, matching, true/false y variantes de listening suena un blip corto. El primer clic habilita el audio.
 - **Imprimir hoja en papel / PDF** (`WorksheetPrint.tsx`): botón "Imprimir PDF" en el portal del profesor (lista de evaluaciones y barra de revisión). Vista de papel compacta vía `createPortal(document.body)` + impresión nativa (`window.print()` → Guardar como PDF); en `@media print` se oculta `#root`. Omite actividades `listening*`/`speaking` (no pasan a papel) y deja líneas/casillas para escribir.
 
 ### Pendientes (menores)

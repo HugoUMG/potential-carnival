@@ -27,6 +27,7 @@ import {
   createStudent,
   createTeacher,
   createWorksheet,
+  updateWorksheet,
   deleteReader,
   deleteStudent,
   deleteTeacher,
@@ -185,6 +186,8 @@ export default function App() {
   const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
   const [printWorksheet, setPrintWorksheet] = useState<Worksheet | null>(null);
+  // Si está seteado, "Guardar" edita esta hoja en el sitio en vez de crear una nueva.
+  const [editingWorksheetId, setEditingWorksheetId] = useState<string | null>(null);
   const [refreshCooldowns, setRefreshCooldowns] = useState<Set<string>>(new Set());
   const [studentTab, setStudentTab] = useState<'activas' | 'calificadas' | 'vocabulario' | 'perfil'>('activas');
   const [studentClassrooms, setStudentClassrooms] = useState<Classroom[]>([]);
@@ -358,18 +361,48 @@ export default function App() {
     setAnswers((current) => ({ ...current, [activityId]: value }));
   }
 
+  /** Abre el editor sobre una hoja existente para editarla EN EL SITIO (misma hoja).
+   *  Bloquea si ya tiene respuestas registradas (para no invalidar lo entregado). */
+  function startEditWorksheet(worksheet: Worksheet) {
+    if ((responseCounts[worksheet.id] ?? 0) > 0) {
+      setActiveWorksheet(worksheet);
+      setAdminMenu('evaluaciones');
+      setMessage('Esta evaluación ya tiene respuestas, no se puede editar. Duplícala si necesitas cambiarla.');
+      return;
+    }
+    setEditingWorksheetId(worksheet.id);
+    setActiveWorksheet(worksheet);
+    setScriptDraft(worksheet.scriptContent);
+    setMaxAttemptsDraft(worksheet.maxAttempts ? String(worksheet.maxAttempts) : 'unlimited');
+    setAiGradingDraft(worksheet.aiGrading ?? true);
+    setMessage('');
+    setAdminMenu('crear');
+  }
+
   async function saveScript() {
     if (!user) return;
     setIsSaving(true);
     setMessage('');
     try {
       const maxAttempts = maxAttemptsDraft === 'unlimited' ? null : Number(maxAttemptsDraft);
-      const worksheet = await createWorksheet(scriptDraft, user.id, maxAttempts, aiGradingDraft);
-      setActiveWorksheet(worksheet);
-      setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== sampleWorksheet.id)]);
-      setSelectedActivityId(worksheet.activities[0]?.id ?? '');
-      setAdminMenu('evaluaciones');
-      setMessage('Evaluación guardada. Ahora puedes habilitarla.');
+      if (editingWorksheetId) {
+        const worksheet = await updateWorksheet(editingWorksheetId, scriptDraft, maxAttempts, aiGradingDraft);
+        setActiveWorksheet(worksheet);
+        setWorksheets((current) => current.map((item) => (item.id === worksheet.id ? worksheet : item)));
+        setSelectedActivityId(worksheet.activities[0]?.id ?? '');
+        setEditingWorksheetId(null);
+        setAdminMenu('evaluaciones');
+        setMessage('Evaluación actualizada.');
+        setPreviewWorksheet(worksheet); // vista previa de cómo la verá el estudiante
+      } else {
+        const worksheet = await createWorksheet(scriptDraft, user.id, maxAttempts, aiGradingDraft);
+        setActiveWorksheet(worksheet);
+        setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== sampleWorksheet.id)]);
+        setSelectedActivityId(worksheet.activities[0]?.id ?? '');
+        setAdminMenu('evaluaciones');
+        setMessage('Evaluación guardada. Ahora puedes habilitarla.');
+        setPreviewWorksheet(worksheet); // vista previa de cómo la verá el estudiante
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo guardar la evaluación.');
     } finally {
@@ -539,6 +572,14 @@ export default function App() {
   }
 
   function handleSelectMenu(menu: TeacherMenu) {
+    // Ir a "Crear" desde el menú (dejando una edición) empieza una hoja NUEVA en blanco.
+    if (menu === 'crear' && editingWorksheetId) {
+      setEditingWorksheetId(null);
+      setScriptDraft('');
+      setMaxAttemptsDraft('unlimited');
+      setAiGradingDraft(true);
+      setMessage('');
+    }
     if (menu === 'revision' && user) {
       localStorage.setItem(`teacher_notif_since_${user.id}`, new Date().toISOString());
       setNotificationCount(0);
@@ -1258,7 +1299,7 @@ export default function App() {
             </div>
           </section>
         )}
-        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} isSaving={isSaving} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onSaveScript={saveScript} />}
+        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} isSaving={isSaving} isEditing={!!editingWorksheetId} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onSaveScript={saveScript} />}
         {adminMenu === 'estudiantes' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <h2 className="text-2xl font-bold">Crear estudiante</h2>
@@ -1294,7 +1335,7 @@ export default function App() {
                 <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Evaluaciones guardadas</p>
                 <h2 className="text-2xl font-bold">Base de datos</h2>
               </div>
-              <button className="rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white" onClick={() => setAdminMenu('crear')}>Nueva evaluación</button>
+              <button className="rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white" onClick={() => { setEditingWorksheetId(null); setScriptDraft(''); setMaxAttemptsDraft('unlimited'); setAiGradingDraft(true); setMessage(''); setAdminMenu('crear'); }}>Nueva evaluación</button>
             </div>
             {/* Search */}
             <div className="mt-4 relative">
@@ -1333,6 +1374,12 @@ export default function App() {
                     <div className="flex flex-wrap gap-2">
                       <button className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700" onClick={() => togglePublished(worksheet)}>{worksheet.status === 'published' ? 'Deshabilitar' : 'Habilitar'}</button>
                       <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button>
+                      <button
+                        className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={(responseCounts[worksheet.id] ?? 0) > 0}
+                        title={(responseCounts[worksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas. Duplícala.' : 'Editar esta evaluación'}
+                        onClick={() => startEditWorksheet(worksheet)}
+                      ><Pencil className="mr-1 inline" size={16} /> Editar</button>
                       <button className="rounded-2xl border border-indigo-200 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button>
                       <button className="rounded-2xl border border-slate-300 px-4 py-2 font-semibold text-slate-700" onClick={() => setPrintWorksheet(worksheet)}><Printer className="mr-1 inline" size={16} /> Imprimir PDF</button>
                       <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700" onClick={() => openAssignWorksheetModal(worksheet)}>Asignar a aula</button>
@@ -1626,7 +1673,7 @@ export default function App() {
                   className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 text-sm"
                   type="button"
                   title="Editar esta hoja de trabajo"
-                  onClick={() => { setScriptDraft(activeWorksheet.scriptContent); setMaxAttemptsDraft(activeWorksheet.maxAttempts ? String(activeWorksheet.maxAttempts) : 'unlimited'); setAiGradingDraft(activeWorksheet.aiGrading ?? true); setAdminMenu('crear'); }}
+                  onClick={() => startEditWorksheet(activeWorksheet)}
                 >
                   <Pencil className="mr-1 inline" size={15} /> Editar hoja
                 </button>
@@ -1901,10 +1948,19 @@ export default function App() {
       {previewWorksheet && (
         <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6">
           <div className="mx-auto max-w-5xl rounded-3xl bg-slate-50 p-5 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-xl font-bold">Vista previa: {previewWorksheet.title}</h2>
-              <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPreviewWorksheet(null)}>Cerrar</button>
+              <div className="flex gap-2">
+                <button
+                  className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={(responseCounts[previewWorksheet.id] ?? 0) > 0}
+                  title={(responseCounts[previewWorksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas.' : 'Editar esta evaluación'}
+                  onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); startEditWorksheet(w); }}
+                ><Pencil className="mr-1 inline" size={16} /> Editar</button>
+                <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPreviewWorksheet(null)}>Cerrar</button>
+              </div>
             </div>
+            <p className="mb-4 text-sm text-slate-500">Así verá la hoja el estudiante. Puedes editarla mientras no tenga respuestas.</p>
             <WorksheetRenderer worksheet={previewWorksheet} answers={{}} readonly onAnswerChange={() => undefined} />
           </div>
         </div>

@@ -16,34 +16,40 @@ export interface VisualPair {
 }
 
 export type VisualActivityType =
-  | 'fillblank' | 'multiplechoice' | 'matching' | 'textbox' | 'truefalse'
+  | 'fillblank' | 'multiplechoice' | 'multiselect' | 'dragdrop' | 'matching' | 'textbox' | 'truefalse'
   | 'listening' | 'listeningfillblank' | 'listeningmultiplechoice'
   | 'listeningmatching' | 'listeningtruefalse'
-  | 'reading' | 'imagequestion';
+  | 'reading' | 'readingtruefalse' | 'imagequestion' | 'speaking';
 
 export interface VisualActivity {
   id: string;
   type: VisualActivityType;
   instructions: string;
-  // fillblank / listeningfillblank
+  // fillblank / dragdrop / listeningfillblank
   text: string;
   answer: string;
+  // dragdrop
+  bank: string[];
   // multiplechoice / listeningmultiplechoice
   question: string;
   options: string[];
   correctOption: string;
+  // multiselect (varias correctas)
+  correctOptions: string[];
   // matching
   left: string[];
   right: string[];
-  // textbox
+  // textbox / speaking
   prompt: string;
-  // truefalse / listeningtruefalse
+  // speaking (leer en voz alta; opcional)
+  target: string;
+  // truefalse / listeningtruefalse / readingtruefalse
   statements: VisualStatement[];
   // listening* / listeningfillblank / listeningmultiplechoice / listeningtruefalse
   audioText: string;
   // listeningmatching
   pairs: VisualPair[];
-  // reading
+  // reading / readingtruefalse
   readingTitle: string;
   readingContent: string;
   readingQuestions: string[];
@@ -58,9 +64,16 @@ export interface VisualBlock {
   activities: VisualActivity[];
 }
 
+export interface VisualTheme {
+  primary_color: string;
+  background_color: string;
+  text_color: string;
+}
+
 export interface VisualState {
   title: string;
   description: string;
+  theme: VisualTheme;
   blocks: VisualBlock[];
 }
 
@@ -94,6 +107,32 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
       validOpts.forEach((o) => lines.push(`${indent}  - ${o}`));
     }
     if (act.correctOption.trim()) lines.push(`${indent}  answer: "${esc(act.correctOption)}"`);
+
+  } else if (act.type === 'multiselect') {
+    if (act.question.trim()) lines.push(`${indent}  question: "${esc(act.question)}"`);
+    const validOpts = act.options.filter((o) => o.trim());
+    if (validOpts.length > 0) {
+      lines.push(`${indent}  options:`);
+      validOpts.forEach((o) => lines.push(`${indent}  - ${o}`));
+    }
+    const correct = act.correctOptions.filter((o) => o.trim());
+    if (correct.length > 0) {
+      lines.push(`${indent}  answer:`);
+      correct.forEach((o) => lines.push(`${indent}  - ${o}`));
+    }
+
+  } else if (act.type === 'dragdrop') {
+    if (act.text.trim()) lines.push(`${indent}  text: "${esc(act.text)}"`);
+    const answers = act.answer.split(',').map((a) => a.trim()).filter(Boolean);
+    if (answers.length > 0) {
+      lines.push(`${indent}  answer:`);
+      answers.forEach((a) => lines.push(`${indent}  - ${a}`));
+    }
+    const bank = act.bank.filter((b) => b.trim());
+    if (bank.length > 0) {
+      lines.push(`${indent}  bank:`);
+      bank.forEach((b) => lines.push(`${indent}  - ${b}`));
+    }
 
   } else if (act.type === 'matching') {
     const validLeft = act.left.filter((l) => l.trim());
@@ -181,9 +220,26 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
       validQs.forEach((q) => lines.push(`${indent}  - ${q}`));
     }
 
+  } else if (act.type === 'readingtruefalse') {
+    if (act.readingTitle.trim()) lines.push(`${indent}  title: "${esc(act.readingTitle)}"`);
+    if (act.readingContent.trim()) {
+      lines.push(`${indent}  content: "${esc(act.readingContent.replace(/\n/g, '\\n'))}"`);
+    }
+    const validStmts = act.statements.filter((s) => s.text.trim());
+    if (validStmts.length > 0) {
+      lines.push(`${indent}  statements:`);
+      validStmts.forEach((s) => {
+        lines.push(`${indent}  - ${esc(s.text)} | ${s.answer ? 'true' : 'false'}`);
+      });
+    }
+
   } else if (act.type === 'imagequestion') {
     if (act.imageUrl.trim()) lines.push(`${indent}  image: "${esc(act.imageUrl)}"`);
     if (act.prompt.trim()) lines.push(`${indent}  prompt: "${esc(act.prompt)}"`);
+
+  } else if (act.type === 'speaking') {
+    if (act.prompt.trim()) lines.push(`${indent}  prompt: "${esc(act.prompt)}"`);
+    if (act.target.trim()) lines.push(`${indent}  target: "${esc(act.target)}"`);
   }
 
   lines.push(`${indent}}`);
@@ -208,6 +264,14 @@ export function serializeToScript(state: VisualState): string {
   if (state.description.trim()) {
     lines.push(`  description: "${esc(state.description.replace(/\n/g, '\\n'))}"`);
   }
+  const t = state.theme;
+  if (t && (t.primary_color.trim() || t.background_color.trim() || t.text_color.trim())) {
+    lines.push('  theme {');
+    if (t.primary_color.trim()) lines.push(`    primary_color: "${esc(t.primary_color)}"`);
+    if (t.background_color.trim()) lines.push(`    background_color: "${esc(t.background_color)}"`);
+    if (t.text_color.trim()) lines.push(`    text_color: "${esc(t.text_color)}"`);
+    lines.push('  }');
+  }
   for (const block of state.blocks) {
     lines.push(...serializeBlock(block, '  '));
   }
@@ -219,12 +283,15 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   instructions: '',
   text: '',
   answer: '',
+  bank: [],
   question: '',
   options: ['Option A', 'Option B', 'Option C'],
   correctOption: 'Option A',
+  correctOptions: [],
   left: ['can', 'should', 'must'],
   right: ['Ability', 'Advice', 'Obligation'],
   prompt: '',
+  target: '',
   statements: [],
   audioText: '',
   pairs: [],
@@ -241,6 +308,10 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
       return { ...BASE_ACTIVITY, id, type, text: 'She _____ happy yesterday.', answer: 'was' };
     case 'multiplechoice':
       return { ...BASE_ACTIVITY, id, type, question: 'Choose the correct answer.', options: ['am', 'is', 'are'], correctOption: 'am' };
+    case 'multiselect':
+      return { ...BASE_ACTIVITY, id, type, question: 'Select ALL correct options.', options: ['runs', 'running', 'eats', 'eaten'], correctOptions: ['runs', 'eats'] };
+    case 'dragdrop':
+      return { ...BASE_ACTIVITY, id, type, text: 'She _____ to school and _____ English every day.', answer: 'goes, studies', bank: ['goes', 'go', 'studies', 'study'] };
     case 'matching':
       return { ...BASE_ACTIVITY, id, type };
     case 'textbox':
@@ -271,8 +342,15 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
       ]};
     case 'reading':
       return { ...BASE_ACTIVITY, id, type, readingTitle: 'My School', readingContent: 'This is my school. It is big and beautiful.', readingQuestions: ['What is the text about?', 'Describe the school.'] };
+    case 'readingtruefalse':
+      return { ...BASE_ACTIVITY, id, type, readingTitle: 'The Water Cycle', readingContent: 'Water evaporates from oceans and rivers.', statements: [
+        { id: crypto.randomUUID(), text: 'Water evaporates from oceans.', answer: true },
+        { id: crypto.randomUUID(), text: 'Rain is created by wind alone.', answer: false },
+      ]};
     case 'imagequestion':
       return { ...BASE_ACTIVITY, id, type, imageUrl: 'https://placehold.co/900x500', prompt: 'Describe what you see in the image.' };
+    case 'speaking':
+      return { ...BASE_ACTIVITY, id, type, prompt: 'Introduce yourself. Say your name and age.', target: '' };
     default:
       return { ...BASE_ACTIVITY, id, type };
   }
@@ -283,5 +361,5 @@ export function emptyBlock(): VisualBlock {
 }
 
 export function emptyState(): VisualState {
-  return { title: '', description: '', blocks: [{ ...emptyBlock(), title: 'Part 1' }] };
+  return { title: '', description: '', theme: { primary_color: '', background_color: '', text_color: '' }, blocks: [{ ...emptyBlock(), title: 'Part 1' }] };
 }
