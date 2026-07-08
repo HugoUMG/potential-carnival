@@ -393,6 +393,7 @@ export default function App() {
         setEditingWorksheetId(null);
         setAdminMenu('evaluaciones');
         setMessage('Evaluación actualizada.');
+        setPreviewWorksheet(worksheet); // vista previa de cómo la verá el estudiante
       } else {
         const worksheet = await createWorksheet(scriptDraft, user.id, maxAttempts, aiGradingDraft);
         setActiveWorksheet(worksheet);
@@ -400,6 +401,7 @@ export default function App() {
         setSelectedActivityId(worksheet.activities[0]?.id ?? '');
         setAdminMenu('evaluaciones');
         setMessage('Evaluación guardada. Ahora puedes habilitarla.');
+        setPreviewWorksheet(worksheet); // vista previa de cómo la verá el estudiante
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo guardar la evaluación.');
@@ -1946,10 +1948,19 @@ export default function App() {
       {previewWorksheet && (
         <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6">
           <div className="mx-auto max-w-5xl rounded-3xl bg-slate-50 p-5 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-xl font-bold">Vista previa: {previewWorksheet.title}</h2>
-              <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPreviewWorksheet(null)}>Cerrar</button>
+              <div className="flex gap-2">
+                <button
+                  className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={(responseCounts[previewWorksheet.id] ?? 0) > 0}
+                  title={(responseCounts[previewWorksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas.' : 'Editar esta evaluación'}
+                  onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); startEditWorksheet(w); }}
+                ><Pencil className="mr-1 inline" size={16} /> Editar</button>
+                <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPreviewWorksheet(null)}>Cerrar</button>
+              </div>
             </div>
+            <p className="mb-4 text-sm text-slate-500">Así verá la hoja el estudiante. Puedes editarla mientras no tenga respuestas.</p>
             <WorksheetRenderer worksheet={previewWorksheet} answers={{}} readonly onAnswerChange={() => undefined} />
           </div>
         </div>
