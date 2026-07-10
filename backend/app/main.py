@@ -284,6 +284,39 @@ async def tts(text: str = Query(min_length=1), voice: str = "en-US-GuyNeural") -
     return StreamingResponse(iter(chunks), media_type="audio/mpeg")
 
 
+@app.get("/tts/conversation")
+async def tts_conversation(
+    lines: str = Query(min_length=1),
+    male: str = "en-US-GuyNeural",
+    female: str = "en-US-JennyNeural",
+) -> StreamingResponse:
+    # `lines`: una por renglón, formato `speaker|texto` (speaker que empieza con 'f' = femenina).
+    # Se sintetiza cada turno con su voz y se concatenan los MP3 en una sola pista.
+    # ponytail: concatenación cruda de frames MP3 (suena bien para habla). Si se necesita
+    #           una pausa marcada entre turnos, intercalar un MP3 de silencio corto.
+    try:
+        import edge_tts
+        chunks: list[bytes] = []
+        for raw in lines.split("\n"):
+            raw = raw.strip()
+            if not raw or "|" not in raw:
+                continue
+            speaker, text = raw.split("|", 1)
+            text = text.strip()
+            if not text:
+                continue
+            voice = female if speaker.strip().lower().startswith("f") else male
+            communicate = edge_tts.Communicate(text, voice)
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    chunks.append(chunk["data"])
+        if not chunks:
+            raise ValueError("Sin líneas de audio válidas")
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
+    return StreamingResponse(iter(chunks), media_type="audio/mpeg")
+
+
 @app.post("/teachers", response_model=PublicUser)
 def create_teacher(payload: TeacherCreate, _: PublicUser = Depends(require_admin)) -> PublicUser:
     try:
@@ -1023,6 +1056,19 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             is_correct = len(student_answers) >= len(correct_answers) and all(
                 _norm_answer(student_answers[i]) == correct
                 for i, correct in enumerate(correct_answers)
+            )
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            continue
+        if activity.type == "conversation" and activity.answer:
+            is_correct = str(student_answer or "").strip().lower() == str(activity.answer).strip().lower()
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            continue
+        if activity.type == "listeningorder" and activity.answer:
+            # Ordenar palabras: acierto si el orden coincide exactamente (misma longitud + posición).
+            correct_answers = _resolve_correct_answers(activity.answer)
+            student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
+            is_correct = len(student_answers) == len(correct_answers) and all(
+                _norm_answer(student_answers[i]) == correct for i, correct in enumerate(correct_answers)
             )
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue

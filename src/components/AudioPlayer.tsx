@@ -14,14 +14,17 @@ import { getVoiceGender, getVoiceName, setVoiceGender, type VoiceGender } from '
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-function buildTtsUrl(text: string, voice?: string) {
+function buildTtsUrl(text: string, voice?: string, conversation?: string) {
+  // `conversation`: guion multi-voz (una línea `speaker|texto` por turno) → endpoint que
+  // sintetiza cada turno con su voz y concatena los MP3 en una sola pista.
+  if (conversation) return `${API_BASE}/tts/conversation?lines=${encodeURIComponent(conversation)}`;
   const v = voice ?? getVoiceName(); // usa preferencia global si no se especifica
   return `${API_BASE}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(v)}`;
 }
 
 // ── Hook compartido: descarga blob y gestiona estado ─────────────────────────
 
-function useAudioBlob(text: string, voice?: string) {
+function useAudioBlob(text: string, voice?: string, conversation?: string) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -37,7 +40,7 @@ function useAudioBlob(text: string, voice?: string) {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(buildTtsUrl(text, voice));
+      const res = await fetch(buildTtsUrl(text, voice, conversation));
       if (!res.ok) throw new Error(`TTS error ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -48,7 +51,7 @@ function useAudioBlob(text: string, voice?: string) {
     } finally {
       setLoading(false);
     }
-  }, [text, voice]);
+  }, [text, voice, conversation]);
 
   // Carga automática al montar y cuando cambia el texto
   useEffect(() => {
@@ -66,12 +69,13 @@ function useAudioBlob(text: string, voice?: string) {
 interface AudioPlayerProps {
   text: string;
   voice?: string;
+  conversation?: string; // guion multi-voz; si está presente ignora text/voice y usa el endpoint de conversación
 }
 
-export function AudioPlayer({ text, voice }: AudioPlayerProps) {
+export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
   const [gender, setGender] = useState<VoiceGender>(getVoiceGender());
   const resolvedVoice = voice ?? (gender === 'female' ? 'en-US-JennyNeural' : 'en-US-GuyNeural');
-  const { blobUrl, loading, error, reload } = useAudioBlob(text, resolvedVoice);
+  const { blobUrl, loading, error, reload } = useAudioBlob(text, resolvedVoice, conversation);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -216,8 +220,8 @@ export function AudioPlayer({ text, voice }: AudioPlayerProps) {
           <option value={1.25}>1.25×</option>
         </select>
 
-        {/* Selector de voz — solo si no se forzó una voz específica */}
-        {!voice && (
+        {/* Selector de voz — solo si no se forzó una voz específica ni es conversación (voces por línea) */}
+        {!voice && !conversation && (
           <div className="flex shrink-0 overflow-hidden rounded-lg border border-blue-200 text-xs font-semibold">
             <button
               type="button"

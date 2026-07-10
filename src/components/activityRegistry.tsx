@@ -11,6 +11,8 @@ import type {
   ListeningMatchingActivity,
   ListeningMultipleChoiceActivity,
   ListeningTrueFalseActivity,
+  ListeningOrderActivity,
+  ConversationActivity,
   MatchingActivity,
   MultipleChoiceActivity,
   MultiSelectActivity,
@@ -26,8 +28,17 @@ import type {
 } from '../types';
 import { RichText } from './RichText';
 import { AudioPlayer } from './AudioPlayer';
+import { VOICES } from '../utils/voicePreference';
 
 const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
+
+/** DSL `voice` ('male'/'female' o nombre edge-tts literal) → nombre de voz para el TTS.
+ *  undefined → deja que AudioPlayer use la preferencia global del usuario. */
+function resolveVoice(voice?: string): string | undefined {
+  if (!voice) return undefined;
+  if (voice === 'male' || voice === 'female') return VOICES[voice];
+  return voice;
+}
 
 function ActivityInstructions({ instructions }: { instructions?: string }) {
   if (!instructions) return null;
@@ -689,7 +700,7 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
 function ListeningRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningActivity>) {
   return (
     <div className="grid gap-3">
-      <AudioPlayer text={activity.text} />
+      <AudioPlayer text={activity.text} voice={resolveVoice(activity.voice)} />
       <label className="block">
         <RichText className="text-base font-medium text-slate-800" text={activity.question} />
         <ActivityInstructions instructions={activity.instructions} />
@@ -710,7 +721,7 @@ function ListeningFillBlankRenderer({ activity, value, readonly, onChange }: Act
   };
   return (
     <div className="grid gap-3">
-      <AudioPlayer text={activity.audio_text} />
+      <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
       <ActivityInstructions instructions={activity.instructions} />
       <div className="text-base font-medium leading-10 text-slate-800 whitespace-pre-line">
         {parts.map((part, index) => (
@@ -735,7 +746,7 @@ function ListeningFillBlankRenderer({ activity, value, readonly, onChange }: Act
 function ListeningMultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningMultipleChoiceActivity>) {
   return (
     <div className="grid gap-3">
-      <AudioPlayer text={activity.audio_text} />
+      <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
       <fieldset>
         <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
         <ActivityInstructions instructions={activity.instructions} />
@@ -761,7 +772,7 @@ function ListeningMatchingRenderer({ activity, value, readonly, onChange }: Acti
         <div key={index} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Audio {index + 1}</p>
-            <AudioPlayer text={pair.audio_text} />
+            <AudioPlayer text={pair.audio_text} voice={resolveVoice(activity.voice)} />
           </div>
           <select
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 self-center"
@@ -784,7 +795,7 @@ function ListeningTrueFalseRenderer({ activity, value, readonly, onChange }: Act
   const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
   return (
     <div className="grid gap-4">
-      <AudioPlayer text={activity.audio_text} />
+      <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
       <ActivityInstructions instructions={activity.instructions} />
       {activity.statements.map((stmt, index) => {
         const selected = selections[String(index)];
@@ -808,6 +819,100 @@ function ListeningTrueFalseRenderer({ activity, value, readonly, onChange }: Act
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ListeningOrderRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningOrderActivity>) {
+  // Banco de fichas: el que da el profesor (ya desordenado) o answer barajado (estable por actividad).
+  const tiles = useMemo(() => {
+    if (activity.bank?.length) return activity.bank;
+    const shuffled = [...activity.answer];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, [activity.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const placed: string[] = Array.isArray(value) ? value.map(String) : [];
+
+  // Banco disponible = fichas menos las ya colocadas (por cantidad, respeta repetidas).
+  const usedCopy = [...placed];
+  const available: { word: string; key: number }[] = [];
+  tiles.forEach((word, i) => {
+    const idx = usedCopy.indexOf(word);
+    if (idx >= 0) usedCopy.splice(idx, 1);
+    else available.push({ word, key: i });
+  });
+
+  const append = (word: string) => { playSfx('place'); onChange(activity.id, [...placed, word]); };
+  const removeAt = (i: number) => { playSfx('toggle'); onChange(activity.id, placed.filter((_, idx) => idx !== i)); };
+
+  return (
+    <div className="grid gap-4">
+      <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
+      <ActivityInstructions instructions={activity.instructions} />
+
+      {/* Renglón de respuesta: fichas colocadas en orden. */}
+      <div className="flex min-h-[52px] flex-wrap items-center gap-2 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/40 p-3">
+        {placed.length === 0 && <span className="text-sm text-slate-400">Toca las palabras para armar la oración…</span>}
+        {placed.map((word, i) => (
+          <button
+            key={`${activity.id}-p-${i}`}
+            type="button"
+            disabled={readonly}
+            onClick={() => !readonly && removeAt(i)}
+            title="Quitar"
+            className="select-none rounded-xl border border-blue-400 bg-white px-3 py-2 text-sm font-semibold text-blue-800 shadow-sm transition hover:bg-blue-100"
+          >
+            {word}
+          </button>
+        ))}
+      </div>
+
+      {/* Banco de fichas desordenadas. */}
+      {!readonly && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Toca una palabra para agregarla</p>
+          <div className="flex flex-wrap gap-2">
+            {available.map(({ word, key }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => append(word)}
+                className="select-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                {word}
+              </button>
+            ))}
+            {!available.length && <span className="text-sm text-slate-400">Todas las palabras están en uso. Toca una del renglón para quitarla.</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConversationRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ConversationActivity>) {
+  // Guion multi-voz: una línea "speaker|texto" por turno (oculto al alumno). El endpoint
+  // sintetiza cada turno con su voz (m/f) y devuelve una sola pista fusionada.
+  const script = useMemo(
+    () => activity.lines.map((l) => `${l.speaker}|${l.text}`).join('\n'),
+    [activity.lines],
+  );
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-blue-600">
+        <span>🗣️ Conversación</span>
+        <span className="text-slate-400">{activity.lines.length} turnos · dos voces</span>
+      </div>
+      <AudioPlayer text="" conversation={script} />
+      <label className="block">
+        <RichText className="text-base font-medium text-slate-800" text={activity.question} />
+        <ActivityInstructions instructions={activity.instructions} />
+        <input className={inputClass} disabled={readonly} value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
+      </label>
     </div>
   );
 }
@@ -928,6 +1033,22 @@ export const activityRegistry = {
     create: () => ({ id: nextId('listeningtruefalse'), type: 'listeningtruefalse', audio_text: 'The store opens at 9 AM and closes at 6 PM.', statements: [{ text: 'The store opens at 9 AM.', answer: true }, { text: 'The store closes at 8 PM.', answer: false }] }),
     Renderer: ListeningTrueFalseRenderer,
   },
+  listeningorder: {
+    type: 'listeningorder',
+    label: 'Listening + Ordenar (Duolingo)',
+    description: 'Listen and drag the scrambled words into the correct order.',
+    icon: '🎧🔀',
+    create: () => ({ id: nextId('listeningorder'), type: 'listeningorder', audio_text: 'She has never been to Paris.', answer: ['She', 'has', 'never', 'been', 'to', 'Paris'], bank: ['Paris', 'She', 'to', 'has', 'been', 'never'] }),
+    Renderer: ListeningOrderRenderer,
+  } satisfies ActivityDefinition<ListeningOrderActivity>,
+  conversation: {
+    type: 'conversation',
+    label: 'Conversación (2 voces)',
+    description: 'Dialogue with alternating male/female voices in one audio + a question.',
+    icon: '🗣️',
+    create: () => ({ id: nextId('conversation'), type: 'conversation', lines: [{ speaker: 'female', text: 'Hi, are you new here?' }, { speaker: 'male', text: 'Yes, I started today.' }], question: 'Where did he start today?', answer: 'at school' }),
+    Renderer: ConversationRenderer,
+  } satisfies ActivityDefinition<ConversationActivity>,
   truefalse: {
     type: 'truefalse',
     label: 'True / False',

@@ -19,10 +19,12 @@ class ActivityData:
     questions: list[str] | None = None
     image: str | None = None
     audio_text: str | None = None
+    voice: str | None = None  # 'male' | 'female' | nombre de voz edge-tts; solo listening
     target: str | None = None
     bank: list[str] | None = None
     pairs: list[dict] | None = None
     statements: list[dict] | None = None
+    lines: list[dict] | None = None  # conversation: [{speaker: 'male'|'female', text}]
 
     def to_dict(self) -> dict[str, object]:
         return {key: value for key, value in asdict(self).items() if value is not None}

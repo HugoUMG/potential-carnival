@@ -58,6 +58,7 @@ class Activity(BaseModel):
         "fillblank", "multiplechoice", "multiselect", "textbox", "matching", "speaking", "dragdrop",
         "reading", "imagequestion", "listening",
         "listeningfillblank", "listeningmultiplechoice", "listeningmatching", "listeningtruefalse",
+        "listeningorder", "conversation",
         "truefalse", "readingtruefalse",
     ]  # "speaking" se conserva: datos antiguos en producción pueden contenerlo (no crear nuevas)
     text: str | None = None
@@ -73,10 +74,12 @@ class Activity(BaseModel):
     questions: list[str] | None = None
     image: str | None = None
     audio_text: str | None = None
+    voice: str | None = None  # 'male' | 'female' | nombre de voz edge-tts; solo listening
     target: str | None = None
     bank: list[str] | None = None
     pairs: list[dict] | None = None
     statements: list[dict] | None = None
+    lines: list[dict] | None = None  # conversation: [{speaker: 'male'|'female', text}]
 
 
 class ActivityBlock(BaseModel):

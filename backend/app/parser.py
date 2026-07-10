@@ -20,6 +20,8 @@ SUPPORTED_BLOCKS = {
     "listeningmultiplechoice",
     "listeningmatching",
     "listeningtruefalse",
+    "listeningorder",
+    "conversation",
     "truefalse",
     "readingtruefalse",
 }
@@ -255,8 +257,45 @@ def _get_statements(body: str) -> list[dict]:
     ]
 
 
+def _parse_conversation_lines(body: str) -> list[dict]:
+    """Parsea `lines:` de una conversación. Cada ítem: `- f: "texto"` o `- m: "texto"`.
+    speaker se normaliza a 'female' (empieza con f) o 'male'."""
+    match = re.search(r"^\s*lines\s*:\s*\n((?:[ \t]*-[ \t]*.+\n?)+)", body, re.MULTILINE)
+    if not match:
+        return []
+    result: list[dict] = []
+    for line in match.group(1).splitlines():
+        line = line.strip()
+        if not line.startswith("-"):
+            continue
+        content = line[1:].strip()
+        if ":" not in content:
+            continue
+        speaker_raw, text_raw = content.split(":", 1)
+        speaker = "female" if speaker_raw.strip().lower().startswith("f") else "male"
+        text = _strip_quotes(text_raw.strip())
+        if text:
+            result.append({"speaker": speaker, "text": text})
+    return result
+
+
+def _normalize_voice(raw: str | None) -> str | None:
+    """Normaliza el campo `voice` de un listening a 'male'/'female'.
+    Un valor desconocido se pasa tal cual (permite un nombre de voz edge-tts literal)."""
+    if not raw:
+        return None
+    v = raw.strip().lower()
+    if v in ("female", "f", "mujer", "femenina", "woman"):
+        return "female"
+    if v in ("male", "m", "hombre", "masculina", "man"):
+        return "male"
+    return raw.strip()
+
+
 def parse_activity(activity_type: str, body: str) -> ActivityData:
     common = {"id": str(uuid4()), "type": activity_type, "instructions": _get_scalar(body, "instructions")}
+    if activity_type.startswith("listening"):
+        common["voice"] = _normalize_voice(_get_scalar(body, "voice"))
     if activity_type == "fillblank":
         return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_answer(body))
     if activity_type == "dragdrop":
@@ -301,6 +340,17 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
     if activity_type == "listeningtruefalse":
         statements = _get_statements(body)
         return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), statements=statements or None)
+    if activity_type == "listeningorder":
+        # Escuchar y ordenar: audio oculto + fichas desordenadas que se arrastran/tocan.
+        # answer = oración en orden (una ficha por elemento). bank opcional (si falta, el front baraja answer).
+        answer = _get_answer(body)
+        if not isinstance(answer, list):
+            answer = [answer] if answer else []
+        return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), answer=answer, bank=_get_list(body, "bank") or None)
+    if activity_type == "conversation":
+        # Diálogo con voces alternadas (m/f) fusionadas en un audio + pregunta.
+        # answer opcional: con answer se autocalifica; sin answer queda pendiente (IA/profesor).
+        return ActivityData(**common, lines=_parse_conversation_lines(body) or None, question=_get_scalar(body, "question"), answer=_get_answer(body))
     if activity_type == "truefalse":
         statements = _get_statements(body)
         return ActivityData(**common, statements=statements or None)

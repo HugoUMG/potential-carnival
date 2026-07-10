@@ -14,6 +14,8 @@ export type ActivityType =
   | 'listeningmultiplechoice'
   | 'listeningmatching'
   | 'listeningtruefalse'
+  | 'listeningorder'
+  | 'conversation'
   | 'truefalse'
   | 'readingtruefalse'
   | 'speaking';
@@ -24,6 +26,7 @@ export interface BaseActivity {
   prompt?: string;
   answer?: string | string[];
   instructions?: string;
+  voice?: string; // 'male' | 'female' | nombre de voz edge-tts; solo listening
 }
 
 export interface FillBlankActivity extends BaseActivity {
@@ -111,6 +114,20 @@ export interface ListeningTrueFalseActivity extends BaseActivity {
   statements: { text: string; answer: boolean }[];
 }
 
+export interface ListeningOrderActivity extends BaseActivity {
+  type: 'listeningorder';
+  audio_text: string;        // oración hablada (oculta al estudiante)
+  answer: string[];          // fichas en el orden correcto
+  bank?: string[];           // fichas a mostrar (desordenadas); si falta, el front baraja answer
+}
+
+export interface ConversationActivity extends BaseActivity {
+  type: 'conversation';
+  lines: { speaker: 'male' | 'female'; text: string }[]; // turnos hablados (ocultos); voces alternadas
+  question: string;
+  answer?: string; // opcional: con respuesta se autocalifica; sin ella queda pendiente (IA/profesor)
+}
+
 export interface TrueFalseActivity extends BaseActivity {
   type: 'truefalse';
   statements: { text: string; answer: boolean }[];
@@ -143,6 +160,8 @@ export type WorksheetActivity =
   | ListeningMultipleChoiceActivity
   | ListeningMatchingActivity
   | ListeningTrueFalseActivity
+  | ListeningOrderActivity
+  | ConversationActivity
   | TrueFalseActivity
   | ReadingTrueFalseActivity
   | SpeakingActivity;
