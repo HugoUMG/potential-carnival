@@ -6,7 +6,7 @@ import type { Worksheet, WorksheetActivity } from '../types';
 
 // Actividades que NO se pueden pasar a papel (requieren audio/micrófono).
 function isPrintable(a: WorksheetActivity): boolean {
-  return !a.type.startsWith('listening') && a.type !== 'speaking';
+  return !a.type.startsWith('listening') && a.type !== 'speaking' && a.type !== 'conversation';
 }
 
 function hash(s: string): number {

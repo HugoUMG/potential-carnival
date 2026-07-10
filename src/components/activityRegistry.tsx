@@ -12,6 +12,7 @@ import type {
   ListeningMultipleChoiceActivity,
   ListeningTrueFalseActivity,
   ListeningOrderActivity,
+  ConversationActivity,
   MatchingActivity,
   MultipleChoiceActivity,
   MultiSelectActivity,
@@ -893,6 +894,29 @@ function ListeningOrderRenderer({ activity, value, readonly, onChange }: Activit
   );
 }
 
+function ConversationRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ConversationActivity>) {
+  // Guion multi-voz: una línea "speaker|texto" por turno (oculto al alumno). El endpoint
+  // sintetiza cada turno con su voz (m/f) y devuelve una sola pista fusionada.
+  const script = useMemo(
+    () => activity.lines.map((l) => `${l.speaker}|${l.text}`).join('\n'),
+    [activity.lines],
+  );
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-blue-600">
+        <span>🗣️ Conversación</span>
+        <span className="text-slate-400">{activity.lines.length} turnos · dos voces</span>
+      </div>
+      <AudioPlayer text="" conversation={script} />
+      <label className="block">
+        <RichText className="text-base font-medium text-slate-800" text={activity.question} />
+        <ActivityInstructions instructions={activity.instructions} />
+        <input className={inputClass} disabled={readonly} value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
+      </label>
+    </div>
+  );
+}
+
 function ImageQuestionRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ImageQuestionActivity>) {
   return (
     <div>
@@ -1017,6 +1041,14 @@ export const activityRegistry = {
     create: () => ({ id: nextId('listeningorder'), type: 'listeningorder', audio_text: 'She has never been to Paris.', answer: ['She', 'has', 'never', 'been', 'to', 'Paris'], bank: ['Paris', 'She', 'to', 'has', 'been', 'never'] }),
     Renderer: ListeningOrderRenderer,
   } satisfies ActivityDefinition<ListeningOrderActivity>,
+  conversation: {
+    type: 'conversation',
+    label: 'Conversación (2 voces)',
+    description: 'Dialogue with alternating male/female voices in one audio + a question.',
+    icon: '🗣️',
+    create: () => ({ id: nextId('conversation'), type: 'conversation', lines: [{ speaker: 'female', text: 'Hi, are you new here?' }, { speaker: 'male', text: 'Yes, I started today.' }], question: 'Where did he start today?', answer: 'at school' }),
+    Renderer: ConversationRenderer,
+  } satisfies ActivityDefinition<ConversationActivity>,
   truefalse: {
     type: 'truefalse',
     label: 'True / False',

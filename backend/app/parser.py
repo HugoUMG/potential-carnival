@@ -21,6 +21,7 @@ SUPPORTED_BLOCKS = {
     "listeningmatching",
     "listeningtruefalse",
     "listeningorder",
+    "conversation",
     "truefalse",
     "readingtruefalse",
 }
@@ -256,6 +257,28 @@ def _get_statements(body: str) -> list[dict]:
     ]
 
 
+def _parse_conversation_lines(body: str) -> list[dict]:
+    """Parsea `lines:` de una conversación. Cada ítem: `- f: "texto"` o `- m: "texto"`.
+    speaker se normaliza a 'female' (empieza con f) o 'male'."""
+    match = re.search(r"^\s*lines\s*:\s*\n((?:[ \t]*-[ \t]*.+\n?)+)", body, re.MULTILINE)
+    if not match:
+        return []
+    result: list[dict] = []
+    for line in match.group(1).splitlines():
+        line = line.strip()
+        if not line.startswith("-"):
+            continue
+        content = line[1:].strip()
+        if ":" not in content:
+            continue
+        speaker_raw, text_raw = content.split(":", 1)
+        speaker = "female" if speaker_raw.strip().lower().startswith("f") else "male"
+        text = _strip_quotes(text_raw.strip())
+        if text:
+            result.append({"speaker": speaker, "text": text})
+    return result
+
+
 def _normalize_voice(raw: str | None) -> str | None:
     """Normaliza el campo `voice` de un listening a 'male'/'female'.
     Un valor desconocido se pasa tal cual (permite un nombre de voz edge-tts literal)."""
@@ -324,6 +347,10 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         if not isinstance(answer, list):
             answer = [answer] if answer else []
         return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), answer=answer, bank=_get_list(body, "bank") or None)
+    if activity_type == "conversation":
+        # Diálogo con voces alternadas (m/f) fusionadas en un audio + pregunta.
+        # answer opcional: con answer se autocalifica; sin answer queda pendiente (IA/profesor).
+        return ActivityData(**common, lines=_parse_conversation_lines(body) or None, question=_get_scalar(body, "question"), answer=_get_answer(body))
     if activity_type == "truefalse":
         statements = _get_statements(body)
         return ActivityData(**common, statements=statements or None)

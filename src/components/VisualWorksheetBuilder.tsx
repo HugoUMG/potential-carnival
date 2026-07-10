@@ -8,12 +8,12 @@ import { useState } from 'react';
 import {
   AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2,
   GripVertical, List, PlusCircle, Save, Trash2, ToggleLeft,
-  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic,
+  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare,
 } from 'lucide-react';
 import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock } from '../types';
 import {
   serializeToScript, emptyActivity, emptyBlock, emptyState,
-  type VisualActivity, type VisualBlock, type VisualState, type VisualStatement, type VisualPair, type VisualActivityType,
+  type VisualActivity, type VisualBlock, type VisualState, type VisualStatement, type VisualPair, type VisualLine, type VisualActivityType,
 } from '../utils/dslSerializer';
 
 // ── Constantes de tipos ───────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ import {
 const VISUAL_TYPES: VisualActivityType[] = [
   'fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse',
   'listening', 'listeningfillblank', 'listeningmultiplechoice',
-  'listeningmatching', 'listeningtruefalse', 'listeningorder',
+  'listeningmatching', 'listeningtruefalse', 'listeningorder', 'conversation',
   'reading', 'readingtruefalse', 'imagequestion', 'speaking',
 ];
 
@@ -39,6 +39,7 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
   listeningmatching:      { label: 'Listening + Matching',     icon: <Headphones size={14} />,   color: 'text-purple-700',  bg: 'bg-purple-50 border-purple-200' },
   listeningtruefalse:     { label: 'Listening + True/False',   icon: <Headphones size={14} />,   color: 'text-fuchsia-700', bg: 'bg-fuchsia-50 border-fuchsia-200' },
   listeningorder:         { label: 'Listening + Ordenar',      icon: <Headphones size={14} />,   color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
+  conversation:           { label: 'Conversación (2 voces)',   icon: <MessagesSquare size={14} />, color: 'text-sky-700',   bg: 'bg-sky-50 border-sky-200' },
   reading:                { label: 'Reading',                  icon: <BookOpen size={14} />,     color: 'text-lime-700',    bg: 'bg-lime-50 border-lime-200' },
   readingtruefalse:       { label: 'Reading + True/False',     icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
   imagequestion:          { label: 'Image Question',           icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
@@ -48,7 +49,7 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
 // Grupos para el picker de actividades
 const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
   { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse'] },
-  { label: 'Listening', types: ['listening', 'listeningfillblank', 'listeningmultiplechoice', 'listeningmatching', 'listeningtruefalse', 'listeningorder'] },
+  { label: 'Listening', types: ['listening', 'listeningfillblank', 'listeningmultiplechoice', 'listeningmatching', 'listeningtruefalse', 'listeningorder', 'conversation'] },
   { label: 'Otras', types: ['reading', 'readingtruefalse', 'imagequestion', 'speaking'] },
 ];
 
@@ -65,7 +66,7 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     instructions: act.instructions ?? '',
     text: '', answer: '', bank: [], question: '', options: [], correctOption: '', correctOptions: [],
     left: [], right: [], prompt: '', target: '', statements: [],
-    audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [],
+    audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [], lines: [],
     readingTitle: '', readingContent: '', readingQuestions: [],
     imageUrl: '',
   };
@@ -123,6 +124,11 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
   if (act.type === 'listeningorder') {
     const a = act as any;
     return { ...base, audioText: a.audio_text ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? ''), bank: a.bank ?? [] };
+  }
+  if (act.type === 'conversation') {
+    const a = act as any;
+    const lines: VisualLine[] = (a.lines ?? []).map((l: any) => ({ id: crypto.randomUUID(), speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text ?? '' }));
+    return { ...base, lines, question: a.question ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? '') };
   }
   if (act.type === 'reading') {
     const a = act as any;
@@ -482,6 +488,51 @@ function ListeningOrderEditor({ act, onChange }: { act: VisualActivity; onChange
   );
 }
 
+function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  const update = (id: string, patch: Partial<VisualLine>) =>
+    onChange({ ...act, lines: act.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) });
+  return (
+    <div className="grid gap-4">
+      <div>
+        <FieldLabel>Diálogo (turnos con voz alternada — se fusionan en un solo audio)</FieldLabel>
+        <div className="mt-2 grid gap-2">
+          <p className="text-xs text-slate-400">El texto es solo audio (no lo ve el alumno). Alterna ♂ / ♀ por turno.</p>
+          {act.lines.map((line) => (
+            <div key={line.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2">
+              <button type="button" onClick={() => update(line.id, { speaker: line.speaker === 'female' ? 'male' : 'female' })}
+                title="Cambiar voz"
+                className={`shrink-0 rounded-xl px-3 py-2 text-sm font-bold transition ${line.speaker === 'female' ? 'bg-pink-500 text-white' : 'bg-blue-600 text-white'}`}>
+                {line.speaker === 'female' ? '♀' : '♂'}
+              </button>
+              <input
+                className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                value={line.text}
+                placeholder="Lo que dice este turno..."
+                onChange={(e) => update(line.id, { text: e.target.value })}
+              />
+              <button type="button" className="rounded-xl border border-red-100 p-2 text-red-400 transition hover:bg-red-50" onClick={() => onChange({ ...act, lines: act.lines.filter((l) => l.id !== line.id) })}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-blue-400 hover:text-blue-600"
+            onClick={() => onChange({ ...act, lines: [...act.lines, { id: crypto.randomUUID(), speaker: act.lines.length % 2 === 0 ? 'female' : 'male', text: '' }] })}>
+            <PlusCircle size={14} /> Agregar turno
+          </button>
+        </div>
+      </div>
+      <label className="block">
+        <FieldLabel>Pregunta</FieldLabel>
+        <TextInput value={act.question} onChange={(v) => onChange({ ...act, question: v })} placeholder="What did she ask?" />
+      </label>
+      <label className="block">
+        <FieldLabel>Respuesta correcta (opcional — vacío = lo califica la IA/profesor)</FieldLabel>
+        <TextInput value={act.answer} onChange={(v) => onChange({ ...act, answer: v })} placeholder="at school" />
+      </label>
+    </div>
+  );
+}
+
 function ReadingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
   return (
     <div className="grid gap-4">
@@ -619,6 +670,7 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
     case 'listeningmatching':      return <ListeningMatchingEditor act={act} onChange={onChange} />;
     case 'listeningtruefalse':     return <ListeningTrueFalseEditor act={act} onChange={onChange} />;
     case 'listeningorder':         return <ListeningOrderEditor act={act} onChange={onChange} />;
+    case 'conversation':           return <ConversationEditor act={act} onChange={onChange} />;
     case 'reading':                return <ReadingEditor act={act} onChange={onChange} />;
     case 'readingtruefalse':       return <ReadingTrueFalseEditor act={act} onChange={onChange} />;
     case 'imagequestion':          return <ImageQuestionEditor act={act} onChange={onChange} />;

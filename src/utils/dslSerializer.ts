@@ -15,10 +15,16 @@ export interface VisualPair {
   match: string;
 }
 
+export interface VisualLine {
+  id: string;
+  speaker: 'male' | 'female';
+  text: string;
+}
+
 export type VisualActivityType =
   | 'fillblank' | 'multiplechoice' | 'multiselect' | 'dragdrop' | 'matching' | 'textbox' | 'truefalse'
   | 'listening' | 'listeningfillblank' | 'listeningmultiplechoice'
-  | 'listeningmatching' | 'listeningtruefalse' | 'listeningorder'
+  | 'listeningmatching' | 'listeningtruefalse' | 'listeningorder' | 'conversation'
   | 'reading' | 'readingtruefalse' | 'imagequestion' | 'speaking';
 
 export interface VisualActivity {
@@ -51,6 +57,8 @@ export interface VisualActivity {
 
   // listeningmatching
   pairs: VisualPair[];
+  // conversation
+  lines: VisualLine[];
   // reading / readingtruefalse
   readingTitle: string;
   readingContent: string;
@@ -224,6 +232,15 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
       bank.forEach((b) => lines.push(`${indent}  - ${b}`));
     }
 
+  } else if (act.type === 'conversation') {
+    const validLines = act.lines.filter((l) => l.text.trim());
+    if (validLines.length > 0) {
+      lines.push(`${indent}  lines:`);
+      validLines.forEach((l) => lines.push(`${indent}  - ${l.speaker === 'female' ? 'f' : 'm'}: "${esc(l.text)}"`));
+    }
+    if (act.question.trim()) lines.push(`${indent}  question: "${esc(act.question)}"`);
+    if (act.answer.trim()) lines.push(`${indent}  answer: "${esc(act.answer)}"`);
+
   } else if (act.type === 'reading') {
     if (act.readingTitle.trim()) lines.push(`${indent}  title: "${esc(act.readingTitle)}"`);
     if (act.readingContent.trim()) {
@@ -316,6 +333,7 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   audioText: '',
   voice: '',
   pairs: [],
+  lines: [],
   readingTitle: '',
   readingContent: '',
   readingQuestions: [''],
@@ -363,6 +381,11 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
       ]};
     case 'listeningorder':
       return { ...BASE_ACTIVITY, id, type, audioText: 'She has never been to Paris.', answer: 'She, has, never, been, to, Paris', bank: ['Paris', 'She', 'to', 'has', 'been', 'never'] };
+    case 'conversation':
+      return { ...BASE_ACTIVITY, id, type, lines: [
+        { id: crypto.randomUUID(), speaker: 'female', text: 'Hi, are you new here?' },
+        { id: crypto.randomUUID(), speaker: 'male', text: 'Yes, I started today.' },
+      ], question: 'Where did he start today?', answer: 'at school' };
     case 'reading':
       return { ...BASE_ACTIVITY, id, type, readingTitle: 'My School', readingContent: 'This is my school. It is big and beautiful.', readingQuestions: ['What is the text about?', 'Describe the school.'] };
     case 'readingtruefalse':
