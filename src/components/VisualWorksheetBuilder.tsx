@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import DOMPurify from 'dompurify';
+import { SandboxedHtml } from './SandboxedHtml';
 import {
   AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2,
   GripVertical, List, PlusCircle, Save, Trash2, ToggleLeft,
@@ -68,7 +69,7 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     instructions: act.instructions ?? '',
     text: '', answer: '', bank: [], question: '', options: [], correctOption: '', correctOptions: [],
     left: [], right: [], prompt: '', target: '', statements: [],
-    audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [], lines: [], html: '',
+    audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [], lines: [], html: '', sandbox: false,
     readingTitle: '', readingContent: '', readingQuestions: [],
     imageUrl: '',
   };
@@ -134,7 +135,7 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
   }
   if (act.type === 'content') {
     const a = act as any;
-    return { ...base, readingTitle: a.title ?? '', html: a.html ?? '' };
+    return { ...base, readingTitle: a.title ?? '', html: a.html ?? '', sandbox: !!a.sandbox };
   }
   if (act.type === 'reading') {
     const a = act as any;
@@ -502,20 +503,32 @@ function ContentEditor({ act, onChange }: { act: VisualActivity; onChange: (a: V
         <FieldLabel>Título (opcional)</FieldLabel>
         <TextInput value={act.readingTitle} onChange={(v) => onChange({ ...act, readingTitle: v })} placeholder="Repaso: Present Simple" />
       </label>
+
+      <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <input type="checkbox" className="mt-1" checked={act.sandbox} onChange={(e) => onChange({ ...act, sandbox: e.target.checked })} />
+        <span className="text-sm">
+          <b>Página completa (iframe aislado)</b>
+          <span className="block text-xs text-slate-500">Permite HTML+CSS+<b>JavaScript</b> y fuentes propias, aislado de la app. Úsalo para pegar un documento HTML completo. Sin marcar: HTML simple saneado (sin scripts), integrado con el tema.</span>
+        </span>
+      </label>
+
       <label className="block">
-        <FieldLabel>HTML del repaso (encabezados, colores, listas, estilos inline)</FieldLabel>
+        <FieldLabel>{act.sandbox ? 'HTML completo (documento con su <style>/<script>/fuentes)' : 'HTML del repaso (encabezados, colores, listas, estilos inline)'}</FieldLabel>
         <textarea
           className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-          rows={10}
+          rows={act.sandbox ? 14 : 10}
           value={act.html}
-          placeholder={'<h1 style="color:#0EA5E9">Título</h1>\n<p>Repaso corto con <b>negrita</b> y colores.</p>'}
+          placeholder={act.sandbox ? '<!DOCTYPE html>\n<html>...<style>...</style>...<script>...</script></html>' : '<h1 style="color:#0EA5E9">Título</h1>\n<p>Repaso corto con <b>negrita</b> y colores.</p>'}
           onChange={(e) => onChange({ ...act, html: e.target.value })}
         />
-        <p className="mt-1 text-xs text-slate-400">Se sanea automáticamente (se bloquean scripts). Solo lectura para el alumno — no se califica.</p>
+        <p className="mt-1 text-xs text-slate-400">Solo lectura para el alumno — no se califica.{act.sandbox ? ' El iframe está aislado: sus scripts no pueden tocar la app.' : ' Se sanea automáticamente (se bloquean scripts).'}</p>
       </label>
+
       <div>
         <FieldLabel>Vista previa</FieldLabel>
-        <div className="mt-1 rounded-lg border border-slate-200 bg-white p-4 rich-content" dangerouslySetInnerHTML={{ __html: clean }} />
+        {act.sandbox
+          ? <div className="mt-1"><SandboxedHtml html={act.html} /></div>
+          : <div className="mt-1 rounded-lg border border-slate-200 bg-white p-4 rich-content" dangerouslySetInnerHTML={{ __html: clean }} />}
       </div>
     </div>
   );

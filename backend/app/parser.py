@@ -41,25 +41,40 @@ def _strip_quotes(value: str) -> str:
     return value
 
 
-def _extract_block(source: str, keyword: str) -> str:
-    match = re.search(rf"\b{keyword}\s*{{", source)
-    if not match:
-        raise WorksheetScriptError(f"Falta el bloque requerido {keyword}")
-
-    start = match.end()
+def _matching_brace(source: str, start: int) -> int:
+    """Dado `start` (índice justo después del '{' de apertura), devuelve el índice del '}'
+    que lo cierra, **ignorando las llaves dentro de strings triple-comilla** (\"\"\"...\"\"\").
+    Así un bloque `content { html: \"\"\"<style>body{...}</style>\"\"\" }` con CSS/JS/HTML no
+    descuadra el conteo de llaves. Devuelve -1 si no se cierra."""
     depth = 1
-    cursor = start
-    while cursor < len(source):
-        char = source[cursor]
+    i = start
+    n = len(source)
+    while i < n:
+        if source.startswith('"""', i):  # saltar el contenido triple-comilla completo
+            end = source.find('"""', i + 3)
+            if end == -1:
+                return -1
+            i = end + 3
+            continue
+        char = source[i]
         if char == "{":
             depth += 1
         elif char == "}":
             depth -= 1
             if depth == 0:
-                return source[start:cursor]
-        cursor += 1
+                return i
+        i += 1
+    return -1
 
-    raise WorksheetScriptError(f"Bloque {keyword} sin cerrar")
+
+def _extract_block(source: str, keyword: str) -> str:
+    match = re.search(rf"\b{keyword}\s*{{", source)
+    if not match:
+        raise WorksheetScriptError(f"Falta el bloque requerido {keyword}")
+    end = _matching_brace(source, match.end())
+    if end == -1:
+        raise WorksheetScriptError(f"Bloque {keyword} sin cerrar")
+    return source[match.end():end]
 
 
 def _find_all_keyword_blocks(source: str, keyword: str) -> list[str]:
@@ -71,18 +86,11 @@ def _find_all_keyword_blocks(source: str, keyword: str) -> list[str]:
         if not match:
             break
         body_start = cursor + match.end()
-        depth = 1
-        idx = body_start
-        while idx < len(source) and depth:
-            if source[idx] == "{":
-                depth += 1
-            elif source[idx] == "}":
-                depth -= 1
-            idx += 1
-        if depth:
+        end = _matching_brace(source, body_start)
+        if end == -1:
             raise WorksheetScriptError(f"Bloque {keyword} sin cerrar")
-        bodies.append(source[body_start : idx - 1])
-        cursor = idx
+        bodies.append(source[body_start:end])
+        cursor = end + 1
     return bodies
 
 
@@ -91,18 +99,10 @@ def _parse_info_fields(worksheet_body: str) -> list[str]:
     match = re.search(r"\binfo\s*{", worksheet_body)
     if not match:
         return []
-    start = match.end()
-    depth = 1
-    cursor = start
-    while cursor < len(worksheet_body) and depth:
-        if worksheet_body[cursor] == "{":
-            depth += 1
-        elif worksheet_body[cursor] == "}":
-            depth -= 1
-        cursor += 1
-    if depth:
+    end = _matching_brace(worksheet_body, match.end())
+    if end == -1:
         return []
-    info_body = worksheet_body[start : cursor - 1]
+    info_body = worksheet_body[match.end():end]
     return _get_list(info_body, "fields")
 
 
@@ -110,18 +110,10 @@ def _parse_theme(worksheet_body: str) -> dict[str, str] | None:
     match = re.search(r"\btheme\s*{", worksheet_body)
     if not match:
         return None
-    start = match.end()
-    depth = 1
-    cursor = start
-    while cursor < len(worksheet_body) and depth:
-        if worksheet_body[cursor] == "{":
-            depth += 1
-        elif worksheet_body[cursor] == "}":
-            depth -= 1
-        cursor += 1
-    if depth:
+    end = _matching_brace(worksheet_body, match.end())
+    if end == -1:
         return None
-    theme_body = worksheet_body[start : cursor - 1]
+    theme_body = worksheet_body[match.end():end]
     theme: dict[str, str] = {}
     for key in ("primary_color", "background_color", "text_color"):
         val = _get_scalar(theme_body, key)
@@ -143,18 +135,11 @@ def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
             cursor = absolute_start + len(activity_type)
             continue
         body_start = cursor + match.end()
-        depth = 1
-        index = body_start
-        while index < len(source) and depth:
-            if source[index] == "{":
-                depth += 1
-            elif source[index] == "}":
-                depth -= 1
-            index += 1
-        if depth:
+        end = _matching_brace(source, body_start)
+        if end == -1:
             raise WorksheetScriptError(f"Bloque {activity_type} sin cerrar")
-        blocks.append((activity_type, source[body_start : index - 1]))
-        cursor = index
+        blocks.append((activity_type, source[body_start:end]))
+        cursor = end + 1
     return blocks
 
 
@@ -280,6 +265,12 @@ def _parse_conversation_lines(body: str) -> list[dict]:
     return result
 
 
+def _normalize_bool(raw: str | None) -> bool | None:
+    if raw and raw.strip().lower() in ("true", "yes", "1", "sí", "si"):
+        return True
+    return None
+
+
 def _normalize_voice(raw: str | None) -> str | None:
     """Normaliza el campo `voice` de un listening a 'male'/'female'.
     Un valor desconocido se pasa tal cual (permite un nombre de voz edge-tts literal)."""
@@ -358,7 +349,9 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         # ponytail: el DSL cuenta llaves {} para delimitar bloques; el HTML/CSS debe tener
         #           llaves balanceadas (todo HTML válido lo está). Una llave suelta en texto
         #           rompería el parseo → usar &#123;/&#125; en ese caso raro.
-        return ActivityData(**common, title=_get_scalar(body, "title"), html=_get_scalar(body, "html"))
+        # sandbox: true → el front lo renderiza en un iframe aislado (permite CSS/JS/fuentes
+        # propios sin filtrarse a la app). Por defecto (sin sandbox) se sanea inline con DOMPurify.
+        return ActivityData(**common, title=_get_scalar(body, "title"), html=_get_scalar(body, "html"), sandbox=_normalize_bool(_get_scalar(body, "sandbox")))
     if activity_type == "truefalse":
         statements = _get_statements(body)
         return ActivityData(**common, statements=statements or None)
