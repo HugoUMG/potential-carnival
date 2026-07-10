@@ -47,6 +47,8 @@ export interface VisualActivity {
   statements: VisualStatement[];
   // listening* / listeningfillblank / listeningmultiplechoice / listeningtruefalse
   audioText: string;
+  voice: string; // 'male' | 'female' | ''(preferencia global); solo listening
+
   // listeningmatching
   pairs: VisualPair[];
   // reading / readingtruefalse
@@ -242,6 +244,11 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
     if (act.target.trim()) lines.push(`${indent}  target: "${esc(act.target)}"`);
   }
 
+  // voz por actividad (solo listening): 'male'/'female' o nombre edge-tts literal
+  if (act.type.startsWith('listening') && act.voice?.trim()) {
+    lines.push(`${indent}  voice: ${act.voice.trim()}`);
+  }
+
   lines.push(`${indent}}`);
   return lines;
 }
@@ -294,6 +301,7 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   target: '',
   statements: [],
   audioText: '',
+  voice: '',
   pairs: [],
   readingTitle: '',
   readingContent: '',

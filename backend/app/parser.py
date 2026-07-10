@@ -255,8 +255,23 @@ def _get_statements(body: str) -> list[dict]:
     ]
 
 
+def _normalize_voice(raw: str | None) -> str | None:
+    """Normaliza el campo `voice` de un listening a 'male'/'female'.
+    Un valor desconocido se pasa tal cual (permite un nombre de voz edge-tts literal)."""
+    if not raw:
+        return None
+    v = raw.strip().lower()
+    if v in ("female", "f", "mujer", "femenina", "woman"):
+        return "female"
+    if v in ("male", "m", "hombre", "masculina", "man"):
+        return "male"
+    return raw.strip()
+
+
 def parse_activity(activity_type: str, body: str) -> ActivityData:
     common = {"id": str(uuid4()), "type": activity_type, "instructions": _get_scalar(body, "instructions")}
+    if activity_type.startswith("listening"):
+        common["voice"] = _normalize_voice(_get_scalar(body, "voice"))
     if activity_type == "fillblank":
         return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_answer(body))
     if activity_type == "dragdrop":

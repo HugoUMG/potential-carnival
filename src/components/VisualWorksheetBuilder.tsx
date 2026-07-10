@@ -64,7 +64,7 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     instructions: act.instructions ?? '',
     text: '', answer: '', bank: [], question: '', options: [], correctOption: '', correctOptions: [],
     left: [], right: [], prompt: '', target: '', statements: [],
-    audioText: '', pairs: [],
+    audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [],
     readingTitle: '', readingContent: '', readingQuestions: [],
     imageUrl: '',
   };

@@ -26,8 +26,17 @@ import type {
 } from '../types';
 import { RichText } from './RichText';
 import { AudioPlayer } from './AudioPlayer';
+import { VOICES } from '../utils/voicePreference';
 
 const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
+
+/** DSL `voice` ('male'/'female' o nombre edge-tts literal) → nombre de voz para el TTS.
+ *  undefined → deja que AudioPlayer use la preferencia global del usuario. */
+function resolveVoice(voice?: string): string | undefined {
+  if (!voice) return undefined;
+  if (voice === 'male' || voice === 'female') return VOICES[voice];
+  return voice;
+}
 
 function ActivityInstructions({ instructions }: { instructions?: string }) {
   if (!instructions) return null;
@@ -689,7 +698,7 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
 function ListeningRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningActivity>) {
   return (
     <div className="grid gap-3">
-      <AudioPlayer text={activity.text} />
+      <AudioPlayer text={activity.text} voice={resolveVoice(activity.voice)} />
       <label className="block">
         <RichText className="text-base font-medium text-slate-800" text={activity.question} />
         <ActivityInstructions instructions={activity.instructions} />
@@ -710,7 +719,7 @@ function ListeningFillBlankRenderer({ activity, value, readonly, onChange }: Act
   };
   return (
     <div className="grid gap-3">
-      <AudioPlayer text={activity.audio_text} />
+      <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
       <ActivityInstructions instructions={activity.instructions} />
       <div className="text-base font-medium leading-10 text-slate-800 whitespace-pre-line">
         {parts.map((part, index) => (
@@ -735,7 +744,7 @@ function ListeningFillBlankRenderer({ activity, value, readonly, onChange }: Act
 function ListeningMultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningMultipleChoiceActivity>) {
   return (
     <div className="grid gap-3">
-      <AudioPlayer text={activity.audio_text} />
+      <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
       <fieldset>
         <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
         <ActivityInstructions instructions={activity.instructions} />
@@ -761,7 +770,7 @@ function ListeningMatchingRenderer({ activity, value, readonly, onChange }: Acti
         <div key={index} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Audio {index + 1}</p>
-            <AudioPlayer text={pair.audio_text} />
+            <AudioPlayer text={pair.audio_text} voice={resolveVoice(activity.voice)} />
           </div>
           <select
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 self-center"
@@ -784,7 +793,7 @@ function ListeningTrueFalseRenderer({ activity, value, readonly, onChange }: Act
   const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
   return (
     <div className="grid gap-4">
-      <AudioPlayer text={activity.audio_text} />
+      <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
       <ActivityInstructions instructions={activity.instructions} />
       {activity.statements.map((stmt, index) => {
         const selected = selections[String(index)];

@@ -156,6 +156,8 @@ Lista canónica de tipos soportados: `SUPPORTED_BLOCKS` en `backend/app/parser.p
 
 > **Nota:** la nota anterior de "`speaking` NO IMPLEMENTADO" quedó obsoleta — `speaking` **sí** está implementado (ambos modos). Los listenings usan **TTS**, no archivos de audio: nunca usar un campo `audio:`.
 
+> **Voz por actividad (listening):** cualquier tipo `listening*` acepta un campo opcional `voice: male` o `voice: female` (default: preferencia global del usuario, masculina). Se normaliza en el parser (`_normalize_voice`) y baja hasta `AudioPlayer` (que ya aceptaba `voice`); `male`→`en-US-GuyNeural`, `female`→`en-US-JennyNeural`. Un valor desconocido se pasa tal cual como nombre de voz edge-tts. Solo aplica a listening (otros tipos lo ignoran). Sirve para evitar el desajuste "voz masculina lee la oración pero la pregunta dice *she*".
+
 ### Formato del Script DSL
 
 ```

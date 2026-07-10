@@ -24,6 +24,7 @@ export interface BaseActivity {
   prompt?: string;
   answer?: string | string[];
   instructions?: string;
+  voice?: string; // 'male' | 'female' | nombre de voz edge-tts; solo listening
 }
 
 export interface FillBlankActivity extends BaseActivity {
