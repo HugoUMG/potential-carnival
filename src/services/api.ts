@@ -40,6 +40,7 @@ interface BackendActivity {
   image?: string | null;
   instructions?: string | null;
   audio_text?: string | null;
+  voice?: string | null;
   target?: string | null;
   bank?: string[] | null;
   pairs?: { audio_text: string; match: string }[] | null;
@@ -214,7 +215,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 function withInstructions<T extends WorksheetActivity>(activity: T, source: BackendActivity): T {
-  return source.instructions ? { ...activity, instructions: source.instructions } : activity;
+  let out = activity;
+  if (source.instructions) out = { ...out, instructions: source.instructions };
+  if (source.voice) out = { ...out, voice: source.voice }; // voz por actividad (listening)
+  return out;
 }
 
 function normalizeActivity(activity: BackendActivity): WorksheetActivity {
@@ -247,6 +251,8 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'listeningmatching', pairs: activity.pairs ?? [], options: activity.options ?? [] }, activity);
     case 'listeningtruefalse':
       return withInstructions({ id: activity.id, type: 'listeningtruefalse', audio_text: activity.audio_text ?? '', statements: activity.statements ?? [] }, activity);
+    case 'listeningorder':
+      return withInstructions({ id: activity.id, type: 'listeningorder', audio_text: activity.audio_text ?? '', answer: Array.isArray(activity.answer) ? activity.answer : (activity.answer ? [activity.answer] : []), bank: activity.bank ?? undefined }, activity);
     case 'truefalse':
       return withInstructions({ id: activity.id, type: 'truefalse', statements: activity.statements ?? [] }, activity);
     case 'readingtruefalse':

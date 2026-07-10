@@ -18,7 +18,7 @@ export interface VisualPair {
 export type VisualActivityType =
   | 'fillblank' | 'multiplechoice' | 'multiselect' | 'dragdrop' | 'matching' | 'textbox' | 'truefalse'
   | 'listening' | 'listeningfillblank' | 'listeningmultiplechoice'
-  | 'listeningmatching' | 'listeningtruefalse'
+  | 'listeningmatching' | 'listeningtruefalse' | 'listeningorder'
   | 'reading' | 'readingtruefalse' | 'imagequestion' | 'speaking';
 
 export interface VisualActivity {
@@ -211,6 +211,19 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
       });
     }
 
+  } else if (act.type === 'listeningorder') {
+    if (act.audioText.trim()) lines.push(`${indent}  audio_text: "${esc(act.audioText)}"`);
+    const answers = act.answer.split(',').map((a) => a.trim()).filter(Boolean);
+    if (answers.length > 0) {
+      lines.push(`${indent}  answer:`);
+      answers.forEach((a) => lines.push(`${indent}  - ${a}`));
+    }
+    const bank = act.bank.filter((b) => b.trim());
+    if (bank.length > 0) {
+      lines.push(`${indent}  bank:`);
+      bank.forEach((b) => lines.push(`${indent}  - ${b}`));
+    }
+
   } else if (act.type === 'reading') {
     if (act.readingTitle.trim()) lines.push(`${indent}  title: "${esc(act.readingTitle)}"`);
     if (act.readingContent.trim()) {
@@ -348,6 +361,8 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
         { id: crypto.randomUUID(), text: 'The store opens at 9 AM.', answer: true },
         { id: crypto.randomUUID(), text: 'The store closes at 8 PM.', answer: false },
       ]};
+    case 'listeningorder':
+      return { ...BASE_ACTIVITY, id, type, audioText: 'She has never been to Paris.', answer: 'She, has, never, been, to, Paris', bank: ['Paris', 'She', 'to', 'has', 'been', 'never'] };
     case 'reading':
       return { ...BASE_ACTIVITY, id, type, readingTitle: 'My School', readingContent: 'This is my school. It is big and beautiful.', readingQuestions: ['What is the text about?', 'Describe the school.'] };
     case 'readingtruefalse':

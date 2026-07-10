@@ -11,6 +11,7 @@ import type {
   ListeningMatchingActivity,
   ListeningMultipleChoiceActivity,
   ListeningTrueFalseActivity,
+  ListeningOrderActivity,
   MatchingActivity,
   MultipleChoiceActivity,
   MultiSelectActivity,
@@ -821,6 +822,77 @@ function ListeningTrueFalseRenderer({ activity, value, readonly, onChange }: Act
   );
 }
 
+function ListeningOrderRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningOrderActivity>) {
+  // Banco de fichas: el que da el profesor (ya desordenado) o answer barajado (estable por actividad).
+  const tiles = useMemo(() => {
+    if (activity.bank?.length) return activity.bank;
+    const shuffled = [...activity.answer];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, [activity.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const placed: string[] = Array.isArray(value) ? value.map(String) : [];
+
+  // Banco disponible = fichas menos las ya colocadas (por cantidad, respeta repetidas).
+  const usedCopy = [...placed];
+  const available: { word: string; key: number }[] = [];
+  tiles.forEach((word, i) => {
+    const idx = usedCopy.indexOf(word);
+    if (idx >= 0) usedCopy.splice(idx, 1);
+    else available.push({ word, key: i });
+  });
+
+  const append = (word: string) => { playSfx('place'); onChange(activity.id, [...placed, word]); };
+  const removeAt = (i: number) => { playSfx('toggle'); onChange(activity.id, placed.filter((_, idx) => idx !== i)); };
+
+  return (
+    <div className="grid gap-4">
+      <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
+      <ActivityInstructions instructions={activity.instructions} />
+
+      {/* Renglón de respuesta: fichas colocadas en orden. */}
+      <div className="flex min-h-[52px] flex-wrap items-center gap-2 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/40 p-3">
+        {placed.length === 0 && <span className="text-sm text-slate-400">Toca las palabras para armar la oración…</span>}
+        {placed.map((word, i) => (
+          <button
+            key={`${activity.id}-p-${i}`}
+            type="button"
+            disabled={readonly}
+            onClick={() => !readonly && removeAt(i)}
+            title="Quitar"
+            className="select-none rounded-xl border border-blue-400 bg-white px-3 py-2 text-sm font-semibold text-blue-800 shadow-sm transition hover:bg-blue-100"
+          >
+            {word}
+          </button>
+        ))}
+      </div>
+
+      {/* Banco de fichas desordenadas. */}
+      {!readonly && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Toca una palabra para agregarla</p>
+          <div className="flex flex-wrap gap-2">
+            {available.map(({ word, key }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => append(word)}
+                className="select-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                {word}
+              </button>
+            ))}
+            {!available.length && <span className="text-sm text-slate-400">Todas las palabras están en uso. Toca una del renglón para quitarla.</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ImageQuestionRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ImageQuestionActivity>) {
   return (
     <div>
@@ -937,6 +1009,14 @@ export const activityRegistry = {
     create: () => ({ id: nextId('listeningtruefalse'), type: 'listeningtruefalse', audio_text: 'The store opens at 9 AM and closes at 6 PM.', statements: [{ text: 'The store opens at 9 AM.', answer: true }, { text: 'The store closes at 8 PM.', answer: false }] }),
     Renderer: ListeningTrueFalseRenderer,
   },
+  listeningorder: {
+    type: 'listeningorder',
+    label: 'Listening + Ordenar (Duolingo)',
+    description: 'Listen and drag the scrambled words into the correct order.',
+    icon: '🎧🔀',
+    create: () => ({ id: nextId('listeningorder'), type: 'listeningorder', audio_text: 'She has never been to Paris.', answer: ['She', 'has', 'never', 'been', 'to', 'Paris'], bank: ['Paris', 'She', 'to', 'has', 'been', 'never'] }),
+    Renderer: ListeningOrderRenderer,
+  } satisfies ActivityDefinition<ListeningOrderActivity>,
   truefalse: {
     type: 'truefalse',
     label: 'True / False',

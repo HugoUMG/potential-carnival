@@ -14,6 +14,7 @@ export type ActivityType =
   | 'listeningmultiplechoice'
   | 'listeningmatching'
   | 'listeningtruefalse'
+  | 'listeningorder'
   | 'truefalse'
   | 'readingtruefalse'
   | 'speaking';
@@ -112,6 +113,13 @@ export interface ListeningTrueFalseActivity extends BaseActivity {
   statements: { text: string; answer: boolean }[];
 }
 
+export interface ListeningOrderActivity extends BaseActivity {
+  type: 'listeningorder';
+  audio_text: string;        // oración hablada (oculta al estudiante)
+  answer: string[];          // fichas en el orden correcto
+  bank?: string[];           // fichas a mostrar (desordenadas); si falta, el front baraja answer
+}
+
 export interface TrueFalseActivity extends BaseActivity {
   type: 'truefalse';
   statements: { text: string; answer: boolean }[];
@@ -144,6 +152,7 @@ export type WorksheetActivity =
   | ListeningMultipleChoiceActivity
   | ListeningMatchingActivity
   | ListeningTrueFalseActivity
+  | ListeningOrderActivity
   | TrueFalseActivity
   | ReadingTrueFalseActivity
   | SpeakingActivity;

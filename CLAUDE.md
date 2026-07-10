@@ -133,7 +133,7 @@ ALTER TABLE users DROP COLUMN email;
 
 Las hojas se crean con un DSL propio. El backend lo parsea (`backend/app/parser.py`) y guarda el resultado en `json_content`.
 
-Lista canónica de tipos soportados: `SUPPORTED_BLOCKS` en `backend/app/parser.py`. Son **16** (abajo). Cualquier tipo fuera de esa lista es ignorado por el parser.
+Lista canónica de tipos soportados: `SUPPORTED_BLOCKS` en `backend/app/parser.py`. Son **17** (abajo). Cualquier tipo fuera de esa lista es ignorado por el parser.
 
 | Tipo | Descripción | Calificación | Estado |
 |------|------------|-------------|--------|
@@ -153,6 +153,7 @@ Lista canónica de tipos soportados: `SUPPORTED_BLOCKS` en `backend/app/parser.p
 | `listeningmultiplechoice` | Audio TTS + selección múltiple. | Auto | OK |
 | `listeningmatching` | N audios independientes + dropdown por cada uno. Usa bloques `pair {}`; `pairs[].audio_text` oculto. | Auto | OK |
 | `listeningtruefalse` | Un audio + botones True/False por enunciado. `statements[].answer` es boolean. | Auto | OK |
+| `listeningorder` | **Estilo Duolingo:** audio oculto (`audio_text`) + fichas desordenadas que el alumno toca/arrastra para armar la oración en orden. `answer` = fichas en orden; `bank` opcional (si falta, el front baraja `answer`). | Auto (orden exacto) | OK |
 
 > **Nota:** la nota anterior de "`speaking` NO IMPLEMENTADO" quedó obsoleta — `speaking` **sí** está implementado (ambos modos). Los listenings usan **TTS**, no archivos de audio: nunca usar un campo `audio:`.
 
@@ -269,6 +270,25 @@ worksheet {
       answer: true
     - text: "Birds cannot fly."
       answer: false
+  }
+
+  listeningorder {
+    audio_text: "She has never been to Paris."
+    voice: female
+    answer:
+    - She
+    - has
+    - never
+    - been
+    - to
+    - Paris
+    bank:
+    - Paris
+    - She
+    - to
+    - has
+    - been
+    - never
   }
 
   textbox {
@@ -601,7 +621,7 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - CRUD profesores, estudiantes, hojas de trabajo
 - Creación de hojas con IA vía script DSL / editor
 - Publicar / despublicar / archivar hojas
-- **Los 16 tipos de actividad** de §3 (incluye multiselect, dragdrop, truefalse, readingtruefalse y speaking)
+- **Los 17 tipos de actividad** de §3 (incluye multiselect, dragdrop, truefalse, readingtruefalse, speaking y listeningorder)
 - Instrucciones por actividad + campos de identificación `_info_*`
 - RichText con `\n`, theme por hoja, bloques
 - Sistema de aulas: crear, asignar estudiantes y hojas; estudiantes solo ven hojas de su aula
@@ -618,7 +638,8 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - **Revisión de respuestas (profesor):** al entrar **ninguna** respuesta viene seleccionada; se elige un alumno para ver su detalle. `fillblank`/`listeningfillblank` muestran siempre controles de corrección manual.
 - Portal del estudiante con pestañas "Activas" / "Calificadas"; drag&drop con click-to-place.
 - **Editar hoja en el sitio** (`PUT /worksheets/{id}`, `updateWorksheet`): "Editar" abre la MISMA hoja en el editor (script o visual) y "Guardar cambios" la actualiza (no crea copia). Bloqueado (409 + botón deshabilitado) si ya tiene respuestas. Estado `editingWorksheetId` en `App.tsx`.
-- **Constructor visual completo**: soporta los **16 tipos** (agregados multiselect, dragdrop, readingtruefalse, speaking) y round-trip del `theme`. Ver `dslSerializer.ts` (serialización) y `VisualWorksheetBuilder.tsx` (import `activityToVisual` + editores). Pendiente menor: campos `info {}` aún no round-trip.
+- **Constructor visual completo**: soporta los **17 tipos** (agregados multiselect, dragdrop, readingtruefalse, speaking, listeningorder) y round-trip del `theme`. Ver `dslSerializer.ts` (serialización) y `VisualWorksheetBuilder.tsx` (import `activityToVisual` + editores). Pendiente menor: campos `info {}` aún no round-trip.
+- **`listeningorder` (escuchar + ordenar, estilo Duolingo):** audio oculto + fichas desordenadas que se tocan/arrastran para armar la oración. Renderer `ListeningOrderRenderer` (tap-to-place); calificación por orden exacto en `_build_answer_details` (main.py). El campo `voice` (§3) requirió añadirlo también al modelo Pydantic `Activity` (models.py) y a `normalizeActivity`/`withInstructions` (api.ts) — sin eso el campo se descartaba al persistir/leer.
 - **Vista previa al crear/editar**: al guardar (script o visual) se abre la vista previa del estudiante (`WorksheetRenderer` readonly) con botón "Editar".
 - **Sonidos de clic** (`utils/sfx.ts`, ZzFX): al elegir opción, multiselect, drag&drop, matching, true/false y variantes de listening suena un blip corto. El primer clic habilita el audio.
 - **Imprimir hoja en papel / PDF** (`WorksheetPrint.tsx`): botón "Imprimir PDF" en el portal del profesor (lista de evaluaciones y barra de revisión). Vista de papel compacta vía `createPortal(document.body)` + impresión nativa (`window.print()` → Guardar como PDF); en `@media print` se oculta `#root`. Omite actividades `listening*`/`speaking` (no pasan a papel) y deja líneas/casillas para escribir.

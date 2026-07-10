@@ -1026,6 +1026,15 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             )
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue
+        if activity.type == "listeningorder" and activity.answer:
+            # Ordenar palabras: acierto si el orden coincide exactamente (misma longitud + posición).
+            correct_answers = _resolve_correct_answers(activity.answer)
+            student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
+            is_correct = len(student_answers) == len(correct_answers) and all(
+                _norm_answer(student_answers[i]) == correct for i, correct in enumerate(correct_answers)
+            )
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            continue
         if activity.type == "listeningmultiplechoice" and activity.answer:
             is_correct = str(student_answer or "").strip().lower() == str(activity.answer).strip().lower()
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))

@@ -21,7 +21,7 @@ import {
 const VISUAL_TYPES: VisualActivityType[] = [
   'fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse',
   'listening', 'listeningfillblank', 'listeningmultiplechoice',
-  'listeningmatching', 'listeningtruefalse',
+  'listeningmatching', 'listeningtruefalse', 'listeningorder',
   'reading', 'readingtruefalse', 'imagequestion', 'speaking',
 ];
 
@@ -38,6 +38,7 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
   listeningmultiplechoice:{ label: 'Listening + MC',           icon: <Headphones size={14} />,   color: 'text-indigo-700',  bg: 'bg-indigo-50 border-indigo-200' },
   listeningmatching:      { label: 'Listening + Matching',     icon: <Headphones size={14} />,   color: 'text-purple-700',  bg: 'bg-purple-50 border-purple-200' },
   listeningtruefalse:     { label: 'Listening + True/False',   icon: <Headphones size={14} />,   color: 'text-fuchsia-700', bg: 'bg-fuchsia-50 border-fuchsia-200' },
+  listeningorder:         { label: 'Listening + Ordenar',      icon: <Headphones size={14} />,   color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
   reading:                { label: 'Reading',                  icon: <BookOpen size={14} />,     color: 'text-lime-700',    bg: 'bg-lime-50 border-lime-200' },
   readingtruefalse:       { label: 'Reading + True/False',     icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
   imagequestion:          { label: 'Image Question',           icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
@@ -47,7 +48,7 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
 // Grupos para el picker de actividades
 const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
   { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse'] },
-  { label: 'Listening', types: ['listening', 'listeningfillblank', 'listeningmultiplechoice', 'listeningmatching', 'listeningtruefalse'] },
+  { label: 'Listening', types: ['listening', 'listeningfillblank', 'listeningmultiplechoice', 'listeningmatching', 'listeningtruefalse', 'listeningorder'] },
   { label: 'Otras', types: ['reading', 'readingtruefalse', 'imagequestion', 'speaking'] },
 ];
 
@@ -118,6 +119,10 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     const a = act as any;
     const statements: VisualStatement[] = (a.statements ?? []).map((s: any) => ({ id: crypto.randomUUID(), text: s.text ?? '', answer: s.answer ?? false }));
     return { ...base, audioText: a.audio_text ?? '', statements };
+  }
+  if (act.type === 'listeningorder') {
+    const a = act as any;
+    return { ...base, audioText: a.audio_text ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? ''), bank: a.bank ?? [] };
   }
   if (act.type === 'reading') {
     const a = act as any;
@@ -461,6 +466,22 @@ function ListeningTrueFalseEditor({ act, onChange }: { act: VisualActivity; onCh
   );
 }
 
+function ListeningOrderEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  return (
+    <div className="grid gap-4">
+      <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <label className="block">
+        <FieldLabel>Oración correcta (palabras en orden, separadas por coma)</FieldLabel>
+        <TextInput value={act.answer} onChange={(v) => onChange({ ...act, answer: v })} placeholder="She, has, never, been, to, Paris" />
+      </label>
+      <div>
+        <FieldLabel>Banco de fichas (desordenadas). Vacío = se barajan las de arriba.</FieldLabel>
+        <div className="mt-2"><StringListEditor items={act.bank} onChange={(bank) => onChange({ ...act, bank })} placeholder="Palabra..." addLabel="Agregar ficha" /></div>
+      </div>
+    </div>
+  );
+}
+
 function ReadingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
   return (
     <div className="grid gap-4">
@@ -597,6 +618,7 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
     case 'listeningmultiplechoice':return <ListeningMultipleChoiceEditor act={act} onChange={onChange} />;
     case 'listeningmatching':      return <ListeningMatchingEditor act={act} onChange={onChange} />;
     case 'listeningtruefalse':     return <ListeningTrueFalseEditor act={act} onChange={onChange} />;
+    case 'listeningorder':         return <ListeningOrderEditor act={act} onChange={onChange} />;
     case 'reading':                return <ReadingEditor act={act} onChange={onChange} />;
     case 'readingtruefalse':       return <ReadingTrueFalseEditor act={act} onChange={onChange} />;
     case 'imagequestion':          return <ImageQuestionEditor act={act} onChange={onChange} />;

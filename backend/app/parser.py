@@ -20,6 +20,7 @@ SUPPORTED_BLOCKS = {
     "listeningmultiplechoice",
     "listeningmatching",
     "listeningtruefalse",
+    "listeningorder",
     "truefalse",
     "readingtruefalse",
 }
@@ -316,6 +317,13 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
     if activity_type == "listeningtruefalse":
         statements = _get_statements(body)
         return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), statements=statements or None)
+    if activity_type == "listeningorder":
+        # Escuchar y ordenar: audio oculto + fichas desordenadas que se arrastran/tocan.
+        # answer = oración en orden (una ficha por elemento). bank opcional (si falta, el front baraja answer).
+        answer = _get_answer(body)
+        if not isinstance(answer, list):
+            answer = [answer] if answer else []
+        return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), answer=answer, bank=_get_list(body, "bank") or None)
     if activity_type == "truefalse":
         statements = _get_statements(body)
         return ActivityData(**common, statements=statements or None)
