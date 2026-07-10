@@ -5,10 +5,11 @@
  */
 
 import { useState } from 'react';
+import DOMPurify from 'dompurify';
 import {
   AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2,
   GripVertical, List, PlusCircle, Save, Trash2, ToggleLeft,
-  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare,
+  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText,
 } from 'lucide-react';
 import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock } from '../types';
 import {
@@ -22,7 +23,7 @@ const VISUAL_TYPES: VisualActivityType[] = [
   'fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse',
   'listening', 'listeningfillblank', 'listeningmultiplechoice',
   'listeningmatching', 'listeningtruefalse', 'listeningorder', 'conversation',
-  'reading', 'readingtruefalse', 'imagequestion', 'speaking',
+  'reading', 'readingtruefalse', 'imagequestion', 'speaking', 'content',
 ];
 
 const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
@@ -44,13 +45,14 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
   readingtruefalse:       { label: 'Reading + True/False',     icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
   imagequestion:          { label: 'Image Question',           icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
   speaking:               { label: 'Speaking (mic)',           icon: <Mic size={14} />,          color: 'text-red-700',     bg: 'bg-red-50 border-red-200' },
+  content:                { label: 'Contenido / Repaso',       icon: <FileText size={14} />,     color: 'text-slate-700',   bg: 'bg-slate-50 border-slate-200' },
 };
 
 // Grupos para el picker de actividades
 const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
   { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse'] },
   { label: 'Listening', types: ['listening', 'listeningfillblank', 'listeningmultiplechoice', 'listeningmatching', 'listeningtruefalse', 'listeningorder', 'conversation'] },
-  { label: 'Otras', types: ['reading', 'readingtruefalse', 'imagequestion', 'speaking'] },
+  { label: 'Otras', types: ['reading', 'readingtruefalse', 'imagequestion', 'speaking', 'content'] },
 ];
 
 // ── Importar hoja existente al estado visual ──────────────────────────────────
@@ -66,7 +68,7 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     instructions: act.instructions ?? '',
     text: '', answer: '', bank: [], question: '', options: [], correctOption: '', correctOptions: [],
     left: [], right: [], prompt: '', target: '', statements: [],
-    audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [], lines: [],
+    audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [], lines: [], html: '',
     readingTitle: '', readingContent: '', readingQuestions: [],
     imageUrl: '',
   };
@@ -129,6 +131,10 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     const a = act as any;
     const lines: VisualLine[] = (a.lines ?? []).map((l: any) => ({ id: crypto.randomUUID(), speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text ?? '' }));
     return { ...base, lines, question: a.question ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? '') };
+  }
+  if (act.type === 'content') {
+    const a = act as any;
+    return { ...base, readingTitle: a.title ?? '', html: a.html ?? '' };
   }
   if (act.type === 'reading') {
     const a = act as any;
@@ -488,6 +494,33 @@ function ListeningOrderEditor({ act, onChange }: { act: VisualActivity; onChange
   );
 }
 
+function ContentEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  const clean = DOMPurify.sanitize(act.html || '');
+  return (
+    <div className="grid gap-4">
+      <label className="block">
+        <FieldLabel>Título (opcional)</FieldLabel>
+        <TextInput value={act.readingTitle} onChange={(v) => onChange({ ...act, readingTitle: v })} placeholder="Repaso: Present Simple" />
+      </label>
+      <label className="block">
+        <FieldLabel>HTML del repaso (encabezados, colores, listas, estilos inline)</FieldLabel>
+        <textarea
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          rows={10}
+          value={act.html}
+          placeholder={'<h1 style="color:#0EA5E9">Título</h1>\n<p>Repaso corto con <b>negrita</b> y colores.</p>'}
+          onChange={(e) => onChange({ ...act, html: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-slate-400">Se sanea automáticamente (se bloquean scripts). Solo lectura para el alumno — no se califica.</p>
+      </label>
+      <div>
+        <FieldLabel>Vista previa</FieldLabel>
+        <div className="mt-1 rounded-lg border border-slate-200 bg-white p-4 rich-content" dangerouslySetInnerHTML={{ __html: clean }} />
+      </div>
+    </div>
+  );
+}
+
 function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
   const update = (id: string, patch: Partial<VisualLine>) =>
     onChange({ ...act, lines: act.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) });
@@ -671,6 +704,7 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
     case 'listeningtruefalse':     return <ListeningTrueFalseEditor act={act} onChange={onChange} />;
     case 'listeningorder':         return <ListeningOrderEditor act={act} onChange={onChange} />;
     case 'conversation':           return <ConversationEditor act={act} onChange={onChange} />;
+    case 'content':                return <ContentEditor act={act} onChange={onChange} />;
     case 'reading':                return <ReadingEditor act={act} onChange={onChange} />;
     case 'readingtruefalse':       return <ReadingTrueFalseEditor act={act} onChange={onChange} />;
     case 'imagequestion':          return <ImageQuestionEditor act={act} onChange={onChange} />;

@@ -25,6 +25,16 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index }: {
     onChange: (activityId: string, value: StudentAnswer) => void;
   }>;
 
+  // `content` es un repaso informativo, no una actividad numerada: sin cabecera "Actividad N"
+  // ni badge "Interactiva". Se muestra como una tarjeta de contenido limpia.
+  if (activity.type === 'content') {
+    return (
+      <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <Renderer activity={activity} value={answer} readonly={readonly} onChange={onAnswerChange} />
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className="mb-4 flex items-center justify-between gap-3">

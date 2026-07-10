@@ -22,6 +22,7 @@ SUPPORTED_BLOCKS = {
     "listeningtruefalse",
     "listeningorder",
     "conversation",
+    "content",
     "truefalse",
     "readingtruefalse",
 }
@@ -351,6 +352,13 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         # Diálogo con voces alternadas (m/f) fusionadas en un audio + pregunta.
         # answer opcional: con answer se autocalifica; sin answer queda pendiente (IA/profesor).
         return ActivityData(**common, lines=_parse_conversation_lines(body) or None, question=_get_scalar(body, "question"), answer=_get_answer(body))
+    if activity_type == "content":
+        # Bloque informativo: repaso del tema en HTML (se sanea en el front con DOMPurify).
+        # Solo lectura: sin input, sin calificación. `html` admite string multilínea ("""...""").
+        # ponytail: el DSL cuenta llaves {} para delimitar bloques; el HTML/CSS debe tener
+        #           llaves balanceadas (todo HTML válido lo está). Una llave suelta en texto
+        #           rompería el parseo → usar &#123;/&#125; en ese caso raro.
+        return ActivityData(**common, title=_get_scalar(body, "title"), html=_get_scalar(body, "html"))
     if activity_type == "truefalse":
         statements = _get_statements(body)
         return ActivityData(**common, statements=statements or None)

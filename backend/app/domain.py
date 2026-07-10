@@ -25,6 +25,7 @@ class ActivityData:
     pairs: list[dict] | None = None
     statements: list[dict] | None = None
     lines: list[dict] | None = None  # conversation: [{speaker: 'male'|'female', text}]
+    html: str | None = None  # content: HTML del repaso (se sanea en el front)
 
     def to_dict(self) -> dict[str, object]:
         return {key: value for key, value in asdict(self).items() if value is not None}

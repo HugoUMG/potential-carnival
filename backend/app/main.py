@@ -1014,6 +1014,8 @@ def _resolve_correct_answers(answer: Any) -> list[str]:
 def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list[AnswerDetail]:
     details: list[AnswerDetail] = []
     for activity in worksheet.json_content.iter_activities():
+        if activity.type == "content":
+            continue  # bloque informativo: no se responde ni califica (no entra al score)
         student_answer = answers.get(activity.id)
         prompt = activity.text or activity.question or activity.prompt or activity.title or activity.type
         if activity.type in {"fillblank", "dragdrop"} and activity.answer:
