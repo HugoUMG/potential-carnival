@@ -16,6 +16,7 @@ export type ActivityType =
   | 'listeningtruefalse'
   | 'listeningorder'
   | 'conversation'
+  | 'content'
   | 'truefalse'
   | 'readingtruefalse'
   | 'speaking';
@@ -128,6 +129,12 @@ export interface ConversationActivity extends BaseActivity {
   answer?: string; // opcional: con respuesta se autocalifica; sin ella queda pendiente (IA/profesor)
 }
 
+export interface ContentActivity extends BaseActivity {
+  type: 'content';
+  title?: string;
+  html: string; // HTML del repaso; se sanea con DOMPurify al renderizar. Solo lectura, sin calificación.
+}
+
 export interface TrueFalseActivity extends BaseActivity {
   type: 'truefalse';
   statements: { text: string; answer: boolean }[];
@@ -162,6 +169,7 @@ export type WorksheetActivity =
   | ListeningTrueFalseActivity
   | ListeningOrderActivity
   | ConversationActivity
+  | ContentActivity
   | TrueFalseActivity
   | ReadingTrueFalseActivity
   | SpeakingActivity;

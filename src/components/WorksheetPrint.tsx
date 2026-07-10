@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { RichText } from './RichText';
 import type { Worksheet, WorksheetActivity } from '../types';
 
@@ -170,6 +171,15 @@ function PrintActivity({ activity, n }: { activity: WorksheetActivity; n: number
         </div>,
       );
 
+    case 'content':
+      // Repaso informativo: se imprime como contenido (sin numerar), HTML saneado.
+      return (
+        <div className="wp-activity rich-content">
+          {a.title && <p><strong>{a.title}</strong></p>}
+          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(a.html ?? '') }} />
+        </div>
+      );
+
     default:
       return null;
   }
@@ -229,7 +239,7 @@ export function WorksheetPrint({ worksheet, onClose }: { worksheet: Worksheet; o
             {block.instructions && <p className="wp-block-instr">{block.instructions}</p>}
             <div className="wp-block-body">
               {block.activities.map((a) => {
-                counter += 1;
+                if (a.type !== 'content') counter += 1; // content no consume número
                 return <PrintActivity key={a.id} activity={a} n={counter} />;
               })}
             </div>

@@ -58,7 +58,7 @@ class Activity(BaseModel):
         "fillblank", "multiplechoice", "multiselect", "textbox", "matching", "speaking", "dragdrop",
         "reading", "imagequestion", "listening",
         "listeningfillblank", "listeningmultiplechoice", "listeningmatching", "listeningtruefalse",
-        "listeningorder", "conversation",
+        "listeningorder", "conversation", "content",
         "truefalse", "readingtruefalse",
     ]  # "speaking" se conserva: datos antiguos en producción pueden contenerlo (no crear nuevas)
     text: str | None = None
@@ -80,6 +80,7 @@ class Activity(BaseModel):
     pairs: list[dict] | None = None
     statements: list[dict] | None = None
     lines: list[dict] | None = None  # conversation: [{speaker: 'male'|'female', text}]
+    html: str | None = None  # content: HTML del repaso (se sanea en el front)
 
 
 class ActivityBlock(BaseModel):

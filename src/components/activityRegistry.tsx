@@ -13,6 +13,7 @@ import type {
   ListeningTrueFalseActivity,
   ListeningOrderActivity,
   ConversationActivity,
+  ContentActivity,
   MatchingActivity,
   MultipleChoiceActivity,
   MultiSelectActivity,
@@ -26,6 +27,7 @@ import type {
   TrueFalseActivity,
   WorksheetActivity,
 } from '../types';
+import DOMPurify from 'dompurify';
 import { RichText } from './RichText';
 import { AudioPlayer } from './AudioPlayer';
 import { VOICES } from '../utils/voicePreference';
@@ -917,6 +919,18 @@ function ConversationRenderer({ activity, value, readonly, onChange }: ActivityR
   );
 }
 
+function ContentRenderer({ activity }: ActivityRendererProps<ContentActivity>) {
+  // Bloque informativo: repaso del tema en HTML. Se sanea con DOMPurify (bloquea <script>,
+  // onclick, javascript:) conservando encabezados, colores, estilos inline y layout.
+  const clean = useMemo(() => DOMPurify.sanitize(activity.html ?? ''), [activity.html]);
+  return (
+    <div className="rich-content" >
+      {activity.title && <h2 className="mb-2 text-lg font-bold text-slate-900">{activity.title}</h2>}
+      <div dangerouslySetInnerHTML={{ __html: clean }} />
+    </div>
+  );
+}
+
 function ImageQuestionRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ImageQuestionActivity>) {
   return (
     <div>
@@ -1049,6 +1063,14 @@ export const activityRegistry = {
     create: () => ({ id: nextId('conversation'), type: 'conversation', lines: [{ speaker: 'female', text: 'Hi, are you new here?' }, { speaker: 'male', text: 'Yes, I started today.' }], question: 'Where did he start today?', answer: 'at school' }),
     Renderer: ConversationRenderer,
   } satisfies ActivityDefinition<ConversationActivity>,
+  content: {
+    type: 'content',
+    label: 'Contenido / Repaso (HTML)',
+    description: 'Read-only rich content (headings, colors, layout) to review the topic. Not graded.',
+    icon: '📄',
+    create: () => ({ id: nextId('content'), type: 'content', title: 'Repaso', html: '<h1 style="color:#0EA5E9">Título</h1>\n<p>Escribe aquí un repaso corto del tema. Puedes usar <b>negrita</b>, colores y listas.</p>' }),
+    Renderer: ContentRenderer,
+  } satisfies ActivityDefinition<ContentActivity>,
   truefalse: {
     type: 'truefalse',
     label: 'True / False',

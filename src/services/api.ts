@@ -46,6 +46,7 @@ interface BackendActivity {
   pairs?: { audio_text: string; match: string }[] | null;
   statements?: { text: string; answer: boolean }[] | null;
   lines?: { speaker: string; text: string }[] | null;
+  html?: string | null;
 }
 
 interface BackendActivityBlock {
@@ -256,6 +257,8 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'listeningorder', audio_text: activity.audio_text ?? '', answer: Array.isArray(activity.answer) ? activity.answer : (activity.answer ? [activity.answer] : []), bank: activity.bank ?? undefined }, activity);
     case 'conversation':
       return withInstructions({ id: activity.id, type: 'conversation', lines: (activity.lines ?? []).map((l) => ({ speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text })), question: activity.question ?? '', answer: activity.answer != null ? String(activity.answer) : undefined }, activity);
+    case 'content':
+      return withInstructions({ id: activity.id, type: 'content', title: activity.title ?? undefined, html: activity.html ?? '' }, activity);
     case 'truefalse':
       return withInstructions({ id: activity.id, type: 'truefalse', statements: activity.statements ?? [] }, activity);
     case 'readingtruefalse':

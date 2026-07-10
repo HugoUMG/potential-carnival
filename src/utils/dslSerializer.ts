@@ -25,7 +25,7 @@ export type VisualActivityType =
   | 'fillblank' | 'multiplechoice' | 'multiselect' | 'dragdrop' | 'matching' | 'textbox' | 'truefalse'
   | 'listening' | 'listeningfillblank' | 'listeningmultiplechoice'
   | 'listeningmatching' | 'listeningtruefalse' | 'listeningorder' | 'conversation'
-  | 'reading' | 'readingtruefalse' | 'imagequestion' | 'speaking';
+  | 'reading' | 'readingtruefalse' | 'imagequestion' | 'speaking' | 'content';
 
 export interface VisualActivity {
   id: string;
@@ -59,6 +59,8 @@ export interface VisualActivity {
   pairs: VisualPair[];
   // conversation
   lines: VisualLine[];
+  // content (repaso HTML)
+  html: string;
   // reading / readingtruefalse
   readingTitle: string;
   readingContent: string;
@@ -241,6 +243,15 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
     if (act.question.trim()) lines.push(`${indent}  question: "${esc(act.question)}"`);
     if (act.answer.trim()) lines.push(`${indent}  answer: "${esc(act.answer)}"`);
 
+  } else if (act.type === 'content') {
+    if (act.readingTitle.trim()) lines.push(`${indent}  title: "${esc(act.readingTitle)}"`);
+    if (act.html.trim()) {
+      // HTML multilínea con triple comilla; el parser lo captura literal (y lo sanea el front).
+      lines.push(`${indent}  html: """`);
+      lines.push(act.html);
+      lines.push(`${indent}  """`);
+    }
+
   } else if (act.type === 'reading') {
     if (act.readingTitle.trim()) lines.push(`${indent}  title: "${esc(act.readingTitle)}"`);
     if (act.readingContent.trim()) {
@@ -334,6 +345,7 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   voice: '',
   pairs: [],
   lines: [],
+  html: '',
   readingTitle: '',
   readingContent: '',
   readingQuestions: [''],
@@ -386,6 +398,8 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
         { id: crypto.randomUUID(), speaker: 'female', text: 'Hi, are you new here?' },
         { id: crypto.randomUUID(), speaker: 'male', text: 'Yes, I started today.' },
       ], question: 'Where did he start today?', answer: 'at school' };
+    case 'content':
+      return { ...BASE_ACTIVITY, id, type, readingTitle: 'Repaso', html: '<h1 style="color:#0EA5E9">Título</h1>\n<p>Escribe aquí un repaso corto del tema. Puedes usar <b>negrita</b>, colores y listas.</p>' };
     case 'reading':
       return { ...BASE_ACTIVITY, id, type, readingTitle: 'My School', readingContent: 'This is my school. It is big and beautiful.', readingQuestions: ['What is the text about?', 'Describe the school.'] };
     case 'readingtruefalse':

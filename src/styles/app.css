@@ -282,6 +282,26 @@ select {
 .sky-rush { animation: sky-rush 1s linear infinite; }
 .patch-pop { animation: patch-pop 0.3s ease-out forwards; }
 
+/* ── Bloque de contenido/repaso (HTML del profesor, saneado) ──────────────── */
+/* Tailwind resetea encabezados/listas; aquí se restauran para que el HTML autorado
+   se vea bien por defecto. Los estilos inline del autor (color, etc.) siguen ganando. */
+.rich-content { line-height: 1.6; color: #1f2937; word-break: break-word; }
+.rich-content h1 { font-size: 1.6em; font-weight: 800; margin: 0.4em 0 0.3em; line-height: 1.2; }
+.rich-content h2 { font-size: 1.3em; font-weight: 700; margin: 0.6em 0 0.3em; line-height: 1.25; }
+.rich-content h3 { font-size: 1.1em; font-weight: 700; margin: 0.6em 0 0.2em; }
+.rich-content p { margin: 0.5em 0; }
+.rich-content ul { list-style: disc; margin: 0.5em 0; padding-left: 1.5em; }
+.rich-content ol { list-style: decimal; margin: 0.5em 0; padding-left: 1.5em; }
+.rich-content li { margin: 0.2em 0; }
+.rich-content a { color: #2563eb; text-decoration: underline; }
+.rich-content blockquote { border-left: 3px solid #cbd5e1; margin: 0.6em 0; padding: 0.2em 0.9em; color: #475569; background: #f8fafc; }
+.rich-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1em 0; }
+.rich-content img { max-width: 100%; height: auto; border-radius: 8px; }
+.rich-content table { border-collapse: collapse; margin: 0.5em 0; }
+.rich-content th, .rich-content td { border: 1px solid #e5e7eb; padding: 4px 8px; }
+.rich-content code { background: #f1f5f9; padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.9em; }
+.rich-content pre { background: #f1f5f9; padding: 10px; border-radius: 8px; overflow-x: auto; }
+
 /* ── Impresión de hojas de trabajo (formato papel) ────────────────────────── */
 /* En pantalla: modal a pantalla completa. Al imprimir: solo la hoja. */
 .wp-portal { position: fixed; inset: 0; z-index: 60; overflow: auto; background: #e2e8f0; }
