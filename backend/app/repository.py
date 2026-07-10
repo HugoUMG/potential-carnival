@@ -503,13 +503,20 @@ class WorksheetRepository:
             )
         return response
 
-    def list_responses(self, worksheet_id: str | None = None, student_id: str | None = None, include_archived: bool = True) -> list[WorksheetResponse]:
+    def list_responses(self, worksheet_id: str | None = None, student_id: str | None = None, include_archived: bool = True, worksheet_ids: list[str] | None = None) -> list[WorksheetResponse]:
         clauses: list[str] = []
         params: list[object] = []
         placeholder = self._placeholder
         if worksheet_id:
             clauses.append(f"worksheet_responses.worksheet_id = {placeholder}")
             params.append(worksheet_id)
+        if worksheet_ids is not None:
+            # Filtra a un conjunto de hojas (p. ej. las del profesor) para no leer toda la tabla.
+            if not worksheet_ids:
+                return []
+            marks = ", ".join([placeholder] * len(worksheet_ids))
+            clauses.append(f"worksheet_responses.worksheet_id IN ({marks})")
+            params.extend(worksheet_ids)
         if student_id:
             clauses.append(f"worksheet_responses.student_id = {placeholder}")
             params.append(student_id)
@@ -836,12 +843,25 @@ class WorksheetRepository:
             cursor = connection.execute(f"DELETE FROM worksheet_responses WHERE id = {placeholder}", (response_id,))
             return bool(cursor.rowcount)
 
+    def count_students_per_classroom(self, classroom_ids: list[str]) -> dict[str, int]:
+        """Conteo de estudiantes por aula en UNA sola query (evita N+1)."""
+        if not classroom_ids:
+            return {}
+        placeholder = self._placeholder
+        marks = ", ".join([placeholder] * len(classroom_ids))
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT classroom_id, COUNT(*) AS total FROM classroom_students WHERE classroom_id IN ({marks}) GROUP BY classroom_id",
+                classroom_ids,
+            ).fetchall()
+        return {dict(r)["classroom_id"]: int(dict(r)["total"]) for r in rows}
+
     def teacher_dashboard(self, teacher_id: str | None = None) -> dict:
         worksheets = self.list_worksheets(created_by=teacher_id, published=True, archived=False)
         students = self.list_students()
-        responses = self.list_responses()
-        worksheet_ids = {worksheet.id for worksheet in worksheets}
-        scoped_responses = [response for response in responses if response.worksheet_id in worksheet_ids]
+        worksheet_ids = [worksheet.id for worksheet in worksheets]
+        # Solo las respuestas de las hojas del profesor (antes: se leía TODA la tabla y se filtraba en Python).
+        scoped_responses = self.list_responses(worksheet_ids=worksheet_ids)
         def _status(detail) -> str | None:
             return detail.get("status") if isinstance(detail, dict) else getattr(detail, "status", None)
 
@@ -865,8 +885,10 @@ class WorksheetRepository:
         total_correct = sum(response.correct_count for response in scoped_responses)
         total_incorrect = sum(1 for response in scoped_responses for detail in response.details if _status(detail) == "incorrect")
         classrooms = self.list_classrooms(created_by=teacher_id)
+        # Conteo en una sola query (antes: una query por aula → N+1).
+        counts = self.count_students_per_classroom([classroom.id for classroom in classrooms])
         students_per_classroom = [
-            {"classroom_name": classroom.name, "student_count": len(self.list_classroom_students(classroom.id))}
+            {"classroom_name": classroom.name, "student_count": counts.get(classroom.id, 0)}
             for classroom in classrooms
         ]
         return {
@@ -1116,6 +1138,22 @@ class WorksheetRepository:
                 (reader_id,),
             ).fetchall()
         return [self._vocab_from_row(r) for r in rows]
+
+    def list_all_readers_vocabulary(self) -> "dict[str, list[VocabularyList]]":
+        """Todas las listas asignadas a readers, agrupadas por reader_id, en UNA query (evita N+1)."""
+        with get_connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT vra.reader_id AS reader_id, vl.*
+                FROM vocabulary_lists vl
+                JOIN vocabulary_reader_assignments vra ON vra.list_id = vl.id
+                ORDER BY vl.created_at DESC
+                """
+            ).fetchall()
+        grouped: dict[str, list] = {}
+        for row in rows:
+            grouped.setdefault(dict(row)["reader_id"], []).append(self._vocab_from_row(row))
+        return grouped
 
     # ── Vocabulario ──────────────────────────────────────────────────────────────
 

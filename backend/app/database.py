@@ -32,12 +32,36 @@ def get_database_url() -> str:
     return database_url
 
 
-def get_connection():
-    if get_database_backend() == "postgresql":
-        import psycopg
+# Pool de conexiones Postgres — se crea una vez y se reutilizan conexiones ya abiertas
+# y calientes. Evita el handshake TCP/TLS/auth por consulta (antes: una conexión nueva
+# en cada uno de los ~74 call sites) y reduce la carga de conexiones en Aiven.
+_pool = None
+
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        from psycopg_pool import ConnectionPool
         from psycopg.rows import dict_row
 
-        return psycopg.connect(get_database_url(), row_factory=dict_row)
+        _pool = ConnectionPool(
+            get_database_url(),
+            min_size=1,  # 1 conexión caliente: la "primera consulta" se paga al arranque, no por usuario
+            max_size=int(os.getenv("DB_POOL_MAX", "5")),  # prudente según el límite de conexiones de Aiven
+            max_idle=60.0,
+            kwargs={"row_factory": dict_row},
+            open=False,
+        )
+        _pool.open()
+    return _pool
+
+
+def get_connection():
+    if get_database_backend() == "postgresql":
+        # pool.connection() es un context manager: entrega una conexión del pool y la
+        # devuelve al salir del `with` (commit en éxito / rollback en excepción), igual
+        # que antes con psycopg.connect(). Los call sites `with get_connection()` no cambian.
+        return _get_pool().connection()
 
     database_path = get_database_path()
     database_path.parent.mkdir(parents=True, exist_ok=True)

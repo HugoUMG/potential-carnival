@@ -592,6 +592,8 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 | Variable | Valor |
 |----------|-------|
 | `DATABASE_URL` | PostgreSQL. **La BD se migró de Render a Aiven** — Aiven añade unos segundos de latencia en la primera consulta (por eso los spinners de carga). |
+
+> **Nota de infraestructura:** el backend en Render **NO se apaga** — un monitor de **UptimeRobot** lo mantiene despierto (no hay cold start de 15 min). La lentitud percibida viene de la **carga/latencia de la BD**, no de que el servicio se duerma. Al optimizar rendimiento, enfocarse en reducir carga de BD (pool de conexiones, menos round-trips/N+1, caché de lecturas), no en el arranque del servicio.
 | `JWT_SECRET_KEY` | Clave secreta JWT |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | 480 |
 | `FRONTEND_ORIGINS` | `https://constructor-hojas-web.onrender.com` |
@@ -655,6 +657,12 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - **Vista previa al crear/editar**: al guardar (script o visual) se abre la vista previa del estudiante (`WorksheetRenderer` readonly) con botón "Editar".
 - **Sonidos de clic** (`utils/sfx.ts`, ZzFX): al elegir opción, multiselect, drag&drop, matching, true/false y variantes de listening suena un blip corto. El primer clic habilita el audio.
 - **Imprimir hoja en papel / PDF** (`WorksheetPrint.tsx`): botón "Imprimir PDF" en el portal del profesor (lista de evaluaciones y barra de revisión). Vista de papel compacta vía `createPortal(document.body)` + impresión nativa (`window.print()` → Guardar como PDF); en `@media print` se oculta `#root`. Omite actividades `listening*`/`speaking` (no pasan a papel) y deja líneas/casillas para escribir.
+
+### Rendimiento (backend / carga de BD)
+- **Pool de conexiones Postgres** (`database.py`, `psycopg_pool`): `get_connection()` entrega conexiones de un pool caliente en vez de abrir una nueva por consulta (antes: ~74 call sites abrían conexión nueva → handshake TCP/TLS/auth por query = mucha carga en Aiven). `min_size=1` (1 conexión caliente), `max_size` configurable con `DB_POOL_MAX` (default 5, prudente por el límite de Aiven). Los `with get_connection() as conn:` no cambian. SQLite (dev) sin pool.
+- **`teacher_dashboard` optimizado**: antes leía **toda** la tabla `worksheet_responses` y filtraba en Python + hacía **N+1** (una query de conteo por aula). Ahora las respuestas se filtran en SQL a las hojas del profesor (`list_responses(worksheet_ids=...)`) y el conteo de estudiantes por aula es una sola query (`count_students_per_classroom`).
+- **`/public/readers-vocabulary` sin N+1**: antes una query por reader; ahora `list_all_readers_vocabulary()` trae todo en un JOIN y agrupa en memoria.
+- Pendiente (siguiente plan): caché de lecturas públicas (vocab/hojas invitado), co-ubicar región Render↔Aiven, revisar más N+1.
 
 ### Pendientes (menores)
 - Bug 3: `\n` puede faltar en algún campo específico no cubierto por `RichText`

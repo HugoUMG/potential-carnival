@@ -871,9 +871,10 @@ def guest_detail(guest_token: str, classroom_id: str, _: PublicUser = Depends(re
 def public_readers_vocabulary() -> list[dict]:
     """Devuelve todos los readers con sus listas de vocabulario. No requiere autenticación."""
     readers = repository.list_readers()
+    vocab_by_reader = repository.list_all_readers_vocabulary()  # 1 query en vez de una por reader (N+1)
     result = []
     for reader in readers:
-        lists = repository.list_reader_vocabulary(reader.id)
+        lists = vocab_by_reader.get(reader.id, [])
         if lists:
             result.append({
                 "id": reader.id,
