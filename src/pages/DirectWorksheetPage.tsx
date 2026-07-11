@@ -1,19 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Send, Check } from 'lucide-react';
+import { Send, Check, RotateCcw } from 'lucide-react';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { RocketFueling, SubmitResult } from '../components/submitAnimations';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { getPublicWorksheet, submitDirectResponse } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
-
-/** Token por hoja+navegador (estable): evita duplicados en un refresh; el backend igual bloquea el reenvío. */
-function tokenFor(worksheetId: string): string {
-  const key = `dw_token_${worksheetId}`;
-  let t = localStorage.getItem(key);
-  if (!t) { t = crypto.randomUUID(); localStorage.setItem(key, t); }
-  return t;
-}
 
 /** El nombre lo pide la propia hoja (campo info {}): usa el primer `_info_*` con valor; si no hay, "Sin nombre". */
 function nameFromAnswers(answers: StudentAnswers): string {
@@ -33,11 +25,13 @@ export function DirectWorksheetPage() {
   const [answers, setAnswers] = useState<StudentAnswers>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ score: number | null; correct: number; incorrect: number; title: string } | null>(null);
-  const [done, setDone] = useState(false);
+  const [sent, setSent] = useState(false);
+  // Intentos usados desde ESTE dispositivo (por hoja). El límite se aplica per-dispositivo, como pidió el usuario.
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
 
   useEffect(() => {
     if (!worksheetId) return;
-    if (localStorage.getItem(`dw_done_${worksheetId}`)) { setDone(true); setLoading(false); return; }
+    setAttemptsUsed(Number(localStorage.getItem(`dw_count_${worksheetId}`) || 0));
     let alive = true;
     (async () => {
       try {
@@ -52,6 +46,9 @@ export function DirectWorksheetPage() {
     return () => { alive = false; };
   }, [worksheetId]);
 
+  const maxAttempts = worksheet?.maxAttempts ?? null; // null = ilimitada
+  const canAttempt = maxAttempts == null || attemptsUsed < maxAttempts;
+
   const updateAnswer = useCallback((activityId: string, value: StudentAnswer) => {
     setAnswers((cur) => ({ ...cur, [activityId]: value }));
   }, []);
@@ -61,9 +58,12 @@ export function DirectWorksheetPage() {
     setSubmitting(true);
     setError('');
     try {
-      const response = await submitDirectResponse(worksheetId, nameFromAnswers(answers), tokenFor(worksheetId), answers);
+      // Token nuevo por intento → cada envío es una respuesta independiente (permite reintentos).
+      const response = await submitDirectResponse(worksheetId, nameFromAnswers(answers), crypto.randomUUID(), answers);
       const incorrect = response.details.filter((d) => d.status === 'incorrect').length;
-      localStorage.setItem(`dw_done_${worksheetId}`, '1');
+      const newCount = attemptsUsed + 1;
+      localStorage.setItem(`dw_count_${worksheetId}`, String(newCount));
+      setAttemptsUsed(newCount);
       setSubmitResult({ score: response.score, correct: response.correct_count, incorrect, title: worksheet.title });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo enviar.');
@@ -72,19 +72,19 @@ export function DirectWorksheetPage() {
     }
   }
 
-  if (loading) return <LoadingScreen message="Cargando hoja de trabajo…" />;
-
-  if (done && !submitResult) {
-    return (
-      <main className="grid min-h-screen place-items-center bg-slate-50 p-6 text-center">
-        <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100"><Check className="text-emerald-600" size={28} /></div>
-          <h1 className="mt-4 text-xl font-bold text-slate-900">¡Listo! Tu hoja fue enviada.</h1>
-          <p className="mt-2 text-sm text-slate-500">Ya puedes cerrar esta ventana. Tu profesor verá tus respuestas.</p>
-        </div>
-      </main>
-    );
+  function finishResult() {
+    setSubmitResult(null);
+    setSent(true);
   }
+
+  function retry() {
+    setSent(false);
+    setAnswers({});
+    setError('');
+    window.scrollTo({ top: 0 });
+  }
+
+  if (loading) return <LoadingScreen message="Cargando hoja de trabajo…" />;
 
   if (error && !worksheet) {
     return (
@@ -100,10 +100,37 @@ export function DirectWorksheetPage() {
 
   if (!worksheet) return null;
 
+  // Pantalla de "enviado" (o límite alcanzado). Ofrece reintentar si aún quedan intentos.
+  if (sent || (!canAttempt && !submitResult)) {
+    const noMore = !canAttempt;
+    return (
+      <main className="grid min-h-screen place-items-center bg-slate-50 p-6 text-center">
+        <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-100"><Check className="text-emerald-600" size={28} /></div>
+          <h1 className="mt-4 text-xl font-bold text-slate-900">{sent ? '¡Listo! Tu hoja fue enviada.' : 'Ya completaste tus intentos'}</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Tu profesor verá tus respuestas.
+            {noMore
+              ? maxAttempts === 1 ? ' Esta hoja permite un solo intento por dispositivo.' : ` Esta hoja permite ${maxAttempts} intentos por dispositivo.`
+              : maxAttempts == null ? ' Puedes volver a hacerla las veces que quieras.' : ` Te quedan ${maxAttempts - attemptsUsed} intento(s).`}
+          </p>
+          {!noMore && (
+            <button className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 font-bold text-white transition hover:bg-blue-700" onClick={retry}>
+              <RotateCcw size={18} /> Volver a hacerla
+            </button>
+          )}
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 py-8 text-slate-900">
       {submitting && <RocketFueling />}
       <div className="mx-auto max-w-4xl px-4">
+        <p className="mb-4 rounded-2xl bg-blue-50 px-4 py-2 text-center text-sm font-semibold text-blue-800">
+          {maxAttempts == null ? '♾️ Puedes hacer esta hoja las veces que quieras.' : `Intento ${attemptsUsed + 1} de ${maxAttempts}.`}
+        </p>
         <WorksheetRenderer worksheet={worksheet} answers={answers} onAnswerChange={updateAnswer} />
         {error && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
         <div className="sticky bottom-4 mt-6 flex justify-center">
@@ -123,8 +150,8 @@ export function DirectWorksheetPage() {
           correct={submitResult.correct}
           incorrect={submitResult.incorrect}
           worksheetTitle={submitResult.title}
-          onSeeAnswers={() => { setSubmitResult(null); setDone(true); }}
-          onClose={() => { setSubmitResult(null); setDone(true); }}
+          onSeeAnswers={finishResult}
+          onClose={finishResult}
         />
       )}
     </main>

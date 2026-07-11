@@ -1,10 +1,83 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { Code2, LayoutTemplate, Sparkles, Save, Loader2, Wand2, ClipboardCopy, Check } from 'lucide-react';
 import { VisualWorksheetBuilder, worksheetToVisualState } from './VisualWorksheetBuilder';
 import { emptyState } from '../utils/dslSerializer';
 import { generateWorksheetWithAI } from '../services/api';
 import { GENERATION_PROMPT } from '../utils/generationPrompt';
 import type { Worksheet, WorksheetActivity } from '../types';
+
+// ── Constructor de prompt para la IA (chips + presets) ────────────────────────
+
+interface BuilderState {
+  level: string; topic: string; objective: string; focus: string;
+  age: string; duration: string; difficulty: string; activities: string[];
+}
+const EMPTY_BUILDER: BuilderState = { level: '', topic: '', objective: '', focus: '', age: '', duration: '', difficulty: '', activities: [] };
+
+const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
+const OBJECTIVES: [string, string][] = [['Repaso', 'repaso'], ['Introducción', 'introducción del tema'], ['Práctica', 'práctica'], ['Evaluación', 'evaluación'], ['Tarea', 'tarea para casa']];
+const FOCUS = ['Affirmative', 'Negative', 'Questions', 'WH Questions', 'Mixed'];
+const AGES: [string, string][] = [['Niños', 'niños'], ['Adolescentes', 'adolescentes'], ['Adultos', 'adultos']];
+const DURATIONS = ['10', '20', '30', '45'];
+const DIFFICULTIES: [string, string][] = [['Fácil', 'fácil'], ['Normal', 'normal'], ['Desafiante', 'desafiante']];
+// [etiqueta amigable, tipo DSL] — se incluyen ambos en el prompt para guiar a la IA.
+const ACTIVITIES: [string, string][] = [
+  ['Multiple Choice', 'multiplechoice'], ['Fill in the Blank', 'fillblank'], ['True/False', 'truefalse'],
+  ['Matching', 'matching'], ['Drag & Drop', 'dragdrop'], ['Reading', 'reading'], ['Image Question', 'imagequestion'],
+  ['Listening', 'listening'], ['Listen & Order', 'listeningorder'], ['Conversation', 'conversation'], ['Speaking', 'speaking'],
+];
+const PRESETS: { label: string; icon: string; patch: Partial<BuilderState> }[] = [
+  { label: 'Warm-up', icon: '🔥', patch: { objective: 'Introducción', duration: '10', difficulty: 'Fácil', activities: ['multiplechoice', 'truefalse'] } },
+  { label: 'Grammar Practice', icon: '✏️', patch: { objective: 'Práctica', duration: '20', difficulty: 'Normal', activities: ['fillblank', 'multiplechoice', 'dragdrop'] } },
+  { label: 'Weekly Quiz', icon: '📝', patch: { objective: 'Evaluación', duration: '20', difficulty: 'Normal', activities: ['multiplechoice', 'fillblank', 'truefalse'] } },
+  { label: 'Monthly Test', icon: '📊', patch: { objective: 'Evaluación', duration: '45', difficulty: 'Desafiante', activities: ['multiplechoice', 'fillblank', 'matching', 'reading'] } },
+  { label: 'Homework', icon: '🏠', patch: { objective: 'Tarea', duration: '30', difficulty: 'Normal', activities: ['fillblank', 'multiplechoice', 'reading'] } },
+  { label: 'Speaking Club', icon: '🗣️', patch: { objective: 'Práctica', duration: '30', age: 'Adolescentes', activities: ['speaking', 'conversation', 'listening'] } },
+  { label: 'Listening Exam', icon: '🎧', patch: { objective: 'Evaluación', duration: '30', activities: ['listening', 'listeningorder', 'conversation'] } },
+  { label: 'Reading Assessment', icon: '📖', patch: { objective: 'Evaluación', duration: '30', activities: ['reading', 'multiplechoice'] } },
+];
+
+/** Compone un prompt en español a partir de las selecciones. */
+function composePrompt(s: BuilderState): string {
+  const empty = !s.level && !s.topic.trim() && !s.objective && !s.focus && !s.age && !s.duration && !s.difficulty && s.activities.length === 0;
+  if (empty) return '';
+  let base = 'Crea una hoja de trabajo de inglés';
+  if (s.level) base += ` de nivel ${s.level}`;
+  if (s.topic.trim()) base += ` sobre ${s.topic.trim()}`;
+  if (s.focus && s.focus !== 'Mixed') base += ` enfocada en ${s.focus}`;
+  const meta: string[] = [];
+  const obj = OBJECTIVES.find((o) => o[0] === s.objective)?.[1];
+  if (obj) meta.push(`como actividad de ${obj}`);
+  const age = AGES.find((a) => a[0] === s.age)?.[1];
+  if (age) meta.push(`para ${age}`);
+  if (s.duration) meta.push(`de aproximadamente ${s.duration} minutos`);
+  const diff = DIFFICULTIES.find((d) => d[0] === s.difficulty)?.[1];
+  if (diff) meta.push(`con dificultad ${diff}`);
+  let out = base + '.';
+  if (meta.length) out += ' Debe ser ' + meta.join(', ') + '.';
+  if (s.activities.length) {
+    const names = s.activities.map((v) => ACTIVITIES.find((a) => a[1] === v)?.[0] ?? v);
+    out += ` Incluye actividades de estos tipos: ${names.join(', ')} (${s.activities.join(', ')}).`;
+  }
+  return out;
+}
+
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? 'border-violet-500 bg-violet-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-violet-300'}`}>
+      {children}
+    </button>
+  );
+}
+function ChipGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
 
 // ── Panel de generación con IA ────────────────────────────────────────────────
 
@@ -15,6 +88,12 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
   aiError: string;
   onGenerate: () => void;
 }) {
+  const [b, setB] = useState<BuilderState>(EMPTY_BUILDER);
+  // Cualquier cambio en los chips recompone el prompt (se puede afinar a mano en el textarea).
+  const apply = (next: BuilderState) => { setB(next); setAiPrompt(composePrompt(next)); };
+  const patch = (p: Partial<BuilderState>) => apply({ ...b, ...p });
+  const toggleActivity = (v: string) => patch({ activities: b.activities.includes(v) ? b.activities.filter((x) => x !== v) : [...b.activities, v] });
+
   return (
     <div className="rounded-3xl bg-white p-6 shadow-sm max-w-3xl">
       <div className="flex items-center gap-3 mb-2">
@@ -23,39 +102,59 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
         </div>
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Generar con Inteligencia Artificial</p>
-          <h2 className="text-xl font-bold text-slate-900">Describe la hoja que necesitas</h2>
+          <h2 className="text-xl font-bold text-slate-900">Arma la hoja con un clic</h2>
         </div>
       </div>
-      <p className="mt-1 text-sm text-slate-500 mb-5">
-        Escribe en español qué quieres que la IA cree. Sé específico: nivel, tema, tipos de actividad y cantidad de preguntas.
-      </p>
+      <p className="mt-1 text-sm text-slate-500 mb-5">Elige un preset o selecciona opciones: el prompt se arma solo. No necesitas escribir nada.</p>
 
-      <div className="rounded-2xl bg-violet-50 border border-violet-100 p-4 mb-5">
-        <p className="text-xs font-semibold text-violet-700 mb-2">Ejemplos de prompts:</p>
-        <div className="grid gap-2">
-          {[
-            'Hoja de A2 sobre Present Perfect con 8 preguntas: 3 fillblank, 3 multiplechoice y 2 matching.',
-            'Actividades de listening para B1 sobre rutinas diarias: 2 listeningfillblank y 2 listeningtruefalse.',
-            'Worksheet de A1 sobre colores y objetos del salón, 10 preguntas simples con truefalse y multiplechoice.',
-          ].map((example) => (
-            <button key={example} type="button" onClick={() => setAiPrompt(example)}
-              className="text-left text-xs text-violet-600 hover:text-violet-800 rounded-xl hover:bg-violet-100 px-3 py-2 transition">
-              → {example}
-            </button>
-          ))}
+      {/* Presets */}
+      <ChipGroup label="⭐ Presets (un clic)">
+        {PRESETS.map((p) => (
+          <Chip key={p.label} active={false} onClick={() => patch(p.patch)}>{p.icon} {p.label}</Chip>
+        ))}
+      </ChipGroup>
+
+      <div className="mt-5 grid gap-4">
+        <ChipGroup label="📚 Nivel">
+          {LEVELS.map((l) => <Chip key={l} active={b.level === l} onClick={() => patch({ level: b.level === l ? '' : l })}>{l}</Chip>)}
+        </ChipGroup>
+        <label className="block">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">📖 Tema</p>
+          <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400"
+            placeholder="Ej: Present Simple, colores, comida…" value={b.topic} onChange={(e) => patch({ topic: e.target.value })} />
+        </label>
+        <ChipGroup label="🎯 Objetivo">
+          {OBJECTIVES.map(([l]) => <Chip key={l} active={b.objective === l} onClick={() => patch({ objective: b.objective === l ? '' : l })}>{l}</Chip>)}
+        </ChipGroup>
+        <ChipGroup label="✏️ Enfoque">
+          {FOCUS.map((f) => <Chip key={f} active={b.focus === f} onClick={() => patch({ focus: b.focus === f ? '' : f })}>{f}</Chip>)}
+        </ChipGroup>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <ChipGroup label="👨‍🎓 Edad">
+            {AGES.map(([l]) => <Chip key={l} active={b.age === l} onClick={() => patch({ age: b.age === l ? '' : l })}>{l}</Chip>)}
+          </ChipGroup>
+          <ChipGroup label="⏱️ Duración">
+            {DURATIONS.map((d) => <Chip key={d} active={b.duration === d} onClick={() => patch({ duration: b.duration === d ? '' : d })}>{d} min</Chip>)}
+          </ChipGroup>
+          <ChipGroup label="🎲 Dificultad">
+            {DIFFICULTIES.map(([l]) => <Chip key={l} active={b.difficulty === l} onClick={() => patch({ difficulty: b.difficulty === l ? '' : l })}>{l}</Chip>)}
+          </ChipGroup>
         </div>
+        <ChipGroup label="🧩 Actividades (opcional)">
+          {ACTIVITIES.map(([l, v]) => <Chip key={v} active={b.activities.includes(v)} onClick={() => toggleActivity(v)}>{b.activities.includes(v) ? '✓ ' : ''}{l}</Chip>)}
+        </ChipGroup>
       </div>
 
-      <label className="block">
-        <span className="text-sm font-semibold text-slate-700">Tu descripción</span>
+      <label className="mt-6 block">
+        <span className="text-sm font-semibold text-slate-700">📝 Prompt generado <span className="font-normal text-slate-400">(puedes ajustarlo a mano)</span></span>
         <textarea
-          className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100 min-h-36"
-          placeholder="Ej: Hoja para estudiantes de A1 sobre los colores, 10 preguntas con multiplechoice y truefalse..."
+          className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100 min-h-28"
+          placeholder="El prompt aparecerá aquí conforme selecciones opciones… o escríbelo tú mismo."
           value={aiPrompt}
           onChange={(e) => setAiPrompt(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onGenerate(); }}
         />
-        <p className="mt-1 text-xs text-slate-400">Ctrl+Enter para generar</p>
+        <p className="mt-1 text-xs text-slate-400">Ctrl+Enter para generar · Los tipos de actividad son una sugerencia a la IA, no una garantía exacta.</p>
       </label>
 
       {aiError && (

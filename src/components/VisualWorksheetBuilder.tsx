@@ -175,22 +175,24 @@ export function worksheetToVisualState(worksheet: Worksheet): { state: VisualSta
     background_color: worksheet.theme?.background_color ?? '',
     text_color: worksheet.theme?.text_color ?? '',
   };
+  const infoFields = worksheet.infoFields ?? [];
 
   let state: VisualState;
 
   if (worksheet.blocks?.length) {
     const blocks = worksheet.blocks.map(blockToVisual);
-    state = { title: worksheet.title, description: worksheet.description, theme, blocks };
+    state = { title: worksheet.title, description: worksheet.description, theme, infoFields, blocks };
   } else if (worksheet.activities.length) {
     const activities = worksheet.activities.map(activityToVisual).filter((a): a is VisualActivity => a !== null);
     state = {
       title: worksheet.title,
       description: worksheet.description,
       theme,
+      infoFields,
       blocks: [{ id: crypto.randomUUID(), title: '', instructions: '', activities }],
     };
   } else {
-    state = { ...emptyState(), theme };
+    state = { ...emptyState(), theme, infoFields };
   }
 
   const imported = state.blocks.reduce((n, b) => n + b.activities.length, 0);
@@ -934,6 +936,13 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
                 </div>
               </label>
             ))}
+          </div>
+        </details>
+        <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">📋 Campos de identificación (opcional)</summary>
+          <p className="mt-2 text-xs text-slate-400">Datos que se piden al alumno arriba de la hoja (no se califican). Ej: Nombre, Fecha, Sección.</p>
+          <div className="mt-2">
+            <StringListEditor items={state.infoFields} onChange={(infoFields) => setState((s) => ({ ...s, infoFields }))} placeholder="Ej: Nombre" addLabel="Agregar campo" />
           </div>
         </details>
       </div>
