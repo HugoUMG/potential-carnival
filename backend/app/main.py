@@ -42,6 +42,7 @@ from .models import (
     GuestSessionLog,
     WorksheetResponse,
     WorksheetResponseCreate,
+    PracticeGrade,
 )
 from .parser import WorksheetScriptError, parse_worksheet_script
 from .repository import repository
@@ -638,6 +639,19 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
     return repository.add_response(response)
 
 
+@app.post("/worksheets/{worksheet_id}/practice")
+def practice_grade(worksheet_id: str, payload: PracticeGrade, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Modo práctica del profesor: resuelve la hoja y la califica SIN guardar (dry-run).
+    Solo auto-calificación determinista (sin IA). Sirve para verificar la clave de respuestas."""
+    require_worksheet_manager(worksheet_id, current_user)
+    worksheet = repository.get_worksheet(worksheet_id)
+    if not worksheet:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
+    details = _build_answer_details(worksheet, payload.answers_json)
+    correct_count, pending_count, score = _score_details(details)
+    return {"details": details, "score": score, "correct_count": correct_count, "pending_count": pending_count}
+
+
 @app.get("/worksheets/{worksheet_id}/responses", response_model=list[WorksheetResponse])
 def list_responses(worksheet_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[WorksheetResponse]:
     require_worksheet_manager(worksheet_id, current_user)
@@ -760,6 +774,16 @@ def public_classroom_worksheets(classroom_id: str) -> list[Worksheet]:
 def public_worksheets() -> list[Worksheet]:
     """Todas las hojas publicadas y no archivadas, sin autenticación."""
     return repository.list_worksheets(published=True, archived=False)
+
+
+@app.get("/public/worksheets/{worksheet_id}", response_model=Worksheet)
+def public_worksheet(worksheet_id: str) -> Worksheet:
+    """Carga una hoja PUBLICADA por su id, sin autenticación — para enlaces directos que el
+    profesor comparte. El id es un UUID no adivinable (URL-capability). No requiere aula/login."""
+    worksheet = repository.get_worksheet(worksheet_id)
+    if not worksheet or worksheet.archived or not worksheet.published:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no disponible")
+    return worksheet
 
 
 @app.post("/public/responses", response_model=WorksheetResponse)

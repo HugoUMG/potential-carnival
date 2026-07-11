@@ -30,7 +30,7 @@ import type {
 import DOMPurify from 'dompurify';
 import { RichText } from './RichText';
 import { AudioPlayer } from './AudioPlayer';
-import { SandboxedHtml } from './SandboxedHtml';
+import { SandboxedHtml, ScrollHint } from './SandboxedHtml';
 import { VOICES } from '../utils/voicePreference';
 
 const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
@@ -920,11 +920,28 @@ function ConversationRenderer({ activity, value, readonly, onChange }: ActivityR
   );
 }
 
-function InlineContent({ html }: { html: string }) {
+function InlineContent({ html, maxHeight = 560 }: { html: string; maxHeight?: number }) {
   // Sanea con DOMPurify (bloquea <script>, onclick, javascript:) conservando encabezados,
-  // colores, estilos inline y layout. Se integra con el tema de la hoja.
+  // colores, estilos inline y layout. Recuadro acotado con scroll + aviso si el contenido
+  // es más alto que `maxHeight`.
   const clean = useMemo(() => DOMPurify.sanitize(html), [html]);
-  return <div className="rich-content" dangerouslySetInnerHTML={{ __html: clean }} />;
+  const ref = useRef<HTMLDivElement>(null);
+  const [overflow, setOverflow] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setOverflow(el.scrollHeight > el.clientHeight + 4);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [clean]);
+  return (
+    <div className="relative">
+      <div ref={ref} className="rich-content overflow-y-auto" style={{ maxHeight }} dangerouslySetInnerHTML={{ __html: clean }} />
+      {overflow && <ScrollHint />}
+    </div>
+  );
 }
 
 function ContentRenderer({ activity }: ActivityRendererProps<ContentActivity>) {
