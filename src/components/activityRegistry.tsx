@@ -96,12 +96,13 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
 }
 
 function MultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultipleChoiceActivity>) {
+  const options = useMemo(() => shuffledByHash(activity.options, activity.id), [activity.id, activity.options]);
   return (
     <fieldset>
       <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
       <ActivityInstructions instructions={activity.instructions} />
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {activity.options.map((option) => (
+        {options.map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
             <input
               disabled={readonly}
@@ -120,6 +121,7 @@ function MultipleChoiceRenderer({ activity, value, readonly, onChange }: Activit
 
 function MultiSelectRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultiSelectActivity>) {
   const selected = Array.isArray(value) ? value : [];
+  const options = useMemo(() => shuffledByHash(activity.options, activity.id), [activity.id, activity.options]);
   const toggle = (option: string) => {
     playSfx('toggle');
     const next = selected.includes(option) ? selected.filter((o) => o !== option) : [...selected, option];
@@ -131,7 +133,7 @@ function MultiSelectRenderer({ activity, value, readonly, onChange }: ActivityRe
       <p className="mt-1 text-xs font-semibold text-blue-600">Puedes elegir más de una opción.</p>
       <ActivityInstructions instructions={activity.instructions} />
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {activity.options.map((option) => (
+        {options.map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
             <input
               disabled={readonly}
@@ -156,10 +158,11 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
   const blanks = parts.length - 1;
   const placed: string[] = Array.from({ length: blanks }, (_, i) => (Array.isArray(value) ? String(value[i] ?? '') : ''));
 
-  // Banco disponible = palabras del banco menos las ya colocadas (por cantidad).
+  // Banco disponible = palabras del banco (barajado estable) menos las ya colocadas (por cantidad).
+  const bank = useMemo(() => shuffledByHash(activity.bank, activity.id), [activity.id, activity.bank]);
   const usedCopy = placed.filter(Boolean);
   const available: { word: string; key: number }[] = [];
-  activity.bank.forEach((word, i) => {
+  bank.forEach((word, i) => {
     const idx = usedCopy.indexOf(word);
     if (idx >= 0) usedCopy.splice(idx, 1);
     else available.push({ word, key: i });
@@ -269,6 +272,13 @@ function hashString(value: string): number {
   return [...value].reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
 }
 
+/** Baraja estable y determinista por (id, valor): mismo orden en cada render/monta, distinto por
+ *  actividad. Evita que la IA deje siempre la 1ª opción como correcta. No afecta la calificación
+ *  (MC/multiselect/dragdrop se califican por valor, no por posición). */
+function shuffledByHash<T>(items: T[], seed: string): T[] {
+  return [...items].sort((a, b) => hashString(`${seed}:${String(a)}`) - hashString(`${seed}:${String(b)}`));
+}
+
 function getShuffledMatches(activity: MatchingActivity): string[] {
   const shuffled = [...activity.right].sort((first, second) => hashString(`${activity.id}:${first}`) - hashString(`${activity.id}:${second}`));
   const keptOriginalOrder = shuffled.every((rightItem, index) => rightItem === activity.right[index]);
@@ -291,6 +301,9 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
   const [pos, setPos] = useState<{ left: Array<{ x: number; y: number }>; right: Array<{ x: number; y: number }> }>({ left: [], right: [] });
   const [drag, setDrag] = useState<{ side: 'l' | 'r'; from: number; x: number; y: number } | null>(null);
   const [activeLeft, setActiveLeft] = useState<number | null>(null);
+  // Nodo derecho EXACTO al que el alumno unió cada izquierda (para que la línea quede donde la puso,
+  // sin reasignar por valor). La corrección se hace solo al calificar (backend, por valor).
+  const [nodeByLeft, setNodeByLeft] = useState<Record<number, number>>({});
   const gestureRef = useRef<{ side: 'l' | 'r'; from: number; sx: number; sy: number; moved: boolean } | null>(null);
 
   const colorForLeft = (i: number) => MATCH_COLORS[i % MATCH_COLORS.length];
@@ -321,14 +334,24 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
   // Asigna cada selección a un nodo derecho DISTINTO no usado, así los valores repetidos
   // (ej. dos "past") se conectan a nodos diferentes en vez de solaparse en el primero.
   const rightToLeft = new Map<number, number>();
-  const leftToRight = new Map<number, number>(); // left index -> nodo derecho asignado (para la línea)
+  const leftToRight = new Map<number, number>(); // left index -> nodo derecho (para línea y color)
   const usedRightNodes = new Set<number>();
+  // 1) usar el nodo EXACTO que el alumno tocó (si sigue siendo válido para su valor).
   leftItems.forEach((li, i) => {
     const rv = selections[li];
     if (rv == null) return;
+    const rj = nodeByLeft[i];
+    if (rj != null && rj >= 0 && rj < rightItems.length && rightItems[rj] === rv && !usedRightNodes.has(rj)) {
+      usedRightNodes.add(rj); leftToRight.set(i, rj); rightToLeft.set(rj, i);
+    }
+  });
+  // 2) fallback (respuestas cargadas sin estado local, ej. revisión): primer nodo libre con ese valor.
+  leftItems.forEach((li, i) => {
+    const rv = selections[li];
+    if (rv == null || leftToRight.has(i)) return;
     let j = rightItems.findIndex((v, idx) => v === rv && !usedRightNodes.has(idx));
     if (j < 0) j = rightItems.indexOf(rv);
-    if (j >= 0) { usedRightNodes.add(j); rightToLeft.set(j, i); leftToRight.set(i, j); }
+    if (j >= 0) { usedRightNodes.add(j); leftToRight.set(i, j); rightToLeft.set(j, i); }
   });
 
   function connect(li: number, rj: number) {
@@ -336,9 +359,12 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
     const lv = leftItems[li];
     const rv = rightItems[rj];
     const next: Record<string, string> = { ...selections };
-    // NO se deduplica por valor: varias izquierdas pueden usar el mismo valor cuando la
-    // derecha lo repite (ej. "yesterday" y "last week" → "past"). Cada izquierda guarda su valor.
+    const nextNodes = { ...nodeByLeft };
+    // Una línea por celda: si otra izquierda ya apuntaba a ESTE nodo, se suelta (sin validar acierto).
+    for (const k of Object.keys(nextNodes)) { const ki = Number(k); if (nextNodes[ki] === rj && ki !== li) { delete nextNodes[ki]; delete next[leftItems[ki]]; } }
+    nextNodes[li] = rj;
     next[lv] = rv;
+    setNodeByLeft(nextNodes);
     onChange(activity.id, next);
     setActiveLeft(null);
   }
@@ -346,14 +372,13 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
     const lv = leftItems[li];
     if (selections[lv] == null) return;
     const next = { ...selections }; delete next[lv];
+    setNodeByLeft((prev) => { const n = { ...prev }; delete n[li]; return n; });
     onChange(activity.id, next);
   }
   function disconnectRight(rj: number) {
-    const rv = rightItems[rj];
-    const lk = Object.keys(selections).find((k) => selections[k] === rv);
-    if (lk == null) return;
-    const next = { ...selections }; delete next[lk];
-    onChange(activity.id, next);
+    const li = rightToLeft.get(rj); // suelta la izquierda unida a ESE nodo exacto
+    if (li == null) return;
+    disconnectLeft(li);
   }
 
   // Toque simple (sin arrastrar): selecciona/une/desune.
@@ -754,6 +779,7 @@ function ListeningFillBlankRenderer({ activity, value, readonly, onChange }: Act
 }
 
 function ListeningMultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningMultipleChoiceActivity>) {
+  const options = useMemo(() => shuffledByHash(activity.options, activity.id), [activity.id, activity.options]);
   return (
     <div className="grid gap-3">
       <AudioPlayer text={activity.audio_text} voice={resolveVoice(activity.voice)} />
@@ -761,7 +787,7 @@ function ListeningMultipleChoiceRenderer({ activity, value, readonly, onChange }
         <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
         <ActivityInstructions instructions={activity.instructions} />
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          {activity.options.map((option) => (
+          {options.map((option) => (
             <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
               <input disabled={readonly} name={activity.id} type="radio" checked={value === option} onChange={() => { playSfx('select'); onChange(activity.id, option); }} />
               <span className="text-sm text-slate-700">{option}</span>
