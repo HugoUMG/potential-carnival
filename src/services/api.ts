@@ -47,6 +47,7 @@ interface BackendActivity {
   statements?: { text: string; answer: boolean }[] | null;
   lines?: { speaker: string; text: string }[] | null;
   html?: string | null;
+  sandbox?: boolean | null;
 }
 
 interface BackendActivityBlock {
@@ -258,7 +259,7 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
     case 'conversation':
       return withInstructions({ id: activity.id, type: 'conversation', lines: (activity.lines ?? []).map((l) => ({ speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text })), question: activity.question ?? '', answer: activity.answer != null ? String(activity.answer) : undefined }, activity);
     case 'content':
-      return withInstructions({ id: activity.id, type: 'content', title: activity.title ?? undefined, html: activity.html ?? '' }, activity);
+      return withInstructions({ id: activity.id, type: 'content', title: activity.title ?? undefined, html: activity.html ?? '', sandbox: activity.sandbox ?? undefined }, activity);
     case 'truefalse':
       return withInstructions({ id: activity.id, type: 'truefalse', statements: activity.statements ?? [] }, activity);
     case 'readingtruefalse':

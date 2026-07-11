@@ -132,7 +132,8 @@ export interface ConversationActivity extends BaseActivity {
 export interface ContentActivity extends BaseActivity {
   type: 'content';
   title?: string;
-  html: string; // HTML del repaso; se sanea con DOMPurify al renderizar. Solo lectura, sin calificación.
+  html: string; // HTML del repaso. Solo lectura, sin calificación.
+  sandbox?: boolean; // true → render en iframe aislado (HTML+CSS+JS propio). false/undefined → saneado inline (DOMPurify).
 }
 
 export interface TrueFalseActivity extends BaseActivity {

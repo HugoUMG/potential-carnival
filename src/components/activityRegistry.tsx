@@ -30,6 +30,7 @@ import type {
 import DOMPurify from 'dompurify';
 import { RichText } from './RichText';
 import { AudioPlayer } from './AudioPlayer';
+import { SandboxedHtml } from './SandboxedHtml';
 import { VOICES } from '../utils/voicePreference';
 
 const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
@@ -919,14 +920,22 @@ function ConversationRenderer({ activity, value, readonly, onChange }: ActivityR
   );
 }
 
+function InlineContent({ html }: { html: string }) {
+  // Sanea con DOMPurify (bloquea <script>, onclick, javascript:) conservando encabezados,
+  // colores, estilos inline y layout. Se integra con el tema de la hoja.
+  const clean = useMemo(() => DOMPurify.sanitize(html), [html]);
+  return <div className="rich-content" dangerouslySetInnerHTML={{ __html: clean }} />;
+}
+
 function ContentRenderer({ activity }: ActivityRendererProps<ContentActivity>) {
-  // Bloque informativo: repaso del tema en HTML. Se sanea con DOMPurify (bloquea <script>,
-  // onclick, javascript:) conservando encabezados, colores, estilos inline y layout.
-  const clean = useMemo(() => DOMPurify.sanitize(activity.html ?? ''), [activity.html]);
+  // Bloque informativo (repaso). Dos modos: `sandbox` → HTML completo aislado en iframe
+  // (permite CSS/JS/fuentes propios); por defecto → HTML saneado inline.
   return (
-    <div className="rich-content" >
+    <div>
       {activity.title && <h2 className="mb-2 text-lg font-bold text-slate-900">{activity.title}</h2>}
-      <div dangerouslySetInnerHTML={{ __html: clean }} />
+      {activity.sandbox
+        ? <SandboxedHtml html={activity.html ?? ''} />
+        : <InlineContent html={activity.html ?? ''} />}
     </div>
   );
 }

@@ -61,6 +61,7 @@ export interface VisualActivity {
   lines: VisualLine[];
   // content (repaso HTML)
   html: string;
+  sandbox: boolean; // content: true → iframe aislado (HTML+CSS+JS completo)
   // reading / readingtruefalse
   readingTitle: string;
   readingContent: string;
@@ -245,8 +246,9 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
 
   } else if (act.type === 'content') {
     if (act.readingTitle.trim()) lines.push(`${indent}  title: "${esc(act.readingTitle)}"`);
+    if (act.sandbox) lines.push(`${indent}  sandbox: true`);
     if (act.html.trim()) {
-      // HTML multilínea con triple comilla; el parser lo captura literal (y lo sanea el front).
+      // HTML multilínea con triple comilla; el parser lo captura literal (ignora sus llaves).
       lines.push(`${indent}  html: """`);
       lines.push(act.html);
       lines.push(`${indent}  """`);
@@ -346,6 +348,7 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   pairs: [],
   lines: [],
   html: '',
+  sandbox: false,
   readingTitle: '',
   readingContent: '',
   readingQuestions: [''],

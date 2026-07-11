@@ -81,6 +81,7 @@ class Activity(BaseModel):
     statements: list[dict] | None = None
     lines: list[dict] | None = None  # conversation: [{speaker: 'male'|'female', text}]
     html: str | None = None  # content: HTML del repaso (se sanea en el front)
+    sandbox: bool | None = None  # content: True → render en iframe aislado (HTML+CSS+JS completo)
 
 
 class ActivityBlock(BaseModel):
