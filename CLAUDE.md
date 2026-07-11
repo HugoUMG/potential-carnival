@@ -578,7 +578,7 @@ Los colores del tema se aplican via estilos inline desde `worksheet.theme`.
 ### `WorksheetEditor.tsx` — Tres modos de edición
 1. **Script Mode** — Edición directa del DSL con validación antes de guardar
 2. **Visual Mode** — Builder drag-and-drop (VisualWorksheetBuilder)
-3. **IA Mode** — Prompt en lenguaje natural → genera DSL via API
+3. **IA Mode** — Prompt en lenguaje natural → genera DSL via API. El `AiPanel` (en `WorksheetEditor.tsx`) es un **constructor de prompt**: **presets** de un clic (Warm-up, Weekly Quiz, Monthly Test…) + **chips** (nivel, tema, objetivo, enfoque, edad, duración, dificultad, actividades) que **componen el prompt en vivo** (`composePrompt`) en el textarea, editable a mano. Solo frontend: alimenta el mismo `generateWorksheetWithAI` → `/worksheets/ai-generate`. Los chips de "Actividades" son sugerencia a la IA, no garantía dura.
 
 ### `main.tsx` — Rutas
 
