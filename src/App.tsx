@@ -71,6 +71,8 @@ import {
   publishWorksheet,
   reviewAnswer,
   submitResponse,
+  practiceGrade,
+  type ResultadoPractica,
   unassignStudentFromClassroom,
   unassignWorksheetFromClassroom,
   deleteClassroom,
@@ -185,6 +187,11 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
+  // Modo práctica: el profesor resuelve la hoja para verificar sus respuestas (no se guarda nada).
+  const [practiceWorksheet, setPracticeWorksheet] = useState<Worksheet | null>(null);
+  const [practiceAnswers, setPracticeAnswers] = useState<StudentAnswers>({});
+  const [practiceResult, setPracticeResult] = useState<ResultadoPractica | null>(null);
+  const [practiceLoading, setPracticeLoading] = useState(false);
   const [printWorksheet, setPrintWorksheet] = useState<Worksheet | null>(null);
   // Si está seteado, "Guardar" edita esta hoja en el sitio en vez de crear una nueva.
   const [editingWorksheetId, setEditingWorksheetId] = useState<string | null>(null);
@@ -359,6 +366,30 @@ export default function App() {
 
   function updateAnswer(activityId: string, value: StudentAnswer) {
     setAnswers((current) => ({ ...current, [activityId]: value }));
+  }
+
+  // ── Modo práctica (profesor resuelve la hoja; nada se guarda) ────────────────
+  function openPractice(worksheet: Worksheet) {
+    setPracticeWorksheet(worksheet);
+    setPracticeAnswers({});
+    setPracticeResult(null);
+  }
+
+  function updatePracticeAnswer(activityId: string, value: StudentAnswer) {
+    setPracticeAnswers((current) => ({ ...current, [activityId]: value }));
+    setPracticeResult(null); // las respuestas cambiaron: invalida el resultado anterior
+  }
+
+  async function runPractice() {
+    if (!practiceWorksheet || practiceLoading) return;
+    setPracticeLoading(true);
+    try {
+      setPracticeResult(await practiceGrade(practiceWorksheet.id, practiceAnswers));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo calificar la práctica.');
+    } finally {
+      setPracticeLoading(false);
+    }
   }
 
   /** Abre el editor sobre una hoja existente para editarla EN EL SITIO (misma hoja).
@@ -1381,6 +1412,7 @@ export default function App() {
                         onClick={() => startEditWorksheet(worksheet)}
                       ><Pencil className="mr-1 inline" size={16} /> Editar</button>
                       <button className="rounded-2xl border border-indigo-200 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button>
+                      <button className="rounded-2xl border border-teal-200 px-4 py-2 font-semibold text-teal-700" onClick={() => openPractice(worksheet)} title="Resuelve la hoja tú mismo para revisar las respuestas (no se guarda nada)"><GraduationCap className="mr-1 inline" size={16} /> Modo práctica</button>
                       <button className="rounded-2xl border border-slate-300 px-4 py-2 font-semibold text-slate-700" onClick={() => setPrintWorksheet(worksheet)}><Printer className="mr-1 inline" size={16} /> Imprimir PDF</button>
                       <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700" onClick={() => openAssignWorksheetModal(worksheet)}>Asignar a aula</button>
                       <button className="rounded-2xl border border-violet-200 px-4 py-2 font-semibold text-violet-700 disabled:opacity-50" disabled={isDuplicating === worksheet.id} onClick={() => handleDuplicateWorksheet(worksheet)}><Copy className="mr-1 inline" size={16} />{isDuplicating === worksheet.id ? 'Duplicando...' : 'Duplicar'}</button>
@@ -1957,11 +1989,52 @@ export default function App() {
                   title={(responseCounts[previewWorksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas.' : 'Editar esta evaluación'}
                   onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); startEditWorksheet(w); }}
                 ><Pencil className="mr-1 inline" size={16} /> Editar</button>
+                <button className="rounded-2xl border border-teal-200 px-4 py-2 font-semibold text-teal-700" onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); openPractice(w); }} title="Resuélvela tú mismo para revisar las respuestas"><GraduationCap className="mr-1 inline" size={16} /> Modo práctica</button>
                 <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPreviewWorksheet(null)}>Cerrar</button>
               </div>
             </div>
             <p className="mb-4 text-sm text-slate-500">Así verá la hoja el estudiante. Puedes editarla mientras no tenga respuestas.</p>
             <WorksheetRenderer worksheet={previewWorksheet} answers={{}} readonly onAnswerChange={() => undefined} />
+          </div>
+        </div>
+      )}
+      {practiceWorksheet && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6">
+          <div className="mx-auto max-w-5xl rounded-3xl bg-slate-50 p-5 shadow-2xl">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-xl font-bold"><GraduationCap className="mr-1 inline text-teal-600" size={20} /> Modo práctica: {practiceWorksheet.title}</h2>
+              <div className="flex gap-2">
+                <button className="rounded-2xl bg-teal-600 px-4 py-2 font-semibold text-white disabled:opacity-50" disabled={practiceLoading} onClick={() => void runPractice()}>{practiceLoading ? 'Revisando...' : 'Revisar respuestas'}</button>
+                <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => { setPracticeAnswers({}); setPracticeResult(null); }}>Reiniciar</button>
+                <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPracticeWorksheet(null)}>Cerrar</button>
+              </div>
+            </div>
+            <p className="mb-4 rounded-xl bg-teal-50 px-4 py-2 text-sm text-teal-800">Estás resolviendo la hoja como un alumno para verificar las respuestas. <b>Nada se guarda</b> — es solo para revisar tu clave de respuestas.</p>
+            {practiceResult && (() => {
+              const incorrect = practiceResult.details.filter((d) => d.status === 'incorrect').length;
+              return (
+                <div className="mb-4 rounded-2xl border border-teal-200 bg-white p-4">
+                  <p className="text-lg font-bold text-slate-800">
+                    Puntaje: <span className="text-teal-700">{practiceResult.score ?? 0}</span>
+                    <span className="ml-3 text-sm font-semibold text-emerald-700">✓ {practiceResult.correct_count} correctas</span>
+                    <span className="ml-3 text-sm font-semibold text-red-600">✗ {incorrect} incorrectas</span>
+                    {practiceResult.pending_count > 0 && <span className="ml-3 text-sm font-semibold text-amber-600">… {practiceResult.pending_count} abiertas (las califica IA/profesor)</span>}
+                  </p>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-500">Ver detalle por actividad</summary>
+                    <div className="mt-2 grid gap-2">
+                      {practiceResult.details.map((d, i) => (
+                        <div key={i} className={`rounded-xl border p-2 text-sm ${d.status === 'correct' ? 'border-emerald-200 bg-emerald-50' : d.status === 'incorrect' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+                          <p className="font-semibold text-slate-700">{d.status === 'correct' ? '✓' : d.status === 'incorrect' ? '✗' : '…'} {String(d.prompt).slice(0, 90)}</p>
+                          <p className="text-slate-500">Tu respuesta: {answerText(d.student_answer)}{d.status === 'incorrect' && <> · Correcta: <b>{answerText(d.correct_answer)}</b></>}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              );
+            })()}
+            <WorksheetRenderer worksheet={practiceWorksheet} answers={practiceAnswers} onAnswerChange={updatePracticeAnswer} />
           </div>
         </div>
       )}

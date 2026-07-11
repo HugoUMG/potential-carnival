@@ -164,6 +164,11 @@ class WorksheetResponseCreate(BaseModel):
     student_id: str | None = None
 
 
+class PracticeGrade(BaseModel):
+    # Modo práctica del profesor: califica sin guardar (dry-run).
+    answers_json: dict[str, Any] = {}
+
+
 class GuestResponseCreate(BaseModel):
     worksheet_id: str
     student_name: str

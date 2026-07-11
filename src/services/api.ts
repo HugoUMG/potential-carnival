@@ -370,6 +370,18 @@ export async function submitResponse(worksheet: Worksheet, user: UsuarioSesion, 
   return request<RespuestaEstudiante>('/responses', { method: 'POST', body: JSON.stringify({ worksheet_id: worksheet.id, student_id: user.id, student_name: user.name, answers_json: answers }) });
 }
 
+export interface ResultadoPractica {
+  details: DetalleRespuesta[];
+  score: number | null;
+  correct_count: number;
+  pending_count: number;
+}
+
+/** Modo práctica del profesor: califica sin guardar (dry-run, solo auto-calificación). */
+export async function practiceGrade(worksheetId: string, answers: StudentAnswers): Promise<ResultadoPractica> {
+  return request<ResultadoPractica>(`/worksheets/${worksheetId}/practice`, { method: 'POST', body: JSON.stringify({ answers_json: answers }) });
+}
+
 export async function listStudentResponses(studentId: string): Promise<RespuestaEstudiante[]> {
   return request<RespuestaEstudiante[]>(`/students/${studentId}/responses`);
 }

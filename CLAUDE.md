@@ -458,6 +458,7 @@ GET    /worksheets/{id}/classrooms           — Aulas que usan una hoja
 
 ```
 POST   /responses                            — Enviar respuestas (estudiante autenticado)
+POST   /worksheets/{id}/practice             — Modo práctica del profesor: califica sin guardar (dry-run, solo auto)
 GET    /worksheets/{id}/responses            — Ver todas las respuestas de una hoja
 GET    /students/{id}/responses              — Ver respuestas de un estudiante
 DELETE /responses/{id}                       — Eliminar respuesta (teacher/admin)
@@ -659,6 +660,7 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - **Animaciones de resultado de envío** (`submitAnimations.tsx`): al enviar se elige una **al azar** (cohete / pastelero / paracaidista). Umbral de éxito **≥ 70** (`PASS_THRESHOLD`). Efectos de sonido con **ZzFX** (sintetizado, sin archivos). Para añadir más: registrar en `SUBMIT_ANIMATIONS`.
 - **Spinners de carga** (`LoadingScreen`/`Spinner`) en portales, login, hojas y respuestas — por la latencia de Aiven.
 - **Revisión de respuestas (profesor):** al entrar **ninguna** respuesta viene seleccionada; se elige un alumno para ver su detalle. `fillblank`/`listeningfillblank` muestran siempre controles de corrección manual.
+- **Modo práctica (profesor):** botón "Modo práctica" (en la lista de evaluaciones y en la vista previa) abre la hoja **interactiva** (`WorksheetRenderer` no-readonly) para que el profesor la resuelva y verifique su clave de respuestas. "Revisar respuestas" llama a `POST /worksheets/{id}/practice` (`practiceGrade`), que reusa `_build_answer_details` + `_score_details` y devuelve puntaje/detalle **sin guardar nada** (dry-run, solo auto-calificación; sin IA). Estado `practiceWorksheet`/`practiceAnswers`/`practiceResult` en `App.tsx`.
 - Portal del estudiante con pestañas "Activas" / "Calificadas"; drag&drop con click-to-place.
 - **Editar hoja en el sitio** (`PUT /worksheets/{id}`, `updateWorksheet`): "Editar" abre la MISMA hoja en el editor (script o visual) y "Guardar cambios" la actualiza (no crea copia). Bloqueado (409 + botón deshabilitado) si ya tiene respuestas. Estado `editingWorksheetId` en `App.tsx`.
 - **Constructor visual completo**: soporta los **19 tipos** (agregados multiselect, dragdrop, readingtruefalse, speaking, listeningorder, conversation, content) y round-trip del `theme`. Ver `dslSerializer.ts` (serialización) y `VisualWorksheetBuilder.tsx` (import `activityToVisual` + editores). Pendiente menor: campos `info {}` aún no round-trip.
