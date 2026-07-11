@@ -7,10 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, generate_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import ai_grade_activities, generate_worksheet_script, edit_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import initialize_database
 from .models import (
     AiGenerateRequest,
+    AiEditRequest,
     AnswerDetail,
     AnswerReview,
     Classroom,
@@ -402,8 +403,24 @@ def update_worksheet(worksheet_id: str, payload: WorksheetUpdate, current_user: 
 
 @app.post("/worksheets/ai-generate", response_model=Worksheet)
 def ai_generate(payload: AiGenerateRequest, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Worksheet:
-    script = generate_worksheet_script(payload.prompt)
+    script, _provider = generate_worksheet_script(payload.prompt)
     return create_worksheet(WorksheetCreate(script_content=script, created_by=current_user.id), current_user)
+
+
+@app.post("/worksheets/ai-edit")
+def ai_edit(payload: AiEditRequest, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, str]:
+    """Modifica una hoja (agregar/quitar/cambiar actividades) con IA. Devuelve el script
+    modificado + qué IA lo hizo. NO guarda: el profesor revisa y guarda desde el editor."""
+    if not payload.instruction.strip():
+        raise HTTPException(status_code=422, detail="Escribe qué quieres que la IA cambie")
+    try:
+        script, provider = edit_worksheet_script(payload.script_content, payload.instruction.strip())
+        parse_worksheet_script(script)  # valida que la IA devolvió un script parseable
+    except WorksheetScriptError as exc:
+        raise HTTPException(status_code=422, detail=f"La IA devolvió un script inválido: {exc}") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="No se pudo contactar a la IA. Intenta de nuevo.") from exc
+    return {"script": script, "provider": provider}
 
 
 @app.get("/worksheets", response_model=list[Worksheet])

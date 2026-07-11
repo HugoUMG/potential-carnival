@@ -744,17 +744,28 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
   );
 }
 
-function ActivityCard({ act, index, total, onUpdate, onRemove, onMove }: {
+function ActivityCard({ act, index, total, onUpdate, onRemove, onMove, onDragStartHandle, onDragOverCard, onDropCard, onDragEndCard, over }: {
   act: VisualActivity; index: number; total: number;
   onUpdate: (a: VisualActivity) => void; onRemove: () => void; onMove: (dir: -1 | 1) => void;
+  onDragStartHandle: () => void; onDragOverCard: (e: React.DragEvent) => void; onDropCard: () => void; onDragEndCard: () => void; over: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
   const meta = TYPE_META[act.type];
 
   return (
-    <div className={`rounded-2xl border ${meta.bg} overflow-hidden`}>
+    <div
+      className={`rounded-2xl border ${meta.bg} overflow-hidden transition ${over ? 'ring-2 ring-blue-400' : ''}`}
+      onDragOver={onDragOverCard}
+      onDrop={(e) => { e.preventDefault(); onDropCard(); }}
+    >
       <div className="flex items-center gap-2 px-4 py-3">
-        <span className="cursor-grab text-slate-300"><GripVertical size={16} /></span>
+        <span
+          draggable
+          onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(index)); onDragStartHandle(); }}
+          onDragEnd={onDragEndCard}
+          title="Arrastra para reordenar"
+          className="cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+        ><GripVertical size={16} /></span>
         <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${meta.color} ${meta.bg}`}>
           {meta.icon} {meta.label}
         </span>
@@ -770,19 +781,6 @@ function ActivityCard({ act, index, total, onUpdate, onRemove, onMove }: {
       </div>
       {expanded && (
         <div className="border-t border-white/60 bg-white/70 px-4 py-4 grid gap-4">
-          <details className="group">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600 list-none flex items-center gap-1">
-              <PlusCircle size={12} className="group-open:hidden" />
-              <span className="group-open:hidden">Agregar instrucción extra</span>
-              <span className="hidden group-open:inline text-xs font-semibold uppercase tracking-wide text-slate-500">Instrucción de actividad</span>
-            </summary>
-            <input
-              className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-              placeholder="Instrucción opcional para esta actividad..."
-              value={act.instructions}
-              onChange={(e) => onUpdate({ ...act, instructions: e.target.value })}
-            />
-          </details>
           <ActivityEditor act={act} onChange={onUpdate} />
         </div>
       )}
@@ -797,6 +795,8 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
   onUpdate: (b: VisualBlock) => void; onRemove: () => void; onMoveBlock: (dir: -1 | 1) => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
 
   const updateActivity = (id: string, act: VisualActivity) =>
     onUpdate({ ...block, activities: block.activities.map((a) => (a.id === id ? act : a)) });
@@ -807,6 +807,13 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
     const target = index + dir;
     if (target < 0 || target >= arr.length) return;
     [arr[index], arr[target]] = [arr[target], arr[index]];
+    onUpdate({ ...block, activities: arr });
+  };
+  const reorderActivity = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0) return;
+    const arr = [...block.activities];
+    const [moved] = arr.splice(from, 1);
+    arr.splice(to, 0, moved);
     onUpdate({ ...block, activities: arr });
   };
   const addActivity = (type: VisualActivityType) => {
@@ -842,7 +849,12 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
           <ActivityCard key={act.id} act={act} index={i} total={block.activities.length}
             onUpdate={(a) => updateActivity(act.id, a)}
             onRemove={() => removeActivity(act.id)}
-            onMove={(dir) => moveActivity(i, dir)} />
+            onMove={(dir) => moveActivity(i, dir)}
+            onDragStartHandle={() => setDragIdx(i)}
+            onDragOverCard={(e) => { e.preventDefault(); if (overIdx !== i) setOverIdx(i); }}
+            onDropCard={() => { if (dragIdx !== null) reorderActivity(dragIdx, i); setDragIdx(null); setOverIdx(null); }}
+            onDragEndCard={() => { setDragIdx(null); setOverIdx(null); }}
+            over={overIdx === i && dragIdx !== null && dragIdx !== i} />
         ))}
 
         {showPicker ? (
@@ -889,10 +901,12 @@ interface VisualWorksheetBuilderProps {
   message?: string;
   onMaxAttemptsChange: (value: string) => void;
   onSave: (script: string) => void;
+  getScriptRef?: React.MutableRefObject<(() => string) | null>; // expone el script serializado actual
 }
 
-export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, isEditing, message, onMaxAttemptsChange, onSave }: VisualWorksheetBuilderProps) {
+export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, isEditing, message, onMaxAttemptsChange, onSave, getScriptRef }: VisualWorksheetBuilderProps) {
   const [state, setState] = useState<VisualState>(initialState);
+  if (getScriptRef) getScriptRef.current = () => serializeToScript(state); // para "Pídele a la IA" en modo visual
 
   const updateBlock = (id: string, block: VisualBlock) =>
     setState((s) => ({ ...s, blocks: s.blocks.map((b) => (b.id === id ? block : b)) }));

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { Code2, LayoutTemplate, Sparkles, Save, Loader2, Wand2, ClipboardCopy, Check } from 'lucide-react';
 import { VisualWorksheetBuilder, worksheetToVisualState } from './VisualWorksheetBuilder';
 import { emptyState } from '../utils/dslSerializer';
-import { generateWorksheetWithAI } from '../services/api';
+import { generateWorksheetWithAI, aiEditWorksheet } from '../services/api';
 import { GENERATION_PROMPT } from '../utils/generationPrompt';
 import type { Worksheet, WorksheetActivity } from '../types';
 
@@ -75,6 +75,62 @@ function ChipGroup({ label, children }: { label: string; children: ReactNode }) 
     <div>
       <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+// ── "Pídele a la IA": agregar/quitar/modificar actividades con IA ─────────────
+export function AskAiEdit({ getScript, onApply }: { getScript: () => string; onApply: (script: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [instruction, setInstruction] = useState('');
+  const [working, setWorking] = useState(false);
+  const [provider, setProvider] = useState('');
+  const [err, setErr] = useState('');
+
+  async function run() {
+    const script = getScript().trim();
+    if (!instruction.trim() || working) return;
+    if (!script) { setErr('Primero escribe o crea una hoja.'); return; }
+    setWorking(true); setErr('');
+    try {
+      const res = await aiEditWorksheet(script, instruction.trim());
+      onApply(res.script);
+      setProvider(res.provider);
+      setInstruction('');
+      setOpen(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo contactar a la IA.');
+    } finally { setWorking(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 rounded-2xl border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-100">
+          <Wand2 size={15} /> Pídele a la IA
+        </button>
+        {working && <span className="text-xs font-semibold text-violet-500 animate-pulse">✦ IA trabajando…</span>}
+        {!working && provider && <span className="text-xs text-slate-400" title="IA que hizo el último cambio">✦ {provider}</span>}
+      </div>
+      {open && (
+        <div className="mt-1 grid gap-2 rounded-2xl border border-violet-200 bg-white p-3">
+          <textarea
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400"
+            rows={2}
+            placeholder="Ej: agrega 3 preguntas de fillblank sobre el pasado simple · quita la actividad de matching · cambia el tema a comida"
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void run(); }}
+          />
+          {err && <p className="text-xs text-red-500">{err}</p>}
+          <button type="button" onClick={() => void run()} disabled={working || !instruction.trim()}
+            className="w-fit rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            {working ? 'Trabajando…' : 'Aplicar cambio con IA'}
+          </button>
+          <p className="text-xs text-slate-400">La IA modifica la hoja completa y reemplaza el script. Revísalo antes de guardar.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -205,6 +261,7 @@ export function WorksheetEditor({
   const [aiSuccess, setAiSuccess] = useState('');
   const [promptCopied, setPromptCopied] = useState(false);
   const scriptTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const visualScriptRef = useRef<(() => string) | null>(null); // script serializado actual del builder visual
 
   const copyPrompt = async () => {
     try {
@@ -218,7 +275,11 @@ export function WorksheetEditor({
     const el = scriptTextareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    // Cap: el HTML de `content` puede ser enorme. Se limita a ~55% de la ventana y el textarea
+    // hace scroll interno, así el script (lo importante) no se pierde bajo el HTML (extra).
+    const cap = Math.round(window.innerHeight * 0.55);
+    el.style.height = `${Math.min(el.scrollHeight, cap)}px`;
+    el.style.overflowY = el.scrollHeight > cap ? 'auto' : 'hidden';
   }, [scriptDraft]);
 
   const buildVisualState = () => {
@@ -297,7 +358,10 @@ export function WorksheetEditor({
           ))}
         </div>
 
-        <button type="button" onClick={clearAll} className="w-fit text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
+        <div className="flex flex-wrap items-center gap-3">
+          {mode === 'visual' && <AskAiEdit getScript={() => visualScriptRef.current?.() ?? scriptDraft} onApply={(s) => { onScriptChange(s); setMode('script'); }} />}
+          <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
+        </div>
 
         {skippedWarning !== null && mode === 'visual' && (
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
@@ -308,7 +372,7 @@ export function WorksheetEditor({
 
         {mode === 'visual' && (
           <VisualWorksheetBuilder key={visualKey} initialState={visualState} maxAttemptsDraft={maxAttemptsDraft}
-            isSaving={isSaving} isEditing={isEditing} message={message} onMaxAttemptsChange={onMaxAttemptsChange} onSave={handleVisualSave} />
+            isSaving={isSaving} isEditing={isEditing} message={message} onMaxAttemptsChange={onMaxAttemptsChange} onSave={handleVisualSave} getScriptRef={visualScriptRef} />
         )}
 
         {mode === 'ai' && <AiPanel aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} isGenerating={isGenerating}
@@ -335,7 +399,10 @@ export function WorksheetEditor({
         ))}
       </div>
 
-      <button type="button" onClick={clearAll} className="w-fit text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <AskAiEdit getScript={() => scriptDraft} onApply={onScriptChange} />
+        <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
+      </div>
 
       <div className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">

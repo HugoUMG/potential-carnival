@@ -126,6 +126,7 @@ function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
           <div>Respuesta: <RichText text={answerText(detail.student_answer)} /></div>
           {detail.correct_answer !== null && <div>Correcta: <RichText text={answerText(detail.correct_answer)} /></div>}
           {detail.teacher_comment && <div className="mt-1 italic opacity-80">💬 {detail.teacher_comment}</div>}
+          {detail.graded_by && <div className="mt-1 text-xs text-slate-400" title="IA que calificó esta respuesta (solo tú lo ves)">✦ Calificado por {detail.graded_by}</div>}
         </div>
       ))}
     </div>

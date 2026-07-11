@@ -22,6 +22,7 @@ export interface DetalleRespuesta {
   correct_answer: unknown;
   status: EstadoDetalle;
   teacher_comment: string;
+  graded_by?: string | null; // qué IA/modelo calificó (solo lo ve el profesor)
 }
 
 interface BackendActivity {
@@ -623,6 +624,11 @@ export async function unassignReaderFromList(listId: string, readerId: string): 
 
 export async function listReadersForList(listId: string): Promise<UsuarioSesion[]> {
   return request<UsuarioSesion[]>(`/vocabulary/${listId}/readers`);
+}
+
+/** Pídele a la IA que modifique una hoja existente. Devuelve el script modificado + qué IA lo hizo. */
+export async function aiEditWorksheet(scriptContent: string, instruction: string): Promise<{ script: string; provider: string }> {
+  return request<{ script: string; provider: string }>('/worksheets/ai-edit', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, instruction }) });
 }
 
 export async function generateWorksheetWithAI(prompt: string, createdBy: string): Promise<Worksheet> {

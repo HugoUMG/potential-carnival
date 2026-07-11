@@ -141,6 +141,11 @@ class AiGenerateRequest(BaseModel):
     created_by: str
 
 
+class AiEditRequest(BaseModel):
+    script_content: str
+    instruction: str
+
+
 class AnswerReview(BaseModel):
     activity_id: str
     status: Literal["correct", "incorrect"]
@@ -156,6 +161,7 @@ class AnswerDetail(BaseModel):
     status: Literal["correct", "incorrect", "pending"]
     teacher_comment: str = ""
     context: str | None = None  # contexto para la IA (texto de lectura / diálogo); no se muestra al alumno
+    graded_by: str | None = None  # qué IA/modelo calificó (ej. "Groq · llama-3.3-70b"); solo lo ve el profesor
 
 
 class WorksheetResponseCreate(BaseModel):
