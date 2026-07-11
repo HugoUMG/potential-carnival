@@ -703,7 +703,7 @@ function SpeakingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
 
 // ── Tarjeta de actividad ──────────────────────────────────────────────────────
 
-function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+function TypeEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
   switch (act.type) {
     case 'fillblank':              return <FillBlankEditor act={act} onChange={onChange} />;
     case 'multiplechoice':         return <MultipleChoiceEditor act={act} onChange={onChange} />;
@@ -726,6 +726,22 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
     case 'speaking':               return <SpeakingEditor act={act} onChange={onChange} />;
     default:                       return null;
   }
+}
+
+function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  // Instrucciones por actividad (guía/pistas): todas las soportan en el DSL. `content` no las
+  // muestra al alumno, así que ahí se omite.
+  return (
+    <div className="grid gap-4">
+      {act.type !== 'content' && (
+        <label className="block">
+          <FieldLabel>Instrucciones (opcional) — pistas o información extra para el alumno</FieldLabel>
+          <TextInput value={act.instructions} onChange={(v) => onChange({ ...act, instructions: v })} placeholder="Ej: Usa la forma correcta del verbo en presente simple." />
+        </label>
+      )}
+      <TypeEditor act={act} onChange={onChange} />
+    </div>
+  );
 }
 
 function ActivityCard({ act, index, total, onUpdate, onRemove, onMove }: {
