@@ -87,6 +87,7 @@ export interface VisualState {
   title: string;
   description: string;
   theme: VisualTheme;
+  infoFields: string[]; // campos de identificación (info {}) a nivel de hoja: Nombre, Fecha…
   blocks: VisualBlock[];
 }
 
@@ -322,6 +323,13 @@ export function serializeToScript(state: VisualState): string {
     if (t.text_color.trim()) lines.push(`    text_color: "${esc(t.text_color)}"`);
     lines.push('  }');
   }
+  const infoFields = state.infoFields?.filter((f) => f.trim()) ?? [];
+  if (infoFields.length > 0) {
+    lines.push('  info {');
+    lines.push('    fields:');
+    infoFields.forEach((f) => lines.push(`    - ${f.trim()}`));
+    lines.push('  }');
+  }
   for (const block of state.blocks) {
     lines.push(...serializeBlock(block, '  '));
   }
@@ -424,5 +432,5 @@ export function emptyBlock(): VisualBlock {
 }
 
 export function emptyState(): VisualState {
-  return { title: '', description: '', theme: { primary_color: '', background_color: '', text_color: '' }, blocks: [{ ...emptyBlock(), title: 'Part 1' }] };
+  return { title: '', description: '', theme: { primary_color: '', background_color: '', text_color: '' }, infoFields: [], blocks: [{ ...emptyBlock(), title: 'Part 1' }] };
 }
