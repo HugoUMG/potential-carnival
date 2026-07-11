@@ -103,6 +103,20 @@ function answerText(value: unknown): string {
   return String(value);
 }
 
+/** Estado por actividad para el resaltado inline del modo práctica. matching/truefalse generan
+ *  varios detalles con id `actividadId:índice`; se agregan al id base (incorrecto > abierta > correcto). */
+function buildGradeStatus(details: DetalleRespuesta[]): Record<string, 'correct' | 'incorrect' | 'pending'> {
+  const map: Record<string, 'correct' | 'incorrect' | 'pending'> = {};
+  for (const d of details) {
+    const base = d.activity_id.split(':')[0];
+    if (map[base] === 'incorrect') continue;
+    if (d.status === 'incorrect') map[base] = 'incorrect';
+    else if (d.status === 'pending') map[base] = 'pending';
+    else if (map[base] !== 'pending') map[base] = 'correct';
+  }
+  return map;
+}
+
 function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
   return (
     <div className="mt-3 grid gap-2">
@@ -2034,7 +2048,7 @@ export default function App() {
                 </div>
               );
             })()}
-            <WorksheetRenderer worksheet={practiceWorksheet} answers={practiceAnswers} onAnswerChange={updatePracticeAnswer} />
+            <WorksheetRenderer worksheet={practiceWorksheet} answers={practiceAnswers} onAnswerChange={updatePracticeAnswer} gradeStatus={practiceResult ? buildGradeStatus(practiceResult.details) : undefined} />
           </div>
         </div>
       )}

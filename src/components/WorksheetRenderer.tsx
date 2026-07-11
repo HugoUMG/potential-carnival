@@ -3,19 +3,35 @@ import { activityRegistry } from './activityRegistry';
 import { RichText } from './RichText';
 import type { StudentAnswers, StudentAnswer, Worksheet, WorksheetActivity } from '../types';
 
+type GradeStatus = 'correct' | 'incorrect' | 'pending';
+
 interface WorksheetRendererProps {
   worksheet: Worksheet;
   answers: StudentAnswers;
   readonly?: boolean;
   onAnswerChange: (activityId: string, value: StudentAnswer) => void;
+  gradeStatus?: Record<string, GradeStatus>; // modo práctica: resalta cada actividad tras "Revisar"
 }
 
-function ActivityCard({ activity, answer, readonly, onAnswerChange, index }: {
+// Estilos de la tarjeta y del badge según el resultado (modo práctica).
+const GRADE_CARD: Record<GradeStatus, string> = {
+  correct: 'border-emerald-300 bg-emerald-50/50',
+  incorrect: 'border-red-300 bg-red-50/50',
+  pending: 'border-amber-300 bg-amber-50/50',
+};
+const GRADE_BADGE: Record<GradeStatus, { label: string; cls: string }> = {
+  correct: { label: '✓ Correcto', cls: 'bg-emerald-100 text-emerald-700' },
+  incorrect: { label: '✗ Incorrecto', cls: 'bg-red-100 text-red-700' },
+  pending: { label: '… Abierta', cls: 'bg-amber-100 text-amber-700' },
+};
+
+function ActivityCard({ activity, answer, readonly, onAnswerChange, index, status }: {
   activity: WorksheetActivity;
   answer?: StudentAnswer;
   readonly?: boolean;
   onAnswerChange: (activityId: string, value: StudentAnswer) => void;
   index: number;
+  status?: GradeStatus;
 }) {
   const definition = activityRegistry[activity.type];
   const Renderer = definition.Renderer as React.ComponentType<{
@@ -35,8 +51,9 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index }: {
     );
   }
 
+  const badge = status ? GRADE_BADGE[status] : null;
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:shadow-md">
+    <section className={`rounded-2xl border p-5 shadow-sm transition hover:shadow-md ${status ? GRADE_CARD[status] : 'border-slate-100 bg-white'}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-lg">{definition.icon}</span>
@@ -45,14 +62,16 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index }: {
             <h2 className="font-semibold text-slate-900">{definition.label}</h2>
           </div>
         </div>
-        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Interactiva</span>
+        {badge
+          ? <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badge.cls}`}>{badge.label}</span>
+          : <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Interactiva</span>}
       </div>
       <Renderer activity={activity} value={answer} readonly={readonly} onChange={onAnswerChange} />
     </section>
   );
 }
 
-export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange }: WorksheetRendererProps) {
+export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange, gradeStatus }: WorksheetRendererProps) {
   const completedCount = worksheet.activities.filter((activity) => Boolean(answers[activity.id])).length;
   const progress = worksheet.activities.length === 0 ? 0 : Math.round((completedCount / worksheet.activities.length) * 100);
   const blocks = worksheet.blocks?.length ? worksheet.blocks : [{ title: null, instructions: null, activities: worksheet.activities }];
@@ -121,6 +140,7 @@ export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange
                 readonly={readonly}
                 onAnswerChange={onAnswerChange}
                 index={activityIndex}
+                status={gradeStatus?.[activity.id]}
               />
             ))}
           </section>
