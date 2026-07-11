@@ -321,13 +321,14 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
   // Asigna cada selección a un nodo derecho DISTINTO no usado, así los valores repetidos
   // (ej. dos "past") se conectan a nodos diferentes en vez de solaparse en el primero.
   const rightToLeft = new Map<number, number>();
+  const leftToRight = new Map<number, number>(); // left index -> nodo derecho asignado (para la línea)
   const usedRightNodes = new Set<number>();
   leftItems.forEach((li, i) => {
     const rv = selections[li];
     if (rv == null) return;
     let j = rightItems.findIndex((v, idx) => v === rv && !usedRightNodes.has(idx));
     if (j < 0) j = rightItems.indexOf(rv);
-    if (j >= 0) { usedRightNodes.add(j); rightToLeft.set(j, i); }
+    if (j >= 0) { usedRightNodes.add(j); rightToLeft.set(j, i); leftToRight.set(i, j); }
   });
 
   function connect(li: number, rj: number) {
@@ -409,12 +410,11 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
       <div ref={containerRef} className="relative mt-4 select-none">
         <svg className="pointer-events-none absolute inset-0 h-full w-full" style={{ overflow: 'visible' }} aria-hidden>
           {leftItems.map((li, i) => {
-            const rv = selections[li];
-            if (rv == null) return null;
-            const j = rightItems.indexOf(rv);
+            const j = leftToRight.get(i); // mismo nodo que colorea rightToLeft → línea y color coinciden
+            if (j == null) return null;
             const a = pos.left[i];
             const b = pos.right[j];
-            if (j < 0 || !a || !b) return null;
+            if (!a || !b) return null;
             return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={colorForLeft(i)} strokeWidth={3} strokeLinecap="round" />;
           })}
           {drag && (() => {
