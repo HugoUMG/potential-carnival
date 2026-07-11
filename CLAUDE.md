@@ -501,6 +501,7 @@ GET    /tts/conversation?lines=...          — Audio de diálogo (voces m/f alt
 # Público / invitado (sin JWT)
 GET    /public/classrooms                    — Aulas públicas (selector de invitado)
 GET    /public/classrooms/{id}/worksheets    — Hojas del aula (invitado)
+GET    /public/worksheets/{id}               — Cargar hoja PUBLICADA por id (enlace directo, sin login/aula)
 POST   /public/guest-sessions                — Registrar acceso de invitado
 POST   /public/responses                     — Enviar respuestas como invitado
 GET    /public/responses?guest_token=...     — Respuestas del invitado (calificadas)
@@ -591,6 +592,7 @@ Los colores del tema se aplican via estilos inline desde `worksheet.theme`.
 | `/reader` | ReaderPortal | reader |
 | `/guest` | GuestPage | público (token) |
 | `/vocab` | VocabPublicPage | público |
+| `/w/:worksheetId` | DirectWorksheetPage | público (enlace directo) |
 
 ### `services/api.ts`
 Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Maneja el token JWT automáticamente (desde localStorage).
@@ -655,6 +657,7 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 
 ### Funciones recientes (rama `feat/student-ux`)
 - **Acceso de invitado** (`/guest`): el alumno entra con nombre + aula pública, sin cuenta. Es el flujo priorizado (ver memoria `usage-direction`). También portal `reader` y `/vocab` públicos.
+- **Enlace directo por hoja** (`/w/:worksheetId`, `DirectWorksheetPage`): la forma más simple de compartir una hoja. El profesor toca "Copiar enlace" (solo en hojas publicadas) y comparte la URL; el alumno entra **sin login, sin menú de invitado y sin pedir nombre** (el nombre lo captura el campo `info {}` de la propia hoja → `nameFromAnswers` toma el primer `_info_*`; si no hay, "Sin nombre"), resuelve y envía. Reusa `POST /public/responses` (identifica por `guest_token` aleatorio en localStorage; el backend bloquea el reenvío) y `GET /public/worksheets/{id}` (carga la hoja publicada por id, UUID no adivinable = URL-capability). Las respuestas llegan a la vista de respuestas del profesor como cualquier envío de invitado. Un flag `dw_done_{id}` en localStorage muestra "ya enviaste" al volver.
 - **Calificación por IA** (`ai.py`, Groq): toggle `ai_grading` por hoja. Las respuestas abiertas quedan `pending`; si el toggle está activo, la IA califica gramática/contenido con comentario en español (badge "✦ IA"). Además: generación de hojas por IA y resumen de desempeño.
 - **Speaking** con micrófono: transcripción vía Groq Whisper (fallback de texto).
 - **Animaciones de resultado de envío** (`submitAnimations.tsx`): al enviar se elige una **al azar** (cohete / pastelero / paracaidista). Umbral de éxito **≥ 70** (`PASS_THRESHOLD`). Efectos de sonido con **ZzFX** (sintetizado, sin archivos). Para añadir más: registrar en `SUBMIT_ANIMATIONS`.

@@ -776,6 +776,16 @@ def public_worksheets() -> list[Worksheet]:
     return repository.list_worksheets(published=True, archived=False)
 
 
+@app.get("/public/worksheets/{worksheet_id}", response_model=Worksheet)
+def public_worksheet(worksheet_id: str) -> Worksheet:
+    """Carga una hoja PUBLICADA por su id, sin autenticación — para enlaces directos que el
+    profesor comparte. El id es un UUID no adivinable (URL-capability). No requiere aula/login."""
+    worksheet = repository.get_worksheet(worksheet_id)
+    if not worksheet or worksheet.archived or not worksheet.published:
+        raise HTTPException(status_code=404, detail="Hoja de trabajo no disponible")
+    return worksheet
+
+
 @app.post("/public/responses", response_model=WorksheetResponse)
 def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
     """Envía respuestas como invitado. Identificación por guest_token (UUID en localStorage)."""

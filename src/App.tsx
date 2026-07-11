@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, LockKeyhole, LogOut, Pencil, Printer, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, Link2, LockKeyhole, LogOut, Pencil, Printer, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { RocketFueling, SubmitResult } from './components/submitAnimations';
@@ -1418,6 +1418,13 @@ export default function App() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700" onClick={() => togglePublished(worksheet)}>{worksheet.status === 'published' ? 'Deshabilitar' : 'Habilitar'}</button>
+                      {worksheet.status === 'published' && (
+                        <button
+                          className="rounded-2xl border border-sky-200 px-4 py-2 font-semibold text-sky-700"
+                          title="Copia un enlace directo: el alumno entra sin login ni menú, resuelve y envía"
+                          onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/w/${worksheet.id}`); setMessage('Enlace directo copiado. Compártelo con los alumnos — entran sin login y sus respuestas llegan a tus respuestas.'); }}
+                        ><Link2 className="mr-1 inline" size={16} /> Copiar enlace</button>
+                      )}
                       <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button>
                       <button
                         className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"

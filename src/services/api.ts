@@ -382,6 +382,17 @@ export async function practiceGrade(worksheetId: string, answers: StudentAnswers
   return request<ResultadoPractica>(`/worksheets/${worksheetId}/practice`, { method: 'POST', body: JSON.stringify({ answers_json: answers }) });
 }
 
+/** Enlace directo: carga una hoja publicada por id, sin login. */
+export async function getPublicWorksheet(worksheetId: string): Promise<Worksheet> {
+  const data = await request<BackendWorksheet>(`/public/worksheets/${worksheetId}`);
+  return normalizeWorksheet(data);
+}
+
+/** Enlace directo: envía respuestas como invitado (sin aula/login). Identifica por guest_token. */
+export async function submitDirectResponse(worksheetId: string, studentName: string, guestToken: string, answers: StudentAnswers): Promise<RespuestaEstudiante> {
+  return request<RespuestaEstudiante>('/public/responses', { method: 'POST', body: JSON.stringify({ worksheet_id: worksheetId, student_name: studentName, guest_token: guestToken, answers_json: answers }) });
+}
+
 export async function listStudentResponses(studentId: string): Promise<RespuestaEstudiante[]> {
   return request<RespuestaEstudiante[]>(`/students/${studentId}/responses`);
 }
