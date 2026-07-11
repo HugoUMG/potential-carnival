@@ -337,24 +337,25 @@ def _call_gemini(prompt: str) -> str:
 _ai_lock = threading.Lock()
 
 
-def _ai_call(system: str, user: str, prefer_fast: bool = False) -> str:
-    """Llama a la IA, serializado y con reintentos ante errores transitorios.
-    prefer_fast=True usa Groq primero (mucho más rápido) y Gemini como respaldo —
-    ideal para calificar. Por defecto usa Gemini primero (mejor para generar hojas)."""
+_GEMINI_MODEL = "gemini-3.5-flash"
+
+
+def _ai_call(system: str, user: str, prefer_fast: bool = False) -> tuple[str, str]:
+    """Llama a la IA (serializado, con reintentos). Devuelve (texto, etiqueta_del_proveedor)
+    para poder mostrar qué IA/modelo respondió. prefer_fast=True usa Groq primero (más rápido,
+    ideal para calificar); por defecto Gemini primero (mejor para generar)."""
     gemini_key = os.getenv("GEMINI_API_KEY", "")
-
-    def _gemini() -> str:
-        return _call_gemini(f"{system}\n\n{user}")
-
-    providers = ([_call_groq, _gemini] if prefer_fast else [_gemini, _call_groq])
+    providers = (["groq", "gemini"] if prefer_fast else ["gemini", "groq"])
     last_error: Exception | None = None
     with _ai_lock:
         for attempt in range(2):
-            for provider in providers:
-                if provider is _gemini and not gemini_key:
+            for name in providers:
+                if name == "gemini" and not gemini_key:
                     continue
                 try:
-                    return provider(system, user) if provider is _call_groq else provider()
+                    if name == "groq":
+                        return _call_groq(system, user), f"Groq · {_GROQ_MODEL}"
+                    return _call_gemini(f"{system}\n\n{user}"), f"Gemini · {_GEMINI_MODEL}"
                 except Exception as exc:
                     last_error = exc
             if attempt == 0:
@@ -363,18 +364,35 @@ def _ai_call(system: str, user: str, prefer_fast: bool = False) -> str:
 
 
 # ── Worksheet generation ───────────────────────────────────────────────────────
-def generate_worksheet_script(prompt: str) -> str:
-    raw = _ai_call(_WORKSHEET_SYSTEM, prompt)
-    # Strip markdown fences if the model added them despite instructions
+def _clean_script(raw: str) -> str:
     if raw.startswith("```"):
         lines = raw.splitlines()
         raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     raw = raw.strip()
-    # If the model forgot the outer wrapper, add a minimal one so the parser
-    # doesn't crash with "Falta el bloque requerido worksheet".
+    # Si el modelo olvidó el envoltorio, se agrega uno mínimo (evita "Falta el bloque worksheet").
     if not raw.startswith("worksheet"):
         raw = f"worksheet {{\n{raw}\n}}"
     return raw
+
+
+def generate_worksheet_script(prompt: str) -> tuple[str, str]:
+    """Devuelve (script, etiqueta_del_proveedor)."""
+    raw, provider = _ai_call(_WORKSHEET_SYSTEM, prompt)
+    return _clean_script(raw), provider
+
+
+def edit_worksheet_script(current_script: str, instruction: str) -> tuple[str, str]:
+    """Modifica una hoja existente según la instrucción (agregar/quitar/cambiar actividades).
+    Devuelve (script_modificado, etiqueta_del_proveedor)."""
+    user = (
+        "Esta es la hoja de trabajo actual (WorksheetScript):\n\n"
+        f"{current_script}\n\n"
+        f"Aplica este cambio pedido por el profesor: {instruction}\n\n"
+        "Devuelve la hoja COMPLETA modificada como un WorksheetScript válido (worksheet {...}). "
+        "Conserva todo lo que no se pidió cambiar. No expliques nada, solo el script."
+    )
+    raw, provider = _ai_call(_WORKSHEET_SYSTEM, user)
+    return _clean_script(raw), provider
 
 
 # ── AI grading ─────────────────────────────────────────────────────────────────
@@ -414,7 +432,7 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
     )
 
     try:
-        raw = _ai_call(_GRADE_SYSTEM, user_prompt, prefer_fast=True)
+        raw, provider = _ai_call(_GRADE_SYSTEM, user_prompt, prefer_fast=True)
         raw = raw.strip()
         # Strip markdown code fences if present
         if raw.startswith("```"):
@@ -431,6 +449,7 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
         grade = grades_by_id.get(d.activity_id)
         if not grade:
             continue
+        d.graded_by = provider  # qué IA/modelo calificó (lo ve solo el profesor)
         original_status = d.status
         ai_status = grade.get("status", d.status)
         # Only allow AI to change status for fillblank/listeningfillblank and pending
@@ -477,7 +496,8 @@ def summarize_worksheet_performance(worksheet_title: str, activities: list[dict]
         f"Estadísticas por actividad:\n{json.dumps(activities, ensure_ascii=False, indent=2)}"
     )
     try:
-        return _ai_call(_SUMMARY_SYSTEM, user_prompt, prefer_fast=True).strip()
+        text, _ = _ai_call(_SUMMARY_SYSTEM, user_prompt, prefer_fast=True)
+        return text.strip()
     except Exception:
         return ""
 
