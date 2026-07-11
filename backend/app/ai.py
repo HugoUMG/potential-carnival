@@ -242,6 +242,13 @@ _GRADE_SYSTEM = """You are an English language teacher assistant grading student
 You will receive a JSON list of activities that NEED evaluation. Answers already auto-graded as
 correct are NOT sent to you — do not worry about them and do not invent entries for them.
 
+CONTEXT: some activities include a "context" field (the reading passage, the heard dialogue, or
+the audio). When present, the student's answer is a response TO that context — read it first and
+judge whether the answer is correct GIVEN that passage/dialogue. A reading question (type
+"reading") is answered based on its "context" text; grade whether the answer correctly reflects
+the passage, not as an isolated sentence. NEVER mark correct answers wrong for lacking context you
+were given: use the "context" field. Each reading question is a separate item with its own id.
+
 GRADING RULES:
 1. fillblank/listeningfillblank marked "incorrect": check carefully if the student answer is
    semantically equivalent or has only a minor typo, accent, or capitalization difference. If the
@@ -388,14 +395,18 @@ def ai_grade_activities(details: list[Any], worksheet_title: str) -> list[Any]:
 
     activities_payload = []
     for d in to_grade:
-        activities_payload.append({
+        item = {
             "id": d.activity_id,
             "type": d.activity_type,
             "prompt": d.prompt,
             "correct_answer": _serialize(d.correct_answer),
             "student_answer": _serialize(d.student_answer),
             "auto_status": d.status,
-        })
+        }
+        # Contexto (texto de lectura / diálogo / audio) para juzgar bien respuestas que dependen de él.
+        if getattr(d, "context", None):
+            item["context"] = d.context
+        activities_payload.append(item)
 
     user_prompt = (
         f'Worksheet: "{worksheet_title}"\n\n'
