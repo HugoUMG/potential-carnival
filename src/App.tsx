@@ -424,14 +424,17 @@ export default function App() {
     setAdminMenu('crear');
   }
 
-  async function saveScript() {
+  async function saveScript(scriptOverride?: string) {
     if (!user) return;
+    // scriptOverride: lo pasa el modo visual con el DSL recién serializado (evita el closure viejo de scriptDraft).
+    const script = scriptOverride ?? scriptDraft;
+    if (scriptOverride != null) setScriptDraft(scriptOverride);
     setIsSaving(true);
     setMessage('');
     try {
       const maxAttempts = maxAttemptsDraft === 'unlimited' ? null : Number(maxAttemptsDraft);
       if (editingWorksheetId) {
-        const worksheet = await updateWorksheet(editingWorksheetId, scriptDraft, maxAttempts, aiGradingDraft);
+        const worksheet = await updateWorksheet(editingWorksheetId, script, maxAttempts, aiGradingDraft);
         setActiveWorksheet(worksheet);
         setWorksheets((current) => current.map((item) => (item.id === worksheet.id ? worksheet : item)));
         setSelectedActivityId(worksheet.activities[0]?.id ?? '');
@@ -440,7 +443,7 @@ export default function App() {
         setMessage('Evaluación actualizada.');
         setPreviewWorksheet(worksheet); // vista previa de cómo la verá el estudiante
       } else {
-        const worksheet = await createWorksheet(scriptDraft, user.id, maxAttempts, aiGradingDraft);
+        const worksheet = await createWorksheet(script, user.id, maxAttempts, aiGradingDraft);
         setActiveWorksheet(worksheet);
         setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== sampleWorksheet.id)]);
         setSelectedActivityId(worksheet.activities[0]?.id ?? '');

@@ -317,11 +317,17 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
     return () => { ro.disconnect(); window.removeEventListener('resize', measure); clearTimeout(t); };
   }, [measure]);
 
-  // right index -> left index (para pintar el lado derecho del color de su izquierdo)
+  // right index -> left index (para pintar el lado derecho del color de su izquierdo).
+  // Asigna cada selección a un nodo derecho DISTINTO no usado, así los valores repetidos
+  // (ej. dos "past") se conectan a nodos diferentes en vez de solaparse en el primero.
   const rightToLeft = new Map<number, number>();
+  const usedRightNodes = new Set<number>();
   leftItems.forEach((li, i) => {
     const rv = selections[li];
-    if (rv != null) { const j = rightItems.indexOf(rv); if (j >= 0) rightToLeft.set(j, i); }
+    if (rv == null) return;
+    let j = rightItems.findIndex((v, idx) => v === rv && !usedRightNodes.has(idx));
+    if (j < 0) j = rightItems.indexOf(rv);
+    if (j >= 0) { usedRightNodes.add(j); rightToLeft.set(j, i); }
   });
 
   function connect(li: number, rj: number) {
@@ -329,7 +335,8 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
     const lv = leftItems[li];
     const rv = rightItems[rj];
     const next: Record<string, string> = { ...selections };
-    for (const k of Object.keys(next)) if (next[k] === rv && k !== lv) delete next[k]; // uno-a-uno
+    // NO se deduplica por valor: varias izquierdas pueden usar el mismo valor cuando la
+    // derecha lo repite (ej. "yesterday" y "last week" → "past"). Cada izquierda guarda su valor.
     next[lv] = rv;
     onChange(activity.id, next);
     setActiveLeft(null);

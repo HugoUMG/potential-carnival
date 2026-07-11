@@ -1042,6 +1042,24 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             continue  # bloque informativo: no se responde ni califica (no entra al score)
         student_answer = answers.get(activity.id)
         prompt = activity.text or activity.question or activity.prompt or activity.title or activity.type
+        if activity.type == "reading":
+            # Un detalle POR PREGUNTA con el texto de lectura como contexto para la IA.
+            # (Sin preguntas = texto de referencia: no se califica.)
+            if not activity.questions:
+                continue
+            ans = student_answer if isinstance(student_answer, dict) else {}
+            passage = activity.content or ""
+            for index, question in enumerate(activity.questions):
+                details.append(AnswerDetail(
+                    activity_id=f"{activity.id}:{index}",
+                    activity_type="reading",
+                    prompt=question,
+                    student_answer=ans.get(str(index), ans.get(index)),
+                    correct_answer=None,
+                    status="pending",
+                    context=f"Texto de lectura sobre el que se responde: «{passage}»",
+                ))
+            continue
         if activity.type in {"fillblank", "dragdrop"} and activity.answer:
             correct_answers = _resolve_correct_answers(activity.answer)
             student_answers = student_answer if isinstance(student_answer, list) else [student_answer]
@@ -1149,7 +1167,13 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
                 # Modo pregunta abierta: la IA evalúa la transcripción (pendiente).
                 details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending"))
             continue
-        details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending"))
+        # Contexto extra para respuestas abiertas que dependen de algo previo (diálogo/audio).
+        context = None
+        if activity.type == "conversation" and activity.lines:
+            context = "Diálogo escuchado: " + " ".join(f"{ln.get('speaker', '')}: {ln.get('text', '')}" for ln in activity.lines)
+        elif getattr(activity, "audio_text", None):
+            context = f"Audio escuchado: «{activity.audio_text}»"
+        details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending", context=context))
     return details
 
 

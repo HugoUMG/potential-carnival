@@ -188,7 +188,7 @@ interface WorksheetEditorProps {
   onScriptChange: (script: string) => void;
   onMaxAttemptsChange: (value: string) => void;
   onAiGradingChange: (value: boolean) => void;
-  onSaveScript: () => void;
+  onSaveScript: (script?: string) => void;
 }
 
 type EditorMode = 'script' | 'visual' | 'ai';
@@ -229,7 +229,16 @@ export function WorksheetEditor({
     return state;
   };
 
-  const [visualState] = useState(() => buildVisualState());
+  const [visualState, setVisualState] = useState(() => buildVisualState());
+  const [visualKey, setVisualKey] = useState(0); // remonta el builder al "empezar de cero"
+
+  const clearAll = () => {
+    if (!confirm('¿Empezar de cero? Se limpiará el contenido actual del editor (no afecta lo ya guardado).')) return;
+    onScriptChange('');
+    setVisualState(emptyState());
+    setVisualKey((k) => k + 1);
+    setSkippedWarning(null);
+  };
 
   const switchToVisual = () => {
     const hasUnsavedScript = scriptDraft.trim() && scriptDraft !== worksheet.scriptContent;
@@ -242,7 +251,7 @@ export function WorksheetEditor({
 
   const handleVisualSave = (script: string) => {
     onScriptChange(script);
-    setTimeout(onSaveScript, 0);
+    onSaveScript(script); // pasa el DSL serializado directo (sin esperar al estado)
   };
 
   const handleGenerate = async () => {
@@ -288,6 +297,8 @@ export function WorksheetEditor({
           ))}
         </div>
 
+        <button type="button" onClick={clearAll} className="w-fit text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
+
         {skippedWarning !== null && mode === 'visual' && (
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
             <span>⚠ {skippedWarning} actividad{skippedWarning !== 1 ? 's' : ''} no se importaron al modo visual.</span>
@@ -296,7 +307,7 @@ export function WorksheetEditor({
         )}
 
         {mode === 'visual' && (
-          <VisualWorksheetBuilder initialState={visualState} maxAttemptsDraft={maxAttemptsDraft}
+          <VisualWorksheetBuilder key={visualKey} initialState={visualState} maxAttemptsDraft={maxAttemptsDraft}
             isSaving={isSaving} isEditing={isEditing} message={message} onMaxAttemptsChange={onMaxAttemptsChange} onSave={handleVisualSave} />
         )}
 
@@ -323,6 +334,8 @@ export function WorksheetEditor({
           </button>
         ))}
       </div>
+
+      <button type="button" onClick={clearAll} className="w-fit text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
 
       <div className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -399,7 +412,7 @@ export function WorksheetEditor({
             className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             disabled={isSaving}
-            onClick={onSaveScript}
+            onClick={() => onSaveScript()}
           >
             <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar evaluación'}
           </button>

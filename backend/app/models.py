@@ -155,6 +155,7 @@ class AnswerDetail(BaseModel):
     correct_answer: Any = None
     status: Literal["correct", "incorrect", "pending"]
     teacher_comment: str = ""
+    context: str | None = None  # contexto para la IA (texto de lectura / diálogo); no se muestra al alumno
 
 
 class WorksheetResponseCreate(BaseModel):
