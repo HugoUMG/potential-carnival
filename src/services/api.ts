@@ -576,6 +576,11 @@ export async function listVocabularyLists(): Promise<VocabularyList[]> {
   return request<VocabularyList[]>('/vocabulary');
 }
 
+/** Enlace directo de vocabulario: carga una lista por id, sin login. */
+export async function getPublicVocabulary(listId: string): Promise<VocabularyList> {
+  return request<VocabularyList>(`/public/vocabulary/${listId}`);
+}
+
 export async function deleteVocabularyList(listId: string): Promise<void> {
   await request<void>(`/vocabulary/${listId}`, { method: 'DELETE' });
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Printer } from 'lucide-react';
+import { ChevronDown, ChevronUp, Printer, Link2 } from 'lucide-react';
 import type { VocabularyItem, VocabularyList, VocabularyWordType } from '../types';
 import { TtsButton } from './AudioPlayer';
 import { RichText } from './RichText';
@@ -385,6 +385,13 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
                     onClick={() => setPrintList(list)}
                   >
                     <Printer size={15} /> Imprimir PDF
+                  </button>
+                  <button
+                    className="flex items-center gap-1.5 rounded-2xl border border-sky-200 px-3 py-2 text-sm font-semibold text-sky-700"
+                    title="Copia un enlace directo: se ve sin login ni menú, solo este vocabulario"
+                    onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/v/${list.id}`); setMessage('Enlace del vocabulario copiado. Compártelo — se abre sin login, solo esa lista.'); }}
+                  >
+                    <Link2 size={15} /> Copiar enlace
                   </button>
                   <button
                     className="rounded-2xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600"

@@ -8,6 +8,7 @@ import { ReaderPortal } from './pages/ReaderPortal';
 import { VocabPublicPage } from './pages/VocabPublicPage';
 import { GuestPage } from './pages/GuestPage';
 import { DirectWorksheetPage } from './pages/DirectWorksheetPage';
+import { VocabDirectPage } from './pages/VocabDirectPage';
 import { getCurrentSession } from './services/api';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 
@@ -70,6 +71,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/vocab" element={<VocabPublicPage />} />
         <Route path="/guest" element={<GuestPage />} />
         <Route path="/w/:worksheetId" element={<DirectWorksheetPage />} />
+        <Route path="/v/:vocabId" element={<VocabDirectPage />} />
         <Route path="/" element={<RootRedirect />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
