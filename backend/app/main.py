@@ -908,6 +908,16 @@ def guest_detail(guest_token: str, classroom_id: str, _: PublicUser = Depends(re
 
 # ── Vocabulario público (sin autenticación) ───────────────────────────────────
 
+@app.get("/public/vocabulary/{list_id}", response_model=VocabularyList)
+def public_vocabulary(list_id: str) -> VocabularyList:
+    """Carga una lista de vocabulario por id, sin login — para enlaces directos que el profesor
+    comparte. El id es un UUID no adivinable (URL-capability). No requiere aula/login/reader."""
+    vocab = repository.get_vocabulary_list(list_id)
+    if not vocab:
+        raise HTTPException(status_code=404, detail="Vocabulario no disponible")
+    return vocab
+
+
 @app.get("/public/readers-vocabulary")
 def public_readers_vocabulary() -> list[dict]:
     """Devuelve todos los readers con sus listas de vocabulario. No requiere autenticación."""
