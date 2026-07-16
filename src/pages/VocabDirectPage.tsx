@@ -32,7 +32,7 @@ export function VocabDirectPage() {
 
   if (error || !list) {
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-50 p-6 text-center">
+      <main className="grid min-h-screen place-items-center bg-cream p-6 text-center">
         <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
           <p className="text-4xl">🔒</p>
           <h1 className="mt-3 text-lg font-bold text-slate-900">Vocabulario no disponible</h1>
@@ -43,7 +43,7 @@ export function VocabDirectPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 py-8 text-slate-900">
+    <main className="min-h-screen bg-cream py-8 text-ink">
       <div className="mx-auto max-w-5xl px-4">
         <VocabularyViewer lists={[list]} />
       </div>

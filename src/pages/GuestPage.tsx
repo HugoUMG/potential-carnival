@@ -3,8 +3,8 @@ import { BookOpen, Check, Send, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { RichText } from '../components/RichText';
-import { RocketFueling, SubmitResult } from '../components/submitAnimations';
-import { LoadingScreen, Spinner } from '../components/LoadingScreen';
+import { SubmitResult } from '../components/submitAnimations';
+import { LoadingScreen, LoadingOverlay, Spinner } from '../components/LoadingScreen';
 import type { RespuestaEstudiante } from '../services/api';
 import { normalizeWorksheet } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
@@ -136,10 +136,10 @@ function NameEntry({ onEnter }: { onEnter: (name: string, classroom: PublicClass
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+    <main className="min-h-screen bg-cream flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-xl text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-violet-100">
-          <User className="text-violet-600" size={26} />
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rex-light">
+          <User className="text-rex" size={26} />
         </div>
         <h1 className="text-2xl font-extrabold text-slate-900">Acceso invitado</h1>
         <p className="mt-1 text-sm text-slate-500">Selecciona tu clase y escribe tu nombre.</p>
@@ -155,7 +155,7 @@ function NameEntry({ onEnter }: { onEnter: (name: string, classroom: PublicClass
             <button
               key={c.id}
               type="button"
-              className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors ${selectedClassroom?.id === c.id ? 'border-violet-500 bg-violet-50 text-violet-800' : 'border-slate-200 text-slate-700 hover:border-violet-300 hover:bg-violet-50'}`}
+              className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors ${selectedClassroom?.id === c.id ? 'border-rex bg-rex-light text-rex-deep' : 'border-slate-200 text-slate-700 hover:border-rex hover:bg-rex-light'}`}
               onClick={() => setSelectedClassroom(c)}
             >
               {c.name}
@@ -168,14 +168,14 @@ function NameEntry({ onEnter }: { onEnter: (name: string, classroom: PublicClass
           <>
             <input
               ref={inputRef}
-              className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
+              className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-rex focus:ring-4 focus:ring-rex/20"
               placeholder="Tu nombre completo"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
             />
             <button
-              className="mt-3 w-full rounded-2xl bg-violet-600 px-5 py-3 font-bold text-white hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              className="mt-3 w-full rounded-2xl bg-rex px-5 py-3 font-bold text-white hover:bg-rex-dark disabled:opacity-50 transition-colors"
               disabled={name.trim().length < 2}
               onClick={submit}
             >
@@ -273,8 +273,8 @@ export function GuestPage() {
   const isActiveCurrent = activeWorksheet ? !answeredIds.has(activeWorksheet.id) : false;
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      {isSubmitting && <RocketFueling />}
+    <main className="min-h-screen bg-cream text-ink">
+      {isSubmitting && <LoadingOverlay message="Calificando tus respuestas…" />}
       {/* Navbar */}
       <nav className="border-b border-slate-200 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
@@ -286,7 +286,7 @@ export function GuestPage() {
             {(['activas', 'calificadas'] as const).map((t) => (
               <button
                 key={t}
-                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${tab === t ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${tab === t ? 'bg-rex text-white' : 'text-slate-600 hover:bg-slate-100'}`}
                 onClick={() => setTab(t)}
               >
                 {t === 'activas' ? 'Activas' : 'Calificadas'}
@@ -311,10 +311,10 @@ export function GuestPage() {
               {activeWorksheets.map((ws) => (
                 <button
                   key={ws.id}
-                  className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet?.id === ws.id ? 'border-violet-500 bg-violet-50' : 'border-slate-100 hover:border-slate-300'}`}
+                  className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet?.id === ws.id ? 'border-rex bg-rex-light' : 'border-slate-100 hover:border-slate-300'}`}
                   onClick={() => { setActiveWorksheet(ws); setError(''); }}
                 >
-                  <BookOpen className="mb-2 text-violet-600" size={20} />
+                  <BookOpen className="mb-2 text-rex" size={20} />
                   <strong className="block">{ws.title}</strong>
                   <p className="text-sm text-slate-500"><RichText text={ws.description} /></p>
                 </button>
@@ -332,7 +332,7 @@ export function GuestPage() {
             {activeWorksheet && isActiveCurrent && (
               <div className="mx-auto mt-6 flex max-w-4xl justify-end">
                 <button
-                  className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white disabled:opacity-60 hover:bg-emerald-600 transition-colors"
+                  className="rounded-2xl bg-rex px-6 py-3 font-semibold text-white disabled:opacity-60 hover:bg-rex-dark transition-colors"
                   disabled={isSubmitting}
                   onClick={() => void sendAnswers()}
                 >
@@ -388,7 +388,7 @@ export function GuestPage() {
                     <span className="rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700">Aciertos: {resp.correct_count}</span>
                     <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">Fallos: {incorrect}</span>
                     {resp.pending_count > 0 && <span className="rounded-xl bg-amber-50 px-3 py-1 text-amber-700">Pendientes: {resp.pending_count}</span>}
-                    {resp.score !== null && <span className="rounded-xl bg-blue-50 px-3 py-1 text-blue-700">Nota: {resp.score}</span>}
+                    {resp.score !== null && <span className="rounded-xl bg-rex-light px-3 py-1 text-rex-deep">Nota: {resp.score}</span>}
                   </div>
                   <div className="mt-5 grid gap-3">
                     {resp.details.map((d) => (

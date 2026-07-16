@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, Link2, LockKeyhole, LogOut, Pencil, Printer, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
-import { RocketFueling, SubmitResult } from './components/submitAnimations';
-import { LoadingScreen } from './components/LoadingScreen';
+import { SubmitResult } from './components/submitAnimations';
+import { LoadingScreen, LoadingOverlay } from './components/LoadingScreen';
 import { WorksheetPrint } from './components/WorksheetPrint';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
@@ -135,9 +135,9 @@ function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
 
 const FEED_META: Record<ActivityEvent['tipo'], { label: string; icon: typeof Bell; color: string }> = {
   nota: { label: 'Nueva entrega', icon: Check, color: 'text-emerald-600 bg-emerald-50' },
-  ingreso_alumno: { label: 'Ingreso de alumno', icon: GraduationCap, color: 'text-blue-600 bg-blue-50' },
+  ingreso_alumno: { label: 'Ingreso de alumno', icon: GraduationCap, color: 'text-rex bg-rex-light' },
   ingreso_invitado: { label: 'Ingreso de invitado', icon: Users, color: 'text-amber-600 bg-amber-50' },
-  ingreso_lector: { label: 'Ingreso de lector', icon: UserCircle, color: 'text-violet-600 bg-violet-50' },
+  ingreso_lector: { label: 'Ingreso de lector', icon: UserCircle, color: 'text-spike bg-spike/10' },
 };
 
 function timeAgo(iso: string): string {
@@ -874,14 +874,23 @@ export default function App() {
     }
 
     return (
-      <main className="min-h-screen bg-slate-50 text-slate-900">
-        {isSubmitting && <RocketFueling />}
+      <main className="min-h-screen bg-cream text-ink">
+        {isSubmitting && <LoadingOverlay message="Calificando tus respuestas…" />}
         {/* Navbar */}
-        <nav className="border-b border-slate-200 bg-white/85">
+        <nav className="border-b border-rex/15 bg-white/85">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-            <div>
-              <h1 className="text-xl font-bold">Portal del estudiante</h1>
-              <p className="text-sm text-slate-500">Hola, {user.name} (@{user.username})</p>
+            <div className="flex items-center gap-3">
+              <img
+                src="/mascot/rex-wave.png"
+                alt=""
+                aria-hidden
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                className="h-11 w-11 shrink-0 object-contain"
+              />
+              <div>
+                <h1 className="whitespace-nowrap text-xl font-black tracking-tight">Dino<span className="text-rex">English</span> <span className="text-spike">Studio</span></h1>
+                <p className="text-sm text-ink/60">Hola, {user.name} (@{user.username})</p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               {/* Tabs en navbar */}
@@ -904,7 +913,7 @@ export default function App() {
             {(['activas', 'calificadas', 'vocabulario', 'perfil'] as const).map((tab) => (
               <button
                 key={tab}
-                className={`flex-1 py-2 text-sm font-semibold transition-colors ${studentTab === tab ? 'border-b-2 border-blue-500 text-blue-600' : 'text-slate-500'}`}
+                className={`flex-1 py-2 text-sm font-semibold transition-colors ${studentTab === tab ? 'border-b-2 border-rex text-rex' : 'text-slate-500'}`}
                 onClick={() => setStudentTab(tab)}
               >
                 {tab === 'activas' ? 'Activas' : tab === 'calificadas' ? 'Calif.' : tab === 'vocabulario' ? 'Vocab.' : 'Perfil'}
@@ -925,8 +934,8 @@ export default function App() {
                 {activeWorksheets.map((worksheet) => {
                   const response = responseByWorksheet.get(worksheet.id);
                   return (
-                    <button key={worksheet.id} className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet.id === worksheet.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => { setActiveWorksheet(worksheet); setMessage(''); }}>
-                      <BookOpen className="mb-2 text-blue-600" size={20} />
+                    <button key={worksheet.id} className={`rounded-2xl border p-4 text-left transition-colors ${activeWorksheet.id === worksheet.id ? 'border-rex bg-rex-light' : 'border-slate-100 hover:border-slate-300'}`} onClick={() => { setActiveWorksheet(worksheet); setMessage(''); }}>
+                      <BookOpen className="mb-2 text-rex" size={20} />
                       <strong className="block">{worksheet.title}</strong>
                       <p className="text-sm text-slate-500"><RichText text={worksheet.description} /></p>
                       {worksheet.dueDate && (() => {
@@ -936,7 +945,7 @@ export default function App() {
                         const diffH = Math.ceil(diffMs / 3600000);
                         const isPast = diffMs < 0;
                         const label = isPast ? 'Vencida' : diffH <= 24 ? `Vence en ${diffH}h` : `Vence ${due.toLocaleDateString()}`;
-                        return <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ${isPast ? 'bg-red-100 text-red-700' : diffH <= 24 ? 'bg-amber-100 text-amber-700' : 'bg-blue-50 text-blue-600'}`}>{label}</span>;
+                        return <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ${isPast ? 'bg-red-100 text-red-700' : diffH <= 24 ? 'bg-amber-100 text-amber-700' : 'bg-rex-light text-rex'}`}>{label}</span>;
                       })()}
                       <p className="mt-2 text-xs font-semibold">{response ? `Nota: ${response.score ?? 'pendiente'} · Aciertos: ${response.correct_count}` : 'Sin responder'}</p>
                     </button>
@@ -952,7 +961,7 @@ export default function App() {
                   <h2 className="text-xl font-extrabold">Selecciona una evaluación activa de la lista.</h2>
                 </div>
               )}
-              {message && !submitResult && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-blue-50 p-3 text-sm font-semibold text-blue-700">{message}</p>}
+              {message && !submitResult && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-rex-light p-3 text-sm font-semibold text-rex-deep">{message}</p>}
               {activeWorksheets.length > 0 && isActiveWorksheetPublished && (
                 <div className="mx-auto mt-6 flex max-w-4xl justify-end">
                   <button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white disabled:opacity-60" disabled={isSubmitting} onClick={sendAnswers}>
@@ -996,7 +1005,7 @@ export default function App() {
                       <span className="rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700">Aciertos: {resp.correct_count}</span>
                       <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">Fallos: {resp.details.filter((d) => d.status === 'incorrect').length}</span>
                       {resp.pending_count > 0 && <span className="rounded-xl bg-amber-50 px-3 py-1 text-amber-700">Pendientes: {resp.pending_count}</span>}
-                      {resp.score !== null && <span className="rounded-xl bg-blue-50 px-3 py-1 text-blue-700">Nota: {resp.score}</span>}
+                      {resp.score !== null && <span className="rounded-xl bg-rex-light px-3 py-1 text-rex-deep">Nota: {resp.score}</span>}
                     </div>
                     <div className="mt-5">
                       {activeWorksheet.status !== 'published' && (
@@ -1078,7 +1087,7 @@ export default function App() {
                 <input className="rounded-2xl border p-3 text-sm" type="password" placeholder="Nueva contraseña" value={passwordForm.next} onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))} />
                 <input className="rounded-2xl border p-3 text-sm" type="password" placeholder="Confirmar nueva contraseña" value={passwordForm.confirm} onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))} />
                 {passwordMsg && <p className={`rounded-2xl p-3 text-sm font-semibold ${passwordMsg.includes('correctamente') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{passwordMsg}</p>}
-                <button className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700" onClick={handleChangePassword}>
+                <button className="rounded-2xl bg-rex px-5 py-3 font-semibold text-white hover:bg-rex-dark" onClick={handleChangePassword}>
                   <LockKeyhole className="mr-2 inline" size={16} /> Actualizar contraseña
                 </button>
               </div>
@@ -1113,12 +1122,21 @@ export default function App() {
   const pagedWorksheets = filteredWorksheets.slice((wsPage - 1) * WS_PAGE_SIZE, wsPage * WS_PAGE_SIZE);
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <nav className="border-b border-slate-200 bg-white/85">
+    <main className="min-h-screen bg-cream text-ink">
+      <nav className="border-b border-rex/15 bg-white/85">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <div>
-            <h1 className="text-xl font-bold">Panel del profesor</h1>
-            <p className="text-sm text-slate-500">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p>
+          <div className="flex items-center gap-3">
+            <img
+              src="/mascot/rex-wave.png"
+              alt=""
+              aria-hidden
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              className="h-11 w-11 shrink-0 object-contain"
+            />
+            <div>
+              <h1 className="whitespace-nowrap text-xl font-black tracking-tight">Dino<span className="text-rex">English</span> <span className="text-spike">Studio</span></h1>
+              <p className="text-sm text-ink/60">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {([
@@ -1130,7 +1148,7 @@ export default function App() {
                 key={id}
                 type="button"
                 onClick={() => handleSelectMenu(id)}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${adminMenu === id ? 'bg-blue-600 text-white shadow-sm' : 'border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${adminMenu === id ? 'bg-rex text-white shadow-sm' : 'border border-slate-200 text-slate-600 hover:border-rex/40 hover:text-rex-deep'}`}
               >
                 <Icon size={16} /> {label}
               </button>
@@ -1140,7 +1158,7 @@ export default function App() {
                 type="button"
                 onClick={toggleBell}
                 title="Notificaciones"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:border-blue-300 hover:text-blue-700"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:border-rex/40 hover:text-rex-deep"
               >
                 <Bell size={18} />
                 {feed.filter((e) => e.ts > bellSeen).length > 0 && (
@@ -1197,7 +1215,7 @@ export default function App() {
         <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} notificationCount={notificationCount} onSelectMenu={handleSelectMenu} onLogout={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }} />
         {adminMenu === 'dashboard' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Dashboard</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-rex">Dashboard</p>
             <h2 className="text-2xl font-bold">Resumen del profesor</h2>
             {(() => {
               const correct = teacherStats?.total_correct ?? 0;
@@ -1206,9 +1224,9 @@ export default function App() {
               const accuracy = graded ? Math.round((correct / graded) * 100) : 0;
               return (
                 <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl bg-blue-50 p-5"><p className="text-sm text-blue-700">Total de estudiantes</p><strong className="text-4xl">{teacherStats?.total_students ?? students.length}</strong></div>
+                  <div className="rounded-2xl bg-rex-light p-5"><p className="text-sm text-rex-deep">Total de estudiantes</p><strong className="text-4xl">{teacherStats?.total_students ?? students.length}</strong></div>
                   <div className="rounded-2xl bg-emerald-50 p-5"><p className="text-sm text-emerald-700">Hojas activas</p><strong className="text-4xl">{teacherStats?.active_worksheets ?? publishedCount}</strong></div>
-                  <div className="rounded-2xl bg-violet-50 p-5"><p className="text-sm text-violet-700">Respuestas recibidas</p><strong className="text-4xl">{teacherStats?.total_responses ?? 0}</strong></div>
+                  <div className="rounded-2xl bg-spike/10 p-5"><p className="text-sm text-spike-dark">Respuestas recibidas</p><strong className="text-4xl">{teacherStats?.total_responses ?? 0}</strong></div>
                   <div className="rounded-2xl bg-amber-50 p-5"><p className="text-sm text-amber-700">% de acierto global</p><strong className="text-4xl">{accuracy}%</strong></div>
                 </div>
               );
@@ -1227,7 +1245,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => openWorksheetResponsesById(w.worksheet_id)}
-                          className="text-left font-semibold text-slate-900 hover:text-blue-700 hover:underline"
+                          className="text-left font-semibold text-slate-900 hover:text-rex-deep hover:underline"
                           title="Ver respuestas de esta hoja"
                         >
                           {w.worksheet_title}
@@ -1236,13 +1254,13 @@ export default function App() {
                           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">{w.responses} {w.responses === 1 ? 'respuesta' : 'respuestas'}</span>
                           <span className="font-bold text-emerald-700">✓ {w.correct}</span>
                           <span className="font-bold text-red-600">✗ {w.incorrect}</span>
-                          <span className="font-bold text-blue-700">{w.average_score}%</span>
+                          <span className="font-bold text-rex-deep">{w.average_score}%</span>
                           {w.responses > 0 && (
                             <button
                               type="button"
                               onClick={() => void loadSummary(w.worksheet_id)}
                               disabled={summaryLoading === w.worksheet_id}
-                              className="rounded-full border border-violet-300 px-3 py-1 text-xs font-bold text-violet-700 transition hover:bg-violet-50 disabled:opacity-60"
+                              className="rounded-full border border-spike/40 px-3 py-1 text-xs font-bold text-spike-dark transition hover:bg-spike/10 disabled:opacity-60"
                             >
                               {summaryLoading === w.worksheet_id ? 'Analizando…' : '✦ Resumen IA'}
                             </button>
@@ -1256,8 +1274,8 @@ export default function App() {
                         </div>
                       )}
                       {summaryByWs[w.worksheet_id] && (
-                        <div className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 p-4">
-                          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-violet-700">✦ Resumen de desempeño (IA)</p>
+                        <div className="mt-3 rounded-2xl border border-spike/30 bg-spike/10 p-4">
+                          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-spike-dark">✦ Resumen de desempeño (IA)</p>
                           <p className="whitespace-pre-line text-sm leading-6 text-slate-700">{summaryByWs[w.worksheet_id]}</p>
                         </div>
                       )}
@@ -1285,7 +1303,7 @@ export default function App() {
                   {(teacherStats?.students_per_classroom ?? []).map((item) => (
                     <div key={item.classroom_name}>
                       <div className="mb-1 flex justify-between text-sm"><span>{item.classroom_name}</span><strong>{item.student_count}</strong></div>
-                      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, item.student_count * 10)}%` }} /></div>
+                      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-rex" style={{ width: `${Math.min(100, item.student_count * 10)}%` }} /></div>
                     </div>
                   ))}
                   {!(teacherStats?.students_per_classroom?.length) && <p className="text-sm text-slate-500">Crea aulas para ver esta gráfica.</p>}
@@ -1297,15 +1315,15 @@ export default function App() {
         {adminMenu === 'aulas' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <div><p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Aulas</p><h2 className="text-2xl font-bold">Gestión de aulas</h2></div>
-              <div className="flex gap-2"><input className="rounded-2xl border p-3" placeholder="Nombre del aula" value={classroomName} onChange={(e) => setClassroomName(e.target.value)} /><button className="rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white" onClick={createNewClassroom}>Crear aula</button></div>
+              <div><p className="text-sm font-semibold uppercase tracking-wide text-rex">Aulas</p><h2 className="text-2xl font-bold">Gestión de aulas</h2></div>
+              <div className="flex gap-2"><input className="rounded-2xl border p-3" placeholder="Nombre del aula" value={classroomName} onChange={(e) => setClassroomName(e.target.value)} /><button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={createNewClassroom}>Crear aula</button></div>
             </div>
-            {message && <p className="mt-4 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}
+            {message && <p className="mt-4 rounded-2xl bg-rex-light p-3 text-rex-deep">{message}</p>}
             <div className="mt-5 grid gap-5 lg:grid-cols-[280px_1fr]">
               <aside className="grid content-start gap-2">
                 {classrooms.map((classroom) => (
-                  <div key={classroom.id} className={`flex items-center justify-between rounded-2xl border ${activeClassroomId === classroom.id ? 'border-blue-500 bg-blue-50' : 'border-slate-100'}`}>
-                    <button className={`flex-1 p-3 text-left font-semibold ${activeClassroomId === classroom.id ? 'text-blue-700' : ''}`} onClick={() => setActiveClassroomId(classroom.id)}>{classroom.name}</button>
+                  <div key={classroom.id} className={`flex items-center justify-between rounded-2xl border ${activeClassroomId === classroom.id ? 'border-rex bg-rex-light' : 'border-slate-100'}`}>
+                    <button className={`flex-1 p-3 text-left font-semibold ${activeClassroomId === classroom.id ? 'text-rex-deep' : ''}`} onClick={() => setActiveClassroomId(classroom.id)}>{classroom.name}</button>
                     <button className="mr-2 rounded-xl border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50" onClick={() => void deleteClassroomHandler(classroom.id, classroom.name)} title="Eliminar aula">✕</button>
                   </div>
                 ))}
@@ -1332,7 +1350,7 @@ export default function App() {
                       </div>
                       <h5 className="mt-4 text-sm font-bold">Asignar estudiante</h5>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {students.filter((student) => !classroomDetail.students.some((assigned) => assigned.id === student.id)).map((student) => <button key={student.id} className="rounded-xl border border-blue-200 px-3 py-2 text-sm font-semibold text-blue-700" onClick={() => assignStudentFromClassroom(student.id)}>{student.name}</button>)}
+                        {students.filter((student) => !classroomDetail.students.some((assigned) => assigned.id === student.id)).map((student) => <button key={student.id} className="rounded-xl border border-rex/30 px-3 py-2 text-sm font-semibold text-rex-deep" onClick={() => assignStudentFromClassroom(student.id)}>{student.name}</button>)}
                       </div>
                     </div>
                     <div>
@@ -1357,8 +1375,8 @@ export default function App() {
               <input className="rounded-2xl border p-3" placeholder="Usuario" value={studentForm.username} onChange={(e) => setStudentForm({ ...studentForm, username: e.target.value })} />
               <input className="rounded-2xl border p-3" placeholder="Contraseña" value={studentForm.password} onChange={(e) => setStudentForm({ ...studentForm, password: e.target.value })} />
             </div>
-            <button className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white" onClick={createNewStudent}>Guardar estudiante</button>
-            {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}
+            <button className="mt-4 rounded-2xl bg-rex px-5 py-3 font-semibold text-white" onClick={createNewStudent}>Guardar estudiante</button>
+            {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-rex-deep">{message}</p>}
             <h3 className="mt-6 font-bold">Estudiantes</h3>
             <div className="mt-3 grid gap-2">
               {students.map((student) => (
@@ -1369,7 +1387,7 @@ export default function App() {
                       <option value="">Asignar a aula...</option>
                       {classrooms.map((classroom) => <option key={classroom.id} value={classroom.id}>{classroom.name}</option>)}
                     </select>
-                    <button className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700" type="button" onClick={() => assignStudentFromClassroom(student.id, studentClassroomSelection[student.id])}>Asignar</button>
+                    <button className="rounded-xl border border-rex/30 bg-white px-3 py-2 text-sm font-semibold text-rex-deep" type="button" onClick={() => assignStudentFromClassroom(student.id, studentClassroomSelection[student.id])}>Asignar</button>
                     <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeStudent(student)}><Trash2 className="mr-1 inline" size={15} /> Eliminar</button>
                   </div>
                 </div>
@@ -1381,22 +1399,22 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Evaluaciones guardadas</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-rex">Evaluaciones guardadas</p>
                 <h2 className="text-2xl font-bold">Base de datos</h2>
               </div>
-              <button className="rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white" onClick={() => { setEditingWorksheetId(null); setScriptDraft(''); setMaxAttemptsDraft('unlimited'); setAiGradingDraft(true); setMessage(''); setAdminMenu('crear'); }}>Nueva evaluación</button>
+              <button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={() => { setEditingWorksheetId(null); setScriptDraft(''); setMaxAttemptsDraft('unlimited'); setAiGradingDraft(true); setMessage(''); setAdminMenu('crear'); }}>Nueva evaluación</button>
             </div>
             {/* Search */}
             <div className="mt-4 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
-                className="w-full rounded-2xl border border-slate-200 py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full rounded-2xl border border-slate-200 py-2.5 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-rex/40"
                 placeholder="Buscar por título o descripción..."
                 value={wsSearch}
                 onChange={(e) => { setWsSearch(e.target.value); setWsPage(1); }}
               />
             </div>
-            {message && <p className="mt-4 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}
+            {message && <p className="mt-4 rounded-2xl bg-rex-light p-3 text-rex-deep">{message}</p>}
             <div className="mt-5 grid gap-4">
               {pagedWorksheets.map((worksheet) => (
                 <article key={worksheet.id} className="rounded-2xl border border-slate-100 p-4">
@@ -1410,7 +1428,7 @@ export default function App() {
                         })()}
                         <span className={`rounded-full px-3 py-1 text-xs font-bold ${worksheet.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{worksheet.status === 'published' ? 'Habilitada' : 'Borrador'}</span>
                         {(responseCounts[worksheet.id] ?? 0) > 0 ? (
-                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
+                          <span className="rounded-full bg-rex-light px-3 py-1 text-xs font-bold text-rex-deep">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
                         ) : (
                           <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Sin respuestas</span>
                         )}
@@ -1421,26 +1439,26 @@ export default function App() {
                       <p className="mt-1 text-xs font-semibold text-emerald-700">Aulas: {worksheetClassrooms[worksheet.id]?.map((classroom) => classroom.name).join(', ') || 'Sin asignar'}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700" onClick={() => togglePublished(worksheet)}>{worksheet.status === 'published' ? 'Deshabilitar' : 'Habilitar'}</button>
+                      <button className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep" onClick={() => togglePublished(worksheet)}>{worksheet.status === 'published' ? 'Deshabilitar' : 'Habilitar'}</button>
                       {worksheet.status === 'published' && (
                         <button
-                          className="rounded-2xl border border-sky-200 px-4 py-2 font-semibold text-sky-700"
+                          className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep"
                           title="Copia un enlace directo: el alumno entra sin login ni menú, resuelve y envía"
                           onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/w/${worksheet.id}`); setMessage('Enlace directo copiado. Compártelo con los alumnos — entran sin login y sus respuestas llegan a tus respuestas.'); }}
                         ><Link2 className="mr-1 inline" size={16} /> Copiar enlace</button>
                       )}
                       <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button>
                       <button
-                        className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={(responseCounts[worksheet.id] ?? 0) > 0}
                         title={(responseCounts[worksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas. Duplícala.' : 'Editar esta evaluación'}
                         onClick={() => startEditWorksheet(worksheet)}
                       ><Pencil className="mr-1 inline" size={16} /> Editar</button>
-                      <button className="rounded-2xl border border-indigo-200 px-4 py-2 font-semibold text-indigo-700" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button>
-                      <button className="rounded-2xl border border-teal-200 px-4 py-2 font-semibold text-teal-700" onClick={() => openPractice(worksheet)} title="Resuelve la hoja tú mismo para revisar las respuestas (no se guarda nada)"><GraduationCap className="mr-1 inline" size={16} /> Modo práctica</button>
+                      <button className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button>
+                      <button className="rounded-2xl border border-spike/30 px-4 py-2 font-semibold text-spike-dark" onClick={() => openPractice(worksheet)} title="Resuelve la hoja tú mismo para revisar las respuestas (no se guarda nada)"><GraduationCap className="mr-1 inline" size={16} /> Modo práctica</button>
                       <button className="rounded-2xl border border-slate-300 px-4 py-2 font-semibold text-slate-700" onClick={() => setPrintWorksheet(worksheet)}><Printer className="mr-1 inline" size={16} /> Imprimir PDF</button>
                       <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700" onClick={() => openAssignWorksheetModal(worksheet)}>Asignar a aula</button>
-                      <button className="rounded-2xl border border-violet-200 px-4 py-2 font-semibold text-violet-700 disabled:opacity-50" disabled={isDuplicating === worksheet.id} onClick={() => handleDuplicateWorksheet(worksheet)}><Copy className="mr-1 inline" size={16} />{isDuplicating === worksheet.id ? 'Duplicando...' : 'Duplicar'}</button>
+                      <button className="rounded-2xl border border-spike/30 px-4 py-2 font-semibold text-spike-dark disabled:opacity-50" disabled={isDuplicating === worksheet.id} onClick={() => handleDuplicateWorksheet(worksheet)}><Copy className="mr-1 inline" size={16} />{isDuplicating === worksheet.id ? 'Duplicando...' : 'Duplicar'}</button>
                       <button className="rounded-2xl border border-amber-200 px-4 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}><Archive className="mr-1 inline" size={16} /> Archivar</button>
                       <button className="rounded-2xl border border-red-200 px-4 py-2 font-semibold text-red-600" onClick={() => removeWorksheet(worksheet)}><Trash2 className="mr-1 inline" size={16} /> Borrar</button>
                     </div>
@@ -1474,7 +1492,7 @@ export default function App() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">Archivada</span>
                         {(responseCounts[worksheet.id] ?? 0) > 0 ? (
-                          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
+                          <span className="rounded-full bg-rex-light px-3 py-1 text-xs font-bold text-rex-deep">{responseCounts[worksheet.id]} {responseCounts[worksheet.id] === 1 ? 'respuesta' : 'respuestas'}</span>
                         ) : (
                           <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-500">Sin respuestas</span>
                         )}
@@ -1505,8 +1523,8 @@ export default function App() {
               <input className="rounded-2xl border p-3" placeholder="Contraseña" value={teacherForm.password} onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })} />
               <input className="rounded-2xl border p-3" placeholder="Correo opcional" value={teacherForm.email} onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })} />
             </div>
-            <button className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white" onClick={createNewTeacher}>Guardar profesor</button>
-            {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-blue-700">{message}</p>}
+            <button className="mt-4 rounded-2xl bg-rex px-5 py-3 font-semibold text-white" onClick={createNewTeacher}>Guardar profesor</button>
+            {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-rex-deep">{message}</p>}
             <h3 className="mt-6 font-bold">Profesores y administradores</h3>
             <div className="mt-3 grid gap-2">
               {teachers.map((teacher) => (
@@ -1522,7 +1540,7 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Sesiones</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-rex">Sesiones</p>
                 <h2 className="text-2xl font-bold">Actividad de estudiantes</h2>
               </div>
               <button
@@ -1593,7 +1611,7 @@ export default function App() {
         )}
         {adminMenu === 'lectores' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">Acceso especial</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-rex">Acceso especial</p>
             <h2 className="text-2xl font-bold">Lectores de vocabulario</h2>
             <p className="mt-1 text-sm text-slate-500">Los lectores solo pueden ver el módulo de vocabulario. <strong>Su contraseña no puede ser modificada.</strong></p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -1601,16 +1619,16 @@ export default function App() {
               <input className="rounded-2xl border p-3 text-sm" placeholder="Usuario" value={readerForm.username} onChange={(e) => setReaderForm({ ...readerForm, username: e.target.value })} />
               <input className="rounded-2xl border p-3 text-sm" placeholder="Contraseña" value={readerForm.password} onChange={(e) => setReaderForm({ ...readerForm, password: e.target.value })} />
             </div>
-            <button className="mt-4 rounded-2xl bg-teal-600 px-5 py-3 font-semibold text-white hover:bg-teal-700" onClick={createNewReader}>Crear lector</button>
-            {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm text-blue-700">{message}</p>}
+            <button className="mt-4 rounded-2xl bg-rex px-5 py-3 font-semibold text-white hover:bg-rex-dark" onClick={createNewReader}>Crear lector</button>
+            {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-sm text-rex-deep">{message}</p>}
             <h3 className="mt-6 font-bold">Lectores existentes</h3>
             <div className="mt-3 grid gap-2">
               {readers.map((reader) => (
-                <div key={reader.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-teal-50 p-3">
+                <div key={reader.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-rex-light p-3">
                   <div>
                     <span className="font-semibold">{reader.name}</span>
                     <span className="ml-2 text-sm text-slate-500">@{reader.username}</span>
-                    <span className="ml-2 rounded-full bg-teal-100 px-2 py-0.5 text-xs font-semibold text-teal-700">Lector</span>
+                    <span className="ml-2 rounded-full bg-rex-light px-2 py-0.5 text-xs font-semibold text-rex-deep">Lector</span>
                   </div>
                   <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" onClick={() => removeReader(reader)}>
                     <Trash2 className="mr-1 inline" size={14} /> Eliminar
@@ -1621,7 +1639,7 @@ export default function App() {
             </div>
 
             <div className="mt-8">
-              <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">Actividad</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-rex">Actividad</p>
               <h3 className="text-xl font-bold">Registro de sesiones de lectores</h3>
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1638,7 +1656,7 @@ export default function App() {
                         <td className="py-3 pr-4 font-semibold">{log.reader_name}</td>
                         <td className="py-3 pr-4 text-slate-600">{new Date(log.last_accessed_at).toLocaleString()}</td>
                         <td className="py-3">
-                          <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">{log.visit_count}×</span>
+                          <span className="rounded-full bg-rex-light px-2.5 py-1 text-xs font-bold text-rex-deep">{log.visit_count}×</span>
                         </td>
                       </tr>
                     ))}
@@ -1678,7 +1696,7 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Revisión</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-rex">Revisión</p>
                 <h2 className="text-2xl font-bold">Hojas de trabajo</h2>
               </div>
               <button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('revision-counts') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar conteos" disabled={refreshCooldowns.has('revision-counts')} onClick={() => withCooldown('revision-counts', () => loadResponseCounts())}><RefreshCw size={16} /></button>
@@ -1693,7 +1711,7 @@ export default function App() {
                   <button
                     key={worksheet.id}
                     type="button"
-                    className={`flex items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/40 ${hasNew ? 'border-red-300 bg-red-50/40' : 'border-slate-100'}`}
+                    className={`flex items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-colors hover:border-rex/40 hover:bg-rex-light/40 ${hasNew ? 'border-red-300 bg-red-50/40' : 'border-slate-100'}`}
                     onClick={() => loadWorksheetResponses(worksheet)}
                   >
                     <div className="min-w-0">
@@ -1707,7 +1725,7 @@ export default function App() {
                       <p className="mt-1 truncate text-sm text-slate-500"><RichText text={worksheet.description} /></p>
                     </div>
                     <div className="shrink-0 text-center">
-                      <p className={`text-3xl font-bold ${hasNew ? 'text-red-600' : count > 0 ? 'text-blue-600' : 'text-slate-300'}`}>{count}</p>
+                      <p className={`text-3xl font-bold ${hasNew ? 'text-red-600' : count > 0 ? 'text-rex' : 'text-slate-300'}`}>{count}</p>
                       <p className="text-xs text-slate-400">{count === 1 ? 'respuesta' : 'respuestas'}</p>
                     </div>
                   </button>
@@ -1727,7 +1745,7 @@ export default function App() {
                   <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700 text-sm" type="button" onClick={exportResponsesCsv}><Download className="mr-1 inline" size={15} /> Exportar CSV</button>
                 )}
                 <button
-                  className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 text-sm"
+                  className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep text-sm"
                   type="button"
                   title="Editar esta hoja de trabajo"
                   onClick={() => startEditWorksheet(activeWorksheet)}
@@ -1751,7 +1769,7 @@ export default function App() {
                       type="button"
                       onClick={() => { setSelectedResponseId(r.id); markResponseSeen(r.id); }}
                       title={isNew ? 'Respuesta nueva sin revisar' : undefined}
-                      className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${active ? 'bg-blue-600 text-white shadow-sm' : isNew ? 'border border-red-300 bg-red-50 text-red-700 hover:bg-red-100' : 'border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
+                      className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${active ? 'bg-rex text-white shadow-sm' : isNew ? 'border border-red-300 bg-red-50 text-red-700 hover:bg-red-100' : 'border border-slate-200 text-slate-600 hover:border-rex/40 hover:text-rex-deep'}`}
                     >
                       {isNew && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white">!</span>}
                       {r.student_name}
@@ -1798,7 +1816,7 @@ export default function App() {
                         <div className="flex items-start justify-between gap-2">
                           <strong className="text-sm"><RichText text={detail.prompt} /></strong>
                           {hasAiComment && (
-                            <span className="shrink-0 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">✦ IA</span>
+                            <span className="shrink-0 rounded-full bg-spike/15 px-2 py-0.5 text-xs font-bold text-spike-dark">✦ IA</span>
                           )}
                         </div>
                         <p className="text-sm">Respuesta: <RichText text={answerText(detail.student_answer)} /></p>
@@ -1834,7 +1852,7 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             {!selectedGuest ? (
               <>
-                <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Invitados</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-spike">Invitados</p>
                 <h2 className="text-2xl font-bold">Seguimiento de invitados</h2>
                 <p className="mt-1 text-sm text-slate-500">Cada invitado se identifica por aula + nombre. Haz clic para ver su progreso y respuestas.</p>
                 <div className="mt-5 grid gap-3">
@@ -1843,11 +1861,11 @@ export default function App() {
                       key={`${log.guest_token}-${log.classroom_id}`}
                       type="button"
                       onClick={() => void openGuest(log)}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 p-4 text-left transition-colors hover:border-violet-300 hover:bg-violet-50/40"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 p-4 text-left transition-colors hover:border-spike/40 hover:bg-spike/10/40"
                     >
                       <div>
                         <h3 className="text-lg font-bold">{log.name}</h3>
-                        <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{log.classroom_name}</span>
+                        <span className="rounded-full bg-spike/10 px-3 py-1 text-xs font-semibold text-spike-dark">{log.classroom_name}</span>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-slate-500">
                         <span>Último acceso: {new Date(log.last_accessed_at).toLocaleString()}</span>
@@ -1864,7 +1882,7 @@ export default function App() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="text-2xl font-bold">{selectedGuest.name}</h2>
-                    <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{selectedGuest.classroom_name}</span>
+                    <span className="rounded-full bg-spike/10 px-3 py-1 text-xs font-semibold text-spike-dark">{selectedGuest.classroom_name}</span>
                   </div>
                   <div className="grid gap-1 text-right text-sm text-slate-500">
                     <span>Última sesión: {new Date(selectedGuest.last_accessed_at).toLocaleString()}</span>
@@ -1901,7 +1919,7 @@ export default function App() {
                                 <p className="text-xs text-slate-500">Enviada: {new Date(response.submitted_at).toLocaleString()}</p>
                               </div>
                               <div className="flex items-center gap-3 text-sm">
-                                <span className="font-bold text-blue-700">{response.score ?? '—'}%</span>
+                                <span className="font-bold text-rex-deep">{response.score ?? '—'}%</span>
                                 <span className="font-bold text-emerald-700">✓ {response.correct_count}</span>
                                 {response.pending_count > 0 && <span className="font-bold text-amber-600">⏳ {response.pending_count}</span>}
                                 <ChevronRight size={16} className={`transition-transform ${expandedResponseId === response.id ? 'rotate-90' : ''}`} />
@@ -1965,7 +1983,7 @@ export default function App() {
               <div><h2 className="text-xl font-bold">Asignar a aula</h2><p className="text-sm text-slate-500">{assignmentWorksheet.title}</p></div>
               <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setAssignmentWorksheet(null)}>Cancelar</button>
             </div>
-            <label className="mt-4 flex items-center gap-2 rounded-2xl bg-blue-50 p-3 font-semibold text-blue-700">
+            <label className="mt-4 flex items-center gap-2 rounded-2xl bg-rex-light p-3 font-semibold text-rex-deep">
               <input type="checkbox" checked={classrooms.length > 0 && selectedAssignmentClassrooms.length === classrooms.length} onChange={(e) => setSelectedAssignmentClassrooms(e.target.checked ? classrooms.map((classroom) => classroom.id) : [])} />
               Todas las aulas
             </label>
@@ -2009,12 +2027,12 @@ export default function App() {
               <h2 className="text-xl font-bold">Vista previa: {previewWorksheet.title}</h2>
               <div className="flex gap-2">
                 <button
-                  className="rounded-2xl border border-blue-200 px-4 py-2 font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={(responseCounts[previewWorksheet.id] ?? 0) > 0}
                   title={(responseCounts[previewWorksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas.' : 'Editar esta evaluación'}
                   onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); startEditWorksheet(w); }}
                 ><Pencil className="mr-1 inline" size={16} /> Editar</button>
-                <button className="rounded-2xl border border-teal-200 px-4 py-2 font-semibold text-teal-700" onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); openPractice(w); }} title="Resuélvela tú mismo para revisar las respuestas"><GraduationCap className="mr-1 inline" size={16} /> Modo práctica</button>
+                <button className="rounded-2xl border border-spike/30 px-4 py-2 font-semibold text-spike-dark" onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); openPractice(w); }} title="Resuélvela tú mismo para revisar las respuestas"><GraduationCap className="mr-1 inline" size={16} /> Modo práctica</button>
                 <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPreviewWorksheet(null)}>Cerrar</button>
               </div>
             </div>
@@ -2027,20 +2045,20 @@ export default function App() {
         <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6">
           <div className="mx-auto max-w-5xl rounded-3xl bg-slate-50 p-5 shadow-2xl">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-xl font-bold"><GraduationCap className="mr-1 inline text-teal-600" size={20} /> Modo práctica: {practiceWorksheet.title}</h2>
+              <h2 className="text-xl font-bold"><GraduationCap className="mr-1 inline text-spike" size={20} /> Modo práctica: {practiceWorksheet.title}</h2>
               <div className="flex gap-2">
-                <button className="rounded-2xl bg-teal-600 px-4 py-2 font-semibold text-white disabled:opacity-50" disabled={practiceLoading} onClick={() => void runPractice()}>{practiceLoading ? 'Revisando...' : 'Revisar respuestas'}</button>
+                <button className="rounded-2xl bg-spike px-4 py-2 font-semibold text-white disabled:opacity-50" disabled={practiceLoading} onClick={() => void runPractice()}>{practiceLoading ? 'Revisando...' : 'Revisar respuestas'}</button>
                 <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => { setPracticeAnswers({}); setPracticeResult(null); }}>Reiniciar</button>
                 <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPracticeWorksheet(null)}>Cerrar</button>
               </div>
             </div>
-            <p className="mb-4 rounded-xl bg-teal-50 px-4 py-2 text-sm text-teal-800">Estás resolviendo la hoja como un alumno para verificar las respuestas. <b>Nada se guarda</b> — es solo para revisar tu clave de respuestas.</p>
+            <p className="mb-4 rounded-xl bg-spike/10 px-4 py-2 text-sm text-spike-dark">Estás resolviendo la hoja como un alumno para verificar las respuestas. <b>Nada se guarda</b> — es solo para revisar tu clave de respuestas.</p>
             {practiceResult && (() => {
               const incorrect = practiceResult.details.filter((d) => d.status === 'incorrect').length;
               return (
-                <div className="mb-4 rounded-2xl border border-teal-200 bg-white p-4">
+                <div className="mb-4 rounded-2xl border border-spike/30 bg-white p-4">
                   <p className="text-lg font-bold text-slate-800">
-                    Puntaje: <span className="text-teal-700">{practiceResult.score ?? 0}</span>
+                    Puntaje: <span className="text-spike-dark">{practiceResult.score ?? 0}</span>
                     <span className="ml-3 text-sm font-semibold text-emerald-700">✓ {practiceResult.correct_count} correctas</span>
                     <span className="ml-3 text-sm font-semibold text-red-600">✗ {incorrect} incorrectas</span>
                     {practiceResult.pending_count > 0 && <span className="ml-3 text-sm font-semibold text-amber-600">… {practiceResult.pending_count} abiertas (las califica IA/profesor)</span>}

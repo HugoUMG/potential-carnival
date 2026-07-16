@@ -14,10 +14,10 @@ Tipo de preguntas: <abiertas / cerradas / mixtas>
 worksheet {
   title: "Título"
   description: "Descripción.\\nPuede tener saltos de línea con \\n"
-  theme {                      # opcional
-    primary_color: "#2563EB"
-    background_color: "#EFF6FF"
-    text_color: "#1E3A8A"
+  theme {                      # opcional (paleta DinoEnglish Studio por defecto)
+    primary_color: "#84B84C"
+    background_color: "#F6F4E9"
+    text_color: "#3D5E24"
   }
   info {                       # opcional: campos NO calificables (Nombre, Grupo...)
     fields:

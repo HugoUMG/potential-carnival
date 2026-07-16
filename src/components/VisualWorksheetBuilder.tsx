@@ -28,20 +28,20 @@ const VISUAL_TYPES: VisualActivityType[] = [
 ];
 
 const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
-  fillblank:              { label: 'Fill in the Blank',        icon: <AlignLeft size={14} />,    color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
-  multiplechoice:         { label: 'Multiple Choice',          icon: <CheckSquare size={14} />,  color: 'text-violet-700',  bg: 'bg-violet-50 border-violet-200' },
-  multiselect:            { label: 'Multi-Select',             icon: <ListChecks size={14} />,   color: 'text-sky-700',     bg: 'bg-sky-50 border-sky-200' },
+  fillblank:              { label: 'Fill in the Blank',        icon: <AlignLeft size={14} />,    color: 'text-rex-deep',    bg: 'bg-rex-light border-rex-light' },
+  multiplechoice:         { label: 'Multiple Choice',          icon: <CheckSquare size={14} />,  color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
+  multiselect:            { label: 'Multi-Select',             icon: <ListChecks size={14} />,   color: 'text-rex-deep',     bg: 'bg-rex-light border-rex-light' },
   dragdrop:               { label: 'Drag & Drop',              icon: <Move size={14} />,         color: 'text-pink-700',    bg: 'bg-pink-50 border-pink-200' },
   matching:               { label: 'Matching',                 icon: <Columns2 size={14} />,     color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
   textbox:                { label: 'Open Answer',              icon: <List size={14} />,         color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200' },
   truefalse:              { label: 'True / False',             icon: <ToggleLeft size={14} />,   color: 'text-rose-700',    bg: 'bg-rose-50 border-rose-200' },
-  listening:              { label: 'Listening',                icon: <Volume2 size={14} />,      color: 'text-cyan-700',    bg: 'bg-cyan-50 border-cyan-200' },
+  listening:              { label: 'Listening',                icon: <Volume2 size={14} />,      color: 'text-rex-deep',    bg: 'bg-rex-light border-rex-light' },
   listeningfillblank:     { label: 'Listening + Fill Blank',   icon: <Headphones size={14} />,   color: 'text-teal-700',    bg: 'bg-teal-50 border-teal-200' },
-  listeningmultiplechoice:{ label: 'Listening + MC',           icon: <Headphones size={14} />,   color: 'text-indigo-700',  bg: 'bg-indigo-50 border-indigo-200' },
-  listeningmatching:      { label: 'Listening + Matching',     icon: <Headphones size={14} />,   color: 'text-purple-700',  bg: 'bg-purple-50 border-purple-200' },
-  listeningtruefalse:     { label: 'Listening + True/False',   icon: <Headphones size={14} />,   color: 'text-fuchsia-700', bg: 'bg-fuchsia-50 border-fuchsia-200' },
-  listeningorder:         { label: 'Listening + Ordenar',      icon: <Headphones size={14} />,   color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
-  conversation:           { label: 'Conversación (2 voces)',   icon: <MessagesSquare size={14} />, color: 'text-sky-700',   bg: 'bg-sky-50 border-sky-200' },
+  listeningmultiplechoice:{ label: 'Listening + MC',           icon: <Headphones size={14} />,   color: 'text-rex-deep',  bg: 'bg-rex-light border-rex-light' },
+  listeningmatching:      { label: 'Listening + Matching',     icon: <Headphones size={14} />,   color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
+  listeningtruefalse:     { label: 'Listening + True/False',   icon: <Headphones size={14} />,   color: 'text-spike-dark', bg: 'bg-spike/10 border-spike/30' },
+  listeningorder:         { label: 'Listening + Ordenar',      icon: <Headphones size={14} />,   color: 'text-rex-deep',    bg: 'bg-rex-light border-rex-light' },
+  conversation:           { label: 'Conversación (2 voces)',   icon: <MessagesSquare size={14} />, color: 'text-rex-deep',   bg: 'bg-rex-light border-rex-light' },
   reading:                { label: 'Reading',                  icon: <BookOpen size={14} />,     color: 'text-lime-700',    bg: 'bg-lime-50 border-lime-200' },
   readingtruefalse:       { label: 'Reading + True/False',     icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
   imagequestion:          { label: 'Image Question',           icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
@@ -209,7 +209,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 function TextInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <input
-      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
@@ -220,7 +220,7 @@ function TextInput({ value, onChange, placeholder }: { value: string; onChange: 
 function TextArea({ value, onChange, rows = 3, placeholder }: { value: string; onChange: (v: string) => void; rows?: number; placeholder?: string }) {
   return (
     <textarea
-      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
       rows={rows}
       value={value}
       placeholder={placeholder}
@@ -231,7 +231,7 @@ function TextArea({ value, onChange, rows = 3, placeholder }: { value: string; o
 
 function AudioField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <label className="block rounded-xl bg-cyan-50 border border-cyan-200 p-3">
+    <label className="block rounded-xl bg-rex-light border border-rex-light p-3">
       <FieldLabel>🔊 Texto del audio (oculto al estudiante)</FieldLabel>
       <TextInput value={value} onChange={onChange} placeholder="Texto que leerá el TTS al estudiante..." />
     </label>
@@ -244,7 +244,7 @@ function StringListEditor({ items, onChange, placeholder, addLabel }: { items: s
       {items.map((item, i) => (
         <div key={i} className="flex gap-2">
           <input
-            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
             value={item}
             placeholder={placeholder}
             onChange={(e) => { const next = [...items]; next[i] = e.target.value; onChange(next); }}
@@ -254,7 +254,7 @@ function StringListEditor({ items, onChange, placeholder, addLabel }: { items: s
           </button>
         </div>
       ))}
-      <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-blue-400 hover:text-blue-600" onClick={() => onChange([...items, ''])}>
+      <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex" onClick={() => onChange([...items, ''])}>
         <PlusCircle size={14} /> {addLabel}
       </button>
     </div>
@@ -270,7 +270,7 @@ function StatementsEditor({ statements, onChange }: { statements: VisualStatemen
       {statements.map((stmt) => (
         <div key={stmt.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2">
           <input
-            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
             value={stmt.text}
             placeholder="Escribe el enunciado..."
             onChange={(e) => update(stmt.id, { text: e.target.value })}
@@ -284,7 +284,7 @@ function StatementsEditor({ statements, onChange }: { statements: VisualStatemen
           </button>
         </div>
       ))}
-      <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-blue-400 hover:text-blue-600"
+      <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex"
         onClick={() => onChange([...statements, { id: crypto.randomUUID(), text: '', answer: true }])}>
         <PlusCircle size={14} /> Agregar enunciado
       </button>
@@ -327,7 +327,7 @@ function MultipleChoiceEditor({ act, onChange }: { act: VisualActivity; onChange
               <button type="button" onClick={() => onChange({ ...act, correctOption: opt })}
                 className={`h-5 w-5 shrink-0 rounded-full border-2 transition ${opt === act.correctOption && opt.trim() ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'}`} />
               <input
-                className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
                 value={opt}
                 onChange={(e) => {
                   const next = [...act.options];
@@ -342,7 +342,7 @@ function MultipleChoiceEditor({ act, onChange }: { act: VisualActivity; onChange
               </button>
             </div>
           ))}
-          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-blue-400 hover:text-blue-600"
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex"
             onClick={() => onChange({ ...act, options: [...act.options, ''] })}>
             <PlusCircle size={14} /> Agregar opción
           </button>
@@ -444,10 +444,10 @@ function ListeningMatchingEditor({ act, onChange }: { act: VisualActivity; onCha
           {act.pairs.map((pair, i) => (
             <div key={pair.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3 grid gap-2">
               <div className="flex items-center gap-2">
-                <span className="shrink-0 rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-bold text-cyan-700">🔊 Audio {i + 1}</span>
+                <span className="shrink-0 rounded-full bg-rex-light px-2 py-0.5 text-xs font-bold text-rex-deep">🔊 Audio {i + 1}</span>
                 <button type="button" className="ml-auto rounded-xl border border-red-100 p-1.5 text-red-400 hover:bg-red-50" onClick={() => removePair(pair.id)}><Trash2 size={12} /></button>
               </div>
-              <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
                 value={pair.audioText} placeholder="Texto del audio (oculto al estudiante)..."
                 onChange={(e) => updatePair(pair.id, { audioText: e.target.value })} />
               <input className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
@@ -455,7 +455,7 @@ function ListeningMatchingEditor({ act, onChange }: { act: VisualActivity; onCha
                 onChange={(e) => updatePair(pair.id, { match: e.target.value })} />
             </div>
           ))}
-          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 hover:border-blue-400 hover:text-blue-600"
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 hover:border-rex hover:text-rex"
             onClick={addPair}><PlusCircle size={14} /> Agregar audio</button>
         </div>
       </div>
@@ -517,7 +517,7 @@ function ContentEditor({ act, onChange }: { act: VisualActivity; onChange: (a: V
       <label className="block">
         <FieldLabel>{act.sandbox ? 'HTML completo (documento con su <style>/<script>/fuentes)' : 'HTML del repaso (encabezados, colores, listas, estilos inline)'}</FieldLabel>
         <textarea
-          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
           rows={act.sandbox ? 14 : 10}
           value={act.html}
           placeholder={act.sandbox ? '<!DOCTYPE html>\n<html>...<style>...</style>...<script>...</script></html>' : '<h1 style="color:#0EA5E9">Título</h1>\n<p>Repaso corto con <b>negrita</b> y colores.</p>'}
@@ -549,11 +549,11 @@ function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: 
             <div key={line.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2">
               <button type="button" onClick={() => update(line.id, { speaker: line.speaker === 'female' ? 'male' : 'female' })}
                 title="Cambiar voz"
-                className={`shrink-0 rounded-xl px-3 py-2 text-sm font-bold transition ${line.speaker === 'female' ? 'bg-pink-500 text-white' : 'bg-blue-600 text-white'}`}>
+                className={`shrink-0 rounded-xl px-3 py-2 text-sm font-bold transition ${line.speaker === 'female' ? 'bg-pink-500 text-white' : 'bg-rex text-white'}`}>
                 {line.speaker === 'female' ? '♀' : '♂'}
               </button>
               <input
-                className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
                 value={line.text}
                 placeholder="Lo que dice este turno..."
                 onChange={(e) => update(line.id, { text: e.target.value })}
@@ -563,7 +563,7 @@ function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: 
               </button>
             </div>
           ))}
-          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-blue-400 hover:text-blue-600"
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex"
             onClick={() => onChange({ ...act, lines: [...act.lines, { id: crypto.randomUUID(), speaker: act.lines.length % 2 === 0 ? 'female' : 'male', text: '' }] })}>
             <PlusCircle size={14} /> Agregar turno
           </button>
@@ -636,7 +636,7 @@ function MultiSelectEditor({ act, onChange }: { act: VisualActivity; onChange: (
               <div key={i} className="flex items-center gap-2">
                 <button type="button" onClick={() => toggleCorrect(opt)}
                   className={`grid h-5 w-5 shrink-0 place-items-center rounded border-2 text-xs font-bold text-white transition ${checked ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'}`}>{checked ? '✓' : ''}</button>
-                <input className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                <input className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
                   value={opt}
                   onChange={(e) => {
                     const next = [...act.options];
@@ -649,7 +649,7 @@ function MultiSelectEditor({ act, onChange }: { act: VisualActivity; onChange: (
               </div>
             );
           })}
-          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-blue-400 hover:text-blue-600"
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex"
             onClick={() => onChange({ ...act, options: [...act.options, ''] })}><PlusCircle size={14} /> Agregar opción</button>
         </div>
       </div>
@@ -754,7 +754,7 @@ function ActivityCard({ act, index, total, onUpdate, onRemove, onMove, onDragSta
 
   return (
     <div
-      className={`rounded-2xl border ${meta.bg} overflow-hidden transition ${over ? 'ring-2 ring-blue-400' : ''}`}
+      className={`rounded-2xl border ${meta.bg} overflow-hidden transition ${over ? 'ring-2 ring-rex' : ''}`}
       onDragOver={onDragOverCard}
       onDrop={(e) => { e.preventDefault(); onDropCard(); }}
     >
@@ -825,10 +825,10 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
     <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 bg-slate-50 px-5 py-4 border-b border-slate-100">
         <div className="flex-1 grid gap-2 sm:grid-cols-2">
-          <input className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          <input className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
             placeholder="Título del bloque (ej: Part 1)" value={block.title}
             onChange={(e) => onUpdate({ ...block, title: e.target.value })} />
-          <input className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          <input className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
             placeholder="Instrucciones del bloque (opcional)" value={block.instructions}
             onChange={(e) => onUpdate({ ...block, instructions: e.target.value })} />
         </div>
@@ -858,8 +858,8 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
         ))}
 
         {showPicker ? (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-600">Selecciona el tipo de actividad</p>
+          <div className="rounded-2xl border border-rex-light bg-rex-light p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-rex">Selecciona el tipo de actividad</p>
             <div className="grid gap-4">
               {TYPE_GROUPS.map((group) => (
                 <div key={group.label}>
@@ -882,7 +882,7 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
           </div>
         ) : (
           <button type="button" onClick={() => setShowPicker(true)}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-blue-300 py-3 text-sm font-semibold text-blue-600 transition hover:bg-blue-50">
+            className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-rex py-3 text-sm font-semibold text-rex transition hover:bg-rex-light">
             <PlusCircle size={16} /> Agregar actividad
           </button>
         )}
@@ -927,7 +927,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
       <div className="rounded-3xl bg-white p-5 shadow-sm grid gap-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Constructor visual</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-rex">Constructor visual</p>
             <p className="mt-1 text-sm text-slate-500">Diseña la hoja sin escribir código. Se convierte a script automáticamente al guardar.</p>
           </div>
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
@@ -937,13 +937,13 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Título *</span>
-            <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
               placeholder="Título de la hoja de trabajo" value={state.title}
               onChange={(e) => setState((s) => ({ ...s, title: e.target.value }))} />
           </label>
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción</span>
-            <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            <input className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
               placeholder="Descripción opcional" value={state.description}
               onChange={(e) => setState((s) => ({ ...s, description: e.target.value }))} />
           </label>
@@ -952,16 +952,16 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
           <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">🎨 Colores del tema (opcional)</summary>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             {([
-              ['primary_color', 'Primario', '#7C3AED'],
-              ['background_color', 'Fondo', '#F5F3FF'],
-              ['text_color', 'Texto', '#2E1065'],
+              ['primary_color', 'Primario', '#84B84C'],
+              ['background_color', 'Fondo', '#F6F4E9'],
+              ['text_color', 'Texto', '#3D5E24'],
             ] as const).map(([key, label, ph]) => (
               <label key={key} className="block">
                 <span className="text-xs font-semibold text-slate-500">{label}</span>
                 <div className="mt-1 flex items-center gap-2">
                   <input type="color" className="h-9 w-10 shrink-0 cursor-pointer rounded border border-slate-200 bg-white p-0.5"
                     value={state.theme[key] || ph} onChange={(e) => setState((s) => ({ ...s, theme: { ...s.theme, [key]: e.target.value } }))} />
-                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex"
                     placeholder={ph} value={state.theme[key]} onChange={(e) => setState((s) => ({ ...s, theme: { ...s.theme, [key]: e.target.value } }))} />
                 </div>
               </label>
@@ -985,7 +985,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
       ))}
 
       <button type="button" onClick={addBlock}
-        className="flex items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-slate-300 py-4 text-sm font-semibold text-slate-500 transition hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50">
+        className="flex items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-slate-300 py-4 text-sm font-semibold text-slate-500 transition hover:border-rex hover:text-rex hover:bg-rex-light/50">
         <PlusCircle size={18} /> Agregar bloque
       </button>
 
@@ -993,7 +993,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex items-center gap-3">
             <span className="text-sm font-semibold text-slate-700">Intentos permitidos</span>
-            <select className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
+            <select className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-rex"
               value={maxAttemptsDraft} onChange={(e) => onMaxAttemptsChange(e.target.value)}>
               <option value="unlimited">Ilimitada</option>
               <option value="1">1 intento</option>
@@ -1004,11 +1004,11 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
             </select>
           </label>
           <button type="button" disabled={isSaving} onClick={() => onSave(serializeToScript(state))}
-            className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:opacity-60">
+            className="rounded-2xl bg-rex px-5 py-3 font-semibold text-white shadow-lg shadow-rex-light transition hover:bg-rex-deep disabled:opacity-60">
             <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar evaluación'}
           </button>
         </div>
-        {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm font-medium text-blue-700">{message}</p>}
+        {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-sm font-medium text-rex-deep">{message}</p>}
       </div>
     </div>
   );

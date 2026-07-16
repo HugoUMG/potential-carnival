@@ -35,17 +35,21 @@ export function ReaderPortal() {
   if (!user) return null;
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="min-h-screen bg-cream text-ink">
       {/* Navbar */}
-      <nav className="border-b border-slate-200 bg-white/90 backdrop-blur-sm">
+      <nav className="border-b border-rex/15 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-teal-600 text-white">
-              <BookText size={18} />
-            </span>
+            <img
+              src="/mascot/rex-wave.png"
+              alt=""
+              aria-hidden
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              className="h-11 w-11 shrink-0 object-contain"
+            />
             <div>
-              <h1 className="font-bold leading-tight">Vocabulario</h1>
-              <p className="text-xs text-slate-500">Hola, {user.name} (@{user.username})</p>
+              <h1 className="flex items-center gap-1.5 font-black leading-tight tracking-tight"><BookText size={18} className="text-rex" /> Vocabulario</h1>
+              <p className="text-xs text-ink/60">Hola, {user.name} (@{user.username})</p>
             </div>
           </div>
           <button

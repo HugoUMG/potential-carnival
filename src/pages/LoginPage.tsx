@@ -51,10 +51,10 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900">
+    <main className="min-h-screen bg-cream px-4 py-10 text-ink">
       <div className="mx-auto flex max-w-6xl items-center justify-end gap-3">
         <button
-          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 shadow-sm transition hover:border-blue-300 hover:text-blue-700"
+          className="rounded-full border border-rex/30 bg-white px-4 py-2 text-sm font-bold text-rex-deep shadow-sm transition hover:border-rex hover:bg-rex-light"
           type="button"
           onClick={() => { setRole(role === 'teacher' ? 'student' : 'teacher'); setUsername(''); setPassword(''); setMessage(''); }}
         >
@@ -63,29 +63,38 @@ export function LoginPage() {
       </div>
       <section className="mx-auto mt-8 grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-blue-700">
+          <span className="inline-flex items-center gap-2 rounded-full bg-rex-light px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-rex-deep">
             <GraduationCap size={18} /> Plataforma educativa
           </span>
-          <h1 className="mt-6 text-5xl font-black uppercase tracking-tight text-slate-950 md:text-7xl">
-            English Worksheet Platform
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-            Un entorno profesional para asignar, resolver y revisar actividades de inglés de forma organizada.
+          <div className="mt-6 flex items-center gap-4">
+            <img
+              src="/mascot/rex-hero.png"
+              alt="RexLearn, la mascota de DinoEnglish Studio"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              className="h-28 w-28 shrink-0 object-contain drop-shadow-md md:h-36 md:w-36"
+            />
+            <h1 className="text-5xl font-black tracking-tight text-ink md:text-7xl">
+              Dino<span className="text-rex">English</span>
+              <span className="block text-2xl font-extrabold uppercase tracking-[0.3em] text-spike md:text-3xl">Studio</span>
+            </h1>
+          </div>
+          <p className="mt-5 max-w-2xl text-xl font-semibold text-rex-deep">
+            Create engaging English worksheets in seconds.
           </p>
         </div>
-        <div className="rounded-3xl bg-white p-6 shadow-xl shadow-slate-200/70">
+        <div className="rounded-3xl border border-rex/15 bg-white p-6 shadow-xl shadow-rex-deep/10">
           <div className="mb-5">
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+            <p className="text-sm font-semibold uppercase tracking-wide text-rex">
               {role === 'teacher' ? 'Acceso docente' : 'Acceso estudiante'}
             </p>
-            <h2 className="mt-1 text-2xl font-extrabold text-slate-950">
+            <h2 className="mt-1 text-2xl font-extrabold text-ink">
               {role === 'teacher' ? 'Panel del profesor' : 'Portal del estudiante'}
             </h2>
           </div>
           <label className="block">
-            <span className="text-sm font-semibold text-slate-700">Usuario</span>
+            <span className="text-sm font-semibold text-ink/80">Usuario</span>
             <input
-              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-rex focus:ring-4 focus:ring-rex/20"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -93,10 +102,10 @@ export function LoginPage() {
             />
           </label>
           <label className="mt-4 block">
-            <span className="text-sm font-semibold text-slate-700">Contraseña</span>
+            <span className="text-sm font-semibold text-ink/80">Contraseña</span>
             <div className="relative mt-2">
               <input
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 pr-12 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="w-full rounded-2xl border border-slate-200 px-4 py-3 pr-12 outline-none focus:border-rex focus:ring-4 focus:ring-rex/20"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -108,14 +117,14 @@ export function LoginPage() {
                 onClick={() => setShowPassword((v) => !v)}
                 title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-ink"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
           </label>
           <button
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:opacity-70"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-rex px-5 py-3 font-bold text-white shadow-lg shadow-rex/30 transition hover:bg-rex-dark disabled:opacity-70"
             type="button"
             disabled={isLoggingIn}
             onClick={() => void handleLogin()}
@@ -128,16 +137,16 @@ export function LoginPage() {
             </p>
           )}
 
-          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-rex-light pt-4">
             <button
-              className="flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 font-bold text-white shadow-lg shadow-violet-100 transition hover:bg-violet-700"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-spike px-4 py-3 font-bold text-white shadow-lg shadow-spike/30 transition hover:bg-spike-dark"
               type="button"
               onClick={() => navigate('/guest')}
             >
               <UserRound size={18} /> Invitado
             </button>
             <button
-              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 font-bold text-white shadow-lg shadow-emerald-100 transition hover:bg-emerald-600"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-rex-deep px-4 py-3 font-bold text-white shadow-lg shadow-rex-deep/25 transition hover:bg-ink"
               type="button"
               onClick={() => navigate('/vocab')}
             >

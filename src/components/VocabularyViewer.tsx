@@ -182,7 +182,7 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
               <div key={gi} className={gi > 0 ? 'mt-8' : ''}>
                 {group.label && (
                   <div className="mb-3 flex items-center gap-3">
-                    <span className="rounded-2xl bg-indigo-50 px-4 py-1.5 text-sm font-bold text-indigo-700">{group.label}</span>
+                    <span className="rounded-2xl bg-rex-light px-4 py-1.5 text-sm font-bold text-rex-deep">{group.label}</span>
                     <span className="text-xs text-slate-400">{group.items.length} palabras</span>
                   </div>
                 )}
@@ -348,7 +348,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
         )}
         {message && <p className={`mt-3 rounded-2xl p-3 text-sm font-semibold ${message.includes('creada') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{message}</p>}
         <button
-          className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white disabled:opacity-60"
+          className="mt-4 rounded-2xl bg-rex px-5 py-3 font-semibold text-white transition hover:bg-rex-dark disabled:opacity-60"
           disabled={saving || !title.trim() || !preview.length}
           onClick={handleCreate}
         >
@@ -387,7 +387,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
                     <Printer size={15} /> Imprimir PDF
                   </button>
                   <button
-                    className="flex items-center gap-1.5 rounded-2xl border border-sky-200 px-3 py-2 text-sm font-semibold text-sky-700"
+                    className="flex items-center gap-1.5 rounded-2xl border border-rex/30 px-3 py-2 text-sm font-semibold text-rex-deep"
                     title="Copia un enlace directo: se ve sin login ni menú, solo este vocabulario"
                     onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/v/${list.id}`); setMessage('Enlace del vocabulario copiado. Compártelo — se abre sin login, solo esa lista.'); }}
                   >
@@ -412,7 +412,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
                       <button
                         key={classroom.id}
                         type="button"
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${isAssigned ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'}`}
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${isAssigned ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-rex/40 hover:text-rex-deep'}`}
                         onClick={() => isAssigned ? onUnassign(list.id, classroom.id) : onAssign(list.id, classroom.id)}
                       >
                         {isAssigned ? '✓ ' : '+ '}{classroom.name}

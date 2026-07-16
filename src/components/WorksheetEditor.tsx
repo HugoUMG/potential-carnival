@@ -65,7 +65,7 @@ function composePrompt(s: BuilderState): string {
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? 'border-violet-500 bg-violet-600 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-violet-300'}`}>
+      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? 'border-spike bg-spike text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-spike/40'}`}>
       {children}
     </button>
   );
@@ -107,16 +107,16 @@ export function AskAiEdit({ getScript, onApply }: { getScript: () => string; onA
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1.5 rounded-2xl border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 transition hover:bg-violet-100">
+          className="flex items-center gap-1.5 rounded-2xl border border-spike/40 bg-spike/10 px-3 py-2 text-sm font-semibold text-spike-dark transition hover:bg-spike/15">
           <Wand2 size={15} /> Pídele a la IA
         </button>
-        {working && <span className="text-xs font-semibold text-violet-500 animate-pulse">✦ IA trabajando…</span>}
+        {working && <span className="text-xs font-semibold text-spike animate-pulse">✦ IA trabajando…</span>}
         {!working && provider && <span className="text-xs text-slate-400" title="IA que hizo el último cambio">✦ {provider}</span>}
       </div>
       {open && (
-        <div className="mt-1 grid gap-2 rounded-2xl border border-violet-200 bg-white p-3">
+        <div className="mt-1 grid gap-2 rounded-2xl border border-spike/30 bg-white p-3">
           <textarea
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-spike"
             rows={2}
             placeholder="Ej: agrega 3 preguntas de fillblank sobre el pasado simple · quita la actividad de matching · cambia el tema a comida"
             value={instruction}
@@ -125,7 +125,7 @@ export function AskAiEdit({ getScript, onApply }: { getScript: () => string; onA
           />
           {err && <p className="text-xs text-red-500">{err}</p>}
           <button type="button" onClick={() => void run()} disabled={working || !instruction.trim()}
-            className="w-fit rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            className="w-fit rounded-xl bg-spike px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
             {working ? 'Trabajando…' : 'Aplicar cambio con IA'}
           </button>
           <p className="text-xs text-slate-400">La IA modifica la hoja completa y reemplaza el script. Revísalo antes de guardar.</p>
@@ -153,11 +153,11 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
   return (
     <div className="rounded-3xl bg-white p-6 shadow-sm max-w-3xl">
       <div className="flex items-center gap-3 mb-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-100">
-          <Wand2 size={20} className="text-violet-600" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-spike/15">
+          <Wand2 size={20} className="text-spike" />
         </div>
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Generar con Inteligencia Artificial</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-spike">Generar con Inteligencia Artificial</p>
           <h2 className="text-xl font-bold text-slate-900">Arma la hoja con un clic</h2>
         </div>
       </div>
@@ -176,7 +176,7 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
         </ChipGroup>
         <label className="block">
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">📖 Tema</p>
-          <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-violet-400"
+          <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-spike"
             placeholder="Ej: Present Simple, colores, comida…" value={b.topic} onChange={(e) => patch({ topic: e.target.value })} />
         </label>
         <ChipGroup label="🎯 Objetivo">
@@ -204,7 +204,7 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
       <label className="mt-6 block">
         <span className="text-sm font-semibold text-slate-700">📝 Prompt generado <span className="font-normal text-slate-400">(puedes ajustarlo a mano)</span></span>
         <textarea
-          className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100 min-h-28"
+          className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-spike focus:ring-4 focus:ring-spike/15 min-h-28"
           placeholder="El prompt aparecerá aquí conforme selecciones opciones… o escríbelo tú mismo."
           value={aiPrompt}
           onChange={(e) => setAiPrompt(e.target.value)}
@@ -218,7 +218,7 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
       )}
 
       <button type="button" disabled={isGenerating || !aiPrompt.trim()} onClick={onGenerate}
-        className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-3 font-semibold text-white shadow-lg shadow-violet-100 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60">
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-spike px-5 py-3 font-semibold text-white shadow-lg shadow-spike/15 transition hover:bg-spike-dark disabled:cursor-not-allowed disabled:opacity-60">
         {isGenerating
           ? <><Loader2 size={18} className="animate-spin" /> Generando con IA...</>
           : <><Sparkles size={18} /> Generar hoja de trabajo</>}
@@ -349,7 +349,7 @@ export function WorksheetEditor({
               onClick={() => tab.id === 'visual' ? switchToVisual() : setMode(tab.id)}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 mode === tab.id
-                  ? tab.id === 'ai' ? 'bg-violet-600 text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm'
+                  ? tab.id === 'ai' ? 'bg-spike text-white shadow-sm' : 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -407,7 +407,7 @@ export function WorksheetEditor({
       <div className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">{isEditing ? '✎ Editando evaluación existente' : 'Modo Script'}</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-rex">{isEditing ? '✎ Editando evaluación existente' : 'Modo Script'}</p>
             <h2 className="text-2xl font-bold text-slate-900">{worksheet.title}</h2>
             <p className="mt-1 text-sm text-slate-500">{isEditing ? 'Editas la MISMA hoja (no se crea una copia). Solo se puede mientras no tenga respuestas.' : 'Pega o escribe WorksheetScript y guárdalo en la base de datos.'}</p>
           </div>
@@ -415,12 +415,12 @@ export function WorksheetEditor({
         </div>
 
         {/* ── Documentación / prompt para IA externa ── */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3">
-          <p className="text-sm text-violet-800">¿No conoces el formato? Copia el prompt y pégalo en tu IA favorita (ChatGPT, Claude, DeepSeek…) para que genere el WorksheetScript.</p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-spike/30 bg-spike/10 px-4 py-3">
+          <p className="text-sm text-spike-dark">¿No conoces el formato? Copia el prompt y pégalo en tu IA favorita (ChatGPT, Claude, DeepSeek…) para que genere el WorksheetScript.</p>
           <button
             type="button"
             onClick={() => void copyPrompt()}
-            className="flex shrink-0 items-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700"
+            className="flex shrink-0 items-center gap-2 rounded-2xl bg-spike px-4 py-2 text-sm font-semibold text-white transition hover:bg-spike-dark"
           >
             {promptCopied ? <Check size={16} /> : <ClipboardCopy size={16} />}
             {promptCopied ? 'Copiado ✓' : 'Copiar documentación/prompt'}
@@ -428,7 +428,7 @@ export function WorksheetEditor({
         </div>
 
         {aiSuccess && (
-          <div className="mt-4 rounded-2xl bg-violet-50 border border-violet-200 px-4 py-3 text-sm font-semibold text-violet-700">
+          <div className="mt-4 rounded-2xl bg-spike/10 border border-spike/30 px-4 py-3 text-sm font-semibold text-spike-dark">
             {aiSuccess}
           </div>
         )}
@@ -437,7 +437,7 @@ export function WorksheetEditor({
           <span className="text-sm font-semibold text-slate-700">WorksheetScript</span>
           <textarea
             ref={scriptTextareaRef}
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 resize-none overflow-hidden"
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none transition focus:border-rex focus:ring-4 focus:ring-rex-light resize-none overflow-hidden"
             style={{ minHeight: '32rem' }}
             value={scriptDraft}
             onChange={(event) => onScriptChange(event.target.value)}
@@ -447,7 +447,7 @@ export function WorksheetEditor({
         <label className="mt-4 block max-w-xs">
           <span className="text-sm font-semibold text-slate-700">Intentos permitidos</span>
           <select
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-rex focus:ring-4 focus:ring-rex-light"
             value={maxAttemptsDraft}
             onChange={(event) => onMaxAttemptsChange(event.target.value)}
           >
@@ -463,7 +463,7 @@ export function WorksheetEditor({
         <label className="mt-4 flex max-w-xl items-start gap-3 rounded-2xl border border-slate-200 p-4">
           <input
             type="checkbox"
-            className="mt-0.5 h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
+            className="mt-0.5 h-5 w-5 rounded border-slate-300 text-rex focus:ring-rex-light"
             checked={aiGradingDraft}
             onChange={(event) => onAiGradingChange(event.target.checked)}
           />
@@ -476,7 +476,7 @@ export function WorksheetEditor({
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500">Al guardar, el backend valida el script y almacena la evaluación.</p>
           <button
-            className="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl bg-rex px-5 py-3 font-semibold text-white shadow-lg shadow-rex-light transition hover:bg-rex-deep disabled:cursor-not-allowed disabled:opacity-60"
             type="button"
             disabled={isSaving}
             onClick={() => onSaveScript()}
@@ -484,7 +484,7 @@ export function WorksheetEditor({
             <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar evaluación'}
           </button>
         </div>
-        {message && <p className="mt-3 rounded-2xl bg-blue-50 p-3 text-sm font-medium text-blue-700">{message}</p>}
+        {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-sm font-medium text-rex-deep">{message}</p>}
       </div>
     </div>
   );
