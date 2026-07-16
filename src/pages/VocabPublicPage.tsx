@@ -34,18 +34,22 @@ export function VocabPublicPage() {
   const active = readers.find((r) => r.id === activeId);
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="min-h-screen bg-cream text-ink">
       {/* Navbar */}
-      <nav className="border-b border-slate-200 bg-white/90 backdrop-blur-sm">
+      <nav className="border-b border-rex/15 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-600 text-white">
-              <BookText size={18} />
-            </span>
-            <h1 className="font-bold text-slate-900">Portal de Vocabulario</h1>
+            <img
+              src="/mascot/rex-wave.png"
+              alt=""
+              aria-hidden
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              className="h-11 w-11 shrink-0 object-contain"
+            />
+            <h1 className="flex items-center gap-1.5 font-black tracking-tight text-ink"><BookText size={18} className="text-rex" /> Portal de Vocabulario</h1>
           </div>
           <button
-            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:border-blue-300 hover:text-blue-700 transition-colors"
+            className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold hover:border-rex hover:text-rex-deep transition-colors"
             onClick={() => navigate('/login')}
           >
             ← Volver al inicio
@@ -70,8 +74,8 @@ export function VocabPublicPage() {
                   onClick={() => setActiveId(r.id)}
                   className={`rounded-2xl px-5 py-2.5 text-sm font-semibold transition-colors ${
                     activeId === r.id
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:border-emerald-300 hover:text-emerald-700'
+                      ? 'bg-rex text-white shadow-sm'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:border-rex hover:text-rex-deep'
                   }`}
                 >
                   {r.name}

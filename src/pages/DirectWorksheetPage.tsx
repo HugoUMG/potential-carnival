@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Send, RotateCcw } from 'lucide-react';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
-import { RocketFueling } from '../components/submitAnimations';
-import { LoadingScreen } from '../components/LoadingScreen';
+import { LoadingScreen, LoadingOverlay } from '../components/LoadingScreen';
 import { getPublicWorksheet, submitDirectResponse, type DetalleRespuesta } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
 
@@ -107,7 +106,7 @@ export function DirectWorksheetPage() {
 
   if (error && !worksheet) {
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-50 p-6 text-center">
+      <main className="grid min-h-screen place-items-center bg-cream p-6 text-center">
         <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
           <p className="text-4xl">🔒</p>
           <h1 className="mt-3 text-lg font-bold text-slate-900">Hoja no disponible</h1>
@@ -122,11 +121,11 @@ export function DirectWorksheetPage() {
   // ── Vista de resultados (siempre disponible tras enviar) ──────────────────
   if (result) {
     return (
-      <main className="min-h-screen bg-slate-50 py-8 text-slate-900">
+      <main className="min-h-screen bg-cream py-8 text-slate-900">
         <div className="mx-auto max-w-4xl px-4">
           <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-lg font-bold">
-              Tu resultado: <span className="text-blue-700">{result.score ?? 0}</span>
+              Tu resultado: <span className="text-rex-deep">{result.score ?? 0}</span>
               <span className="ml-3 text-sm font-semibold text-emerald-700">✓ {result.correct} correctas</span>
               <span className="ml-3 text-sm font-semibold text-red-600">✗ {result.incorrect} incorrectas</span>
               {result.pending > 0 && <span className="ml-3 text-sm font-semibold text-amber-600">… {result.pending} en revisión</span>}
@@ -151,7 +150,7 @@ export function DirectWorksheetPage() {
 
           {canAttempt && (
             <div className="mt-6 flex justify-center">
-              <button className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 font-bold text-white transition hover:bg-blue-700" onClick={retry}>
+              <button className="inline-flex items-center gap-2 rounded-2xl bg-rex px-6 py-3 font-bold text-white transition hover:bg-rex-dark" onClick={retry}>
                 <RotateCcw size={18} /> Volver a hacerla
               </button>
             </div>
@@ -164,7 +163,7 @@ export function DirectWorksheetPage() {
   // Límite alcanzado sin resultado guardado (raro): mensaje simple.
   if (!canAttempt) {
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-50 p-6 text-center">
+      <main className="grid min-h-screen place-items-center bg-cream p-6 text-center">
         <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
           <h1 className="text-xl font-bold text-slate-900">Ya completaste tus intentos</h1>
           <p className="mt-2 text-sm text-slate-500">Esta hoja permite {maxAttempts} intento(s) por dispositivo.</p>
@@ -174,17 +173,17 @@ export function DirectWorksheetPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 py-8 text-slate-900">
-      {submitting && <RocketFueling />}
+    <main className="min-h-screen bg-cream py-8 text-slate-900">
+      {submitting && <LoadingOverlay message="Calificando tus respuestas…" />}
       <div className="mx-auto max-w-4xl px-4">
-        <p className="mb-4 rounded-2xl bg-blue-50 px-4 py-2 text-center text-sm font-semibold text-blue-800">
+        <p className="mb-4 rounded-2xl bg-rex-light px-4 py-2 text-center text-sm font-semibold text-rex-deep">
           {maxAttempts == null ? '♾️ Puedes hacer esta hoja las veces que quieras.' : `Intento ${attemptsUsed + 1} de ${maxAttempts}.`}
         </p>
         <WorksheetRenderer worksheet={worksheet} answers={answers} onAnswerChange={updateAnswer} />
         {error && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
         <div className="sticky bottom-4 mt-6 flex justify-center">
           <button
-            className="flex items-center gap-2 rounded-2xl bg-blue-600 px-8 py-3 font-bold text-white shadow-lg transition hover:bg-blue-700 disabled:opacity-60"
+            className="flex items-center gap-2 rounded-2xl bg-rex px-8 py-3 font-bold text-white shadow-lg transition hover:bg-rex-dark disabled:opacity-60"
             disabled={submitting}
             onClick={() => void send()}
           >

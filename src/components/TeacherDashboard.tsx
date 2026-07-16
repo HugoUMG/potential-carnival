@@ -30,10 +30,10 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
   return (
     <aside className="rounded-3xl bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
-        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-600 text-white"><UserRoundCheck size={24} /></span>
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rex text-white"><UserRoundCheck size={24} /></span>
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">Menú {user.role === 'admin' ? 'admin' : 'profesor'}</p>
-          <h2 className="text-lg font-bold text-slate-900">{user.name}</h2>
+          <p className="text-sm font-semibold uppercase tracking-wide text-rex">Menú {user.role === 'admin' ? 'admin' : 'profesor'}</p>
+          <h2 className="text-lg font-bold text-ink">{user.name}</h2>
           <p className="text-sm text-slate-500">@{user.username}</p>
         </div>
       </div>

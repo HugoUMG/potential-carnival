@@ -163,6 +163,10 @@ Lista canónica de tipos soportados: `SUPPORTED_BLOCKS` en `backend/app/parser.p
 
 ### Formato del Script DSL
 
+> **⚠️ Lo de abajo es un CATÁLOGO de sintaxis por tipo, NO una hoja válida tal cual.** En una hoja real,
+> si usas `block {}`, **todas** las actividades deben ir **dentro** de algún block: el parser ignora en
+> silencio las actividades escritas fuera de un block cuando existe al menos uno (ver Reglas del DSL).
+
 ```
 worksheet {
   title: "Título de la hoja"
@@ -207,10 +211,8 @@ worksheet {
 
   truefalse {
     statements:
-    - text: "The sun rises in the east."
-      answer: true
-    - text: "Water freezes at 50°C."
-      answer: false
+    - The sun rises in the east. | true
+    - Water freezes at 50°C. | false
   }
 
   reading {
@@ -225,10 +227,8 @@ worksheet {
     title: "The Water Cycle"
     content: "Water evaporates from oceans..."
     statements:
-    - text: "Water evaporates from oceans."
-      answer: true
-    - text: "Rain is created by wind alone."
-      answer: false
+    - Water evaporates from oceans. | true
+    - Rain is created by wind alone. | false
   }
 
   listening {
@@ -254,11 +254,14 @@ worksheet {
   }
 
   listeningmatching {
-    pairs:
-    - audio_text: "I can swim."
-      answer: "Ability"
-    - audio_text: "You should rest."
-      answer: "Advice"
+    pair {
+      audio_text: "I can swim."
+      match: "Ability"
+    }
+    pair {
+      audio_text: "You should rest."
+      match: "Advice"
+    }
     options:
     - Ability
     - Advice
@@ -268,10 +271,8 @@ worksheet {
   listeningtruefalse {
     audio_text: "Dogs are mammals and birds can fly."
     statements:
-    - text: "Dogs are mammals."
-      answer: true
-    - text: "Birds cannot fly."
-      answer: false
+    - Dogs are mammals. | true
+    - Birds cannot fly. | false
   }
 
   listeningorder {
@@ -316,15 +317,15 @@ worksheet {
   }
 
   imagequestion {
-    image_url: "https://..."
-    question: "What do you see in the image?"
+    image: "https://..."
+    prompt: "What do you see in the image?"
   }
 
   info {
     fields:
-    - label: "Name"
-    - label: "Date"
-    - label: "Class"
+    - Name
+    - Date
+    - Class
   }
 }
 ```
@@ -332,15 +333,47 @@ worksheet {
 ### Reglas del DSL
 
 - `block {}` agrupa actividades con título e instrucciones de sección. Retrocompatible: hojas sin `block` siguen funcionando con `activities` plano.
+- **`block {}` es excluyente (trampa clásica):** si la hoja tiene **al menos un** `block {}`, el parser toma **solo** las actividades que estén dentro de blocks e **ignora en silencio** las que queden fuera. Con blocks, TODA actividad va dentro de algún block.
+- **Enunciados True/False (`truefalse`, `readingtruefalse`, `listeningtruefalse`):** una línea por enunciado con **pipe**: `- Texto del enunciado. | true`. **NO** usar `- text: "…"` + `answer:` en líneas aparte (el parser corta en la primera línea que no empieza con `-` → queda UN solo enunciado con el texto literal `text: "…"` y `answer` en `true`). Formato alterno válido: bloques `statement { text: "…" answer: true }`.
+- **`listeningmatching` usa bloques `pair {}`**, no una lista `pairs:`. Cada par: `pair { audio_text: "…" match: "…" }` — el campo es **`match`**, no `answer`. Las `options:` sí son lista.
+- **`imagequestion` usa `image:` y `prompt:`** (no `image_url:` ni `question:`).
 - `theme {}` define colores personalizados por hoja. Se guarda en la columna `theme` como JSONB.
 - Cada actividad admite un campo opcional `instructions:` (guía por actividad).
 - `_____` (5 guiones bajos) es el marcador de espacio en `fillblank` / `dragdrop`.
 - `\n` literal en strings se convierte a salto de línea real en el frontend.
 - **Comillas dentro de un string:** usar tipográficas `“ ”`. Las `\"` quedan literales (el parser solo quita las comillas exteriores) y se verían con backslash.
 - `speaking` **sí** existe (ver tabla). La nota histórica de "no usar" está obsoleta.
+- **Campos de `info {}`:** son **strings planos**, uno por línea (`- Name`, `- Date`), **NO** `- label: "Name"`. El parser toma el texto tal cual tras el guion, así que `- label: "Name"` se mostraría literal como el nombre del campo.
 - **Al generar hojas para el usuario:** entregar solo el DSL en el chat (ver memoria `worksheet-delivery`). Validar con `parse_worksheet_script` de `backend/app/parser.py` de forma transitoria si hace falta.
 
 **Campos de identificación (`_info_*`)**: una hoja puede pedir datos al alumno (nombre, sección, etc.); se guardan en `answers_json._info_0`, `_info_1`… y el profesor los ve en la revisión.
+
+### Guía de calidad al generar hojas (LEER antes de crear una hoja)
+
+Cuando el usuario pida generar una hoja de trabajo, seguir estas reglas para que la evaluación sea sólida y no trivial. Aplican al **contenido** (más allá de que el DSL sea válido).
+
+**Respuestas y distractores**
+- **Evitar respuestas evidentes:** los distractores deben ser *plausibles* y del mismo tipo/categoría que la respuesta correcta (mismo tiempo verbal, misma clase de palabra, mismo tema). Un distractor absurdo o de otra categoría regala la respuesta.
+- **Distractores mínimamente diferentes** cuando el objetivo es discriminación fina (p. ej. tiempos verbales): que se distingan por *una* característica (presente/pasado, afirmativa/negativa/pregunta, singular/plural), no por ser palabras totalmente distintas. Ej.: para `wakes up`, distractores `woke up` / `waking up`, no `runs` / `sleeps`.
+- **Sin pistas dentro de la pregunta:** la pregunta o el enunciado no debe contener la respuesta ni delatarla por concordancia obvia.
+- **Sin respuesta revelada en otra actividad:** una actividad no debe dar la respuesta de otra.
+
+**Evitar patrones predecibles** (un alumno no debe poder acertar "por el patrón" sin saber)
+- **No agrupar por tipo si eso crea un patrón de respuesta:** si un bloque entero comparte la misma mecánica y la clave sigue un orden, el alumno responde en piloto automático. Cuando el objetivo es discriminar (ej. presente vs. pasado), **mezclar** los ítems en un solo bloque en orden variado, no “todas las de presente juntas / todas las de pasado juntas”.
+- **`truefalse` / `readingtruefalse` / `listeningtruefalse`:** variar el patrón de `answer` (no todas `true`, no alternancia mecánica true/false/true/false). Mezcla irregular.
+- **`multiplechoice` / `multiselect` / `dragdrop`:** la app **baraja las opciones al mostrarlas**, así que la *posición* de la correcta en el DSL no importa — pero **sí** variar cuál es la correcta entre ítems (no repetir siempre el mismo valor/idea).
+- **`fillblank`:** que la respuesta no sea siempre la misma palabra ni siga un patrón obvio a lo largo de la hoja.
+
+**Nivel y coherencia**
+- Respetar el **nivel** pedido (A1/A2/B1…): vocabulario, longitud de oración y estructuras acordes. En listening de discriminación fina, **oraciones cortas** para que la palabra objetivo pese en el audio.
+- Mantener un **tema/hilo** coherente en toda la hoja cuando aplique.
+- **`fillblank` sin ambigüedad:** el hueco debe tener una respuesta esperada clara. Si hay varias válidas legítimas, usar `answer` como **lista** o replantear el ítem (el corrector IA valida equivalencias, pero no conviene depender de eso).
+
+**Recordatorios técnicos que también son errores de generación**
+- `info {}` usa strings planos (`- Name`), no `- label: "…"` (ver Reglas del DSL).
+- Cada campo del DSL en **su propia línea** (el parser es por líneas): no poner `text:` y `answer:` en la misma línea.
+- Listenings usan **TTS**, nunca un campo `audio:`. El `audio_text`/`text` oculto nunca debe repetir la pregunta visible de forma que delate la respuesta.
+- Comillas internas: usar tipográficas `“ ”` (las `\"` quedan literales).
 
 ---
 

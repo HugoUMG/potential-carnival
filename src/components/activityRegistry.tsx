@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { Info } from 'lucide-react';
 import { transcribeAudio } from '../services/api';
 import { playSfx } from '../utils/sfx';
 import type {
@@ -33,7 +34,7 @@ import { AudioPlayer } from './AudioPlayer';
 import { SandboxedHtml, ScrollHint } from './SandboxedHtml';
 import { VOICES } from '../utils/voicePreference';
 
-const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100';
+const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-rex focus:ring-4 focus:ring-rex-light';
 
 /** DSL `voice` ('male'/'female' o nombre edge-tts literal) → nombre de voz para el TTS.
  *  undefined → deja que AudioPlayer use la preferencia global del usuario. */
@@ -45,7 +46,7 @@ function resolveVoice(voice?: string): string | undefined {
 
 function ActivityInstructions({ instructions }: { instructions?: string }) {
   if (!instructions) return null;
-  return <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm italic text-amber-800">ℹ️ <RichText text={instructions} /></p>;
+  return <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm italic text-amber-800"><Info className="mr-1 inline align-[-2px] text-amber-700" size={15} /><RichText text={instructions} /></p>;
 }
 
 function asString(value: StudentAnswer | undefined): string {
@@ -80,7 +81,7 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
           {part}
           {index < parts.length - 1 && (
             <input
-              className="mx-1 inline-block rounded-lg border border-slate-300 px-2 py-1 text-sm align-middle outline-none focus:border-blue-500"
+              className="mx-1 inline-block rounded-lg border border-slate-300 px-2 py-1 text-sm align-middle outline-none focus:border-rex"
               disabled={readonly}
               style={{ width: `${Math.max(80, Math.min(160, (expected[index]?.length ?? 8) * 12))}px` }}
               value={values[index] ?? ''}
@@ -103,7 +104,7 @@ function MultipleChoiceRenderer({ activity, value, readonly, onChange }: Activit
       <ActivityInstructions instructions={activity.instructions} />
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         {options.map((option) => (
-          <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
+          <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-rex">
             <input
               disabled={readonly}
               name={activity.id}
@@ -130,11 +131,11 @@ function MultiSelectRenderer({ activity, value, readonly, onChange }: ActivityRe
   return (
     <fieldset>
       <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
-      <p className="mt-1 text-xs font-semibold text-blue-600">Puedes elegir más de una opción.</p>
+      <p className="mt-1 text-xs font-semibold text-rex">Puedes elegir más de una opción.</p>
       <ActivityInstructions instructions={activity.instructions} />
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         {options.map((option) => (
-          <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
+          <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-rex">
             <input
               disabled={readonly}
               type="checkbox"
@@ -213,7 +214,7 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
                 onDrop={(e) => { if (readonly) return; e.preventDefault(); setOverBlank(null); const p = readPayload(e); if (p) dropOnBlank(index, p); }}
                 onClick={() => { if (!readonly && placed[index]) apply(Object.assign([...placed], { [index]: '' })); }}
                 title={placed[index] ? 'Arrastra a otro hueco, o clic para quitar' : 'Arrastra una palabra aquí'}
-                className={`mx-1 inline-flex min-w-[90px] items-center justify-center rounded-lg border-2 border-dashed px-3 py-1 align-middle text-sm transition ${placed[index] ? 'cursor-grab active:cursor-grabbing font-semibold text-blue-800' : 'text-slate-400'} ${overBlank === index ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-300' : placed[index] ? 'border-blue-400 bg-blue-50' : 'border-slate-300 bg-slate-50'} ${dragKey === `blank-${index}` ? 'opacity-40' : ''}`}
+                className={`mx-1 inline-flex min-w-[90px] items-center justify-center rounded-lg border-2 border-dashed px-3 py-1 align-middle text-sm transition ${placed[index] ? 'cursor-grab active:cursor-grabbing font-semibold text-rex-deep' : 'text-slate-400'} ${overBlank === index ? 'border-rex bg-rex-light ring-2 ring-rex' : placed[index] ? 'border-rex bg-rex-light' : 'border-slate-300 bg-slate-50'} ${dragKey === `blank-${index}` ? 'opacity-40' : ''}`}
               >
                 {placed[index] || '⬚'}
               </span>
@@ -238,7 +239,7 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
                 onDragStart={(e) => startDrag(e, { word, from: 'bank' }, `bank-${key}`)}
                 onDragEnd={() => setDragKey(null)}
                 onClick={() => placeNext(word)}
-                className={`cursor-grab select-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 active:cursor-grabbing ${dragKey === `bank-${key}` ? 'opacity-40 ring-2 ring-blue-300' : ''}`}
+                className={`cursor-grab select-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-rex hover:bg-rex-light active:cursor-grabbing ${dragKey === `bank-${key}` ? 'opacity-40 ring-2 ring-rex' : ''}`}
               >
                 {word}
               </button>
@@ -536,7 +537,7 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
     <article>
       <h3 className="text-lg font-semibold text-slate-900">{activity.title}</h3>
       <ActivityInstructions instructions={activity.instructions} />
-      <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
+      <p className="mt-3 rounded-xl bg-rex-light p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
       <div className="mt-2">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Listen to the text</p>
         <AudioPlayer text={activity.content} />
@@ -580,7 +581,7 @@ function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: Activ
       <div>
         <h3 className="text-lg font-semibold text-slate-900">{activity.title}</h3>
         <ActivityInstructions instructions={activity.instructions} />
-        <p className="mt-3 rounded-xl bg-blue-50 p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
+        <p className="mt-3 rounded-xl bg-rex-light p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
         <div className="mt-2">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Listen to the text</p>
           <AudioPlayer text={activity.content} />
@@ -696,7 +697,7 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
           type="button"
           onClick={recording ? stop : start}
           disabled={transcribing}
-          className={`flex w-fit items-center gap-2 rounded-2xl px-5 py-3 font-semibold text-white transition disabled:opacity-60 ${recording ? 'animate-pulse bg-red-500' : 'bg-blue-600 hover:bg-blue-700'}`}
+          className={`flex w-fit items-center gap-2 rounded-2xl px-5 py-3 font-semibold text-white transition disabled:opacity-60 ${recording ? 'animate-pulse bg-red-500' : 'bg-rex hover:bg-rex-deep'}`}
         >
           {transcribing ? '⏳ Transcribiendo…' : recording ? '⏹ Detener' : `🎤 ${transcript ? 'Repetir' : (target ? 'Leer en voz alta' : 'Hablar')}`}
         </button>
@@ -764,7 +765,7 @@ function ListeningFillBlankRenderer({ activity, value, readonly, onChange }: Act
             {part}
             {index < parts.length - 1 && (
               <input
-                className="mx-1 inline-block rounded-lg border border-slate-300 px-2 py-1 text-sm align-middle outline-none focus:border-blue-500"
+                className="mx-1 inline-block rounded-lg border border-slate-300 px-2 py-1 text-sm align-middle outline-none focus:border-rex"
                 disabled={readonly}
                 style={{ width: `${Math.max(80, Math.min(160, (expected[index]?.length ?? 8) * 12))}px` }}
                 value={values[index] ?? ''}
@@ -788,7 +789,7 @@ function ListeningMultipleChoiceRenderer({ activity, value, readonly, onChange }
         <ActivityInstructions instructions={activity.instructions} />
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {options.map((option) => (
-            <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
+            <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-rex">
               <input disabled={readonly} name={activity.id} type="radio" checked={value === option} onChange={() => { playSfx('select'); onChange(activity.id, option); }} />
               <span className="text-sm text-slate-700">{option}</span>
             </label>
@@ -807,11 +808,11 @@ function ListeningMatchingRenderer({ activity, value, readonly, onChange }: Acti
       {activity.pairs.map((pair, index) => (
         <div key={index} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Audio {index + 1}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-rex">Audio {index + 1}</p>
             <AudioPlayer text={pair.audio_text} voice={resolveVoice(activity.voice)} />
           </div>
           <select
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 self-center"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex self-center"
             disabled={readonly}
             value={selections[String(index)] ?? ''}
             onChange={(e) => { playSfx('select'); onChange(activity.id, { ...selections, [String(index)]: e.target.value }); }}
@@ -891,7 +892,7 @@ function ListeningOrderRenderer({ activity, value, readonly, onChange }: Activit
       <ActivityInstructions instructions={activity.instructions} />
 
       {/* Renglón de respuesta: fichas colocadas en orden. */}
-      <div className="flex min-h-[52px] flex-wrap items-center gap-2 rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/40 p-3">
+      <div className="flex min-h-[52px] flex-wrap items-center gap-2 rounded-2xl border-2 border-dashed border-rex-light bg-rex-light/40 p-3">
         {placed.length === 0 && <span className="text-sm text-slate-400">Toca las palabras para armar la oración…</span>}
         {placed.map((word, i) => (
           <button
@@ -900,7 +901,7 @@ function ListeningOrderRenderer({ activity, value, readonly, onChange }: Activit
             disabled={readonly}
             onClick={() => !readonly && removeAt(i)}
             title="Quitar"
-            className="select-none rounded-xl border border-blue-400 bg-white px-3 py-2 text-sm font-semibold text-blue-800 shadow-sm transition hover:bg-blue-100"
+            className="select-none rounded-xl border border-rex bg-white px-3 py-2 text-sm font-semibold text-rex-deep shadow-sm transition hover:bg-rex-light"
           >
             {word}
           </button>
@@ -917,7 +918,7 @@ function ListeningOrderRenderer({ activity, value, readonly, onChange }: Activit
                 key={key}
                 type="button"
                 onClick={() => append(word)}
-                className="select-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                className="select-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-rex hover:bg-rex-light"
               >
                 {word}
               </button>
@@ -939,7 +940,7 @@ function ConversationRenderer({ activity, value, readonly, onChange }: ActivityR
   );
   return (
     <div className="grid gap-3">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-blue-600">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-rex">
         <span>🗣️ Conversación</span>
         <span className="text-slate-400">{activity.lines.length} turnos · dos voces</span>
       </div>

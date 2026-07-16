@@ -150,7 +150,7 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+    <div className="flex flex-col gap-2 rounded-2xl border border-rex-light bg-rex-light px-4 py-3">
       {/* Hidden audio element */}
       {blobUrl && (
         <audio
@@ -173,7 +173,7 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
           onClick={togglePlay}
           disabled={loading || error || !blobUrl}
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition
-            ${loading || !blobUrl ? 'bg-slate-200 text-slate-400' : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'}
+            ${loading || !blobUrl ? 'bg-slate-200 text-slate-400' : 'bg-rex text-white shadow-sm hover:bg-rex-deep'}
             disabled:cursor-not-allowed`}
         >
           {loading
@@ -193,11 +193,11 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
             value={progress}
             onChange={handleSeek}
             disabled={!blobUrl || loading}
-            className="w-full cursor-pointer accent-blue-600 disabled:cursor-default disabled:opacity-40"
+            className="w-full cursor-pointer accent-rex disabled:cursor-default disabled:opacity-40"
           />
           {/* Barra de progreso visual */}
           <div
-            className="pointer-events-none absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-600/30 transition-all"
+            className="pointer-events-none absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-rex/30 transition-all"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -211,7 +211,7 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
         <select
           value={speed}
           onChange={(e) => setSpeed(Number(e.target.value))}
-          className="shrink-0 rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs font-semibold text-blue-700 outline-none focus:border-blue-400"
+          className="shrink-0 rounded-lg border border-rex-light bg-white px-2 py-1 text-xs font-semibold text-rex-deep outline-none focus:border-rex"
           title="Velocidad de reproducción"
         >
           <option value={0.5}>0.5×</option>
@@ -222,12 +222,12 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
 
         {/* Selector de voz — solo si no se forzó una voz específica ni es conversación (voces por línea) */}
         {!voice && !conversation && (
-          <div className="flex shrink-0 overflow-hidden rounded-lg border border-blue-200 text-xs font-semibold">
+          <div className="flex shrink-0 overflow-hidden rounded-lg border border-rex-light text-xs font-semibold">
             <button
               type="button"
               onClick={() => handleGenderChange('male')}
               title="Voz masculina (Guy)"
-              className={`px-2 py-1 transition ${gender === 'male' ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-50'}`}
+              className={`px-2 py-1 transition ${gender === 'male' ? 'bg-rex text-white' : 'bg-white text-rex-deep hover:bg-rex-light'}`}
             >
               ♂
             </button>
@@ -235,7 +235,7 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
               type="button"
               onClick={() => handleGenderChange('female')}
               title="Voz femenina (Jenny)"
-              className={`px-2 py-1 transition ${gender === 'female' ? 'bg-blue-600 text-white' : 'bg-white text-blue-700 hover:bg-blue-50'}`}
+              className={`px-2 py-1 transition ${gender === 'female' ? 'bg-rex text-white' : 'bg-white text-rex-deep hover:bg-rex-light'}`}
             >
               ♀
             </button>
@@ -341,8 +341,8 @@ export function TtsButton({ text, voice }: TtsButtonProps) {
           ${error
             ? 'bg-red-100 text-red-500 hover:bg-red-200'
             : playing
-              ? 'bg-indigo-200 text-indigo-700'
-              : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'}
+              ? 'bg-rex-light text-rex-deep'
+              : 'bg-rex-light text-rex hover:bg-rex-light'}
           disabled:cursor-default disabled:opacity-50`}
       >
         {loading

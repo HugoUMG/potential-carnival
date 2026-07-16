@@ -28,22 +28,13 @@ function passed({ score, correct, incorrect }: Pick<SceneProps, 'score' | 'corre
   return score !== null ? score >= PASS_THRESHOLD : correct >= incorrect;
 }
 
-// La animación se elige AL EMPEZAR el envío (en RocketFueling) para que la pantalla de
-// carga explique qué serán las respuestas y coincida con la escena final.
+// La escena se elige AL AZAR en cada envío. La pantalla de carga es RexLearn pensando
+// (LoadingOverlay en LoadingScreen.tsx) y ya no preselecciona la escena.
 type SceneKind = 'rocket' | 'baker' | 'skydiver';
 const KINDS: SceneKind[] = ['rocket', 'baker', 'skydiver'];
-let _pickedKind: SceneKind | null = null;
 function pickKind(): SceneKind {
-  _pickedKind = KINDS[Math.floor(Math.random() * KINDS.length)];
-  return _pickedKind;
+  return KINDS[Math.floor(Math.random() * KINDS.length)];
 }
-
-// Texto e íconos de la pantalla de carga según la animación que saldrá al final.
-const LOADING: Record<SceneKind, { emoji: string; rising: string[]; bg: string; big: string; sub: string }> = {
-  rocket: { emoji: '🚀', rising: ['📝', '✏️', '📚', '⛽'], bg: 'from-slate-900 to-indigo-900', big: '⛽ Tus respuestas son la gasolina del cohete', sub: '¿Alcanzará para llegar al espacio?' },
-  baker: { emoji: '👩‍🍳', rising: ['🥚', '🥛', '🧈', '🍫'], bg: 'from-amber-700 to-rose-800', big: '🥣 Tus respuestas son los ingredientes del chef', sub: '¿Saldrá un pastel delicioso?' },
-  skydiver: { emoji: '🪂', rising: ['🩹', '🧵', '🪡', '🪂'], bg: 'from-sky-600 to-indigo-800', big: '🪂 Tus respuestas son los parches del paracaídas', sub: '¿Aguantará el salto hasta la tierra?' },
-};
 
 // ── Efectos de sonido (ZzFX: sintetizados, sin archivos de audio) ────────────
 // Cada efecto son parámetros de ZzFX (zzfx.3d2k.com). Se carga en diferido y se
@@ -133,60 +124,34 @@ function Caption({ text }: { text: string }) {
   );
 }
 
-/** Tarjeta blanca final con puntuación y botones — igual para todas las animaciones. */
+/** Tarjeta blanca final con puntuación y botones — igual para todas las animaciones.
+ *  RexLearn asoma sobre la tarjeta y reacciona al resultado (feliz si aprobó, triste si no). */
 function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitle, onSeeAnswers, onClose }: SceneProps & { ok: boolean; emoji: string; title: string }) {
   return (
-    <div className="relative w-full max-w-sm rounded-3xl bg-white/95 p-8 text-center shadow-2xl backdrop-blur">
-      <div className="text-5xl">{emoji}</div>
-      <h2 className="mt-2 text-2xl font-extrabold text-slate-900">{title}</h2>
+    <div className="relative mt-16 w-full max-w-sm rounded-3xl bg-white/95 p-8 pt-14 text-center shadow-2xl backdrop-blur">
+      <img
+        src={ok ? '/mascot/rex-happy.png' : '/mascot/rex-sad.png'}
+        alt=""
+        aria-hidden
+        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        className="absolute -top-20 left-1/2 h-36 w-36 -translate-x-1/2 object-contain drop-shadow-xl"
+      />
+      <h2 className="text-2xl font-extrabold text-ink">{emoji} {title}</h2>
       <p className="mt-1 text-sm text-slate-500">{worksheetTitle}</p>
-      <div className={`mt-4 rounded-2xl px-6 py-4 ${ok ? 'bg-blue-50' : 'bg-rose-50'}`}>
-        <p className={`text-4xl font-black ${ok ? 'text-blue-700' : 'text-rose-700'}`}>{score !== null ? score : '—'}</p>
+      <div className={`mt-4 rounded-2xl px-6 py-4 ${ok ? 'bg-rex-light' : 'bg-rose-50'}`}>
+        <p className={`text-4xl font-black ${ok ? 'text-rex-deep' : 'text-rose-700'}`}>{score !== null ? score : '—'}</p>
         <p className="text-sm font-semibold text-slate-500">Puntuación</p>
       </div>
       <div className="mt-3 flex justify-center gap-3 text-sm font-semibold">
         <span className="rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700">✓ {correct}</span>
         <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">✗ {incorrect}</span>
       </div>
-      <button className="mt-6 w-full rounded-2xl bg-violet-600 px-6 py-3 font-semibold text-white hover:bg-violet-700" onClick={onSeeAnswers}>
+      <button className="mt-6 w-full rounded-2xl bg-rex px-6 py-3 font-semibold text-white transition hover:bg-rex-dark" onClick={onSeeAnswers}>
         Ver mis respuestas →
       </button>
       <button className="mt-3 w-full rounded-2xl px-6 py-2 text-sm text-slate-500 hover:bg-slate-100" onClick={onClose}>
         Cerrar
       </button>
-    </div>
-  );
-}
-
-/** Pantalla de carga durante el envío. Elige la animación y explica EN GRANDE qué serán
- *  las respuestas (gasolina / ingredientes / parches), según la escena que saldrá. */
-export function RocketFueling() {
-  const [kind] = useState<SceneKind>(pickKind); // siempre re-elige al iniciar un envío
-  const [progress, setProgress] = useState(8);
-  useEffect(() => {
-    primeSfx(); // el envío es un gesto del usuario: habilita el audio para las escenas siguientes.
-    const id = setInterval(() => setProgress((p) => (p >= 92 ? p : p + Math.max(1, Math.round((96 - p) / 14)))), 350);
-    return () => clearInterval(id);
-  }, []);
-  const t = LOADING[kind];
-  return (
-    <div className={`fixed inset-0 z-50 grid place-items-center overflow-hidden bg-gradient-to-b ${t.bg} p-6`}>
-      <StarField />
-      <div className="relative w-full max-w-md text-center text-white">
-        <div className="relative mx-auto h-40 w-24">
-          {t.rising.map((m, i) => (
-            <span key={i} className="rk-rise absolute bottom-0 left-1/2 -translate-x-1/2 text-2xl" style={{ animationDelay: `${i * 0.6}s` }}>{m}</span>
-          ))}
-          <div className="rk-bob absolute bottom-0 left-1/2 -translate-x-1/2 text-6xl">{t.emoji}</div>
-        </div>
-        <h2 className="mt-4 text-2xl font-black leading-snug">{t.big}</h2>
-        <p className="mt-2 text-base font-bold text-white/85">{t.sub}</p>
-        <p className="mt-1 text-sm text-white/55">Procesando tus respuestas ✨</p>
-        <div className="mx-auto mt-5 h-3 max-w-xs overflow-hidden rounded-full bg-white/15">
-          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
-        </div>
-        <p className="mt-2 text-xs font-semibold text-amber-300">{progress}%</p>
-      </div>
     </div>
   );
 }
@@ -596,11 +561,10 @@ const SUBMIT_ANIMATIONS: Array<{ id: SceneKind; label: string; component: (p: Sc
   { id: 'skydiver', label: 'Paracaidista', component: SkydiverScene },
 ];
 
-/** Usa la animación que la pantalla de carga ya eligió (para que carga y final coincidan). */
+/** Elige una animación al azar en cada envío (se fija al montar, no cambia entre fases). */
 export function SubmitResult(props: SceneProps) {
-  const [Scene] = useState(() => {
-    const kind = _pickedKind ?? pickKind();
-    return SUBMIT_ANIMATIONS.find((a) => a.id === kind)!.component;
-  });
+  const [Scene] = useState(() => SUBMIT_ANIMATIONS.find((a) => a.id === pickKind())!.component);
+  // El alumno ya interactuó (clics + botón enviar), así que el navegador permite reanudar el audio.
+  useEffect(() => { primeSfx(); }, []);
   return <Scene {...props} />;
 }
