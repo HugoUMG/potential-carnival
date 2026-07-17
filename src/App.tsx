@@ -5,6 +5,7 @@ import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { SubmitResult } from './components/submitAnimations';
 import { LoadingScreen, LoadingOverlay } from './components/LoadingScreen';
+import { confirmBeforeSubmit } from './utils/submitGuard';
 import { WorksheetPrint } from './components/WorksheetPrint';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
@@ -485,6 +486,7 @@ export default function App() {
 
   async function sendAnswers() {
     if (!user || isSubmitting) return;
+    if (!confirmBeforeSubmit(activeWorksheet, answers)) return;
     setIsSubmitting(true);
     try {
       const response = await submitResponse(activeWorksheet, user, answers);
