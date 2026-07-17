@@ -327,11 +327,14 @@ select {
 .wp-desc { margin-top: 3px; font-size: 11.5px; color: #374151; }
 .wp-fields { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 10px; font-size: 11.5px; font-weight: 600; }
 .wp-field { white-space: nowrap; }
-.wp-block { margin-top: 14px; break-inside: avoid; }
-.wp-block-title { font-size: 13.5px; font-weight: 800; background: #f1f5f9; padding: 3px 8px; border-left: 3px solid #334155; }
+/* Sin break-inside aquí: cuando la hoja no usa block {}, TODAS las actividades quedan en
+   un solo wp-block; con break-inside:avoid el navegador lo empujaba entero a la 2ª página
+   (dejando la 1ª casi en blanco). El corte va por actividad (.wp-activity), no por bloque. */
+.wp-block { margin-top: 14px; }
+.wp-block-title { font-size: 13.5px; font-weight: 800; background: #f1f5f9; padding: 3px 8px; border-left: 3px solid #334155; break-after: avoid; }
 .wp-block-instr { font-size: 11px; font-style: italic; color: #4b5563; margin: 3px 0 6px; }
-.wp-block-body { display: grid; gap: 9px; }
-.wp-activity { break-inside: avoid; }
+.wp-block-body { display: block; }
+.wp-activity { break-inside: avoid; margin-top: 9px; }
 .wp-num { font-weight: 700; margin-right: 2px; }
 .wp-instr { font-size: 10.5px; font-style: italic; color: #6b7280; }
 .wp-hint { font-size: 10.5px; font-style: italic; color: #6b7280; }

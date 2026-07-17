@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Send, RotateCcw } from 'lucide-react';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { LoadingScreen, LoadingOverlay } from '../components/LoadingScreen';
+import { confirmBeforeSubmit } from '../utils/submitGuard';
 import { getPublicWorksheet, submitDirectResponse, type DetalleRespuesta } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
 
@@ -75,6 +76,7 @@ export function DirectWorksheetPage() {
 
   async function send() {
     if (!worksheet || !worksheetId || submitting) return;
+    if (!confirmBeforeSubmit(worksheet, answers)) return;
     setSubmitting(true);
     setError('');
     try {

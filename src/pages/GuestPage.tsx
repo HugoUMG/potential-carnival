@@ -5,6 +5,7 @@ import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { RichText } from '../components/RichText';
 import { SubmitResult } from '../components/submitAnimations';
 import { LoadingScreen, LoadingOverlay, Spinner } from '../components/LoadingScreen';
+import { confirmBeforeSubmit } from '../utils/submitGuard';
 import type { RespuestaEstudiante } from '../services/api';
 import { normalizeWorksheet } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
@@ -255,6 +256,7 @@ export function GuestPage() {
 
   async function sendAnswers() {
     if (!activeWorksheet || !session || isSubmitting) return;
+    if (!confirmBeforeSubmit(activeWorksheet, answers)) return;
     setIsSubmitting(true);
     setError('');
     try {
