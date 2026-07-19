@@ -5,7 +5,7 @@ import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { SubmitResult } from './components/submitAnimations';
 import { LoadingScreen, LoadingOverlay } from './components/LoadingScreen';
-import { confirmBeforeSubmit } from './utils/submitGuard';
+import { SubmitConfirmModal, missingNameLabel, type SubmitPrompt } from './components/SubmitConfirmModal';
 import { WorksheetPrint } from './components/WorksheetPrint';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
@@ -202,6 +202,7 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
+  const [submitPrompt, setSubmitPrompt] = useState<SubmitPrompt | null>(null);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
   // Modo práctica: el profesor resuelve la hoja para verificar sus respuestas (no se guarda nada).
   const [practiceWorksheet, setPracticeWorksheet] = useState<Worksheet | null>(null);
@@ -484,9 +485,15 @@ export default function App() {
     setMessage('Evaluación eliminada permanentemente.');
   }
 
+  /** Abre el modal de confirmación (o el aviso de nombre faltante) del propio frontend. */
+  function requestSendAnswers() {
+    if (!user || isSubmitting) return;
+    const missing = missingNameLabel(activeWorksheet, answers);
+    setSubmitPrompt(missing ? { kind: 'missing-name', field: missing } : { kind: 'confirm' });
+  }
+
   async function sendAnswers() {
     if (!user || isSubmitting) return;
-    if (!confirmBeforeSubmit(activeWorksheet, answers)) return;
     setIsSubmitting(true);
     try {
       const response = await submitResponse(activeWorksheet, user, answers);
@@ -966,7 +973,7 @@ export default function App() {
               {message && !submitResult && <p className="mx-auto mt-4 max-w-4xl rounded-2xl bg-rex-light p-3 text-sm font-semibold text-rex-deep">{message}</p>}
               {activeWorksheets.length > 0 && isActiveWorksheetPublished && (
                 <div className="mx-auto mt-6 flex max-w-4xl justify-end">
-                  <button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white disabled:opacity-60" disabled={isSubmitting} onClick={sendAnswers}>
+                  <button className="rounded-2xl bg-emerald-500 px-6 py-3 font-semibold text-white disabled:opacity-60" disabled={isSubmitting} onClick={requestSendAnswers}>
                     <Send className="mr-2 inline" size={18} /> {isSubmitting ? 'Enviando...' : 'Enviar respuestas'}
                   </button>
                 </div>
@@ -1096,6 +1103,14 @@ export default function App() {
             </section>
           </div>
         )}
+      {/* ── Confirmación de envío (frontend propio, no window.confirm) ── */}
+      {submitPrompt && (
+        <SubmitConfirmModal
+          prompt={submitPrompt}
+          onClose={() => setSubmitPrompt(null)}
+          onConfirm={() => { setSubmitPrompt(null); void sendAnswers(); }}
+        />
+      )}
       {/* ── Resultado de envío (animación al azar) ── */}
       {submitResult && (
         <SubmitResult
