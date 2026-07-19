@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Send, RotateCcw } from 'lucide-react';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { LoadingScreen, LoadingOverlay } from '../components/LoadingScreen';
-import { confirmBeforeSubmit } from '../utils/submitGuard';
+import { SubmitConfirmModal, missingNameLabel, type SubmitPrompt } from '../components/SubmitConfirmModal';
 import { getPublicWorksheet, submitDirectResponse, type DetalleRespuesta } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
 
@@ -45,6 +45,7 @@ export function DirectWorksheetPage() {
   const [error, setError] = useState('');
   const [answers, setAnswers] = useState<StudentAnswers>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitPrompt, setSubmitPrompt] = useState<SubmitPrompt | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [attemptsUsed, setAttemptsUsed] = useState(0);
 
@@ -74,9 +75,15 @@ export function DirectWorksheetPage() {
     setAnswers((cur) => ({ ...cur, [activityId]: value }));
   }, []);
 
+  /** Abre el modal de confirmación (o el aviso de nombre faltante) del propio frontend. */
+  function requestSend() {
+    if (!worksheet || submitting) return;
+    const missing = missingNameLabel(worksheet, answers);
+    setSubmitPrompt(missing ? { kind: 'missing-name', field: missing } : { kind: 'confirm' });
+  }
+
   async function send() {
     if (!worksheet || !worksheetId || submitting) return;
-    if (!confirmBeforeSubmit(worksheet, answers)) return;
     setSubmitting(true);
     setError('');
     try {
@@ -187,12 +194,19 @@ export function DirectWorksheetPage() {
           <button
             className="flex items-center gap-2 rounded-2xl bg-rex px-8 py-3 font-bold text-white shadow-lg transition hover:bg-rex-dark disabled:opacity-60"
             disabled={submitting}
-            onClick={() => void send()}
+            onClick={requestSend}
           >
             <Send size={18} /> {submitting ? 'Enviando…' : 'Enviar respuestas'}
           </button>
         </div>
       </div>
+      {submitPrompt && (
+        <SubmitConfirmModal
+          prompt={submitPrompt}
+          onClose={() => setSubmitPrompt(null)}
+          onConfirm={() => { setSubmitPrompt(null); void send(); }}
+        />
+      )}
     </main>
   );
 }

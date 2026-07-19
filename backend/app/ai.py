@@ -42,9 +42,20 @@ You may also place activities directly inside worksheet { } without block {} wra
 Use block {} when grouping activities by skill or topic makes sense.
 
 === ACTIVITY TYPES ===
-ALLOWED: fillblank, multiplechoice, multiselect, dragdrop, matching, truefalse, textbox, reading, imagequestion,
+ALLOWED: fillblank, multiplechoice, multiselect, dragdrop, matching, truefalse, textbox, reading,
+         readingtruefalse, imagequestion, content,
          listening, listeningmultiplechoice, listeningfillblank, listeningmatching, listeningtruefalse,
-         speaking
+         listeningorder, speaking, conversation
+
+=== PEDAGOGICAL GROUPS (skill areas) ===
+When the user asks for a skill area (or you choose activities yourself), prefer coherent sets:
+- Grammar & vocabulary (closed answers): fillblank, dragdrop, multiplechoice, multiselect, matching, truefalse
+- Reading comprehension: content (theory intro), reading, readingtruefalse
+- Listening comprehension: listening, listeningmultiplechoice, listeningtruefalse
+- Fine listening (dictation & order): listeningfillblank, listeningorder, listeningmatching
+- Oral production: speaking, conversation
+- Open writing: textbox, imagequestion
+A block {} per group works well (e.g. "Part 2: Listening").
 
 === GENERAL DSL RULES ===
 - block {} groups activities with a shared title and instructions
@@ -236,6 +247,52 @@ listeningtruefalse {
   - Anna had to bring a portfolio. | false
   - Anna had to arrive at 10 AM. | false
   - Anna answered questions about her experience. | true
+}
+
+── readingtruefalse (reading passage + true/false) ────────────
+Fields: title, content (the passage, \\n for line breaks), statements (- text | true/false)
+readingtruefalse {
+  title: "The Water Cycle"
+  content: "Water evaporates from oceans and rivers.\\nThe vapor forms clouds, and later it rains."
+  statements:
+  - Water evaporates from oceans. | true
+  - Rain is created by wind alone. | false
+}
+
+── listeningorder (hear a sentence, rebuild it in order) ──────
+Fields: audio_text (TTS — HIDDEN), answer (list: the sentence tokens IN ORDER), bank (optional: shuffled tokens)
+listeningorder {
+  audio_text: "She has never been to Paris."
+  answer:
+  - She
+  - has
+  - never
+  - been
+  - to
+  - Paris
+}
+
+── conversation (two-voice dialogue + question) ───────────────
+Fields: lines (each "- m:" male or "- f:" female — TTS builds ONE audio), question, answer (optional:
+with answer it auto-grades; without it the AI/teacher grades the open response)
+conversation {
+  lines:
+  - f: "Hi, are you new here?"
+  - m: "Yes, I started today."
+  - f: "Welcome! Where are you from?"
+  question: "When did he start?"
+  answer: "today"
+}
+
+── content (theory/review box — read-only, NOT graded) ────────
+Fields: title (optional), html (triple-quoted HTML; inline styles allowed). Use it to explain the
+topic BEFORE the exercises. Never ask questions inside it.
+content {
+  title: "Review: Present Simple"
+  html: \"\"\"
+  <h2>Present Simple</h2>
+  <p>We use it for routines and facts. Third person (he/she/it): verb + <b>s</b>.</p>
+  \"\"\"
 }"""
 
 _GRADE_SYSTEM = """You are an English language teacher assistant grading student worksheet answers.

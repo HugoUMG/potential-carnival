@@ -5,7 +5,7 @@ import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { RichText } from '../components/RichText';
 import { SubmitResult } from '../components/submitAnimations';
 import { LoadingScreen, LoadingOverlay, Spinner } from '../components/LoadingScreen';
-import { confirmBeforeSubmit } from '../utils/submitGuard';
+import { SubmitConfirmModal, missingNameLabel, type SubmitPrompt } from '../components/SubmitConfirmModal';
 import type { RespuestaEstudiante } from '../services/api';
 import { normalizeWorksheet } from '../services/api';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
@@ -207,6 +207,7 @@ export function GuestPage() {
   const [tab, setTab] = useState<'activas' | 'calificadas'>('activas');
   const [answers, setAnswers] = useState<StudentAnswers>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitPrompt, setSubmitPrompt] = useState<SubmitPrompt | null>(null);
   const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
   const [error, setError] = useState('');
   // Primera carga desde la BD (Aiven puede tardar): spinner para hojas y para resultados.
@@ -254,9 +255,15 @@ export function GuestPage() {
   const gradedWorksheets = worksheets.filter((w) => answeredIds.has(w.id));
   const responseByWorksheet = new Map(responses.map((r) => [r.worksheet_id, r]));
 
+  /** Abre el modal de confirmación (o el aviso de nombre faltante) del propio frontend. */
+  function requestSend() {
+    if (!activeWorksheet || isSubmitting) return;
+    const missing = missingNameLabel(activeWorksheet, answers);
+    setSubmitPrompt(missing ? { kind: 'missing-name', field: missing } : { kind: 'confirm' });
+  }
+
   async function sendAnswers() {
     if (!activeWorksheet || !session || isSubmitting) return;
-    if (!confirmBeforeSubmit(activeWorksheet, answers)) return;
     setIsSubmitting(true);
     setError('');
     try {
@@ -336,7 +343,7 @@ export function GuestPage() {
                 <button
                   className="rounded-2xl bg-rex px-6 py-3 font-semibold text-white disabled:opacity-60 hover:bg-rex-dark transition-colors"
                   disabled={isSubmitting}
-                  onClick={() => void sendAnswers()}
+                  onClick={requestSend}
                 >
                   <Send className="mr-2 inline" size={18} /> {isSubmitting ? 'Enviando...' : 'Enviar respuestas'}
                 </button>
@@ -407,6 +414,15 @@ export function GuestPage() {
             })()}
           </section>
         </div>
+      )}
+
+      {/* ── MODAL confirmación de envío (frontend propio, no window.confirm) ── */}
+      {submitPrompt && (
+        <SubmitConfirmModal
+          prompt={submitPrompt}
+          onClose={() => setSubmitPrompt(null)}
+          onConfirm={() => { setSubmitPrompt(null); void sendAnswers(); }}
+        />
       )}
 
       {/* ── MODAL resultado (animación al azar) ── */}

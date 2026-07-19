@@ -20,11 +20,24 @@ const FOCUS = ['Affirmative', 'Negative', 'Questions', 'WH Questions', 'Mixed'];
 const AGES: [string, string][] = [['Niños', 'niños'], ['Adolescentes', 'adolescentes'], ['Adultos', 'adultos']];
 const DURATIONS = ['10', '20', '30', '45'];
 const DIFFICULTIES: [string, string][] = [['Fácil', 'fácil'], ['Normal', 'normal'], ['Desafiante', 'desafiante']];
-// [etiqueta amigable, tipo DSL] — se incluyen ambos en el prompt para guiar a la IA.
+// [etiqueta amigable, tipo DSL] — se incluyen ambos en el prompt para guiar a la IA. Los 19 tipos.
 const ACTIVITIES: [string, string][] = [
-  ['Multiple Choice', 'multiplechoice'], ['Fill in the Blank', 'fillblank'], ['True/False', 'truefalse'],
-  ['Matching', 'matching'], ['Drag & Drop', 'dragdrop'], ['Reading', 'reading'], ['Image Question', 'imagequestion'],
-  ['Listening', 'listening'], ['Listen & Order', 'listeningorder'], ['Conversation', 'conversation'], ['Speaking', 'speaking'],
+  ['Multiple Choice', 'multiplechoice'], ['Multi-Select', 'multiselect'], ['Fill in the Blank', 'fillblank'],
+  ['Drag & Drop', 'dragdrop'], ['Matching', 'matching'], ['True/False', 'truefalse'],
+  ['Repaso (teoría)', 'content'], ['Reading', 'reading'], ['Reading T/F', 'readingtruefalse'],
+  ['Listening', 'listening'], ['Listening MC', 'listeningmultiplechoice'], ['Listening T/F', 'listeningtruefalse'],
+  ['Listening Fill', 'listeningfillblank'], ['Listen & Order', 'listeningorder'], ['Listening Matching', 'listeningmatching'],
+  ['Speaking', 'speaking'], ['Conversation', 'conversation'],
+  ['Escritura libre', 'textbox'], ['Image Question', 'imagequestion'],
+];
+// Grupos por objetivo pedagógico: un clic activa todo el set (misma taxonomía que conoce la IA del backend).
+const ACTIVITY_GROUPS: { label: string; icon: string; types: string[] }[] = [
+  { label: 'Gramática y vocabulario', icon: '🧱', types: ['fillblank', 'dragdrop', 'multiplechoice', 'multiselect', 'matching', 'truefalse'] },
+  { label: 'Lectura', icon: '📖', types: ['content', 'reading', 'readingtruefalse'] },
+  { label: 'Comprensión auditiva', icon: '🎧', types: ['listening', 'listeningmultiplechoice', 'listeningtruefalse'] },
+  { label: 'Escucha fina', icon: '🎼', types: ['listeningfillblank', 'listeningorder', 'listeningmatching'] },
+  { label: 'Producción oral', icon: '🗣️', types: ['speaking', 'conversation'] },
+  { label: 'Escritura abierta', icon: '✍️', types: ['textbox', 'imagequestion'] },
 ];
 const PRESETS: { label: string; icon: string; patch: Partial<BuilderState> }[] = [
   { label: 'Warm-up', icon: '🔥', patch: { objective: 'Introducción', duration: '10', difficulty: 'Fácil', activities: ['multiplechoice', 'truefalse'] } },
@@ -149,6 +162,13 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
   const apply = (next: BuilderState) => { setB(next); setAiPrompt(composePrompt(next)); };
   const patch = (p: Partial<BuilderState>) => apply({ ...b, ...p });
   const toggleActivity = (v: string) => patch({ activities: b.activities.includes(v) ? b.activities.filter((x) => x !== v) : [...b.activities, v] });
+  // Grupo activo = todos sus tipos seleccionados. Clic: activa el set completo, o lo quita si ya está.
+  const groupActive = (types: string[]) => types.every((t) => b.activities.includes(t));
+  const toggleGroup = (types: string[]) => patch({
+    activities: groupActive(types)
+      ? b.activities.filter((x) => !types.includes(x))
+      : [...b.activities, ...types.filter((t) => !b.activities.includes(t))],
+  });
 
   return (
     <div className="rounded-3xl bg-white p-6 shadow-sm max-w-3xl">
@@ -196,7 +216,14 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
             {DIFFICULTIES.map(([l]) => <Chip key={l} active={b.difficulty === l} onClick={() => patch({ difficulty: b.difficulty === l ? '' : l })}>{l}</Chip>)}
           </ChipGroup>
         </div>
-        <ChipGroup label="🧩 Actividades (opcional)">
+        <ChipGroup label="🎯 Grupos por habilidad (un clic activa el set)">
+          {ACTIVITY_GROUPS.map((g) => (
+            <Chip key={g.label} active={groupActive(g.types)} onClick={() => toggleGroup(g.types)}>
+              {g.icon} {g.label}
+            </Chip>
+          ))}
+        </ChipGroup>
+        <ChipGroup label="🧩 Actividades (opcional, ajusta el detalle)">
           {ACTIVITIES.map(([l, v]) => <Chip key={v} active={b.activities.includes(v)} onClick={() => toggleActivity(v)}>{b.activities.includes(v) ? '✓ ' : ''}{l}</Chip>)}
         </ChipGroup>
       </div>

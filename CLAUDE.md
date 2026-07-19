@@ -159,6 +159,19 @@ Lista canónica de tipos soportados: `SUPPORTED_BLOCKS` en `backend/app/parser.p
 
 > **Nota:** la nota anterior de "`speaking` NO IMPLEMENTADO" quedó obsoleta — `speaking` **sí** está implementado (ambos modos). Los listenings usan **TTS**, no archivos de audio: nunca usar un campo `audio:`.
 
+### Grupos por habilidad (taxonomía pedagógica)
+
+Los 19 tipos se agrupan por objetivo. Esta taxonomía existe en DOS lugares que deben mantenerse en sincronía: `ACTIVITY_GROUPS` en `WorksheetEditor.tsx` (chips del AiPanel) y la sección "PEDAGOGICAL GROUPS" de `_WORKSHEET_SYSTEM` en `ai.py`. Úsala también al armar hojas a mano (un `block {}` por grupo funciona bien):
+
+| Grupo | Tipos |
+|-------|-------|
+| 🧱 Gramática y vocabulario (cerradas) | fillblank, dragdrop, multiplechoice, multiselect, matching, truefalse |
+| 📖 Lectura | content (teoría), reading, readingtruefalse |
+| 🎧 Comprensión auditiva | listening, listeningmultiplechoice, listeningtruefalse |
+| 🎼 Escucha fina (dictado y orden) | listeningfillblank, listeningorder, listeningmatching |
+| 🗣️ Producción oral | speaking, conversation |
+| ✍️ Escritura abierta | textbox, imagequestion |
+
 > **Voz por actividad (listening):** cualquier tipo `listening*` acepta un campo opcional `voice: male` o `voice: female` (default: preferencia global del usuario, masculina). Se normaliza en el parser (`_normalize_voice`) y baja hasta `AudioPlayer` (que ya aceptaba `voice`); `male`→`en-US-GuyNeural`, `female`→`en-US-JennyNeural`. Un valor desconocido se pasa tal cual como nombre de voz edge-tts. Solo aplica a listening (otros tipos lo ignoran). Sirve para evitar el desajuste "voz masculina lee la oración pero la pregunta dice *she*".
 
 ### Formato del Script DSL
@@ -590,7 +603,7 @@ POST   /public/transcribe                    — Audio (speaking) → texto (Gro
 
 ### Funciones
 
-- **`generate_worksheet_script(prompt)`** — Convierte un prompt en lenguaje natural a un script DSL válido. Usa el system prompt `_WORKSHEET_SYSTEM` que instruye al modelo sobre todos los tipos de actividades disponibles.
+- **`generate_worksheet_script(prompt)`** — Convierte un prompt en lenguaje natural a un script DSL válido. Usa el system prompt `_WORKSHEET_SYSTEM`, que instruye al modelo sobre **los 19 tipos** (antes solo permitía 15: se añadieron `readingtruefalse`, `listeningorder`, `conversation` y `content` con su referencia de sintaxis) y sobre los **grupos pedagógicos** (misma taxonomía que `ACTIVITY_GROUPS` del AiPanel). Ojo: dentro del string Python, las triple comillas del ejemplo de `content` van escapadas (`\"\"\"`).
 - **`ai_grade_activities(details, worksheet_title)`** — Califica respuestas pendientes (textbox, imagequestion) y verifica equivalencias semánticas en fillblank. Solo puede cambiar status de actividades `pending` o `incorrect`. Los comentarios del profesor se agregan en español.
 
 ### Lógica de calificación IA
@@ -641,7 +654,7 @@ Los colores del tema se aplican via estilos inline desde `worksheet.theme`.
 ### `WorksheetEditor.tsx` — Tres modos de edición
 1. **Script Mode** — Edición directa del DSL con validación antes de guardar
 2. **Visual Mode** — Builder drag-and-drop (VisualWorksheetBuilder)
-3. **IA Mode** — Prompt en lenguaje natural → genera DSL via API. El `AiPanel` (en `WorksheetEditor.tsx`) es un **constructor de prompt**: **presets** de un clic (Warm-up, Weekly Quiz, Monthly Test…) + **chips** (nivel, tema, objetivo, enfoque, edad, duración, dificultad, actividades) que **componen el prompt en vivo** (`composePrompt`) en el textarea, editable a mano. Solo frontend: alimenta el mismo `generateWorksheetWithAI` → `/worksheets/ai-generate`. Los chips de "Actividades" son sugerencia a la IA, no garantía dura.
+3. **IA Mode** — Prompt en lenguaje natural → genera DSL via API. El `AiPanel` (en `WorksheetEditor.tsx`) es un **constructor de prompt**: **presets** de un clic (Warm-up, Weekly Quiz, Monthly Test…) + **chips** (nivel, tema, objetivo, enfoque, edad, duración, dificultad, actividades) que **componen el prompt en vivo** (`composePrompt`) en el textarea, editable a mano. Solo frontend: alimenta el mismo `generateWorksheetWithAI` → `/worksheets/ai-generate`. Los chips de "Actividades" cubren **los 19 tipos** y hay chips de **grupos por habilidad** (`ACTIVITY_GROUPS`: Gramática y vocabulario / Lectura / Comprensión auditiva / Escucha fina / Producción oral / Escritura abierta — un clic activa el set completo; misma taxonomía que conoce el prompt del backend). Son sugerencia a la IA, no garantía dura.
 
 ### `main.tsx` — Rutas
 
