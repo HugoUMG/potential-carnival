@@ -11,7 +11,7 @@ Repositorio: `potential-carnival` | Deploy: Render.com
 | Base de datos | PostgreSQL (producción) / SQLite (desarrollo local) |
 | Autenticación | JWT con roles (`admin`, `teacher`, `student`, `reader`) |
 | TTS | `edge-tts` — voz `en-US-GuyNeural` |
-| IA | Google Gemini (`gemini-1.5-flash`) / Groq (`llama-3.3-70b-versatile`) |
+| IA | Google Gemini (`gemini-3.1-flash-lite`) / Groq (`llama-3.3-70b-versatile`) |
 | Deploy | Render.com — Static Site (frontend) + Web Service (backend) |
 
 ---
@@ -198,6 +198,36 @@ worksheet {
     - Option A
     - Option B
     answer: "Option A"
+  }
+
+  multiselect {
+    question: "Which words are adjectives?"
+    options:
+    - happy
+    - quickly
+    - tall
+    answer:
+    - happy
+    - tall
+  }
+
+  dragdrop {
+    text: "You kick the _____ in _____."
+    answer:
+    - ball
+    - soccer
+    bank:
+    - ball
+    - net
+    - soccer
+    - court
+  }
+
+  speaking {
+    target: "I wake up at seven o'clock every day."
+  }
+  speaking {
+    prompt: "What do you usually do on weekends?"
   }
 
   matching {
@@ -555,7 +585,7 @@ POST   /public/transcribe                    — Audio (speaking) → texto (Gro
 
 | Proveedor | Modelo | Prioridad |
 |-----------|--------|-----------|
-| Google Gemini | `gemini-1.5-flash` | Primero (si `GEMINI_API_KEY` existe) |
+| Google Gemini | `gemini-3.1-flash-lite` | Primero (si `GEMINI_API_KEY` existe) |
 | Groq | `llama-3.3-70b-versatile` | Fallback (si `GROQ_API_KEY` existe) |
 
 ### Funciones

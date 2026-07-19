@@ -11,7 +11,7 @@ _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 _GROQ_MODEL = "llama-3.3-70b-versatile"
 _GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 _WHISPER_MODEL = "whisper-large-v3-turbo"
-_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+_GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent"
 
 # ── System prompts ─────────────────────────────────────────────────────────────
 _WORKSHEET_SYSTEM = """You are an expert English worksheet creator for a language learning platform.
