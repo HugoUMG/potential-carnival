@@ -14,6 +14,11 @@ function hash(s: string): number {
   return [...s].reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0);
 }
 
+/** Mismo orden barajado que ve el alumno en pantalla (activityRegistry.shuffledByHash): determinista por (id, valor). */
+function shuffledByHash<T>(items: T[], seed: string): T[] {
+  return [...items].sort((a, b) => hash(`${seed}:${String(a)}`) - hash(`${seed}:${String(b)}`));
+}
+
 /** Líneas en blanco para escribir la respuesta. */
 function WriteLines({ n = 2 }: { n?: number }) {
   return (
@@ -59,18 +64,19 @@ function PrintActivity({ activity, n }: { activity: WorksheetActivity; n: number
       return head(
         <div>
           <p>{num} <BlankText text={a.text} /></p>
-          <p className="wp-bank">Banco: {a.bank.join('  ·  ')}</p>
+          <p className="wp-bank">Banco: {shuffledByHash(a.bank, a.id).join('  ·  ')}</p>
         </div>,
       );
 
     case 'multiplechoice':
     case 'multiselect': {
       const multi = a.type === 'multiselect';
+      const options = shuffledByHash(a.options, a.id);
       return head(
         <div>
           <p>{num} <RichText text={a.question} /> {multi && <em className="wp-hint">(varias)</em>}</p>
           <div className="wp-opts">
-            {a.options.map((opt, i) => (
+            {options.map((opt, i) => (
               <div key={i} className="wp-opt">
                 <span className="wp-mark">{multi ? '☐' : `${String.fromCharCode(65 + i)})`}</span>
                 <span><RichText text={opt} /></span>
