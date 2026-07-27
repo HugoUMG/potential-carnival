@@ -753,6 +753,10 @@ textarea:focus, select:focus {
   :root[data-theme='dark'] .bg-white\/85,
   :root[data-theme='dark'] .bg-white\/80,
   :root[data-theme='dark'] .bg-white\/70 { background-color: rgb(var(--app-surface) / 0.78); }
+  /* Casi opacas: tarjeta de resultado del envío y barras de los portales público/lector.
+     Sin esto se quedaban BLANCAS con el texto ya repintado en claro = ilegibles. */
+  :root[data-theme='dark'] .bg-white\/95,
+  :root[data-theme='dark'] .bg-white\/90 { background-color: rgb(var(--app-surface) / 0.96); }
   :root[data-theme='dark'] .bg-cream { background-color: transparent; }
   :root[data-theme='dark'] .bg-slate-50,
   :root[data-theme='dark'] .bg-slate-100,
@@ -787,6 +791,7 @@ textarea:focus, select:focus {
 
   /* ── Insignias de estado (correcto / incorrecto / pendiente) ─────────────── */
   :root[data-theme='dark'] .bg-emerald-50 { background-color: rgb(16 185 129 / 0.15); }
+  :root[data-theme='dark'] .bg-emerald-100 { background-color: rgb(16 185 129 / 0.22); }
   :root[data-theme='dark'] .bg-red-50 { background-color: rgb(239 68 68 / 0.15); }
   :root[data-theme='dark'] .bg-amber-50, :root[data-theme='dark'] .bg-amber-50\/60 { background-color: rgb(245 158 11 / 0.15); }
   :root[data-theme='dark'] .bg-amber-100 { background-color: rgb(245 158 11 / 0.22); }
@@ -858,4 +863,50 @@ textarea:focus, select:focus {
   :root[data-theme='dark'] .bg-cream\/85 { background-color: rgb(var(--app-bg) / 0.85); }
   /* Bordes de marca: el verde claro sobre fondo oscuro casi no se ve. */
   :root[data-theme='dark'] .border-rex-light { border-color: rgb(199 240 138 / 0.2); }
+}
+
+/* ── Paleta pastel (tarjetas y píldoras de vocabulario, tipos de actividad…) ───
+   Tailwind -50/-100 son fondos casi blancos y -600/-800 texto casi negro: en
+   oscuro el fondo se quedaba claro con el texto ya repintado encima = ilegible.
+   Se mantiene el MISMO tono, como tinte translúcido sobre el fondo oscuro. */
+@media screen {
+  :root[data-theme='dark'] .bg-indigo-50  { background-color: rgb(129 140 248 / 0.14); }
+  :root[data-theme='dark'] .bg-indigo-100 { background-color: rgb(129 140 248 / 0.22); }
+  :root[data-theme='dark'] .bg-violet-50  { background-color: rgb(167 139 250 / 0.14); }
+  :root[data-theme='dark'] .bg-violet-100 { background-color: rgb(167 139 250 / 0.22); }
+  :root[data-theme='dark'] .bg-orange-50  { background-color: rgb(251 146 60 / 0.14); }
+  :root[data-theme='dark'] .bg-orange-100 { background-color: rgb(251 146 60 / 0.22); }
+  :root[data-theme='dark'] .bg-rose-50    { background-color: rgb(251 113 133 / 0.14); }
+  :root[data-theme='dark'] .bg-rose-100   { background-color: rgb(251 113 133 / 0.22); }
+  :root[data-theme='dark'] .bg-cyan-50    { background-color: rgb(34 211 238 / 0.14); }
+  :root[data-theme='dark'] .bg-cyan-100   { background-color: rgb(34 211 238 / 0.22); }
+  :root[data-theme='dark'] .bg-teal-50    { background-color: rgb(45 212 191 / 0.14); }
+  :root[data-theme='dark'] .bg-teal-100   { background-color: rgb(45 212 191 / 0.22); }
+  :root[data-theme='dark'] .bg-pink-50    { background-color: rgb(244 114 182 / 0.14); }
+  :root[data-theme='dark'] .bg-lime-50    { background-color: rgb(163 230 53 / 0.14); }
+  :root[data-theme='dark'] .bg-green-50   { background-color: rgb(74 222 128 / 0.14); }
+  :root[data-theme='dark'] .bg-blue-100   { background-color: rgb(96 165 250 / 0.22); }
+
+  :root[data-theme='dark'] .text-indigo-800,
+  :root[data-theme='dark'] .text-indigo-700,
+  :root[data-theme='dark'] .text-indigo-600 { color: #A5B4FC; }
+  :root[data-theme='dark'] .text-indigo-400 { color: rgb(165 180 252 / 0.7); }
+  :root[data-theme='dark'] .text-violet-800,
+  :root[data-theme='dark'] .text-violet-700 { color: #C4B5FD; }
+  :root[data-theme='dark'] .text-orange-700 { color: #FDBA74; }
+  :root[data-theme='dark'] .text-rose-700   { color: #FDA4AF; }
+  :root[data-theme='dark'] .text-cyan-700   { color: #67E8F9; }
+  :root[data-theme='dark'] .text-teal-700,
+  :root[data-theme='dark'] .text-teal-600   { color: #5EEAD4; }
+  :root[data-theme='dark'] .text-pink-700   { color: #F9A8D4; }
+  :root[data-theme='dark'] .text-lime-700   { color: #BEF264; }
+  :root[data-theme='dark'] .text-green-700  { color: #86EFAC; }
+  :root[data-theme='dark'] .text-blue-700   { color: #93C5FD; }
+}
+
+/* Modales de vista previa / modo práctica: el panel usaba .bg-slate-50, que el skin
+   deja translúcido — se leía el portal de fondo a través de la hoja. Opaco en ambos temas. */
+.rounded-3xl.bg-slate-50.shadow-2xl { background-color: #eef2f6; }
+@media screen {
+  :root[data-theme='dark'] .rounded-3xl.bg-slate-50.shadow-2xl { background-color: rgb(var(--app-surface)); }
 }
