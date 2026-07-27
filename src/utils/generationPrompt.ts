@@ -14,6 +14,13 @@ Número de actividades: <ej. 10>
 Tipos de actividad que quieres: <ej. fillblank, multiplechoice, listeningorder>
 ¿Incluir repaso teórico (content) al inicio?: <sí / no>
 
+=== IDIOMA DEL CONTENIDO (CRÍTICO) ===
+Esta plataforma enseña INGLÉS. Todo lo que el alumno lee y responde —el texto de cada oración,
+preguntas, opciones, textos de lectura, enunciados, audio_text— debe estar en INGLÉS, sin importar
+en qué idioma esté escrito este prompt. "title", "description" e "instructions" sí pueden ir en
+español (son metadata para el profesor/alumno). Solo escribe contenido en otro idioma dentro de una
+actividad si se pide explícitamente practicar ese idioma.
+
 === REGLA DE ORO: UN CAMPO POR LÍNEA ===
 El parser lee línea por línea. Si pones dos campos en la MISMA línea, el primero se traga el resto
 y los demás se PIERDEN.
@@ -314,5 +321,6 @@ vez. Si lo incluyes, debe refrescar de verdad:
 7. ¿Hay una entrada de "answer" por cada _____ de cada fillblank?
 8. ¿Se te escapó alguna respuesta en una pregunta, en instructions, en content o en otra actividad?
 9. ¿Las comillas internas son tipográficas (“ ”)? Las \\" quedan literales y se ven con backslash.
+10. ¿Toda oración/pregunta/opción que responde el alumno está en INGLÉS?
 
 Devuelve solo el WorksheetScript.`;
