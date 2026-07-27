@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, BookOpenCheck, ClipboardCheck, Headphones, Info, LayoutGrid,
+  ArrowRight, BookOpenCheck, BookText, ClipboardCheck, Headphones, Info, LayoutGrid,
   Mic, Send, Share2, Sparkles, UserPlus, Wand2,
 } from 'lucide-react';
 import RexMascot from '../../components/RexMascot';
@@ -68,6 +68,9 @@ export function HomePage() {
             </Link>
             <Link to="/actividades" className="site-btn site-btn-ghost">
               Actividades
+            </Link>
+            <Link to="/vocab" className="site-btn site-btn-ghost">
+              <BookText size={18} /> Conoce nuestro vocabulario gratuito
             </Link>
           </div>
 

@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LogIn, Moon, Sun, UserPlus } from 'lucide-react';
+import { BookText, LogIn, Moon, Sun, UserPlus } from 'lucide-react';
 import { getCurrentSession } from '../../services/api';
 import { toggleTheme, useTheme } from '../../utils/theme';
 
@@ -73,6 +73,9 @@ export function SiteLayout() {
                   de las utilidades de Tailwind y le ganaría el display. */}
                 <Link to="/registro" className="site-btn site-btn-ghost !px-4 !py-2 text-sm max-sm:!hidden">
                   <UserPlus size={16} /> Crear cuenta
+                </Link>
+                <Link to="/vocab" className="site-btn site-btn-ghost !px-4 !py-2 text-sm max-sm:!hidden">
+                  <BookText size={16} /> Conoce nuestro vocabulario gratuito
                 </Link>
                 <Link to="/login" className="site-btn site-btn-primary !px-5 !py-2 text-sm">
                   <LogIn size={16} /> Entrar

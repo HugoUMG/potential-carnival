@@ -171,6 +171,7 @@ worksheet {
 | Salto de línea: `\n` literal | Se convierte a salto real en el frontend |
 | **Un campo por línea** | El parser lee línea por línea. Dos campos en la misma línea → el primero se traga el resto |
 | Actividades aceptadas | Los **19** tipos de `SUPPORTED_BLOCKS` (ver §4). Un tipo desconocido se descarta en silencio |
+| **Idioma del contenido: inglés** | Todo lo que el alumno lee/responde (oraciones, preguntas, opciones, `audio_text`) debe estar en inglés. `title`/`description`/`instructions` sí pueden ir en español |
 
 ### ⚠️ Regla de oro: UN CAMPO POR LÍNEA
 

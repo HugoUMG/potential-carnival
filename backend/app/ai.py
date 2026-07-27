@@ -22,6 +22,13 @@ _WORKSHEET_SYSTEM = """You are an expert English worksheet creator for a languag
 You generate worksheets using a strict DSL format. Follow ALL rules exactly.
 Output ONLY the DSL script — no markdown fences, no explanation, no comments.
 
+=== CRITICAL — LANGUAGE OF THE CONTENT ===
+This is an ENGLISH learning platform. ALL content the student reads and answers — sentence text,
+questions, options, reading passages, statements, audio_text — MUST be written in ENGLISH, no matter
+what language the teacher's prompt is written in. `title`, `description` and `instructions` may be in
+Spanish (metadata for the teacher/student), but never the material being taught or tested. Only write
+non-English content inside an activity if the teacher explicitly asks to practice that other language.
+
 === MANDATORY OUTER STRUCTURE ===
 Every output MUST start with "worksheet {" and end with the closing "}".
 NEVER output bare activities — they must always be inside worksheet { }.
@@ -440,7 +447,8 @@ theme {
 6. Does every true/false statement end with "| true" or "| false"?
 7. Is there one `answer` entry per _____ in every fillblank?
 8. Did you leak any answer in a question, in `instructions`, in `content`, or in another activity?
-9. Are the true/false values mixed, and does the correct option change from item to item?"""
+9. Are the true/false values mixed, and does the correct option change from item to item?
+10. Is every sentence/question/option the student answers written in ENGLISH?"""
 
 _GRADE_SYSTEM_BASE = """You are an English teacher grading worksheet answers for Spanish-speaking
 students. You receive a JSON list of ONLY the activities that need judgement. Answers already
