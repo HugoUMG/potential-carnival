@@ -53,6 +53,14 @@ function asString(value: StudentAnswer | undefined): string {
   return typeof value === 'string' ? value : '';
 }
 
+/** Ancho de TODOS los huecos de una actividad, calculado con la respuesta más larga.
+ *  Antes cada hueco se dimensionaba con SU respuesta esperada, así que la caja delataba
+ *  cuántas letras faltaban. Uno solo para todos no distingue y conserva el espacio útil. */
+function blankWidth(expected: readonly (string | undefined)[]): string {
+  const longest = Math.max(8, ...expected.map((answer) => String(answer ?? '').length));
+  return `${Math.max(80, Math.min(160, longest * 12))}px`;
+}
+
 function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<FillBlankActivity>) {
   const parts = activity.text.replace(/\\n/g, '\n').split('_____');
   const expected = Array.isArray(activity.answer) ? activity.answer : [activity.answer];
@@ -68,7 +76,7 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
       <label className="block">
         <RichText className="text-base font-medium text-slate-800" text={activity.text} />
         <ActivityInstructions instructions={activity.instructions} />
-        <input className={inputClass} disabled={readonly} placeholder="Type the missing word" value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
+        <input className={inputClass} disabled={readonly} placeholder="Escribe la palabra que falta" value={asString(value)} onChange={(event) => onChange(activity.id, event.target.value)} />
       </label>
     );
   }
@@ -83,7 +91,7 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
             <input
               className="mx-1 inline-block rounded-lg border border-slate-300 px-2 py-1 text-sm align-middle outline-none focus:border-rex"
               disabled={readonly}
-              style={{ width: `${Math.max(80, Math.min(160, (expected[index]?.length ?? 8) * 12))}px` }}
+              style={{ width: blankWidth(expected) }}
               value={values[index] ?? ''}
               onChange={(event) => updateBlank(index, event.target.value)}
             />
@@ -260,7 +268,7 @@ function TextBoxRenderer({ activity, value, readonly, onChange }: ActivityRender
       <textarea
         className={`${inputClass} min-h-28 resize-y`}
         disabled={readonly}
-        placeholder="Write your answer"
+        placeholder="Escribe tu respuesta"
         value={asString(value)}
         onChange={(event) => onChange(activity.id, event.target.value)}
       />
@@ -537,11 +545,9 @@ function ReadingRenderer({ activity, value, readonly, onChange }: ActivityRender
     <article>
       <h3 className="text-lg font-semibold text-slate-900">{activity.title}</h3>
       <ActivityInstructions instructions={activity.instructions} />
+      {/* Sin reproductor: leer el texto en voz alta convertía una evaluación de comprensión
+          LECTORA en una de comprensión auditiva. Para practicar escucha están los tipos listening*. */}
       <p className="mt-3 rounded-xl bg-rex-light p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
-      <div className="mt-2">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Listen to the text</p>
-        <AudioPlayer text={activity.content} />
-      </div>
       <div className="mt-4 grid gap-3">
         {activity.questions.map((question, index) => (
           <label key={question} className="block">
@@ -581,11 +587,8 @@ function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: Activ
       <div>
         <h3 className="text-lg font-semibold text-slate-900">{activity.title}</h3>
         <ActivityInstructions instructions={activity.instructions} />
+        {/* Sin reproductor: ver ReadingRenderer. */}
         <p className="mt-3 rounded-xl bg-rex-light p-4 leading-7 text-slate-700"><RichText text={activity.content} /></p>
-        <div className="mt-2">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Listen to the text</p>
-          <AudioPlayer text={activity.content} />
-        </div>
       </div>
       <div className="grid gap-3">
         {activity.statements.map((stmt, index) => (
@@ -767,7 +770,7 @@ function ListeningFillBlankRenderer({ activity, value, readonly, onChange }: Act
               <input
                 className="mx-1 inline-block rounded-lg border border-slate-300 px-2 py-1 text-sm align-middle outline-none focus:border-rex"
                 disabled={readonly}
-                style={{ width: `${Math.max(80, Math.min(160, (expected[index]?.length ?? 8) * 12))}px` }}
+                style={{ width: blankWidth(expected) }}
                 value={values[index] ?? ''}
                 onChange={(e) => updateBlank(index, e.target.value)}
               />
@@ -817,7 +820,7 @@ function ListeningMatchingRenderer({ activity, value, readonly, onChange }: Acti
             value={selections[String(index)] ?? ''}
             onChange={(e) => { playSfx('select'); onChange(activity.id, { ...selections, [String(index)]: e.target.value }); }}
           >
-            <option value="">Select...</option>
+            <option value="">Elige…</option>
             {activity.options.map((opt) => (
               <option key={opt} value={opt}>{opt}</option>
             ))}

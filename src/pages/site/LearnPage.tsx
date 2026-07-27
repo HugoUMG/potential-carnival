@@ -1,11 +1,17 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check, Code2, MousePointerClick, Wand2 } from 'lucide-react';
+import { useTheme } from '../../utils/theme';
 
 /**
  * Captura real del editor, enmarcada como ventana de navegador.
- * Las imágenes se regeneran con `node scripts/shots.mjs` (ver /__shots en dev).
+ *
+ * Hay dos juegos de imágenes: `nombre.webp` (claro) y `nombre-dark.webp` (oscuro). Se
+ * muestra la del modo activo, así la captura coincide con lo que el visitante ve en la
+ * app. Las dos se regeneran juntas con `node scripts/shots.mjs` (ver /__shots en dev).
  */
 function Shot({ title, src, alt }: { title: string; src: string; alt: string }) {
+  const theme = useTheme();
+  const file = theme === 'dark' ? src.replace(/\.webp$/, '-dark.webp') : src;
   return (
     <figure className="site-shot">
       <div className="site-shot-bar">
@@ -16,8 +22,9 @@ function Shot({ title, src, alt }: { title: string; src: string; alt: string }) 
         <span className="ml-auto shrink-0 text-[11px] text-site-fg/30">clic para ampliar</span>
       </div>
       {/* Enlace normal al archivo: ampliar no necesita visor ni JS. */}
-      <a href={src} target="_blank" rel="noreferrer">
-        <img src={src} alt={alt} loading="lazy" className="block w-full" />
+      <a href={file} target="_blank" rel="noreferrer">
+        {/* key: fuerza recarga al cambiar de tema (si no, el navegador deja la anterior). */}
+        <img key={file} src={file} alt={alt} loading="lazy" className="block w-full" />
       </a>
     </figure>
   );
@@ -171,7 +178,7 @@ export function LearnPage() {
         <h2 className="text-3xl font-black tracking-tight">Entra y arma la primera.</h2>
         <div className="mt-7 flex flex-wrap justify-center gap-3">
           <Link to="/login" className="site-btn site-btn-primary">Entrar como profesor <ArrowRight size={18} /></Link>
-          <Link to="/guest" className="site-btn site-btn-spike">Ver una hoja como alumno</Link>
+          <Link to="/registro" className="site-btn site-btn-spike">Crear cuenta</Link>
         </div>
       </section>
     </>

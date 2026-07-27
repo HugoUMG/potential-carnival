@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -103,14 +104,14 @@ class WorksheetRepository:
         if existing:
             raise ValueError("El usuario ya existe")
 
-    def create_student(self, payload: StudentCreate) -> PublicUser:
+    def create_student(self, payload: StudentCreate, created_by: str | None = None) -> PublicUser:
         self._ensure_username_available(payload.username)
         user_id = str(uuid4())
         placeholder = self._placeholder
         with get_connection() as connection:
             connection.execute(
-                f"INSERT INTO users (id, name, username, password_hash, role) VALUES ({self._placeholders(4)}, 'student')",
-                (user_id, payload.name, payload.username, hash_password(payload.password)),
+                f"INSERT INTO users (id, name, username, password_hash, created_by, role) VALUES ({self._placeholders(5)}, 'student')",
+                (user_id, payload.name, payload.username, hash_password(payload.password), created_by),
             )
             row = connection.execute(
                 f"SELECT id, name, email, username, role FROM users WHERE id = {placeholder}",
@@ -133,10 +134,64 @@ class WorksheetRepository:
             ).fetchone()
         return self._user_from_row(row)
 
-    def list_students(self) -> list[PublicUser]:
+    def list_students(self, owner_id: str | None = None) -> list[PublicUser]:
+        """owner_id=None → todos (admin). Con owner_id, solo los alumnos de ese profesor.
+
+        Antes esto incluía también `created_by IS NULL` (alumnos previos a la columna) para no
+        esconderle a nadie los suyos al desplegar. Con el registro por Google abierto eso los
+        dejaba a la vista de cualquier desconocido que se registrara, así que la migración les
+        asigna dueño al arrancar y aquí ya no hace falta la excepción."""
+        placeholder = self._placeholder
+        where = "WHERE role = 'student'"
+        params: tuple = ()
+        if owner_id is not None:
+            where += f" AND created_by = {placeholder}"
+            params = (owner_id,)
         with get_connection() as connection:
-            rows = connection.execute("SELECT id, name, email, username, role FROM users WHERE role = 'student' ORDER BY name").fetchall()
+            rows = connection.execute(f"SELECT id, name, email, username, role FROM users {where} ORDER BY name", params).fetchall()
         return [self._user_from_row(row) for row in rows]
+
+    def get_user_owner(self, user_id: str) -> str | None:
+        """created_by del usuario (None si es legacy o no existe)."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(f"SELECT created_by FROM users WHERE id = {placeholder}", (user_id,)).fetchone()
+        return dict(row).get("created_by") if row else None
+
+    def get_user_by_email(self, email: str) -> PublicUser | None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT id, name, email, username, role FROM users WHERE LOWER(email) = LOWER({placeholder})",
+                (email,),
+            ).fetchone()
+        return self._user_from_row(row) if row else None
+
+    def create_google_teacher(self, email: str, name: str) -> PublicUser:
+        """Alta de profesor vía Google. Sin contraseña utilizable: el hash es de un secreto
+        aleatorio, así que solo se puede entrar por Google."""
+        base = (email.split("@")[0] or "profe").lower()
+        username = base
+        suffix = 1
+        while True:
+            try:
+                self._ensure_username_available(username)
+                break
+            except ValueError:
+                suffix += 1
+                username = f"{base}{suffix}"
+        user_id = str(uuid4())
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO users (id, name, email, username, password_hash, role) VALUES ({self._placeholders(5)}, 'teacher')",
+                (user_id, name, email, username, hash_password(secrets.token_urlsafe(32))),
+            )
+            row = connection.execute(
+                f"SELECT id, name, email, username, role FROM users WHERE id = {placeholder}",
+                (user_id,),
+            ).fetchone()
+        return self._user_from_row(row)
 
     def list_teachers(self) -> list[PublicUser]:
         with get_connection() as connection:
@@ -185,8 +240,8 @@ class WorksheetRepository:
         with get_connection() as connection:
             connection.execute(
                 f"""
-                INSERT INTO worksheets (id, title, description, script_content, json_content, created_by, created_at, published, archived, max_attempts, theme, ai_grading)
-                VALUES ({self._placeholders(12)})
+                INSERT INTO worksheets (id, title, description, script_content, json_content, created_by, created_at, published, archived, max_attempts, theme, ai_grading, ai_tolerance)
+                VALUES ({self._placeholders(13)})
                 """,
                 (
                     worksheet.id,
@@ -201,6 +256,7 @@ class WorksheetRepository:
                     worksheet.max_attempts,
                     self._json_param(worksheet.theme) if worksheet.theme is not None else None,
                     self._bool_param(worksheet.ai_grading),
+                    worksheet.ai_tolerance,
                 ),
             )
         return worksheet
@@ -276,7 +332,8 @@ class WorksheetRepository:
                 f"""
                 UPDATE worksheets
                 SET title = {placeholder}, description = {placeholder}, script_content = {placeholder},
-                    json_content = {placeholder}, max_attempts = {placeholder}, theme = {placeholder}, ai_grading = {placeholder}
+                    json_content = {placeholder}, max_attempts = {placeholder}, theme = {placeholder},
+                    ai_grading = {placeholder}, ai_tolerance = {placeholder}
                 WHERE id = {placeholder}
                 """,
                 (
@@ -287,6 +344,7 @@ class WorksheetRepository:
                     worksheet.max_attempts,
                     self._json_param(worksheet.theme) if worksheet.theme is not None else None,
                     self._bool_param(worksheet.ai_grading),
+                    worksheet.ai_tolerance,
                     worksheet_id,
                 ),
             )
@@ -641,6 +699,7 @@ class WorksheetRepository:
             max_attempts=original.max_attempts,
             theme=original.theme,
             ai_grading=original.ai_grading,
+            ai_tolerance=original.ai_tolerance,
         )
         return self.add_worksheet(new_ws)
 
@@ -921,6 +980,7 @@ class WorksheetRepository:
             max_attempts=data.get("max_attempts"),
             theme=_decode_json(data.get("theme"), None),
             ai_grading=bool(data["ai_grading"]) if data.get("ai_grading") is not None else True,
+            ai_tolerance=data.get("ai_tolerance") if data.get("ai_tolerance") is not None else 50,
         )
 
     def _response_from_row(self, row: object) -> WorksheetResponse:

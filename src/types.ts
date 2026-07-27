@@ -199,6 +199,8 @@ export interface Worksheet {
   dueDate?: string | null;
   infoFields?: string[];
   aiGrading?: boolean;
+  /** Tolerancia a errores de forma al calificar con IA: 0 estricto … 100 permisivo. */
+  aiTolerance?: number;
 }
 
 export type StudentAnswer = string | string[] | Record<string, string>;

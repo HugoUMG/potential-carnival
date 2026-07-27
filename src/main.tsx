@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import App from './App';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 import { ReaderPortal } from './pages/ReaderPortal';
 import { VocabPublicPage } from './pages/VocabPublicPage';
 import { GuestPage } from './pages/GuestPage';
@@ -16,10 +17,14 @@ import { ActivitiesPage } from './pages/site/ActivitiesPage';
 import { LearnPage } from './pages/site/LearnPage';
 import { DevShots } from './pages/DevShots';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
+import { initTheme } from './utils/theme';
 
 // Windows no renderiza banderas (muestra "MX"/"GT"); este polyfill carga la fuente
 // "Twemoji Country Flags" para que se vean igual en PC y Android.
 polyfillCountryFlagEmojis();
+
+// Tema claro/oscuro guardado, antes del primer render (evita el parpadeo).
+initTheme();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -34,9 +39,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </Route>
 
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/registro" element={<RegisterPage />} />
 
+        {/* `:section?` = cada opción del portal es su propia URL (/teacher/revision,
+            /student/calificadas…): se puede compartir, marcar y volver con el navegador. */}
         <Route
-          path="/student"
+          path="/student/:section?"
           element={
             <ProtectedRoute allowedRoles={['student']}>
               <App />
@@ -45,7 +53,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         />
 
         <Route
-          path="/teacher"
+          path="/teacher/:section?"
           element={
             <ProtectedRoute allowedRoles={['teacher', 'admin']}>
               <App />
@@ -54,7 +62,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         />
 
         <Route
-          path="/admin"
+          path="/admin/:section?"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <App />

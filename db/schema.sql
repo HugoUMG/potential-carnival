@@ -85,3 +85,33 @@ CREATE INDEX IF NOT EXISTS idx_classroom_worksheets_worksheet_id ON classroom_wo
 CREATE UNIQUE INDEX IF NOT EXISTS idx_responses_unique_attempt
 ON worksheet_responses (worksheet_id, student_id)
 WHERE student_id IS NOT NULL;
+
+-- Vocabulario (faltaba en el schema de SQLite: solo estaba en el de PostgreSQL,
+-- así que /vocabulary reventaba con "no such table" en desarrollo local).
+CREATE TABLE IF NOT EXISTS vocabulary_lists (
+  id          TEXT PRIMARY KEY,
+  title       TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  created_by  TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  items       TEXT NOT NULL DEFAULT '[]',
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS vocabulary_assignments (
+  list_id      TEXT NOT NULL,
+  classroom_id TEXT NOT NULL,
+  assigned_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (list_id, classroom_id),
+  FOREIGN KEY (list_id)      REFERENCES vocabulary_lists(id) ON DELETE CASCADE,
+  FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS vocabulary_reader_assignments (
+  reader_id   TEXT NOT NULL,
+  list_id     TEXT NOT NULL,
+  assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (reader_id, list_id),
+  FOREIGN KEY (reader_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (list_id)   REFERENCES vocabulary_lists(id) ON DELETE CASCADE
+);

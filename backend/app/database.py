@@ -128,24 +128,28 @@ def _seed_demo_users() -> None:
         ("student-demo", "Estudiante Demo", None, "estudiante", hash_password(os.getenv("DEMO_STUDENT_PASSWORD", "estudiante123")), "student"),
     )
 
+    # Fila a fila con `execute`: en psycopg3 `executemany` vive en el cursor, no en la
+    # conexión, así que la rama de Postgres reventaba con AttributeError al arrancar en
+    # cuanto alguien ponía SEED_DEMO_USERS=true. Son tres filas una sola vez — no hace falta
+    # abrir un cursor para eso, y `execute` sí existe en los dos backends.
+    if get_database_backend() == "postgresql":
+        insert = """
+            INSERT INTO users (id, name, email, username, password_hash, role)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+            """
+    else:
+        insert = """
+            INSERT OR IGNORE INTO users (id, name, email, username, password_hash, role)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """
+
     with get_connection() as connection:
-        if get_database_backend() == "postgresql":
-            connection.executemany(
-                """
-                INSERT INTO users (id, name, email, username, password_hash, role)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (id) DO NOTHING
-                """,
-                users,
-            )
-        else:
-            connection.executemany(
-                """
-                INSERT OR IGNORE INTO users (id, name, email, username, password_hash, role)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                users,
-            )
+        for user in users:
+            connection.execute(insert, user)
+        # El alumno demo lo crea el profesor demo. Sin dueño no lo vería nadie (`created_by`
+        # ya no tiene excepción para NULL) y en desarrollo parecería un seed roto.
+        connection.execute("UPDATE users SET created_by = 'teacher-demo' WHERE id = 'student-demo' AND created_by IS NULL")
 
 
 def _initialize_sqlite_database() -> None:
@@ -157,6 +161,18 @@ def _initialize_sqlite_database() -> None:
         # Se elimina aquí (los intentos se cuentan por filas).
         connection.execute("DROP INDEX IF EXISTS idx_responses_unique_attempt")
         _add_column_if_missing(connection, "users", "username TEXT")
+        _add_column_if_missing(connection, "users", "created_by TEXT")
+        # Mismo backfill que schema.postgres.sql: un alumno sin dueño lo administra cualquier
+        # profesor, así que se les asigna aquí y no en un script aparte que hay que acordarse
+        # de correr. Dueño = el profesor más antiguo; sin profesores no cambia nada.
+        connection.execute(
+            """
+            UPDATE users SET created_by = (
+              SELECT u.id FROM users u WHERE u.role = 'teacher' ORDER BY u.created_at LIMIT 1
+            ) WHERE role = 'student' AND created_by IS NULL
+            """
+        )
+        _add_column_if_missing(connection, "worksheets", "ai_tolerance INTEGER NOT NULL DEFAULT 50")
         _add_column_if_missing(connection, "worksheets", "max_attempts INTEGER")
         _add_column_if_missing(connection, "worksheets", "theme TEXT")
         _add_column_if_missing(connection, "worksheets", "ai_grading INTEGER NOT NULL DEFAULT 1")

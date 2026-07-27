@@ -69,6 +69,7 @@ export function DevShots() {
   const [script, setScript] = useState(SCRIPT);
   const [maxAttempts, setMaxAttempts] = useState('unlimited');
   const [aiGrading, setAiGrading] = useState(true);
+  const [aiTolerance, setAiTolerance] = useState(50);
 
   return (
     <main className="min-h-screen px-6 py-6 text-ink">
@@ -78,11 +79,13 @@ export function DevShots() {
           scriptDraft={script}
           maxAttemptsDraft={maxAttempts}
           aiGradingDraft={aiGrading}
+          aiToleranceDraft={aiTolerance}
           userId="dev"
           onAddActivity={() => {}}
           onScriptChange={setScript}
           onMaxAttemptsChange={setMaxAttempts}
           onAiGradingChange={setAiGrading}
+          onAiToleranceChange={setAiTolerance}
           onSaveScript={() => {}}
         />
       </div>

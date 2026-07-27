@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { LogIn, Moon, Sun, UserRound } from 'lucide-react';
+import { LogIn, Moon, Sun, UserPlus } from 'lucide-react';
 import { getCurrentSession } from '../../services/api';
+import { toggleTheme, useTheme } from '../../utils/theme';
 
 const NAV = [
   { to: '/', label: 'Inicio', end: true },
@@ -9,16 +9,6 @@ const NAV = [
   { to: '/actividades', label: 'Actividades', end: false },
   { to: '/aprende', label: 'Aprende', end: false },
 ];
-
-const THEME_KEY = 'site-theme';
-type Theme = 'dark' | 'light';
-
-/** Preferencia guardada; si no hay, la del sistema. */
-function initialTheme(): Theme {
-  const saved = window.localStorage.getItem(THEME_KEY);
-  if (saved === 'dark' || saved === 'light') return saved;
-  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
 
 function roleRoute(role: string): string {
   if (role === 'admin') return '/admin';
@@ -30,24 +20,23 @@ function roleRoute(role: string): string {
 /** Marco del sitio público: navegación por rutas + piel cyber-glass claro/oscuro. */
 export function SiteLayout() {
   const session = getCurrentSession();
-  const [theme, setTheme] = useState<Theme>(initialTheme);
-
-  useEffect(() => { window.localStorage.setItem(THEME_KEY, theme); }, [theme]);
+  const theme = useTheme();
 
   return (
-    // data-theme cuelga de .site: las variables de app.css hacen el resto.
-    <div className="site" data-theme={theme}>
+    // El tema vive en `data-theme` de <html> (src/utils/theme.ts): las variables de
+    // app.css hacen el resto, aquí y en el resto de la app.
+    <div className="site">
       <header className="sticky top-0 z-50 border-b border-site-fg/10 bg-site-bg/70 backdrop-blur-xl">
         {/* En móvil los enlaces bajan a una segunda fila; desde sm van en línea. */}
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
           <Link to="/" className="flex shrink-0 items-center gap-2.5">
             <img
-              src="/mascot/rex-logo.png"
+              src="/mascot/rex-logo.svg"
               alt=""
               aria-hidden
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
               // La silueta es negra: en oscuro se pierde contra el fondo, así que se invierte a blanca.
-              className={`h-9 w-9 object-contain ${theme === 'dark' ? 'invert' : ''}`}
+              className={`h-24 w-24 object-contain ${theme === 'dark' ? 'invert' : ''}`}
             />
             <span className="text-lg font-black tracking-tight">
               Dino<span className="site-neon">English</span>
@@ -67,7 +56,7 @@ export function SiteLayout() {
             <button
               type="button"
               className="site-theme-toggle"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onClick={toggleTheme}
               title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
               aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
             >
@@ -82,8 +71,8 @@ export function SiteLayout() {
               <>
               {/* max-sm:!hidden y no `hidden sm:inline-flex`: .site-btn se define después
                   de las utilidades de Tailwind y le ganaría el display. */}
-                <Link to="/guest" className="site-btn site-btn-ghost !px-4 !py-2 text-sm max-sm:!hidden">
-                  <UserRound size={16} /> Invitado
+                <Link to="/registro" className="site-btn site-btn-ghost !px-4 !py-2 text-sm max-sm:!hidden">
+                  <UserPlus size={16} /> Crear cuenta
                 </Link>
                 <Link to="/login" className="site-btn site-btn-primary !px-5 !py-2 text-sm">
                   <LogIn size={16} /> Entrar

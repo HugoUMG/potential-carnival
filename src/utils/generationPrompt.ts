@@ -1,5 +1,8 @@
 // Prompt/documentación lista para pegar en cualquier IA (ChatGPT, Claude, DeepSeek, etc.)
 // y que genere un WorksheetScript válido para esta plataforma.
+//
+// Debe cubrir LOS MISMOS 19 tipos y las mismas reglas que `_WORKSHEET_SYSTEM` en backend/app/ai.py:
+// si se agrega o cambia un tipo, hay que tocar los dos (y CLAUDE.md / WORKSHEET_DSL.md).
 export const GENERATION_PROMPT = `Eres un generador de hojas de trabajo de inglés. Devuelve ÚNICAMENTE un "WorksheetScript"
 válido en el formato DSL descrito abajo. Sin markdown, sin explicaciones, sin \`\`\`. El resultado
 debe empezar con "worksheet {" y cerrar con "}".
@@ -8,18 +11,29 @@ debe empezar con "worksheet {" y cerrar con "}".
 Tema/gramática: <describe aquí, ej. "Past Simple, verbos regulares e irregulares">
 Nivel: <A1 / A2 / B1 / B2>
 Número de actividades: <ej. 10>
-Tipo de preguntas: <abiertas / cerradas / mixtas>
+Tipos de actividad que quieres: <ej. fillblank, multiplechoice, listeningorder>
+¿Incluir repaso teórico (content) al inicio?: <sí / no>
+
+=== REGLA DE ORO: UN CAMPO POR LÍNEA ===
+El parser lee línea por línea. Si pones dos campos en la MISMA línea, el primero se traga el resto
+y los demás se PIERDEN.
+  MAL:  listening { text: "The bus leaves at eight." question: "When?" answer: "at eight" }
+  BIEN: listening {
+          text: "The bus leaves at eight."
+          question: "When?"
+          answer: "at eight"
+        }
 
 === ESTRUCTURA GENERAL ===
 worksheet {
   title: "Título"
   description: "Descripción.\\nPuede tener saltos de línea con \\n"
-  theme {                      # opcional (paleta DinoEnglish Studio por defecto)
+  theme {                      # opcional
     primary_color: "#84B84C"
     background_color: "#F6F4E9"
     text_color: "#3D5E24"
   }
-  info {                       # opcional: campos NO calificables (Nombre, Grupo...)
+  info {                       # opcional: campos NO calificables. Strings planos, NO "- label:"
     fields:
     - Nombre
     - Grupo
@@ -31,15 +45,40 @@ worksheet {
   }
 }
 
-=== TIPOS DE ACTIVIDAD ===
+*** block {} ES TODO O NADA ***
+Si la hoja tiene AL MENOS UN block {}, el parser conserva SOLO las actividades que estén DENTRO de
+un block y DESCARTA EN SILENCIO las que queden fuera (sin dar error: simplemente desaparecen).
+Hay dos formas válidas, nunca mezcladas:
+  (a) Ningún block {} → todas las actividades cuelgan directamente de worksheet { }.
+  (b) Al menos un block {} → TODAS las actividades van dentro de algún block, incluido el content
+      de repaso. Si algo no encaja en una sección, dale su propio block.
+
+=== LO QUE LA PLATAFORMA NO PUEDE HACER (no lo inventes) ===
+- No hay archivos de audio ni URLs de audio: todo listening se genera con texto a voz (TTS) desde el
+  texto que escribas. NUNCA uses un campo "audio:".
+- No puedes aportar imágenes: "imagequestion" necesita una URL real que pegue el profesor.
+- No hay dibujo, ni entrada numérica, ni tablas que rellene el alumno, ni temporizador, ni puntaje
+  por pregunta: todas las actividades valen lo mismo.
+- "content" nunca se califica.
+- Solo existen los 19 tipos de abajo. Un nombre de tipo desconocido se DESCARTA en silencio.
+
+=== LOS 19 TIPOS ===
+
 # fillblank — completar espacios. El marcador es _____ (exactamente 5 guiones bajos).
+# Límites: entrada de texto libre, corrección por coincidencia. 1–3 palabras por hueco.
+#          UNA entrada de answer por cada _____, en orden.
 fillblank {
   text: "She _____ to school every day."
-  answer: "goes"                      # o varias aceptadas: answer: ["don't drink", "do not drink"]
-  instructions: "Verb: go"            # opcional
+  answer: "goes"
+  instructions: "Verbo: go"            # opcional; explica CÓMO responder, nunca QUÉ responder
+}
+fillblank {
+  text: "They _____ play football and they _____ study."
+  answer: ["don't", "must"]
 }
 
-# multiplechoice — una sola correcta.
+# multiplechoice — UNA sola correcta, 3–4 opciones.
+# Límites: la app baraja las opciones en pantalla. "answer" debe ser idéntico a una de las opciones.
 multiplechoice {
   question: "Which sentence is correct?"
   options:
@@ -49,8 +88,8 @@ multiplechoice {
   answer: "He plays soccer."
 }
 
-# multiselect — VARIAS respuestas correctas (el alumno marca todas las que apliquen).
-# "answer" es una lista con TODAS las opciones correctas.
+# multiselect — VARIAS correctas; el alumno marca todas las que apliquen.
+# Límites: todo o nada (una marca de más o de menos invalida el ítem). 2–3 correctas de 4–5.
 multiselect {
   question: "Select all the verbs in the simple present."
   options:
@@ -61,25 +100,8 @@ multiselect {
   answer: ["runs", "eats"]
 }
 
-# truefalse — varios enunciados, cada uno true o false.
-truefalse {
-  statements:
-  - "He watches TV every night." | true
-  - "We plays basketball." | false
-}
-
-# matching — emparejar por posición (left[i] ↔ right[i]).
-matching {
-  left:
-  - I
-  - She
-  right:
-  - work
-  - works
-}
-
 # dragdrop — arrastrar palabras de un banco a los huecos _____.
-# answer = palabra correcta por hueco (en orden); bank = palabras arrastrables (correctas + distractores).
+# Límites: TODA palabra de "answer" debe estar también en "bank", escrita igual. 2–4 huecos.
 dragdrop {
   text: "She _____ to school and _____ English every day."
   answer: ["goes", "studies"]
@@ -90,44 +112,207 @@ dragdrop {
   - study
 }
 
-# textbox — respuesta abierta larga.
-textbox { prompt: "Describe your daily routine." }
+# matching — emparejar POR POSICIÓN: left[0] con right[0], left[1] con right[1]...
+# Límites: ambas listas con el MISMO número de elementos. 3–6 pares. Sin valores repetidos en right.
+matching {
+  left:
+  - can
+  - must
+  - should
+  right:
+  - Ability
+  - Obligation
+  - Advice
+}
 
-# speaking — usa el micrófono. Con "target" el alumno lee esa oración en voz alta
-# (se evalúa la pronunciación); sin "target" es una pregunta hablada que evalúa la IA.
+# truefalse — varios enunciados. El pipe "|" es OBLIGATORIO (sin él el enunciado se guarda como true).
+# Límites: 3–6 enunciados, decidibles desde el tema; un enunciado sin responder cuenta como error.
+truefalse {
+  statements:
+  - He watches TV every night. | true
+  - We plays basketball. | false
+}
+
+# textbox — respuesta abierta larga. Sin clave: la califica la IA.
+# Límites: di exactamente qué producir (cuántas oraciones y qué estructura), o no se puede calificar.
+textbox {
+  prompt: "Write three sentences about your last weekend using Past Simple."
+}
+
+# reading — texto + preguntas abiertas (las califica la IA contra el texto).
+# Límites: toda pregunta debe responderse SOLO con el texto. 80–150 palabras (A2), 150–250 (B1).
+#          Sin "questions" es solo un texto de referencia y no se califica.
+reading {
+  title: "School Rules"
+  content: "Students have to wear a uniform.\\nThey must arrive before 8:00 AM."
+  questions:
+  - What time do students have to arrive?
+  - What do students have to wear?
+}
+
+# readingtruefalse — texto + enunciados True/False.
+# Límites: el texto queda a la vista, así que un enunciado copiado literal es regalado: reformula,
+#          niega o combina dos datos.
+readingtruefalse {
+  title: "The Water Cycle"
+  content: "Water evaporates from oceans and rivers.\\nThe vapor forms clouds, and later it rains."
+  statements:
+  - Water evaporates from oceans. | true
+  - Rain is created by wind alone. | false
+}
+
+# content — repaso teórico en HTML. Solo lectura, NO se califica.
+# Límites: sin preguntas ni ejercicios dentro. Cabe en una pantalla. Sus ejemplos NO pueden ser
+#          oraciones de los ejercicios ni contener ninguna respuesta.
+content {
+  title: "Repaso: Present Simple"
+  html: """
+  <h2>Present Simple</h2>
+  <p>Se usa para rutinas y hechos. Tercera persona (he/she/it): verbo + <b>s</b>.</p>
+  <p>Negativo: don't / doesn't + verbo base. Pregunta: Do / Does + sujeto + verbo base.</p>
+  <p><b>Error típico:</b> "She go" → lo correcto es "She goes".</p>
+  """
+}
+
+# listening — audio TTS oculto + pregunta con respuesta escrita.
+# Límites: la clave se compara como texto, así que debe ser CORTA (1–5 palabras). Si la respuesta
+#          natural es una oración completa, usa listeningmultiplechoice. Audio de 1–2 oraciones.
+# OJO: este tipo usa "text" (no "audio_text") para la oración del audio.
+listening {
+  text: "She had to stay late because her boss needed the report."
+  question: "Why did she have to stay late?"
+  answer: "her boss needed the report"
+}
+
+# listeningmultiplechoice — audio TTS oculto + opción múltiple.
+# Límites: las opciones NO deben repetir el audio literal (eso convierte escuchar en leer).
+listeningmultiplechoice {
+  audio_text: "Yesterday I had to wake up at 5 AM because my flight was very early."
+  question: "Why did she wake up so early?"
+  options:
+  - Because her flight was early.
+  - Because she had an exam.
+  - Because she starts work at 5 AM.
+  answer: "Because her flight was early."
+}
+
+# listeningfillblank — dictado: audio oculto + la misma oración con huecos.
+# Límites: "text" debe ser la MISMA oración de "audio_text" con las palabras objetivo en _____.
+listeningfillblank {
+  audio_text: "Tom didn't have to wear a uniform at his new school."
+  text: "Tom _____ wear a uniform at his new school."
+  answer: "didn't have to"
+}
+
+# listeningtruefalse — UN audio para todos los enunciados.
+# Límites: el audio se escucha, no se lee: menos de ~60 palabras.
+listeningtruefalse {
+  audio_text: "Anna had to wear formal clothes and arrive at 9 AM. She didn't have to bring a portfolio."
+  statements:
+  - Anna had to wear formal clothes. | true
+  - Anna had to bring a portfolio. | false
+}
+
+# listeningmatching — N audios independientes, cada uno con un desplegable.
+# Los pares son bloques pair {} — NUNCA una lista "pairs:".
+# Límites: todo "match" debe estar en "options"; "options" es común a todos. 3–5 pares.
+listeningmatching {
+  pair {
+    audio_text: "She had to call the doctor last night."
+    match: "Affirmative"
+  }
+  pair {
+    audio_text: "We didn't have to bring our books."
+    match: "Negative"
+  }
+  pair {
+    audio_text: "Did he have to work on Saturday?"
+    match: "Question"
+  }
+  options:
+  - Affirmative
+  - Negative
+  - Question
+}
+
+# listeningorder — escuchar y armar la oración con fichas (estilo Duolingo).
+# Límites: se corrige por ORDEN EXACTO, así que la oración debe tener UN solo orden válido
+#          (evita adverbios movibles). 5–9 fichas, una palabra por ficha.
+listeningorder {
+  audio_text: "She has never been to Paris."
+  answer:
+  - She
+  - has
+  - never
+  - been
+  - to
+  - Paris
+}
+
+# conversation — diálogo a dos voces (m = hombre, f = mujer) fusionado en un solo audio + pregunta.
+# Límites: los turnos suenan casi seguidos: 3–6 turnos cortos alternando. "answer" corto (1–5
+#          palabras) o quítalo para dejarla abierta a la IA.
+conversation {
+  lines:
+  - f: "Hi, are you new here?"
+  - m: "Yes, I started today."
+  - f: "Welcome! Where are you from?"
+  question: "When did he start?"
+  answer: "today"
+}
+
+# speaking — usa el micrófono (transcripción automática; nunca evalúa ortografía).
+# Con "target" el alumno lee esa oración en voz alta (menos de ~12 palabras).
+# Sin "target" es una pregunta hablada abierta que evalúa la IA.
 speaking {
   prompt: "Read the sentence aloud."
   target: "She goes to school every day."
 }
 
-# reading — texto + preguntas abiertas.
-reading {
-  title: "School Rules"
-  content: "Text here.\\nMore text."
-  questions:
-  - What time does school start?
-  - Name one rule.
+# imagequestion — imagen + pregunta abierta.
+# Límites: SOLO si tienes una URL real (nunca la inventes). Quien califica NO ve la imagen: pide una
+#          estructura ("usa Present Continuous"), no un detalle que solo se vea en la foto.
+imagequestion {
+  image: "https://..."
+  prompt: "Look at the picture. What are the people doing? Use Present Continuous."
 }
 
-# listening — reproduce un audio TTS (oculto al alumno) y pregunta.
-listening { text: "Oración que se leerá en voz alta." question: "What did you hear?" answer: "key answer" }
+# Voz por actividad (opcional, solo en tipos listening*): voice: male | female
+# Úsala cuando la oración o la pregunta hablen de un género concreto.
 
-# imagequestion — imagen + pregunta abierta.
-imagequestion { image: "https://..." prompt: "Describe the picture." }
+=== CALIDAD (esto es lo que hace que la hoja valga la pena) ===
+- NUNCA reveles la respuesta dentro de la actividad: ni en la pregunta, ni en "instructions", ni en
+  un "content", ni en otra actividad. "instructions" explica CÓMO responder, jamás QUÉ responder.
+- Los distractores deben ser creíbles y del MISMO tipo que la respuesta: misma clase de palabra,
+  mismo tiempo verbal, mismo tema. Para "wakes up" usa "woke up"/"waking up", no "runs"/"sleeps".
+- Varía cuál es la correcta entre ítems; no repitas siempre el mismo valor o la misma idea.
+- En truefalse mezcla verdaderos y falsos de forma irregular (ni todos true, ni true/false alternado).
+- No agrupes los ítems de modo que la respuesta se vuelva predecible: si el objetivo es distinguir
+  (presente vs pasado), mézclalos en un mismo bloque en orden variado.
+- En fillblank el hueco debe tener UNA respuesta esperada clara; si hay varias válidas, usa lista.
+- Respeta el nivel pedido en vocabulario, longitud de oración y estructuras. En escucha fina usa
+  oraciones cortas para que la palabra objetivo se oiga.
+- Mantén un tema coherente en toda la hoja.
+- Cada actividad debe enseñar algo al hacerla: si se puede acertar sin saber el tema, reescríbela.
 
-=== REGLAS IMPORTANTES ===
-- Usa _____ (5 guiones bajos) para los espacios en fillblank.
-- Usa \\n para saltos de línea dentro de los textos.
-- NO uses el tipo "speaking" (no existe).
-- Las listas (options, left, right, fields, questions, statements) van con "- " al inicio de cada línea.
+=== SI INCLUYES content (repaso) ===
+No es obligatorio; añádelo cuando se pida repaso/teoría o cuando el alumno vea el tema por primera
+vez. Si lo incluyes, debe refrescar de verdad:
+- La regla en una o dos líneas, en lenguaje sencillo (explicación en español + ejemplos en inglés).
+- La FORMA: estructura o patrón (sujeto + verbo + …), afirmativa / negativa / pregunta.
+- 2–3 oraciones de ejemplo y el error típico que se debe evitar.
+- Va PRIMERO, en su propio block.
+- Sus ejemplos no pueden ser oraciones de los ejercicios ni contener ninguna respuesta.
 
-=== CALIDAD (evita patrones repetitivos) ===
-- VARÍA la posición de la respuesta correcta en multiplechoice: que NO sea siempre la primera ni siempre
-  la misma letra. Distribúyelas (a veces 1ª, a veces 2ª, a veces 3ª).
-- En truefalse MEZCLA verdaderos y falsos; no pongas todos true ni todos false.
-- Que las opciones incorrectas sean creíbles (errores comunes reales), no absurdas.
-- No repitas la misma estructura de pregunta una y otra vez; varía el fraseo y el contexto.
-- En matching evita que la respuesta sea trivial por orden; mezcla el orden de la columna derecha.
-- Mantén el vocabulario acorde al nivel indicado.
+=== ANTES DE ENTREGAR, REVISA ===
+1. ¿Cada campo está en su propia línea?
+2. Si usaste block {}, ¿TODAS las actividades quedaron dentro de alguno (incluido el content)?
+3. ¿El "answer" de cada multiplechoice / multiselect / listeningmatching coincide con una opción?
+4. ¿Cada palabra del "answer" de dragdrop está en su "bank"?
+5. ¿"left" y "right" de cada matching tienen el mismo número de elementos?
+6. ¿Cada enunciado true/false termina en "| true" o "| false"?
+7. ¿Hay una entrada de "answer" por cada _____ de cada fillblank?
+8. ¿Se te escapó alguna respuesta en una pregunta, en instructions, en content o en otra actividad?
+9. ¿Las comillas internas son tipográficas (“ ”)? Las \\" quedan literales y se ven con backslash.
 
 Devuelve solo el WorksheetScript.`;

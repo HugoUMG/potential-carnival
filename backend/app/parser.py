@@ -213,6 +213,10 @@ def _get_statements(body: str) -> list[dict]:
     """Parsea enunciados True/False desde dos formatos:
     1. Lista: statements:\n  - Texto del enunciado. | true
     2. Bloques: statement { text: "..." answer: true }
+
+    Un enunciado sin valor deja `answer` en None y la validación lo rechaza. Antes se asumía
+    `true`: la clave de respuestas quedaba mal EN SILENCIO y marcaba como incorrectos a los
+    alumnos que habían respondido bien.
     """
     list_match = re.search(r"^\s*statements?\s*:\s*\n((?:[ \t]*-[ \t]*.+\n?)+)", body, re.MULTILINE)
     if list_match:
@@ -228,7 +232,7 @@ def _get_statements(body: str) -> list[dict]:
                 answer = parts[1].strip().lower() == "true"
             else:
                 text = _strip_quotes(content)
-                answer = True
+                answer = None  # sin pipe no hay clave: lo detecta _activity_problem
             if text:
                 statements.append({"text": text, "answer": answer})
         if statements:
@@ -236,11 +240,48 @@ def _get_statements(body: str) -> list[dict]:
     # Fallback: bloques statement { text: "..." answer: true }
     stmt_bodies = _find_all_keyword_blocks(body, "statement")
     return [
-        {"text": t, "answer": (a or "").strip().lower() == "true"}
+        {"text": t, "answer": None if a is None else a.strip().lower() == "true"}
         for sb in stmt_bodies
         for t, a in [(_get_scalar(sb, "text"), _get_scalar(sb, "answer"))]
         if t
     ]
+
+
+def _parse_pairs(body: str) -> list[dict]:
+    """Pares de `listeningmatching`. Formato canónico: bloques `pair { audio_text match }`.
+    También acepta la lista `pairs:` — es lo que emite el constructor visual y lo que escribe
+    la IA por costumbre YAML; antes se ignoraba en silencio y la actividad quedaba vacía."""
+    pair_bodies = _find_all_keyword_blocks(body, "pair")
+    if pair_bodies:
+        return [
+            {"audio_text": at, "match": m}
+            for pb in pair_bodies
+            for at, m in [(_get_scalar(pb, "audio_text"), _get_scalar(pb, "match"))]
+            if at and m
+        ]
+    header = re.search(r"^[ \t]*pairs?\s*:\s*$", body, re.MULTILINE)
+    if not header:
+        return []
+    chunks: list[list[str]] = []
+    for line in body[header.end():].splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if re.match(r"^(options|instructions|voice)\s*:", stripped):
+            break  # fin de la lista: empieza otro campo de la actividad
+        if stripped.startswith("-"):
+            chunks.append([stripped[1:].strip()])
+        elif chunks:
+            chunks[-1].append(stripped)
+        else:
+            break
+    pairs = []
+    for chunk in chunks:
+        chunk_body = "\n".join(chunk)
+        audio_text, match = _get_scalar(chunk_body, "audio_text"), _get_scalar(chunk_body, "match")
+        if audio_text and match:
+            pairs.append({"audio_text": audio_text, "match": match})
+    return pairs
 
 
 def _parse_conversation_lines(body: str) -> list[dict]:
@@ -321,14 +362,7 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
     if activity_type == "listeningmultiplechoice":
         return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_answer(body))
     if activity_type == "listeningmatching":
-        pair_bodies = _find_all_keyword_blocks(body, "pair")
-        pairs = [
-            {"audio_text": at, "match": m}
-            for pb in pair_bodies
-            for at, m in [(_get_scalar(pb, "audio_text"), _get_scalar(pb, "match"))]
-            if at and m
-        ]
-        return ActivityData(**common, pairs=pairs or None, options=_get_list(body, "options") or None)
+        return ActivityData(**common, pairs=_parse_pairs(body) or None, options=_get_list(body, "options") or None)
     if activity_type == "listeningtruefalse":
         statements = _get_statements(body)
         return ActivityData(**common, audio_text=_get_scalar(body, "audio_text"), statements=statements or None)
@@ -361,6 +395,136 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
     raise WorksheetScriptError(f"Tipo de actividad no compatible: {activity_type}")
 
 
+def _answer_list(answer) -> list[str]:
+    if isinstance(answer, list):
+        return [str(a) for a in answer if str(a).strip()]
+    return [str(answer)] if str(answer or "").strip() else []
+
+
+def _activity_problem(a: ActivityData) -> str | None:
+    """Motivo por el que la actividad quedaría rota para el alumno, o None si está bien.
+
+    El parser es deliberadamente tolerante (campo ausente = None), así que sin esta
+    comprobación un campo mal escrito no falla: la actividad se guarda vacía y el alumno
+    se encuentra una pregunta imposible de responder. Los casos cubiertos son los que se
+    han visto de verdad: varios campos en la MISMA línea (el primero se traga el resto),
+    `answer` que no coincide con ninguna opción, y listas descuadradas.
+    """
+    t = a.type
+    options = [o.strip().lower() for o in (a.options or [])]
+    answers = _answer_list(a.answer)
+    blanks = (a.text or "").count("_____")
+
+    if t in {"fillblank", "listeningfillblank"}:
+        if t == "listeningfillblank" and not a.audio_text:
+            return "falta 'audio_text' (la oración que lee el audio)"
+        if not a.text:
+            return "falta 'text'"
+        if not answers:
+            return "falta 'answer'"
+        if blanks and len(answers) < blanks:
+            return f"'text' tiene {blanks} huecos _____ pero 'answer' trae {len(answers)}"
+    elif t == "dragdrop":
+        if not blanks:
+            return "'text' necesita al menos un hueco _____"
+        if len(answers) != blanks:
+            return f"'text' tiene {blanks} huecos pero 'answer' trae {len(answers)}"
+        bank = [b.strip().lower() for b in (a.bank or [])]
+        missing = [w for w in answers if w.strip().lower() not in bank]
+        if missing:
+            return f"'bank' no contiene {missing}; el alumno no puede colocar esa palabra"
+    elif t in {"multiplechoice", "listeningmultiplechoice"}:
+        if t == "listeningmultiplechoice" and not a.audio_text:
+            return "falta 'audio_text'"
+        if not a.question:
+            return "falta 'question'"
+        if len(options) < 2:
+            return "necesita al menos 2 'options'"
+        if not answers:
+            return "falta 'answer'"
+        if answers[0].strip().lower() not in options:
+            return f"'answer' ({answers[0]}) no coincide con ninguna opción: nadie puede acertar"
+    elif t == "multiselect":
+        if not a.question:
+            return "falta 'question'"
+        if len(options) < 2:
+            return "necesita al menos 2 'options'"
+        if not answers:
+            return "falta 'answer' (lista con TODAS las correctas)"
+        missing = [x for x in answers if x.strip().lower() not in options]
+        if missing:
+            return f"'answer' incluye {missing}, que no está en 'options'"
+    elif t == "matching":
+        left, right = a.left or [], a.right or []
+        if len(left) < 2:
+            return "necesita al menos 2 elementos en 'left'"
+        if len(left) != len(right):
+            return f"'left' ({len(left)}) y 'right' ({len(right)}) deben tener el mismo número de elementos"
+    elif t in {"truefalse", "readingtruefalse", "listeningtruefalse"}:
+        if not a.statements:
+            return "necesita 'statements' con el formato '- Enunciado. | true'"
+        sin_clave = [i for i, s in enumerate(a.statements, start=1) if s.get("answer") is None]
+        if sin_clave:
+            return f"el enunciado {sin_clave[0]} no termina en '| true' ni en '| false': sin el pipe no hay clave"
+        if t == "readingtruefalse" and not a.content:
+            return "falta 'content' (el texto de lectura)"
+        if t == "listeningtruefalse" and not a.audio_text:
+            return "falta 'audio_text'"
+    elif t == "reading":
+        if not a.content:
+            return "falta 'content' (el texto de lectura)"
+    elif t == "listening":
+        if not a.text:
+            return "falta 'text' (la oración que lee el audio)"
+        if not a.question:
+            return "falta 'question'"
+    elif t == "listeningmatching":
+        if not a.pairs:
+            return "necesita bloques 'pair { audio_text: … match: … }'"
+        if len(options) < 2:
+            return "necesita al menos 2 'options'"
+        absent = [p.get("match") for p in a.pairs if str(p.get("match") or "").strip().lower() not in options]
+        if absent:
+            return f"el 'match' {absent} no aparece en 'options': no se puede seleccionar"
+    elif t == "listeningorder":
+        if not a.audio_text:
+            return "falta 'audio_text'"
+        if len(answers) < 2:
+            return "'answer' necesita las palabras de la oración, una por ficha y en orden"
+    elif t == "conversation":
+        if len(a.lines or []) < 2:
+            return "necesita al menos 2 turnos en 'lines' (- m: \"…\" / - f: \"…\")"
+        if not a.question:
+            return "falta 'question'"
+    elif t == "content":
+        if not a.html:
+            return "falta 'html' (el repaso a mostrar)"
+    elif t == "textbox":
+        if not a.prompt:
+            return "falta 'prompt'"
+    elif t == "imagequestion":
+        if not a.image:
+            return "falta 'image' (URL de la imagen)"
+        if not a.prompt:
+            return "falta 'prompt'"
+    elif t == "speaking":
+        if not (a.prompt or a.target):
+            return "necesita 'prompt' (pregunta hablada) o 'target' (oración a leer)"
+    return None
+
+
+def _validate(activities: list[ActivityData]) -> None:
+    problems = [
+        f"Actividad {i} ({a.type}): {problem}"
+        for i, a in enumerate(activities, start=1)
+        for problem in [_activity_problem(a)]
+        if problem
+    ]
+    if problems:
+        hint = "Recuerda: cada campo del DSL va en SU PROPIA LÍNEA (si pones dos en la misma, el primero se traga el resto)."
+        raise WorksheetScriptError(" · ".join(problems) + " — " + hint)
+
+
 def parse_worksheet_script(script: str) -> WorksheetData:
     worksheet_body = _extract_block(script, "worksheet")
     title = _get_scalar(worksheet_body, "title")
@@ -380,9 +544,11 @@ def parse_worksheet_script(script: str) -> WorksheetData:
             blocks.append(BlockData(title=block_title, instructions=block_instructions, activities=block_activities))
         if not any(b.activities for b in blocks):
             raise WorksheetScriptError("Se requiere al menos una actividad")
+        _validate([a for b in blocks for a in b.activities])
         return WorksheetData(title=title, description=description, blocks=blocks, theme=theme, info_fields=info_fields)
 
     activities = [parse_activity(activity_type, body) for activity_type, body in _find_activity_blocks(worksheet_body)]
     if not activities:
         raise WorksheetScriptError("Se requiere al menos una actividad")
+    _validate(activities)
     return WorksheetData(title=title, description=description, activities=activities, theme=theme, info_fields=info_fields)

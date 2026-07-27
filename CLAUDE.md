@@ -36,7 +36,7 @@ Plataforma web educativa: profesores crean hojas de trabajo interactivas (con IA
 
 ### Flujo principal
 
-1. Admin crea profesores → profesor recibe credenciales
+1. El profesor se registra solo **con Google** (`/registro`), o el admin le crea la cuenta a mano
 2. Profesor crea aula → le asigna estudiantes y hojas
 3. Profesor crea hoja (con IA o manualmente) → publica → asigna a aula(s)
 4. Estudiante entra a portal → ve solo hojas de su aula → completa → envía
@@ -53,12 +53,14 @@ PostgreSQL en producción (Render.com). SQLite para desarrollo local. El backend
 
 ```sql
 -- Usuarios (todos los roles)
-users (id, name, email, username, password_hash, role, created_at)
+users (id, name, email, username, password_hash, role, created_at,
+       created_by)  -- profesor que dio de alta al alumno; NULL = legacy (visible a todos)
 
 -- Hojas de trabajo
 worksheets (id, title, description, script_content, json_content JSONB,
             created_by → users, created_at, published, archived,
-            max_attempts, theme JSONB)
+            max_attempts, theme JSONB, ai_grading, ai_tolerance)
+            -- ai_tolerance: 0 estricto … 100 permisivo (barra por hoja)
 
 -- Respuestas de estudiantes
 worksheet_responses (id, worksheet_id → worksheets, student_id → users,
@@ -144,7 +146,7 @@ Lista canónica de tipos soportados: `SUPPORTED_BLOCKS` en `backend/app/parser.p
 | `matching` | Emparejar columna izquierda↔derecha **uniendo con líneas** (arrastrar desde el punto o tocar uno de cada lado; cada par toma un color). Correcto = mismo índice. Respuesta = `{ textoIzquierdo: valorDerecho }`. | Auto | OK |
 | `truefalse` | Enunciados con `- texto \| true/false`. | Auto | OK |
 | `textbox` | Respuesta abierta de texto largo (`prompt`). | Pendiente → IA/profesor | OK |
-| `reading` | Texto de lectura (`content`, `\n`) + `questions` (abiertas) + botón TTS. Puede ir sin preguntas como referencia. | Preguntas: pendiente → IA/profesor | OK |
+| `reading` | Texto de lectura (`content`, `\n`) + `questions` (abiertas). Puede ir sin preguntas como referencia. **Sin reproductor**: leerlo en voz alta convertiría la comprensión lectora en auditiva. | Preguntas: pendiente → IA/profesor | OK |
 | `readingtruefalse` | Texto de lectura + enunciados True/False sobre él. | Auto | OK |
 | `imagequestion` | Imagen (`image` URL) + pregunta abierta (`prompt`). | Pendiente → IA/profesor | OK |
 | `speaking` | Micrófono. **Con `target`**: el alumno lee la oración en voz alta (se compara la transcripción). **Sin `target`**: pregunta abierta hablada (la IA evalúa gramática/contenido). Transcripción vía Groq Whisper; fallback de texto si no hay micrófono. | Con target: auto (match) · Sin target: pendiente → IA | OK |
@@ -375,10 +377,12 @@ worksheet {
 
 ### Reglas del DSL
 
+- **UN CAMPO POR LÍNEA (la trampa que más rompe hojas):** `_get_scalar` busca `^\s*clave:\s*(.+)$` con `re.MULTILINE`, así que captura **hasta el fin de la línea**. Dos campos en la misma línea → el primero se traga el texto del segundo y el segundo queda `None`, sin error. `listening { text: "…" question: "…" answer: "…" }` en una línea deja la actividad sin pregunta ni respuesta. Un bloque de **un solo** campo sí funciona en línea (`textbox { prompt: "…" }`), pero no conviene depender de ello. La validación del parser (abajo) ya lo detecta al guardar.
+- **El parser VALIDA antes de devolver** (`_activity_problem` / `_validate` en `parser.py`): lanza `WorksheetScriptError` con el número de actividad y el motivo cuando quedaría imposible de responder — campos en la misma línea, `matching` con lados desiguales, `dragdrop` con una palabra fuera del `bank`, menos `answer` que `_____`, `answer` que no coincide con ninguna opción, `listeningmatching` sin pares, actividad vacía. Antes todo esto se guardaba en silencio y el alumno se encontraba la pregunta rota. Al añadir un tipo hay que añadirle su regla ahí.
 - `block {}` agrupa actividades con título e instrucciones de sección. Retrocompatible: hojas sin `block` siguen funcionando con `activities` plano.
-- **`block {}` es excluyente (trampa clásica):** si la hoja tiene **al menos un** `block {}`, el parser toma **solo** las actividades que estén dentro de blocks e **ignora en silencio** las que queden fuera. Con blocks, TODA actividad va dentro de algún block.
+- **`block {}` es excluyente (trampa clásica):** si la hoja tiene **al menos un** `block {}`, el parser toma **solo** las actividades que estén dentro de blocks e **ignora en silencio** las que queden fuera. Con blocks, TODA actividad va dentro de algún block. **La IA caía en esto**: ponía el `content` de repaso fuera de los bloques y desaparecía sin error. `_WORKSHEET_SYSTEM` ahora lleva la regla marcada como CRITICAL, con las dos formas válidas y una relectura final del output.
 - **Enunciados True/False (`truefalse`, `readingtruefalse`, `listeningtruefalse`):** una línea por enunciado con **pipe**: `- Texto del enunciado. | true`. **NO** usar `- text: "…"` + `answer:` en líneas aparte (el parser corta en la primera línea que no empieza con `-` → queda UN solo enunciado con el texto literal `text: "…"` y `answer` en `true`). Formato alterno válido: bloques `statement { text: "…" answer: true }`.
-- **`listeningmatching` usa bloques `pair {}`**, no una lista `pairs:`. Cada par: `pair { audio_text: "…" match: "…" }` — el campo es **`match`**, no `answer`. Las `options:` sí son lista.
+- **`listeningmatching`: el formato canónico son bloques `pair {}`** — `pair { audio_text: "…" match: "…" }`, el campo es **`match`**, no `answer`. Desde julio 2026 `_parse_pairs` **también acepta la lista `pairs:`**, que es la que emite `dslSerializer.ts` y la que escribe la IA por costumbre YAML; antes se ignoraba en silencio, así que crear una `listeningmatching` en el constructor visual y guardarla **destruía la actividad** (quedaba sin pares → renderer vacío → calificada como pendiente). Las `options:` son lista en ambos formatos, y todo `match` debe aparecer en ellas.
 - **`imagequestion` usa `image:` y `prompt:`** (no `image_url:` ni `question:`).
 - `theme {}` define colores personalizados por hoja. Se guarda en la columna `theme` como JSONB.
 - Cada actividad admite un campo opcional `instructions:` (guía por actividad).
@@ -411,6 +415,11 @@ Cuando el usuario pida generar una hoja de trabajo, seguir estas reglas para que
 - Respetar el **nivel** pedido (A1/A2/B1…): vocabulario, longitud de oración y estructuras acordes. En listening de discriminación fina, **oraciones cortas** para que la palabra objetivo pese en el audio.
 - Mantener un **tema/hilo** coherente en toda la hoja cuando aplique.
 - **`fillblank` sin ambigüedad:** el hueco debe tener una respuesta esperada clara. Si hay varias válidas legítimas, usar `answer` como **lista** o replantear el ítem (el corrector IA valida equivalencias, pero no conviene depender de eso).
+
+**`content` como repaso (§8 de la revisión de julio 2026)**
+- El `content` sirve para **recordar la regla**, no para resolver la hoja. Es opcional: se añade cuando el profesor pide repaso/teoría o cuando el alumno ve el tema por primera vez.
+- Cuando se incluye debe traer: la regla en 1–2 líneas en lenguaje sencillo (explicación en español + ejemplos en inglés), la **forma** (estructura afirmativa / negativa / pregunta), 2–3 oraciones de ejemplo y el error típico a evitar.
+- **Sus ejemplos NO pueden ser oraciones de los ejercicios ni contener ninguna respuesta.** Va primero, en su propio `block`.
 
 **Recordatorios técnicos que también son errores de generación**
 - `info {}` usa strings planos (`- Name`), no `- label: "…"` (ver Reglas del DSL).
@@ -472,6 +481,8 @@ potential-carnival/
 
 ```
 POST   /auth/login                           — Login (username, password, role)
+POST   /auth/google                          — Login Y registro con ID token de Google (crea profesor si no existe)
+# NO existe alta pública con usuario/contraseña: se eliminó a propósito (ver §11)
 POST   /auth/logout                          — Cerrar sesión
 GET    /auth/me                              — Perfil del usuario actual
 ```
@@ -588,7 +599,7 @@ POST   /public/transcribe                    — Audio (speaking) → texto (Gro
 **Importante:**
 - `GET /students/{id}/worksheets` NO tiene fallback a todas las hojas publicadas. Si el estudiante no tiene aula asignada, no ve ninguna hoja.
 - Los endpoints `/public/*` no llevan JWT; identifican al invitado por `guest_token` determinístico (aula + nombre).
-- La calificación IA (`ai_grade_activities`) corre **en el POST de respuestas** cuando la hoja tiene `ai_grading` activo.
+- La calificación IA (`ai_grade_activities(details, título, tolerancia)`) corre **en el POST de respuestas** cuando la hoja tiene `ai_grading` activo. La `ai_tolerance` de la hoja elige el bloque de reglas del system prompt (`_grade_system` en `ai.py`).
 
 ---
 
@@ -603,15 +614,19 @@ POST   /public/transcribe                    — Audio (speaking) → texto (Gro
 
 ### Funciones
 
-- **`generate_worksheet_script(prompt)`** — Convierte un prompt en lenguaje natural a un script DSL válido. Usa el system prompt `_WORKSHEET_SYSTEM`, que instruye al modelo sobre **los 19 tipos** (antes solo permitía 15: se añadieron `readingtruefalse`, `listeningorder`, `conversation` y `content` con su referencia de sintaxis) y sobre los **grupos pedagógicos** (misma taxonomía que `ACTIVITY_GROUPS` del AiPanel). Ojo: dentro del string Python, las triple comillas del ejemplo de `content` van escapadas (`\"\"\"`).
-- **`ai_grade_activities(details, worksheet_title)`** — Califica respuestas pendientes (textbox, imagequestion) y verifica equivalencias semánticas en fillblank. Solo puede cambiar status de actividades `pending` o `incorrect`. Los comentarios del profesor se agregan en español.
+- **`generate_worksheet_script(prompt)`** — Convierte un prompt en lenguaje natural a un script DSL válido. Usa el system prompt `_WORKSHEET_SYSTEM`, que instruye al modelo sobre **los 19 tipos** y sobre los **grupos pedagógicos** (misma taxonomía que `ACTIVITY_GROUPS` del AiPanel). Ojo: dentro del string Python, las triple comillas del ejemplo de `content` van escapadas (`\"\"\"`). Desde la revisión de julio 2026 lleva además: la **regla de oro de un campo por línea**, una sección **"lo que la plataforma NO puede hacer"** (sin archivos de audio, sin imágenes que la IA pueda aportar, sin dibujo/entrada numérica/tablas/temporizador, todas las actividades valen lo mismo), una línea **`Limits:` por tipo** (para que no invente actividades imposibles o poco intuitivas), **reglas de calidad** (distractores plausibles del mismo tipo, no revelar la respuesta, variar la correcta, mezclar true/false, no agrupar creando patrón), la guía de **`content`** y un **checklist final** de 9 puntos.
+
+> **Los cuatro sitios que enseñan el DSL deben mantenerse sincronizados:** `WORKSHEET_DSL.md` (referencia completa), `CLAUDE.md` §3 (este resumen), `_WORKSHEET_SYSTEM` en `ai.py` (prompt interno) y `GENERATION_PROMPT` en `src/utils/generationPrompt.ts` (el prompt que el profesor copia para pegarlo en otra IA). La lista canónica es `SUPPORTED_BLOCKS` en `parser.py`. El test `test_every_documented_type_parses` escribe una hoja con los 19 tipos usando la sintaxis documentada y falla si la documentación empieza a enseñar algo que no funciona.
+- **`ai_grade_activities(details, worksheet_title, tolerance)`** — Califica respuestas pendientes (textbox, imagequestion, reading, speaking abierto) y re-juzga las que el corrector exacto marcó incorrectas. Solo puede cambiar status de actividades `pending` o `incorrect`. Los comentarios del profesor se agregan en español.
 
 ### Lógica de calificación IA
 
-1. Respuestas auto-calificadas como correctas → IA confirma (no toca)
-2. Fillblank marcado incorrecto → IA verifica equivalencia semántica
-3. Textbox/imagequestion marcados pending → IA califica completamente
-4. La IA solo puede modificar status `pending` e `incorrect`; nunca puede marcar como incorrect algo que el auto-grader marcó correct
+1. Respuestas auto-calificadas como correctas → **no se le envían** (ahorra tokens y evita comentarios inútiles)
+2. `_AI_RESCUABLE = {fillblank, listeningfillblank, listening, conversation}` → son los únicos donde puede convertir `incorrect` en `correct`. Son los tipos en que el alumno **escribe** la respuesta y el auto-corrector la compara por igualdad exacta, así que un acierto legítimo (sinónimo, respuesta corta, dedazo) falla. `listening` y `conversation` estaban fuera hasta julio 2026 y quedaban incorrectas para siempre aunque el contenido fuera correcto — con una clave tipo `answer: "Because her boss needed the report."` era prácticamente imposible acertar.
+3. Lo que se elige con **clic** (multiplechoice, truefalse, matching, multiselect, dragdrop, listeningorder, speaking con `target`) no se rescata: el exacto ya es la verdad. La IA solo escribe el comentario que explica la regla.
+4. `pending` → la IA decide `correct` / `incorrect` (`partial` se guarda como `incorrect`)
+5. La IA **nunca** puede marcar como incorrect algo que el auto-grader marcó correct
+6. **Contexto:** `AnswerDetail.context` le dice qué escuchó/leyó el alumno (diálogo, `text`/`audio_text` del audio, texto de lectura). Sin él no puede juzgar una respuesta abierta a un audio. El prompt además explicita dos límites: en `speaking` la respuesta es una **transcripción** (no se penaliza ortografía ni puntuación) y en `imagequestion` el modelo **no ve la imagen** (juzga el idioma y la estructura pedida, no si la descripción es cierta).
 
 ---
 
@@ -661,12 +676,13 @@ Los colores del tema se aplican via estilos inline desde `worksheet.theme`.
 | Ruta | Componente | Roles |
 |------|-----------|-------|
 | `/login` | LoginPage | público |
-| `/` | RootRedirect | redirige según rol |
-| `/student` | App (modo student) | student |
-| `/teacher` | App (modo teacher) | teacher, admin |
-| `/admin` | App (modo admin) | admin |
+| `/registro` | RegisterPage | público (solo crea profesores) |
+| `/`, `/acerca`, `/actividades`, `/aprende` | SiteLayout + páginas del sitio | público |
+| `/student/:section?` | App (modo student) | student |
+| `/teacher/:section?` | App (modo teacher) | teacher, admin |
+| `/admin/:section?` | App (modo admin) | admin |
 | `/reader` | ReaderPortal | reader |
-| `/guest` | GuestPage | público (token) |
+| `/guest` | GuestPage | público — **entradas ocultas en la UI** (solo por URL) |
 | `/vocab` | VocabPublicPage | público |
 | `/w/:worksheetId` | DirectWorksheetPage | público (enlace directo) |
 
@@ -688,12 +704,15 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 | `FRONTEND_ORIGINS` | `https://constructor-hojas-web.onrender.com` |
 | `SEED_DEMO_USERS` | `false` en producción |
 | `GROQ_API_KEY` | Groq: generación de hojas, **calificación IA** de respuestas abiertas y **transcripción Whisper** (speaking). |
-| `GEMINI_API_KEY` | Alternativa/soporte IA (según config). |
+| `GEMINI_API_KEY` | Gemini: generación de hojas y calificación (se intenta antes que Groq salvo en calificación, que usa `prefer_fast`). |
+| `GEMINI_MODEL` | Opcional. Modelo de Gemini; por defecto `gemini-3.1-flash-lite`. La URL se arma con él (una sola fuente de verdad). |
+| `GOOGLE_CLIENT_ID` | Client ID de OAuth (Web) de Google. **Obligatoria** para `/auth/google`: sin ella el endpoint responde 503 (no se puede validar el claim `aud`). |
 
 ### Frontend (Render)
 | Variable | Valor |
 |----------|-------|
 | `VITE_API_URL` | `https://constructor-hojas-api.onrender.com` |
+| `VITE_GOOGLE_CLIENT_ID` | El **mismo** Client ID que el backend. Sin ella el botón de Google no se muestra. |
 
 ---
 
@@ -713,6 +732,11 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - El parser DSL está en `backend/app/parser.py`. Al modificarlo, mantener retrocompatibilidad (hojas sin `block {}` deben seguir funcionando).
 - La BD está en **Aiven** (no Render). Toda pantalla que dependa de la primera consulta debe mostrar spinner (`LoadingScreen`/`Spinner`).
 - Al pedir el usuario una hoja de trabajo: entregar solo el DSL en el chat, sin crear archivo aparte (memoria `worksheet-delivery`).
+- `db/schema.sql` (SQLite) y `db/schema.postgres.sql` deben mantenerse en paralelo: una tabla que solo esté en uno revienta en el otro entorno.
+
+### Frontend
+- **Modo oscuro: no tocar el JSX.** Para que una pantalla se vea bien en oscuro se añade una regla al bloque `:root[data-theme='dark']` de `app.css` repintando la clase de Tailwind que ya usa. Nada de props `theme` ni de `useTheme()` en componentes de pantalla (solo lo usan el interruptor y las capturas de `/aprende`).
+- **Las secciones del portal son rutas**, no estado: para añadir una, se agrega a `TEACHER_SECTIONS` en `App.tsx` y al `GROUPS` de `TeacherDashboard.tsx`.
 
 ---
 
@@ -735,6 +759,7 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - **Acceso de invitado** (`/guest`): el alumno entra con nombre + aula pública, sin cuenta. Es el flujo priorizado (ver memoria `usage-direction`). También portal `reader` y `/vocab` públicos.
 - **Enlace directo por hoja** (`/w/:worksheetId`, `DirectWorksheetPage`): la forma más simple de compartir una hoja. El profesor toca "Copiar enlace" (solo en hojas publicadas) y comparte la URL; el alumno entra **sin login, sin menú de invitado y sin pedir nombre** (el nombre lo captura el campo `info {}` de la propia hoja → `nameFromAnswers` toma el primer `_info_*`; si no hay, "Sin nombre"), resuelve y envía. Reusa `POST /public/responses` (cada envío usa un `guest_token` **nuevo** → respuesta independiente; el backend no bloquea con token fresco) y `GET /public/worksheets/{id}` (carga la hoja publicada por id, UUID no adivinable = URL-capability). Las respuestas llegan a la vista de respuestas del profesor como cualquier envío de invitado. **Respeta `max_attempts` por dispositivo** (contador `dw_count_{id}` en localStorage, estilo liveworksheets): ilimitada (`maxAttempts` null) → "Volver a hacerla" las veces que quiera; limitada (ej. 1) → N intentos por dispositivo, luego pantalla de límite. El límite es per-dispositivo (localStorage), coherente con el modelo suave de invitado ya existente (no hay identidad server-side).
 - **Calificación por IA** (`ai.py`, Groq): toggle `ai_grading` por hoja. Las respuestas abiertas quedan `pending`; si el toggle está activo, la IA califica gramática/contenido con comentario en español (badge "✦ IA"). Además: generación de hojas por IA y resumen de desempeño.
+- **Barra de tolerancia de la IA** (`ai_tolerance`, 0–100 por hoja): en el editor, bajo el toggle de IA. `_grade_system(tolerance)` en `ai.py` arma el system prompt eligiendo uno de **tres bloques de reglas concretas** (≤33 Estricta, ≤66 Equilibrada, >66 Permisiva) en vez de pasarle un número suelto al modelo — obedece mucho mejor una lista de casos ("perdona la puntuación final y un dedazo; marca error si cambia el tiempo verbal"). La tolerancia **nunca** perdona el contenido que la actividad evalúa. El prompt además explica campo por campo qué recibe el modelo, en qué orden decidir (¿responde a la pregunta? → ¿contenido correcto? → forma) y trae una sección ANTI-REDUNDANCY (no repetir la respuesta completa, no explicar dos veces lo mismo, prohibido "revisa de nuevo" sin regla). Cubierto por `backend/tests/test_grade_prompt.py`.
 - **Speaking** con micrófono: transcripción vía Groq Whisper (fallback de texto).
 - **Animaciones de resultado de envío** (`submitAnimations.tsx`): al enviar se elige una **al azar** (cohete / pastelero / paracaidista). Umbral de éxito **≥ 70** (`PASS_THRESHOLD`). Efectos de sonido con **ZzFX** (sintetizado, sin archivos). Para añadir más: registrar en `SUBMIT_ANIMATIONS`.
 - **Spinners de carga** (`LoadingScreen`/`Spinner`) en portales, login, hojas y respuestas — por la latencia de Aiven.
@@ -751,11 +776,49 @@ Cliente HTTP centralizado. Todas las llamadas a la API deben pasar por aquí. Ma
 - **Sonidos de clic** (`utils/sfx.ts`, ZzFX): al elegir opción, multiselect, drag&drop, matching, true/false y variantes de listening suena un blip corto. El primer clic habilita el audio.
 - **Imprimir hoja en papel / PDF** (`WorksheetPrint.tsx`): botón "Imprimir PDF" en el portal del profesor (lista de evaluaciones y barra de revisión). Vista de papel compacta vía `createPortal(document.body)` + impresión nativa (`window.print()` → Guardar como PDF); en `@media print` se oculta `#root`. Omite actividades `listening*`/`speaking` (no pasan a papel) y deja líneas/casillas para escribir.
 
+### Cuentas, tema y navegación (julio 2026)
+- **Tema claro/oscuro global** (`src/utils/theme.ts` + bloque `@media screen { :root[data-theme='dark'] … }` al final de `app.css`): el tema vive **solo** en el atributo `data-theme` de `<html>` (`initTheme()` lo aplica en `main.tsx` antes del primer render, sin parpadeo). **Claro es el predeterminado**. El modo oscuro es CSS puro: repinta las MISMAS clases de Tailwind que ya usan las pantallas (`.bg-white`, `.text-slate-500`, `.bg-rex-light`…), así que **ningún componente sabe que existe un tema** — igual que el SKIN de cristal. Cubre login, registro, portales de profesor/admin/estudiante, vocabulario y hojas. Va dentro de `@media screen`: al imprimir el papel siempre es blanco. Interruptor: `ThemeToggle.tsx` (app) y `.site-theme-toggle` (sitio público), ambos sobre `toggleTheme()`. Para pintar una clase nueva que quede fea en oscuro, se añade una línea a ese bloque; las variantes con opacidad (`bg-rex-light/70`) necesitan su propio selector `[class*='bg-rex-light\/']` porque Tailwind genera una clase por porcentaje.
+- **Registro de profesor: SOLO con Google** (`RegisterPage.tsx` en `/registro`). No hay formulario de usuario/contraseña y **no existe endpoint público de alta con contraseña**: se eliminó `POST /auth/register` en vez de solo esconder el botón, porque dejar la ruta abierta no habría cambiado nada. El motivo es de producción: no hay forma de comprobar que un correo escrito a mano sea de quien se registra, y Google entrega el correo ya verificado (`email_verified`). Vías cerradas que siguen existiendo: el admin crea profesores (`POST /teachers`) y el profesor crea a sus alumnos.
+- **Login y registro con Google** (`POST /auth/google`, `GoogleSignInButton.tsx`) — la **única** alta pública: Google Identity Services devuelve un **ID token** que el backend valida contra `https://oauth2.googleapis.com/tokeninfo` (con `httpx`, sin librería nueva) comprobando `aud`, `iss` y `email_verified`. Si el correo no existe se crea un profesor con contraseña aleatoria (solo entra por Google). **No se usa el flujo de código de autorización, así que el `client_secret` no vive en ningún sitio de la app.** Necesita `VITE_GOOGLE_CLIENT_ID` (frontend) y `GOOGLE_CLIENT_ID` (backend, el mismo valor); sin la del backend el endpoint responde **503** a propósito (falla en cerrado: sin `aud` que comparar, un ID token de cualquier otra app de Google abriría cuentas aquí). Sin la del frontend, el botón simplemente no se pinta. En Google Cloud Console hay que listar el origen del frontend en "Orígenes autorizados de JavaScript".
+- **El backend ya lee `.env`** (`settings.py::_load_dotenv`, llamado desde `backend/app/__init__.py`): antes solo Vite leía el archivo, así que en local `GEMINI_API_KEY`/`GROQ_API_KEY`/`GOOGLE_CLIENT_ID` quedaban vacías aunque estuvieran escritas. Se carga en `__init__` porque hay constantes que se leen del entorno **al importar** (el modelo de Gemini). Las variables ya presentes en el entorno **ganan**, así que en Render no cambia nada. Parser propio de 6 líneas, sin `python-dotenv`.
+- **Alumnos por profesor** (`users.created_by`): `GET /students` filtra por dueño y `require_student_manager` bloquea editar/borrar/cambiar contraseña de alumnos ajenos (403). Las aulas ya estaban aisladas por `created_by`. **Aislamiento total: no hay excepción para `created_by IS NULL`.** Un alumno sin dueño no lo ve ni lo administra ningún profesor — solo el admin (falla en cerrado).
+  Existió esa excepción (los alumnos anteriores a la columna eran visibles para todos, para no esconderle a nadie los suyos al desplegar), pero con el registro abierto por Google se volvía un agujero: cualquier desconocido que se registrara los veía y podía borrarlos. **Se cerró moviendo el backfill a la propia migración de arranque** (`ALTER TABLE ... created_by` en `db/schema.postgres.sql` y su gemelo en `_initialize_sqlite_database`): el `UPDATE` que asigna los alumnos heredados al **profesor más antiguo** corre en el mismo arranque que crea la columna, así que no hay ventana entre desplegar y acordarse de correr un script. Sin ningún profesor en la base no cambia nada y se quedan en `NULL`.
+  `scripts/backfill_student_owner.py` sigue existiendo como red de seguridad para reasignar a mano (dry-run por defecto; `--owner @usuario --apply` para escribir). Cubierto por `backend/tests/test_student_isolation.py`.
+- **Portal enrutado** (`/teacher/:section?`, `/admin/:section?`, `/student/:section?`): la pestaña activa **es** el parámetro de la ruta (`adminMenu`/`studentTab` se derivan de `useParams`, no de `useState`). Se comparte por URL, se marca y el botón "atrás" del navegador funciona.
+- **Menú lateral por grupos** (`TeacherDashboard.tsx`, constante `GROUPS`): Resumen · Contenido · Mis grupos · Seguimiento, en vez de diez botones seguidos.
+- **Notificaciones**: la barra superior lleva `relative z-50` — el panel de la campanita es `absolute` dentro de ella y sin z-index propio las secciones de abajo (que crean contexto de apilamiento con blur/sombra) lo tapaban. El panel usa `.notif-panel` (fondo **opaco**: con el cristal se leía el menú a través). Botón **"Ver historial completo"** → modal con los últimos **7 días** (`getTeacherActivityFeed(since)`); `FeedRow` es el formato compartido entre campanita e historial.
+- **Modo invitado oculto**: se quitaron las entradas de `/guest` del sitio público, el inicio y el login (el flujo vivo es el enlace directo `/w/:id`). La ruta sigue existiendo: para reactivarlo basta con volver a poner un enlace a `/guest` en el login.
+- **Pestaña "Lectores" eliminada** del portal del profesor (junto con su estado y handlers). Los endpoints `/readers*` y la asignación de listas a lectores dentro de Vocabulario siguen funcionando para los lectores ya existentes.
+- **Capturas de /aprende por tema**: hay dos juegos, `nombre.webp` (claro) y `nombre-dark.webp` (oscuro); `Shot` en `LearnPage.tsx` elige según el tema activo. `node scripts/shots.mjs` genera **los dos** en una pasada (fija `site-theme` en localStorage y recarga antes de capturar).
+- **Schema SQLite completado**: `db/schema.sql` no tenía las tablas de vocabulario (solo estaban en el de PostgreSQL), así que `/vocabulary` reventaba con `no such table` en desarrollo local. Producción no estaba afectada.
+
 ### Rendimiento (backend / carga de BD)
 - **Pool de conexiones Postgres** (`database.py`, `psycopg_pool`): `get_connection()` entrega conexiones de un pool caliente en vez de abrir una nueva por consulta (antes: ~74 call sites abrían conexión nueva → handshake TCP/TLS/auth por query = mucha carga en Aiven). `min_size=1` (1 conexión caliente), `max_size` configurable con `DB_POOL_MAX` (default 5, prudente por el límite de Aiven). Los `with get_connection() as conn:` no cambian. SQLite (dev) sin pool.
 - **`teacher_dashboard` optimizado**: antes leía **toda** la tabla `worksheet_responses` y filtraba en Python + hacía **N+1** (una query de conteo por aula). Ahora las respuestas se filtran en SQL a las hojas del profesor (`list_responses(worksheet_ids=...)`) y el conteo de estudiantes por aula es una sola query (`count_students_per_classroom`).
 - **`/public/readers-vocabulary` sin N+1**: antes una query por reader; ahora `list_all_readers_vocabulary()` trae todo en un JOIN y agrupa en memoria.
 - Pendiente (siguiente plan): caché de lecturas públicas (vocab/hojas invitado), co-ubicar región Render↔Aiven, revisar más N+1.
+
+### Revisión QA de actividades (julio 2026)
+
+Auditoría de los 19 tipos: generación por IA, parser, calificación e instrucciones al alumno. Lo corregido:
+
+- **Round-trip roto de `listeningmatching`**: el constructor visual serializaba `pairs:` (lista) y el parser solo leía `pair {}` → crear una en modo visual y guardar dejaba la actividad sin pares. `_parse_pairs` ahora acepta ambos formatos.
+- **Validación del parser**: los fallos silenciosos (campos en la misma línea, `matching` desigual, `dragdrop` sin la palabra en el banco, `answer` que no está en `options`, menos `answer` que huecos, actividad vacía) ahora son un error al guardar con el número de actividad y el motivo.
+- **`listening` y `conversation` no se podían rescatar**: se califican por comparación exacta de **texto libre** y no estaban en la lista de tipos que la IA puede corregir, así que una respuesta correcta con otras palabras quedaba mal para siempre. Añadidos a `_AI_RESCUABLE`.
+- **A la IA le faltaba el contexto del audio** al calificar `listening`/`conversation`: solo veía la pregunta y la clave. Ahora recibe la oración escuchada.
+- **`GENERATION_PROMPT` (el prompt copiable) estaba desactualizado y se contradecía**: documentaba 11 de 19 tipos, incluía un ejemplo de `speaking` y tres líneas después decía `NO uses el tipo "speaking" (no existe)`, y enseñaba `listening {}` / `imagequestion {}` **en una sola línea**, que es justo la sintaxis que corrompe la actividad. Reescrito completo.
+- **`WORKSHEET_DSL.md`** documentaba 13 tipos y declaraba `speaking` prohibido. Añadidos los 6 que faltaban (`multiselect`, `dragdrop`, `speaking`, `listeningorder`, `conversation`, `content`) con sus límites.
+
+Segunda tanda (autorizada tras revisar el plan):
+
+- **`esc()` de `dslSerializer.ts` escapaba el backslash antes que la comilla**, y el parser solo quita las comillas **exteriores**. Eran dos bugs en una línea: los saltos de línea salían con un backslash suelto a la vista del alumno (`reading`/`readingtruefalse`/`content`/descripción) y las comillas internas como `Say \"hello\"`. Ahora `esc` solo convierte `"` en `”` tipográfica — el DSL no tiene otros escapes que proteger. Comprobado con `npx tsx scripts/check-dsl-serializer.ts`.
+- **Enunciado True/False sin `|` se guardaba como `true`**: la clave quedaba mal en silencio y marcaba incorrectos a alumnos que respondieron bien. `_get_statements` ahora deja `answer: None` (en los dos formatos, lista y `statement {}`) y `_activity_problem` lo rechaza al guardar nombrando el enunciado.
+- **El ancho del input de `fillblank` delataba la longitud de la respuesta**: se calculaba por hueco con SU respuesta esperada. Ahora `blankWidth()` usa un único ancho por actividad (el de la respuesta más larga), así que ningún hueco se distingue de otro.
+- **`partial` eliminado del prompt de calificación**: el modelo lo devolvía y `ai_grade_activities` lo guardaba como `incorrect`. Ahora el prompt pide solo `correct`/`incorrect` y el matiz va en el comentario. Implementar nota parcial de verdad es otra tarea (toca `AnswerDetail.status`, `_score_details`, badges de revisión e impresión).
+- **Instrucciones de mecánica en español**: `"Escribe la palabra que falta"`, `"Escribe tu respuesta"`, `"Elige…"`. El inglés se reserva para el contenido que se evalúa.
+- **Quitado el reproductor de `reading` y `readingtruefalse`**: leer el texto en voz alta convertía una evaluación de comprensión **lectora** en una de comprensión auditiva. Para practicar escucha están los tipos `listening*`.
+
+Pendiente mayor, con plan escrito: **[docs/PLAN-fuga-de-respuestas.md](docs/PLAN-fuga-de-respuestas.md)** — los endpoints que entregan la hoja al alumno devuelven `json_content` **completo**, así que la clave de respuestas entera viaja al navegador de todos los alumnos. La fuga por la URL del TTS es un caso particular de lo mismo.
 
 ### Pendientes (menores)
 - Bug 3: `\n` puede faltar en algún campo específico no cubierto por `RichText`
