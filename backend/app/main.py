@@ -1,7 +1,9 @@
 from typing import Any
 import asyncio
+import os
 import time
 
+import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -20,6 +22,7 @@ from .models import (
     ClassroomStudentAssignment,
     ClassroomVisibilityUpdate,
     ClassroomWorksheetAssignment,
+    GoogleAuthRequest,
     LoginRequest,
     LoginResponse,
     PasswordUpdate,
@@ -130,6 +133,51 @@ def login(payload: LoginRequest) -> LoginResponse:
     return LoginResponse(user=user, access_token=create_access_token(user.id, user.role.value))
 
 
+# No hay alta pública con usuario/contraseña a propósito: no había forma de comprobar que
+# el correo escrito a mano fuera de quien se registra. El único registro abierto es
+# /auth/google, que trae el correo ya verificado. Alternativa cerrada: POST /teachers (admin).
+
+
+def _verify_google_id_token(credential: str) -> dict:
+    """Valida el ID token contra Google y devuelve sus claims.
+    ponytail: se usa el endpoint tokeninfo de Google en vez de verificar la firma con JWKS
+    localmente — httpx ya es dependencia y no hace falta ninguna librería nueva. Si el
+    volumen de logins llega a molestar, cachear las claves y verificar en local."""
+    expected_aud = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    # Falla en cerrado: sin el Client ID no se puede comprobar que el token sea de ESTA app,
+    # y un ID token válido de cualquier otra aplicación de Google abriría cuentas aquí.
+    if not expected_aud:
+        raise HTTPException(status_code=503, detail="El acceso con Google no está configurado en el servidor.")
+    with httpx.Client(timeout=10) as client:
+        resp = client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": credential})
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="El token de Google no es válido.")
+    claims = resp.json()
+    if claims.get("aud") != expected_aud:
+        raise HTTPException(status_code=401, detail="El token de Google no es de esta aplicación.")
+    if claims.get("iss") not in {"accounts.google.com", "https://accounts.google.com"}:
+        raise HTTPException(status_code=401, detail="Emisor del token no reconocido.")
+    if claims.get("email_verified") not in {True, "true"}:
+        raise HTTPException(status_code=401, detail="La cuenta de Google no tiene el correo verificado.")
+    return claims
+
+
+@app.post("/auth/google", response_model=LoginResponse)
+def google_auth(payload: GoogleAuthRequest) -> LoginResponse:
+    """Login y registro con Google en un solo paso: si el correo no existe, crea el profesor."""
+    claims = _verify_google_id_token(payload.credential)
+    email = (claims.get("email") or "").strip()
+    if not email:
+        raise HTTPException(status_code=401, detail="Google no entregó un correo.")
+    user = repository.get_user_by_email(email)
+    if not user:
+        user = repository.create_google_teacher(email, claims.get("name") or email.split("@")[0])
+    elif user.role == UserRole.reader:
+        raise HTTPException(status_code=403, detail="Esta cuenta no puede entrar con Google.")
+    repository.create_session(user.id)
+    return LoginResponse(user=user, access_token=create_access_token(user.id, user.role.value))
+
+
 @app.post("/auth/logout", status_code=204)
 def logout(current_user: PublicUser = Depends(get_current_user)) -> None:
     repository.close_active_session(current_user.id)
@@ -140,17 +188,29 @@ def read_current_user(current_user: PublicUser = Depends(get_current_user)) -> P
     return current_user
 
 
+def require_student_manager(student_id: str, current_user: PublicUser) -> None:
+    """Un profesor solo administra los alumnos que él creó.
+
+    Falla en cerrado: un alumno sin dueño tampoco lo administra nadie salvo el admin. Antes
+    se permitía (eran los alumnos anteriores a `created_by`), pero eso dejaba borrarlos por id
+    a cualquier profesor recién registrado. La migración de arranque ya les asigna dueño."""
+    if current_user.role == UserRole.admin:
+        return
+    if repository.get_user_owner(student_id) != current_user.id:
+        raise HTTPException(status_code=403, detail="Ese estudiante pertenece a otro profesor")
+
+
 @app.post("/students", response_model=PublicUser)
-def create_student(payload: StudentCreate, _: PublicUser = Depends(require_teacher_or_admin)) -> PublicUser:
+def create_student(payload: StudentCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> PublicUser:
     try:
-        return repository.create_student(payload)
+        return repository.create_student(payload, created_by=current_user.id)
     except Exception as exc:
         raise HTTPException(status_code=409, detail="No se pudo crear el estudiante. Verifica que el usuario no exista.") from exc
 
 
 @app.get("/students", response_model=list[PublicUser])
-def list_students(_: PublicUser = Depends(require_teacher_or_admin)) -> list[PublicUser]:
-    return repository.list_students()
+def list_students(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[PublicUser]:
+    return repository.list_students(None if current_user.role == UserRole.admin else current_user.id)
 
 
 
@@ -163,6 +223,7 @@ def update_user(user_id: str, payload: UserUpdate, current_user: PublicUser = De
         target = repository.get_user(user_id)
         if not target or target.role != UserRole.student:
             raise HTTPException(status_code=403, detail="Los profesores solo pueden editar estudiantes")
+        require_student_manager(user_id, current_user)
     try:
         user = repository.update_user(user_id, payload.name, payload.email, payload.username)
     except ValueError as exc:
@@ -185,8 +246,10 @@ def update_user_password(user_id: str, payload: PasswordUpdate, current_user: Pu
             raise HTTPException(status_code=403, detail="No puedes cambiar la contraseña de otro usuario")
         if not payload.current_password or not repository.verify_user_password(user_id, payload.current_password):
             raise HTTPException(status_code=403, detail="La contraseña actual no es correcta")
-    elif current_user.role == UserRole.teacher and target.role != UserRole.student:
-        raise HTTPException(status_code=403, detail="Los profesores solo pueden cambiar contraseñas de estudiantes")
+    elif current_user.role == UserRole.teacher:
+        if target.role != UserRole.student:
+            raise HTTPException(status_code=403, detail="Los profesores solo pueden cambiar contraseñas de estudiantes")
+        require_student_manager(user_id, current_user)
     repository.update_password_hash(user_id, hash_password(payload.new_password))
 
 
@@ -333,7 +396,8 @@ def list_teachers(_: PublicUser = Depends(require_admin)) -> list[PublicUser]:
 
 
 @app.delete("/students/{student_id}", status_code=204)
-def delete_student(student_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> None:
+def delete_student(student_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    require_student_manager(student_id, current_user)
     if not repository.delete_student(student_id):
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
 
@@ -366,6 +430,7 @@ def create_worksheet(payload: WorksheetCreate, current_user: PublicUser = Depend
         max_attempts=payload.max_attempts,
         theme=worksheet_data.theme or payload.theme,
         ai_grading=payload.ai_grading,
+        ai_tolerance=payload.ai_tolerance,
     )
     return repository.add_worksheet(worksheet)
 
@@ -394,6 +459,7 @@ def update_worksheet(worksheet_id: str, payload: WorksheetUpdate, current_user: 
         max_attempts=payload.max_attempts,
         theme=worksheet_data.theme or payload.theme,
         ai_grading=payload.ai_grading,
+        ai_tolerance=payload.ai_tolerance,
     )
     result = repository.update_worksheet_content(worksheet_id, updated)
     if not result:
@@ -641,7 +707,7 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
 
     details = _build_answer_details(worksheet, payload.answers_json)
     if worksheet.ai_grading:
-        details = ai_grade_activities(details, worksheet.title)
+        details = ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance)
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,
@@ -829,7 +895,7 @@ def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
 
     details = _build_answer_details(worksheet, payload.answers_json)
     if worksheet.ai_grading:
-        details = ai_grade_activities(details, worksheet.title)
+        details = ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance)
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,
@@ -1069,6 +1135,16 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             continue  # bloque informativo: no se responde ni califica (no entra al score)
         student_answer = answers.get(activity.id)
         prompt = activity.text or activity.question or activity.prompt or activity.title or activity.type
+        # Qué escuchó el alumno. La IA lo necesita para juzgar una respuesta abierta a un audio:
+        # sin esto sólo ve la pregunta y la clave, y no puede reconocer una respuesta válida
+        # formulada de otra manera.
+        context = None
+        if activity.type == "conversation" and activity.lines:
+            context = "Diálogo escuchado: " + " ".join(f"{ln.get('speaker', '')}: {ln.get('text', '')}" for ln in activity.lines)
+        elif activity.type == "listening" and activity.text:
+            context = f"Audio escuchado: «{activity.text}»"
+        elif getattr(activity, "audio_text", None):
+            context = f"Audio escuchado: «{activity.audio_text}»"
         if activity.type == "reading":
             # Un detalle POR PREGUNTA con el texto de lectura como contexto para la IA.
             # (Sin preguntas = texto de referencia: no se califica.)
@@ -1095,7 +1171,8 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             continue
         if activity.type in {"multiplechoice", "listening"} and activity.answer:
             is_correct = str(student_answer or "").strip().lower() == str(activity.answer).strip().lower()
-            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            # `listening` es texto libre: el exacto casi siempre falla y la IA lo re-juzga con el contexto.
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect", context=context))
             continue
         if activity.type == "multiselect" and activity.answer:
             # Varias opciones correctas: acierto si el conjunto elegido coincide exactamente.
@@ -1133,7 +1210,7 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             continue
         if activity.type == "conversation" and activity.answer:
             is_correct = str(student_answer or "").strip().lower() == str(activity.answer).strip().lower()
-            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
+            details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect", context=context))
             continue
         if activity.type == "listeningorder" and activity.answer:
             # Ordenar palabras: acierto si el orden coincide exactamente (misma longitud + posición).
@@ -1194,12 +1271,6 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
                 # Modo pregunta abierta: la IA evalúa la transcripción (pendiente).
                 details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending"))
             continue
-        # Contexto extra para respuestas abiertas que dependen de algo previo (diálogo/audio).
-        context = None
-        if activity.type == "conversation" and activity.lines:
-            context = "Diálogo escuchado: " + " ".join(f"{ln.get('speaker', '')}: {ln.get('text', '')}" for ln in activity.lines)
-        elif getattr(activity, "audio_text", None):
-            context = f"Audio escuchado: «{activity.audio_text}»"
         details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=None, status="pending", context=context))
     return details
 

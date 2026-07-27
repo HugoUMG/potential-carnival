@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, Link2, LockKeyhole, LogOut, MoreHorizontal, Pencil, Printer, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, History, ImageIcon, Link2, LockKeyhole, LogOut, MoreHorizontal, Pencil, Printer, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { ThemeToggle } from './components/ThemeToggle';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { SubmitResult } from './components/submitAnimations';
@@ -25,12 +26,10 @@ import {
   changePassword,
   createVocabularyList,
   createClassroom,
-  createReader,
   createStudent,
   createTeacher,
   createWorksheet,
   updateWorksheet,
-  deleteReader,
   deleteStudent,
   deleteTeacher,
   deleteWorksheet,
@@ -57,7 +56,6 @@ import {
   getWorksheetSummary,
   getTeacherActivityFeed,
   type ActivityEvent,
-  login,
   logoutSession,
   getClassroom,
   getCurrentSession,
@@ -65,11 +63,9 @@ import {
   getTeacherNotifications,
   getGuestAccessLogs,
   getGuestDetail,
-  getReaderAccessLogs,
   type TeacherNotification,
   type GuestAccessLog,
   type GuestDetail,
-  type ReaderAccessLog,
   publishWorksheet,
   reviewAnswer,
   submitResponse,
@@ -142,6 +138,22 @@ const FEED_META: Record<ActivityEvent['tipo'], { label: string; icon: typeof Bel
   ingreso_lector: { label: 'Ingreso de lector', icon: UserCircle, color: 'text-spike bg-spike/10' },
 };
 
+/** Una línea del feed de actividad (campanita y historial semanal comparten formato). */
+function FeedRow({ event }: { event: ActivityEvent }) {
+  const meta = FEED_META[event.tipo];
+  const MetaIcon = meta.icon;
+  return (
+    <li className="flex items-start gap-3 px-4 py-3">
+      <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${meta.color}`}><MetaIcon size={16} /></span>
+      <div className="min-w-0">
+        <p className="text-sm text-slate-800"><span className="font-semibold">{event.nombre}</span> · {meta.label}</p>
+        {event.detalle && <p className="truncate text-xs text-slate-500">{event.detalle}</p>}
+        <p className="text-xs text-slate-400">{timeAgo(event.ts)} · {new Date(event.ts).toLocaleString()}</p>
+      </div>
+    </li>
+  );
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.floor(diff / 60000);
@@ -152,14 +164,29 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+/** Secciones del portal docente que existen como URL propia (/teacher/revision, …). */
+const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas', 'aulas', 'estudiantes', 'profesores', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes'];
+type StudentTab = 'activas' | 'calificadas' | 'vocabulario' | 'perfil';
+const STUDENT_TABS: StudentTab[] = ['activas', 'calificadas', 'vocabulario', 'perfil'];
+
 export default function App() {
   const navigate = useNavigate();
+  // Cada opción del portal es su propia URL: se comparte, se marca y el botón "atrás"
+  // del navegador funciona. El estado de la pestaña ES el parámetro de la ruta.
+  const { section } = useParams<{ section?: string }>();
   const [user, setUser] = useState<UsuarioSesion | null>(() => getCurrentSession());
-  const [adminMenu, setAdminMenu] = useState<TeacherMenu>('crear');
+  const portalBase = user?.role === 'admin' ? '/admin' : user?.role === 'student' ? '/student' : '/teacher';
+  const adminMenu: TeacherMenu = TEACHER_SECTIONS.includes(section as TeacherMenu) ? (section as TeacherMenu) : 'crear';
+  const studentTab: StudentTab = STUDENT_TABS.includes(section as StudentTab) ? (section as StudentTab) : 'activas';
+  const setAdminMenu = (menu: TeacherMenu) => navigate(`${portalBase}/${menu}`);
+  const setStudentTab = (tab: StudentTab) => navigate(`${portalBase}/${tab}`);
   const [notificationCount, setNotificationCount] = useState(0);
   const prevNotifCount = useRef(0);
   const [feed, setFeed] = useState<ActivityEvent[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
+  // Historial completo (7 días). null = cargando.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyFeed, setHistoryFeed] = useState<ActivityEvent[] | null>(null);
   const [bellSeen, setBellSeen] = useState<string>('1970-01-01T00:00:00.000Z');
   // Conteo de respuestas "ya visto" por hoja (se actualiza al abrir esa hoja en Revisión).
   // Si hay más respuestas que las vistas → marca roja "!" pendiente hasta que el profesor entre.
@@ -170,12 +197,12 @@ export default function App() {
   const [selectedGuest, setSelectedGuest] = useState<GuestAccessLog | null>(null);
   const [guestDetail, setGuestDetail] = useState<GuestDetail | null>(null);
   const [expandedResponseId, setExpandedResponseId] = useState<string | null>(null);
-  const [readerLogs, setReaderLogs] = useState<ReaderAccessLog[]>([]);
   const [worksheets, setWorksheets] = useState<Worksheet[]>([sampleWorksheet]);
   const [activeWorksheet, setActiveWorksheet] = useState<Worksheet>(sampleWorksheet);
   const [scriptDraft, setScriptDraft] = useState(sampleWorksheet.scriptContent);
   const [maxAttemptsDraft, setMaxAttemptsDraft] = useState('unlimited');
   const [aiGradingDraft, setAiGradingDraft] = useState(true);
+  const [aiToleranceDraft, setAiToleranceDraft] = useState(50);
   const [answers, setAnswers] = useState<StudentAnswers>({});
   const [responses, setResponses] = useState<RespuestaEstudiante[]>([]);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
@@ -214,7 +241,6 @@ export default function App() {
   // Si está seteado, "Guardar" edita esta hoja en el sitio en vez de crear una nueva.
   const [editingWorksheetId, setEditingWorksheetId] = useState<string | null>(null);
   const [refreshCooldowns, setRefreshCooldowns] = useState<Set<string>>(new Set());
-  const [studentTab, setStudentTab] = useState<'activas' | 'calificadas' | 'vocabulario' | 'perfil'>('activas');
   const [studentClassrooms, setStudentClassrooms] = useState<Classroom[]>([]);
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
   const [passwordMsg, setPasswordMsg] = useState('');
@@ -225,7 +251,6 @@ export default function App() {
   const [vocabAssignedReaders, setVocabAssignedReaders] = useState<Record<string, string[]>>({});
   const [studentVocabularyLists, setStudentVocabularyLists] = useState<VocabularyList[]>([]);
   const [readers, setReaders] = useState<UsuarioSesion[]>([]);
-  const [readerForm, setReaderForm] = useState({ name: '', username: '', password: '' });
   // Evaluaciones: search + pagination
   const [wsSearch, setWsSearch] = useState('');
   const [wsPage, setWsPage] = useState(1);
@@ -272,12 +297,6 @@ export default function App() {
     if (!user || user.role === 'student' || adminMenu !== 'actividad') return;
     void getStudentsActivity().then(setStudentsActivity).catch(() => {});
     void getGuestAccessLogs().then(setGuestLogs).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adminMenu, user?.id]);
-
-  useEffect(() => {
-    if (!user || user.role === 'student' || adminMenu !== 'lectores') return;
-    void getReaderAccessLogs().then(setReaderLogs).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adminMenu, user?.id]);
 
@@ -361,6 +380,7 @@ export default function App() {
           setScriptDraft(sortedWorksheets[0].scriptContent);
           setMaxAttemptsDraft(sortedWorksheets[0].maxAttempts ? String(sortedWorksheets[0].maxAttempts) : 'unlimited');
           setAiGradingDraft(sortedWorksheets[0].aiGrading ?? true);
+          setAiToleranceDraft(sortedWorksheets[0].aiTolerance ?? 50);
           setResponses(await listWorksheetResponses(sortedWorksheets[0].id));
         }
       } else {
@@ -424,6 +444,7 @@ export default function App() {
     setScriptDraft(worksheet.scriptContent);
     setMaxAttemptsDraft(worksheet.maxAttempts ? String(worksheet.maxAttempts) : 'unlimited');
     setAiGradingDraft(worksheet.aiGrading ?? true);
+    setAiToleranceDraft(worksheet.aiTolerance ?? 50);
     setMessage('');
     setAdminMenu('crear');
   }
@@ -438,7 +459,7 @@ export default function App() {
     try {
       const maxAttempts = maxAttemptsDraft === 'unlimited' ? null : Number(maxAttemptsDraft);
       if (editingWorksheetId) {
-        const worksheet = await updateWorksheet(editingWorksheetId, script, maxAttempts, aiGradingDraft);
+        const worksheet = await updateWorksheet(editingWorksheetId, script, maxAttempts, aiGradingDraft, aiToleranceDraft);
         setActiveWorksheet(worksheet);
         setWorksheets((current) => current.map((item) => (item.id === worksheet.id ? worksheet : item)));
         setSelectedActivityId(worksheet.activities[0]?.id ?? '');
@@ -447,7 +468,7 @@ export default function App() {
         setMessage('Evaluación actualizada.');
         setPreviewWorksheet(worksheet); // vista previa de cómo la verá el estudiante
       } else {
-        const worksheet = await createWorksheet(script, user.id, maxAttempts, aiGradingDraft);
+        const worksheet = await createWorksheet(script, user.id, maxAttempts, aiGradingDraft, aiToleranceDraft);
         setActiveWorksheet(worksheet);
         setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== sampleWorksheet.id)]);
         setSelectedActivityId(worksheet.activities[0]?.id ?? '');
@@ -637,6 +658,7 @@ export default function App() {
       setScriptDraft('');
       setMaxAttemptsDraft('unlimited');
       setAiGradingDraft(true);
+      setAiToleranceDraft(50);
       setMessage('');
     }
     if (menu === 'revision' && user) {
@@ -649,6 +671,18 @@ export default function App() {
     if (menu === 'evaluaciones' || menu === 'archivadas') void loadResponseCounts();
     if (menu === 'invitados') { setSelectedGuest(null); setGuestDetail(null); void getGuestAccessLogs().then(setGuestLogs).catch(() => {}); }
     setAdminMenu(menu);
+  }
+
+  /** Historial completo de la campanita: una semana de vigencia (el endpoint acepta `since`). */
+  async function openHistory() {
+    setHistoryOpen(true);
+    setHistoryFeed(null);
+    const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+    try {
+      setHistoryFeed(await getTeacherActivityFeed(since));
+    } catch {
+      setHistoryFeed([]);
+    }
   }
 
   function toggleBell() {
@@ -821,28 +855,6 @@ export default function App() {
     setVocabAssignedReaders((prev) => ({ ...prev, [listId]: (prev[listId] ?? []).filter((id) => id !== readerId) }));
   }
 
-  async function createNewReader() {
-    try {
-      const created = await createReader(readerForm.name, readerForm.username, readerForm.password);
-      setReaders((prev) => [created, ...prev]);
-      setReaderForm({ name: '', username: '', password: '' });
-      setMessage('Lector creado correctamente.');
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'No se pudo crear el lector.');
-    }
-  }
-
-  async function removeReader(reader: UsuarioSesion) {
-    if (!window.confirm(`¿Eliminar al lector "${reader.name}"?`)) return;
-    try {
-      await deleteReader(reader.id);
-      setReaders((prev) => prev.filter((r) => r.id !== reader.id));
-      setMessage('Lector eliminado.');
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'No se pudo eliminar.');
-    }
-  }
-
   // ProtectedRoute en main.tsx garantiza que user no es null en estas rutas.
   // Este fallback solo se activa si App se renderiza fuera del contexto esperado.
   if (!user) return null;
@@ -866,7 +878,6 @@ export default function App() {
     // Calificadas: tiene al menos una respuesta enviada
     const gradedWorksheets = worksheets.filter((w) => responseByWorksheet.has(w.id));
 
-    const activeResponse = responseByWorksheet.get(activeWorksheet.id);
     // Verdadera si la hoja activa aún está en la lista de activas (no solo publicada)
     const isActiveWorksheetPublished = activeWorksheets.some((w) => w.id === activeWorksheet.id);
 
@@ -909,6 +920,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              <ThemeToggle />
               <button className="rounded-2xl border px-4 py-2 text-sm" onClick={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }}>Cerrar sesión</button>
             </div>
           </div>
@@ -1135,7 +1147,10 @@ export default function App() {
 
   return (
     <main className="min-h-screen bg-cream text-ink">
-      <nav className="border-b border-rex/15 bg-white/85">
+      {/* relative z-50: el panel de la campanita es `absolute` dentro de esta barra. Sin un
+          z-index propio en la barra, las secciones de abajo (que crean su propio contexto de
+          apilamiento con blur/sombra) le pasaban por encima y tapaban las notificaciones. */}
+      <nav className="relative z-50 border-b border-rex/15 bg-white/85">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-3">
             <RexMascot mood="wave" className="h-11 w-11 shrink-0" />
@@ -1147,7 +1162,6 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-2">
             {([
               { id: 'vocabulario' as const, label: 'Vocabulario', icon: BookText },
-              { id: 'lectores' as const, label: 'Lectores', icon: Eye },
               { id: 'imagenes' as const, label: 'Imágenes', icon: ImageIcon },
             ]).map(({ id, label, icon: Icon }) => (
               <button
@@ -1176,35 +1190,34 @@ export default function App() {
               {bellOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setBellOpen(false)} />
-                  <div className="absolute right-0 z-50 mt-2 max-h-[28rem] w-80 overflow-auto rounded-2xl border border-slate-200 bg-white shadow-xl">
+                  {/* notif-panel: fondo opaco. Con el cristal de .bg-white se transparentaba
+                      y el menú de abajo se leía a través del panel. */}
+                  <div className="notif-panel absolute right-0 z-50 mt-2 flex max-h-[28rem] w-80 flex-col rounded-2xl border border-slate-200 shadow-xl">
                     <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                       <h3 className="font-bold text-slate-900">Notificaciones</h3>
                       <span className="text-xs text-slate-400">Últimas 48 h</span>
                     </div>
-                    {feed.length === 0 ? (
-                      <p className="px-4 py-6 text-center text-sm text-slate-500">Sin actividad reciente.</p>
-                    ) : (
-                      <ul className="divide-y divide-slate-50">
-                        {feed.map((e, i) => {
-                          const meta = FEED_META[e.tipo];
-                          const MetaIcon = meta.icon;
-                          return (
-                            <li key={i} className="flex items-start gap-3 px-4 py-3">
-                              <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full ${meta.color}`}><MetaIcon size={16} /></span>
-                              <div className="min-w-0">
-                                <p className="text-sm text-slate-800"><span className="font-semibold">{e.nombre}</span> · {meta.label}</p>
-                                {e.detalle && <p className="truncate text-xs text-slate-500">{e.detalle}</p>}
-                                <p className="text-xs text-slate-400">{timeAgo(e.ts)}</p>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
+                    <div className="min-h-0 flex-1 overflow-auto">
+                      {feed.length === 0 ? (
+                        <p className="px-4 py-6 text-center text-sm text-slate-500">Sin actividad reciente.</p>
+                      ) : (
+                        <ul className="divide-y divide-slate-50">
+                          {feed.map((e, i) => <FeedRow key={i} event={e} />)}
+                        </ul>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="flex items-center justify-center gap-2 border-t border-slate-100 px-4 py-3 text-sm font-bold text-rex-deep hover:bg-rex-light"
+                      onClick={() => { setBellOpen(false); void openHistory(); }}
+                    >
+                      <History size={15} /> Ver historial completo
+                    </button>
                   </div>
                 </>
               )}
             </div>
+            <ThemeToggle />
             <button
               type="button"
               title="Cerrar sesión"
@@ -1223,6 +1236,7 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-rex">Dashboard</p>
             <h2 className="text-2xl font-bold">Resumen del profesor</h2>
+            <p className="mt-1 text-sm text-slate-500">Cómo va tu grupo de un vistazo: cuántos alumnos tienes, qué hojas están habilitadas, cuántas respuestas han llegado y qué porcentaje se está acertando. Toca el título de una hoja para saltar directo a sus respuestas.</p>
             {(() => {
               const correct = teacherStats?.total_correct ?? 0;
               const incorrect = teacherStats?.total_incorrect ?? 0;
@@ -1321,7 +1335,11 @@ export default function App() {
         {adminMenu === 'aulas' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <div><p className="text-sm font-semibold uppercase tracking-wide text-rex">Aulas</p><h2 className="text-2xl font-bold">Gestión de aulas</h2></div>
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-rex">Aulas</p>
+                <h2 className="text-2xl font-bold">Gestión de aulas</h2>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">Un aula agrupa a tus alumnos y las hojas que les toca resolver: el alumno solo ve lo asignado a su aula. Solo aparecen las aulas que tú creaste.</p>
+              </div>
               <div className="flex gap-2"><input className="rounded-2xl border p-3" placeholder="Nombre del aula" value={classroomName} onChange={(e) => setClassroomName(e.target.value)} /><button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={createNewClassroom}>Crear aula</button></div>
             </div>
             {message && <p className="mt-4 rounded-2xl bg-rex-light p-3 text-rex-deep">{message}</p>}
@@ -1372,10 +1390,12 @@ export default function App() {
             </div>
           </section>
         )}
-        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} isSaving={isSaving} isEditing={!!editingWorksheetId} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onSaveScript={saveScript} />}
+        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} aiToleranceDraft={aiToleranceDraft} isSaving={isSaving} isEditing={!!editingWorksheetId} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onAiToleranceChange={setAiToleranceDraft} onSaveScript={saveScript} />}
         {adminMenu === 'estudiantes' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <h2 className="text-2xl font-bold">Crear estudiante</h2>
+            <p className="text-sm font-semibold uppercase tracking-wide text-rex">Estudiantes</p>
+            <h2 className="text-2xl font-bold">Tus alumnos</h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">Da de alta a cada alumno con su usuario y contraseña, y asígnalo a un aula para que empiece a ver hojas. Solo ves y editas los alumnos que tú creaste.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <input className="rounded-2xl border p-3" placeholder="Nombre" value={studentForm.name} onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })} />
               <input className="rounded-2xl border p-3" placeholder="Usuario" value={studentForm.username} onChange={(e) => setStudentForm({ ...studentForm, username: e.target.value })} />
@@ -1406,9 +1426,10 @@ export default function App() {
             <div className="flex justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-rex">Evaluaciones guardadas</p>
-                <h2 className="text-2xl font-bold">Base de datos</h2>
+                <h2 className="text-2xl font-bold">Tus hojas de trabajo</h2>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">Todo lo que has creado. Desde aquí habilitas una hoja para que se pueda responder, la asignas a un aula o copias su enlace directo, y en “Más” la editas, duplicas, imprimes o archivas.</p>
               </div>
-              <button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={() => { setEditingWorksheetId(null); setScriptDraft(''); setMaxAttemptsDraft('unlimited'); setAiGradingDraft(true); setMessage(''); setAdminMenu('crear'); }}>Nueva evaluación</button>
+              <button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={() => { setEditingWorksheetId(null); setScriptDraft(''); setMaxAttemptsDraft('unlimited'); setAiGradingDraft(true); setAiToleranceDraft(50); setMessage(''); setAdminMenu('crear'); }}>Nueva evaluación</button>
             </div>
             {/* Search */}
             <div className="mt-4 relative">
@@ -1499,7 +1520,7 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Archivadas</p>
             <h2 className="text-2xl font-bold">Almacén de hojas</h2>
-            <p className="mt-1 text-sm text-slate-500">Las hojas archivadas quedan almacenadas, pero los estudiantes no pueden verlas ni ver sus respuestas hasta desarchivarlas.</p>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">Guarda aquí lo que ya no está en uso sin perderlo: la hoja y sus respuestas se conservan, pero desaparecen del portal del alumno hasta que la desarchives. Es la alternativa segura a borrar.</p>
             <div className="mt-5 grid gap-3">
               {archivedWorksheets.map((worksheet) => (
                 <article key={worksheet.id} className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
@@ -1532,7 +1553,9 @@ export default function App() {
         )}
         {user.role === 'admin' && adminMenu === 'profesores' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <h2 className="text-2xl font-bold">Crear profesor</h2>
+            <p className="text-sm font-semibold uppercase tracking-wide text-rex">Administración</p>
+            <h2 className="text-2xl font-bold">Profesores</h2>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">Alta de cuentas docentes. Cada profesor trabaja aislado: solo ve sus propias aulas, alumnos y evaluaciones. Los profesores también pueden registrarse ellos mismos desde la pantalla de acceso.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-4">
               <input className="rounded-2xl border p-3" placeholder="Nombre" value={teacherForm.name} onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })} />
               <input className="rounded-2xl border p-3" placeholder="Usuario" value={teacherForm.username} onChange={(e) => setTeacherForm({ ...teacherForm, username: e.target.value })} />
@@ -1558,6 +1581,7 @@ export default function App() {
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-rex">Sesiones</p>
                 <h2 className="text-2xl font-bold">Actividad de estudiantes</h2>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">Quién está conectado ahora, cuándo entró por última vez y cuántas veces ha usado la plataforma. Útil para saber si un alumno no entregó porque no entró o porque se le complicó la hoja.</p>
               </div>
               <button
                 className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('activity-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`}
@@ -1625,66 +1649,6 @@ export default function App() {
             </div>
           </section>
         )}
-        {adminMenu === 'lectores' && (
-          <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold uppercase tracking-wide text-rex">Acceso especial</p>
-            <h2 className="text-2xl font-bold">Lectores de vocabulario</h2>
-            <p className="mt-1 text-sm text-slate-500">Los lectores solo pueden ver el módulo de vocabulario. <strong>Su contraseña no puede ser modificada.</strong></p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <input className="rounded-2xl border p-3 text-sm" placeholder="Nombre" value={readerForm.name} onChange={(e) => setReaderForm({ ...readerForm, name: e.target.value })} />
-              <input className="rounded-2xl border p-3 text-sm" placeholder="Usuario" value={readerForm.username} onChange={(e) => setReaderForm({ ...readerForm, username: e.target.value })} />
-              <input className="rounded-2xl border p-3 text-sm" placeholder="Contraseña" value={readerForm.password} onChange={(e) => setReaderForm({ ...readerForm, password: e.target.value })} />
-            </div>
-            <button className="mt-4 rounded-2xl bg-rex px-5 py-3 font-semibold text-white hover:bg-rex-dark" onClick={createNewReader}>Crear lector</button>
-            {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-sm text-rex-deep">{message}</p>}
-            <h3 className="mt-6 font-bold">Lectores existentes</h3>
-            <div className="mt-3 grid gap-2">
-              {readers.map((reader) => (
-                <div key={reader.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-rex-light p-3">
-                  <div>
-                    <span className="font-semibold">{reader.name}</span>
-                    <span className="ml-2 text-sm text-slate-500">@{reader.username}</span>
-                    <span className="ml-2 rounded-full bg-rex-light px-2 py-0.5 text-xs font-semibold text-rex-deep">Lector</span>
-                  </div>
-                  <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" onClick={() => removeReader(reader)}>
-                    <Trash2 className="mr-1 inline" size={14} /> Eliminar
-                  </button>
-                </div>
-              ))}
-              {!readers.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay lectores creados. Asígna listas de vocabulario desde el menú Vocabulario.</p>}
-            </div>
-
-            <div className="mt-8">
-              <p className="text-sm font-semibold uppercase tracking-wide text-rex">Actividad</p>
-              <h3 className="text-xl font-bold">Registro de sesiones de lectores</h3>
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-slate-500">
-                      <th className="pb-3 pr-4 font-semibold">Nombre</th>
-                      <th className="pb-3 pr-4 font-semibold">Último acceso</th>
-                      <th className="pb-3 font-semibold">Sesiones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {readerLogs.map((log) => (
-                      <tr key={log.reader_id} className="border-b last:border-0">
-                        <td className="py-3 pr-4 font-semibold">{log.reader_name}</td>
-                        <td className="py-3 pr-4 text-slate-600">{new Date(log.last_accessed_at).toLocaleString()}</td>
-                        <td className="py-3">
-                          <span className="rounded-full bg-rex-light px-2.5 py-1 text-xs font-bold text-rex-deep">{log.visit_count}×</span>
-                        </td>
-                      </tr>
-                    ))}
-                    {!readerLogs.length && (
-                      <tr><td colSpan={3} className="py-8 text-center text-slate-400">Sin sesiones registradas aún.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        )}
         {adminMenu === 'vocabulario' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <VocabularyManager
@@ -1717,7 +1681,7 @@ export default function App() {
               </div>
               <button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('revision-counts') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar conteos" disabled={refreshCooldowns.has('revision-counts')} onClick={() => withCooldown('revision-counts', () => loadResponseCounts())}><RefreshCw size={16} /></button>
             </div>
-            <p className="text-sm text-slate-500">Selecciona una hoja para ver y calificar sus respuestas. El número indica cuántos estudiantes han contestado.</p>
+            <p className="max-w-3xl text-sm text-slate-500">Aquí llegan las entregas. Abre una hoja para ver, alumno por alumno, qué respondió y qué se le calificó: lo cerrado se corrige solo, lo abierto lo evalúa la IA (si la activaste) y tú tienes la última palabra sobre cualquier respuesta. El número grande es cuántos han contestado; la marca roja, las entregas que aún no has abierto.</p>
             <div className="mt-5 grid gap-3">
               {savedWorksheets.map((worksheet) => {
                 const count = responseCounts[worksheet.id] ?? 0;
@@ -1753,13 +1717,17 @@ export default function App() {
         )}
         {adminMenu === 'revision' && revisionSelectedId !== null && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <button className="mb-4 inline-flex items-center gap-1 rounded-2xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" onClick={() => { setRevisionSelectedId(null); void loadResponseCounts(); }}><ChevronLeft size={16} /> Volver a la lista</button>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button className="inline-flex items-center gap-1 rounded-2xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-50" type="button" onClick={() => { setRevisionSelectedId(null); void loadResponseCounts(); }}><ChevronLeft size={16} /> Volver a la lista</button>
+              <button className="inline-flex items-center gap-1 rounded-2xl border border-rex/30 px-3 py-1.5 text-sm font-semibold text-rex-deep hover:bg-rex-light" type="button" title="Ir a las evaluaciones guardadas" onClick={() => handleSelectMenu('evaluaciones')}><BookOpen size={15} /> Evaluaciones guardadas</button>
+            </div>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <h2 className="text-2xl font-bold">Revisión de {activeWorksheet.title}</h2>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {responses.length > 0 && (
-                  <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700 text-sm" type="button" onClick={exportResponsesCsv}><Download className="mr-1 inline" size={15} /> Exportar CSV</button>
+                  <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700 text-sm" type="button" title="Descarga la tabla de notas para abrirla en Excel" onClick={exportResponsesCsv}><Download className="mr-1 inline" size={15} /> Exportar CSV</button>
                 )}
+                <button className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep text-sm" type="button" title="Ver la hoja tal como la ve el alumno" onClick={() => setPreviewWorksheet(activeWorksheet)}><Eye className="mr-1 inline" size={15} /> Vista previa</button>
                 <button
                   className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep text-sm"
                   type="button"
@@ -1770,9 +1738,9 @@ export default function App() {
                 </button>
                 <button className="rounded-2xl border border-slate-300 px-4 py-2 font-semibold text-slate-700 text-sm" type="button" title="Imprimir en papel / PDF" onClick={() => setPrintWorksheet(activeWorksheet)}><Printer className="mr-1 inline" size={15} /> Imprimir PDF</button>
                 <button className={`rounded-full p-2 transition-colors ${refreshCooldowns.has('responses-refresh') ? 'cursor-not-allowed text-slate-300' : 'text-slate-500 hover:bg-slate-100'}`} type="button" title="Actualizar" disabled={refreshCooldowns.has('responses-refresh')} onClick={() => withCooldown('responses-refresh', () => loadWorksheetResponses(activeWorksheet))}><RefreshCw size={16} /></button>
-              </div>
             </div>
-            <p className="text-sm text-slate-500">Nombre, fecha, puntuación, aciertos y pendientes permanecen guardados aunque la evaluación se deshabilite. Las respuestas incorrectas de fill in the blank se pueden corregir manualmente por errores de escritura.</p>
+            </div>
+            <p className="text-sm text-slate-500">Elige un alumno para ver su entrega actividad por actividad. Puedes ajustar a mano lo que la IA o el corrector automático marcaron mal (típico en fill in the blank con un dedazo) y dejarle un comentario. La nota, la fecha y los aciertos quedan guardados aunque después deshabilites la evaluación.</p>
             {/* Botones por alumno: seleccionar para ver solo sus respuestas */}
             {responses.length > 0 && (
               <div className="mt-5 flex flex-wrap gap-2">
@@ -1870,7 +1838,7 @@ export default function App() {
               <>
                 <p className="text-sm font-semibold uppercase tracking-wide text-spike">Invitados</p>
                 <h2 className="text-2xl font-bold">Seguimiento de invitados</h2>
-                <p className="mt-1 text-sm text-slate-500">Cada invitado se identifica por aula + nombre. Haz clic para ver su progreso y respuestas.</p>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">Alumnos que respondieron sin cuenta. Se identifican por aula + nombre escrito al entrar. Abre uno para ver qué hojas ya entregó, con qué nota, y cuáles le faltan.</p>
                 <div className="mt-5 grid gap-3">
                   {guestLogs.map((log) => (
                     <button
@@ -2094,6 +2062,26 @@ export default function App() {
               );
             })()}
             <WorksheetRenderer worksheet={practiceWorksheet} answers={practiceAnswers} onAnswerChange={updatePracticeAnswer} gradeStatus={practiceResult ? buildGradeStatus(practiceResult.details) : undefined} />
+          </div>
+        </div>
+      )}
+      {historyOpen && (
+        <div className="fixed inset-0 z-[60] overflow-auto bg-slate-900/60 p-6" onClick={() => setHistoryOpen(false)}>
+          <div className="mx-auto max-w-2xl rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold"><History className="mr-2 inline text-rex" size={20} /> Historial de notificaciones</h2>
+                <p className="text-sm text-slate-500">Entregas e ingresos de los últimos 7 días. Pasada esa semana los eventos dejan de listarse.</p>
+              </div>
+              <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setHistoryOpen(false)}>Cerrar</button>
+            </div>
+            {historyFeed === null
+              ? <p className="py-8 text-center text-sm text-slate-500">Cargando historial…</p>
+              : historyFeed.length === 0
+                ? <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No hubo actividad en los últimos 7 días.</p>
+                : <ul className="max-h-[60vh] divide-y divide-slate-100 overflow-auto rounded-2xl border border-slate-100">
+                    {historyFeed.map((e, i) => <FeedRow key={i} event={e} />)}
+                  </ul>}
           </div>
         </div>
       )}

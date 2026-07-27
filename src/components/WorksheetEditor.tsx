@@ -263,6 +263,7 @@ interface WorksheetEditorProps {
   scriptDraft: string;
   maxAttemptsDraft: string;
   aiGradingDraft: boolean;
+  aiToleranceDraft: number;
   isSaving?: boolean;
   isEditing?: boolean;
   message?: string;
@@ -271,14 +272,31 @@ interface WorksheetEditorProps {
   onScriptChange: (script: string) => void;
   onMaxAttemptsChange: (value: string) => void;
   onAiGradingChange: (value: boolean) => void;
+  onAiToleranceChange: (value: number) => void;
   onSaveScript: (script?: string) => void;
 }
 
 type EditorMode = 'script' | 'visual' | 'ai';
 
+/** Los tres escalones que entiende el backend (`_grade_system` en ai.py). */
+function toleranceLabel(value: number): { title: string; detail: string } {
+  if (value <= 33) return {
+    title: 'Estricta',
+    detail: 'Cuenta como error la puntuación final, la mayúscula inicial, los acentos y cualquier falta de ortografía. Para exámenes de precisión escrita.',
+  };
+  if (value <= 66) return {
+    title: 'Equilibrada',
+    detail: 'Perdona puntuación, mayúsculas, acentos y un dedazo evidente ("wass" → "was"). Marca error si cambia la palabra, el tiempo verbal o el número.',
+  };
+  return {
+    title: 'Permisiva',
+    detail: 'Solo importa el mensaje: perdona ortografía y descuidos de gramática mientras se entienda. Marca error solo si el significado está mal.',
+  };
+}
+
 export function WorksheetEditor({
-  worksheet, scriptDraft, maxAttemptsDraft, aiGradingDraft, isSaving, isEditing, message, userId,
-  onScriptChange, onMaxAttemptsChange, onAiGradingChange, onSaveScript,
+  worksheet, scriptDraft, maxAttemptsDraft, aiGradingDraft, aiToleranceDraft, isSaving, isEditing, message, userId,
+  onScriptChange, onMaxAttemptsChange, onAiGradingChange, onAiToleranceChange, onSaveScript,
 }: WorksheetEditorProps) {
   const [mode, setMode] = useState<EditorMode>('script');
   const [skippedWarning, setSkippedWarning] = useState<number | null>(null);
@@ -499,6 +517,37 @@ export function WorksheetEditor({
             <span className="block text-xs text-slate-500">Si está activa, la IA califica y comenta las respuestas abiertas/incorrectas al enviarse. Solo tú ves esta opción; el alumno no la percibe.</span>
           </span>
         </label>
+
+        {/* Tolerancia: define cuánto perdona la IA los errores de forma (puntuación, dedazos)
+            sin perdonar nunca el contenido que la actividad evalúa. */}
+        {aiGradingDraft && (() => {
+          const { title, detail } = toleranceLabel(aiToleranceDraft);
+          return (
+            <div className="mt-3 max-w-xl rounded-2xl border border-slate-200 p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-sm font-semibold text-slate-700">Tolerancia a errores de forma</span>
+                <span className="rounded-full bg-rex-light px-3 py-0.5 text-xs font-bold text-rex-deep">{title} · {aiToleranceDraft}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={aiToleranceDraft}
+                onChange={(event) => onAiToleranceChange(Number(event.target.value))}
+                className="mt-3 w-full accent-rex"
+                aria-label="Tolerancia a errores de forma"
+              />
+              <div className="flex justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                <span>Estricta</span><span>Equilibrada</span><span>Permisiva</span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-500">{detail}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                Nunca perdona el contenido: si la actividad practica pasado simple y el alumno usa presente, se marca error en cualquier nivel.
+              </p>
+            </div>
+          );
+        })()}
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500">Al guardar, el backend valida el script y almacena la evaluación.</p>

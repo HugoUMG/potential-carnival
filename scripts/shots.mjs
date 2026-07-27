@@ -35,20 +35,20 @@ const typeJs = (placeholderFragment, text) => `(() => {
    el último. Con un evaluate por paso, React re-renderiza entre clic y clic. */
 const SHOTS = [
   {
-    file: 'editor-visual.webp',
+    file: 'editor-visual',
     width: 920,
     setup: [clickJs('Visual')],
     // El builder es más alto que la pantalla: se recorta a la cabecera + primer bloque.
     maxHeight: 1120,
   },
   {
-    file: 'editor-dsl.webp',
+    file: 'editor-dsl',
     width: 920,
     setup: [clickJs('Script')],
     maxHeight: 1180,
   },
   {
-    file: 'editor-ia.webp',
+    file: 'editor-ia',
     width: 920,
     setup: [
       clickJs('Generar con IA'),
@@ -124,11 +124,17 @@ try {
 
   mkdirSync(OUT, { recursive: true });
 
+  // Una pasada por tema: /aprende muestra la captura del modo que tenga el visitante.
+  // El tema se guarda en localStorage antes de navegar (main.tsx lo aplica al arrancar).
+  for (const theme of ['light', 'dark']) {
   for (const shot of SHOTS) {
     await send('Emulation.setDeviceMetricsOverride', {
       width: shot.width, height: 1200, deviceScaleFactor: 1, mobile: false,
     });
     await send('Page.navigate', { url: `${BASE}/__shots` });
+    await sleep(800);
+    await send('Runtime.evaluate', { expression: `localStorage.setItem('site-theme', ${JSON.stringify(theme)})` });
+    await send('Page.reload', {});
     await sleep(2500); // carga de módulos + fuentes + primer render
 
     for (const js of shot.setup) {
@@ -158,9 +164,10 @@ try {
       },
     });
 
-    const path = join(OUT, shot.file);
+    const path = join(OUT, `${shot.file}${theme === 'dark' ? '-dark' : ''}.webp`);
     writeFileSync(path, Buffer.from(data, 'base64'));
     console.log(`✓ ${path}  (${Math.round(Buffer.from(data, 'base64').length / 1024)} kB)`);
+  }
   }
 
   close();

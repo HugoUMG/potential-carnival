@@ -163,3 +163,20 @@ CREATE TABLE IF NOT EXISTS reader_access_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_reader_access_logs_reader ON reader_access_logs(reader_id);
 CREATE INDEX IF NOT EXISTS idx_reader_access_logs_at ON reader_access_logs(accessed_at DESC);
+
+-- Alumnos por profesor: cada maestro solo ve/edita los que él creó.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by TEXT;
+CREATE INDEX IF NOT EXISTS idx_users_created_by ON users(created_by);
+
+-- Los alumnos anteriores a la columna quedarían con created_by NULL, y un alumno sin dueño
+-- no lo protege nadie. Con el registro por Google abierto, cualquiera que se registre podría
+-- verlos y borrarlos, así que se les asigna dueño en el MISMO arranque que crea la columna:
+-- no hay ventana entre desplegar y correr scripts/backfill_student_owner.py.
+-- El dueño es el profesor más antiguo (en esta base hay uno solo, así que no es ambiguo).
+-- Sin ningún profesor no cambia nada y se quedan en NULL: solo el admin los ve.
+UPDATE users SET created_by = (
+  SELECT u.id FROM users u WHERE u.role = 'teacher' ORDER BY u.created_at LIMIT 1
+) WHERE role = 'student' AND created_by IS NULL;
+
+-- Tolerancia de la calificación con IA por hoja (0 estricto … 100 permisivo).
+ALTER TABLE worksheets ADD COLUMN IF NOT EXISTS ai_tolerance INTEGER NOT NULL DEFAULT 50;

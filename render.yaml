@@ -21,6 +21,9 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      # Client ID de OAuth (Web) de Google: valida el claim "aud" del ID token.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
 
   - type: web
     name: constructor-hojas-web
@@ -29,6 +32,9 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
+        sync: false
+      # Mismo Client ID que el backend: pinta el botón de "Entrar con Google".
+      - key: VITE_GOOGLE_CLIENT_ID
         sync: false
     routes:
       - type: rewrite

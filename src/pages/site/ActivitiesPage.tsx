@@ -150,7 +150,7 @@ export function ActivitiesPage() {
         <p className="mx-auto mt-3 max-w-xl text-site-fg/60">Ahora mira las tres formas de armarlo.</p>
         <div className="mt-7 flex flex-wrap justify-center gap-3">
           <Link to="/aprende" className="site-btn site-btn-primary">Cómo se crean <ArrowRight size={18} /></Link>
-          <Link to="/guest" className="site-btn site-btn-ghost">Probar una hoja</Link>
+          <Link to="/registro" className="site-btn site-btn-ghost">Crear cuenta</Link>
         </div>
       </section>
     </>

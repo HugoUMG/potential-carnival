@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import {
   ArrowRight, BookOpenCheck, ClipboardCheck, Headphones, Info, LayoutGrid,
-  Mic, Send, Share2, Sparkles, UserRound, Wand2,
+  Mic, Send, Share2, Sparkles, UserPlus, Wand2,
 } from 'lucide-react';
 import RexMascot from '../../components/RexMascot';
 
@@ -61,8 +61,10 @@ export function HomePage() {
             <Link to="/aprende" className="site-btn site-btn-primary">
               Ver cómo se crea <ArrowRight size={18} />
             </Link>
-            <Link to="/guest" className="site-btn site-btn-spike">
-              <UserRound size={18} /> Probar como invitado
+            {/* El acceso de invitado vive en el login, no aquí. Hoy está oculto: el flujo
+                vivo para el alumno es el enlace directo por hoja (/w/:id). */}
+            <Link to="/registro" className="site-btn site-btn-spike">
+              <UserPlus size={18} /> Crear cuenta de profesor
             </Link>
             <Link to="/actividades" className="site-btn site-btn-ghost">
               Actividades

@@ -70,6 +70,7 @@ interface BackendWorksheet {
   max_attempts?: number | null;
   theme?: { primary_color?: string; background_color?: string; text_color?: string } | null;
   ai_grading?: boolean;
+  ai_tolerance?: number;
   attempts_used?: number | null;
   attempts_remaining?: number | null;
 }
@@ -296,15 +297,26 @@ export function normalizeWorksheet(worksheet: BackendWorksheet): Worksheet {
     attemptsUsed: worksheet.attempts_used ?? null,
     attemptsRemaining: worksheet.attempts_remaining ?? null,
     aiGrading: worksheet.ai_grading ?? true,
+    aiTolerance: worksheet.ai_tolerance ?? 50,
     infoFields: (worksheet.json_content as { info_fields?: string[] }).info_fields ?? [],
   };
 }
 
-export async function login(username: string, password: string, role: UsuarioSesion['role']): Promise<UsuarioSesion> {
-  const data = await request<{ user: UsuarioSesion; access_token: string; token_type: string }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password, role }) });
+type AuthPayload = { user: UsuarioSesion; access_token: string; token_type: string };
+
+function storeSession(data: AuthPayload): UsuarioSesion {
   const session = { ...data.user, accessToken: data.access_token };
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
   return session;
+}
+
+export async function login(username: string, password: string, role: UsuarioSesion['role']): Promise<UsuarioSesion> {
+  return storeSession(await request<AuthPayload>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password, role }) }));
+}
+
+/** Entra (o se registra la primera vez) con el ID token de Google Identity Services. */
+export async function loginWithGoogle(credential: string): Promise<UsuarioSesion> {
+  return storeSession(await request<AuthPayload>('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }));
 }
 
 export async function createStudent(name: string, username: string, password: string): Promise<UsuarioSesion> {
@@ -331,14 +343,14 @@ export async function deleteTeacher(teacherId: string): Promise<void> {
   await request<void>(`/teachers/${teacherId}`, { method: 'DELETE' });
 }
 
-export async function createWorksheet(scriptContent: string, createdBy: string, maxAttempts: number | null, aiGrading = true): Promise<Worksheet> {
-  const worksheet = await request<BackendWorksheet>('/worksheets', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, created_by: createdBy, max_attempts: maxAttempts, ai_grading: aiGrading }) });
+export async function createWorksheet(scriptContent: string, createdBy: string, maxAttempts: number | null, aiGrading = true, aiTolerance = 50): Promise<Worksheet> {
+  const worksheet = await request<BackendWorksheet>('/worksheets', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, created_by: createdBy, max_attempts: maxAttempts, ai_grading: aiGrading, ai_tolerance: aiTolerance }) });
   return normalizeWorksheet(worksheet);
 }
 
 /** Edita en el sitio una hoja existente (409 si ya tiene respuestas registradas). */
-export async function updateWorksheet(worksheetId: string, scriptContent: string, maxAttempts: number | null, aiGrading = true): Promise<Worksheet> {
-  const worksheet = await request<BackendWorksheet>(`/worksheets/${worksheetId}`, { method: 'PUT', body: JSON.stringify({ script_content: scriptContent, max_attempts: maxAttempts, ai_grading: aiGrading }) });
+export async function updateWorksheet(worksheetId: string, scriptContent: string, maxAttempts: number | null, aiGrading = true, aiTolerance = 50): Promise<Worksheet> {
+  const worksheet = await request<BackendWorksheet>(`/worksheets/${worksheetId}`, { method: 'PUT', body: JSON.stringify({ script_content: scriptContent, max_attempts: maxAttempts, ai_grading: aiGrading, ai_tolerance: aiTolerance }) });
   return normalizeWorksheet(worksheet);
 }
 

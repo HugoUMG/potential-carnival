@@ -531,23 +531,9 @@ textarea:focus, select:focus {
    páginas usan `text-site-fg/70`, `bg-site-acc/15`… (colores de Tailwind atados
    a estas variables), así que cambiar el tema es cambiar cuatro números.
    ════════════════════════════════════════════════════════════════════════════ */
+/* Claro es el modo por defecto; el oscuro cuelga de `:root[data-theme='dark']`
+   (el mismo interruptor que pinta el resto de la app). */
 .site {
-  --site-bg: 10 13 8;             /* casi negro verdoso */
-  --site-fg: 233 241 222;
-  --site-acc: 199 240 138;        /* verde rex luminoso */
-  --site-acc2: 255 176 122;       /* naranja spike luminoso */
-  --site-btn-ink: 10 13 8;        /* texto sobre los botones de acento */
-  --site-glass-bg: linear-gradient(150deg, rgb(255 255 255 / 0.10), rgb(255 255 255 / 0.03));
-  --site-glass-brd: rgb(255 255 255 / 0.12);
-  --site-glass-shadow: 0 30px 60px -34px rgb(0 0 0 / 0.9), inset 0 1px 0 rgb(255 255 255 / 0.16);
-  --site-glass-shadow-hover: 0 40px 70px -34px rgb(0 0 0 / 0.95), 0 0 30px -10px rgb(var(--site-acc) / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.2);
-  --site-glow: 0.65;              /* intensidad del neón: 0 en claro */
-  --site-grid: 0.07;
-  --site-sweep: 0.05;
-  color-scheme: dark;
-}
-
-.site[data-theme='light'] {
   --site-bg: 246 244 233;         /* crema de la marca */
   --site-fg: 43 42 38;            /* tinta */
   --site-acc: 61 94 36;           /* rex-deep, legible sobre crema */
@@ -557,10 +543,26 @@ textarea:focus, select:focus {
   --site-glass-brd: rgb(255 255 255 / 0.9);
   --site-glass-shadow: 0 26px 50px -30px rgb(61 94 36 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.95);
   --site-glass-shadow-hover: 0 34px 60px -28px rgb(61 94 36 / 0.55), 0 0 26px -12px rgb(132 184 76 / 0.7), inset 0 1px 0 rgb(255 255 255 / 1);
-  --site-glow: 0;
+  --site-glow: 0;                 /* intensidad del neón: 0 en claro */
   --site-grid: 0.05;
   --site-sweep: 0.5;
   color-scheme: light;
+}
+
+:root[data-theme='dark'] .site {
+  --site-bg: 10 13 8;             /* casi negro verdoso */
+  --site-fg: 233 241 222;
+  --site-acc: 199 240 138;        /* verde rex luminoso */
+  --site-acc2: 255 176 122;       /* naranja spike luminoso */
+  --site-btn-ink: 10 13 8;        /* texto sobre los botones de acento */
+  --site-glass-bg: linear-gradient(150deg, rgb(255 255 255 / 0.10), rgb(255 255 255 / 0.03));
+  --site-glass-brd: rgb(255 255 255 / 0.12);
+  --site-glass-shadow: 0 30px 60px -34px rgb(0 0 0 / 0.9), inset 0 1px 0 rgb(255 255 255 / 0.16);
+  --site-glass-shadow-hover: 0 40px 70px -34px rgb(0 0 0 / 0.95), 0 0 30px -10px rgb(var(--site-acc) / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.2);
+  --site-glow: 0.65;
+  --site-grid: 0.07;
+  --site-sweep: 0.05;
+  color-scheme: dark;
 }
 
 .site {
@@ -712,4 +714,148 @@ textarea:focus, select:focus {
 
 @media (prefers-reduced-motion: reduce) {
   .site-btn:hover, .site-glass-hover:hover, button:hover:not(:disabled) { transform: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MODO OSCURO DE LA APP (login, perfiles, portal del profesor/admin, vocabulario,
+   hojas de trabajo). Igual que el SKIN de arriba: es SOLO pintura. Repinta las
+   MISMAS clases de Tailwind que ya usan las pantallas, así que ni App.tsx ni los
+   componentes saben que existe un tema — el interruptor solo pone `data-theme`
+   en <html> (ver src/utils/theme.ts).
+   Va dentro de @media screen: al imprimir, el papel siempre es blanco.
+   ════════════════════════════════════════════════════════════════════════════ */
+@media screen {
+  :root[data-theme='dark'] {
+    --app-bg: 13 17 13;        /* fondo de página */
+    --app-surface: 30 36 30;   /* tarjetas / paneles */
+    --app-ink: 233 241 222;    /* texto principal */
+    --app-muted: 156 170 154;  /* texto secundario */
+    color-scheme: dark;
+  }
+
+  /* Preflight de Tailwind pinta TODOS los bordes con un gris claro fijo. */
+  :root[data-theme='dark'] *,
+  :root[data-theme='dark'] *::before,
+  :root[data-theme='dark'] *::after { border-color: rgb(255 255 255 / 0.12); }
+
+  :root[data-theme='dark'] body {
+    background-color: rgb(var(--app-bg));
+    background-image:
+      radial-gradient(1100px 620px at 10% -12%, rgb(var(--rex) / 0.18), transparent 60%),
+      radial-gradient(900px 520px at 102% -4%, rgb(var(--spike) / 0.12), transparent 55%),
+      radial-gradient(900px 700px at 50% 118%, rgb(var(--rex) / 0.10), transparent 62%),
+      repeating-linear-gradient(0deg, rgb(199 240 138 / 0.05) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(90deg, rgb(199 240 138 / 0.05) 0 1px, transparent 1px 48px);
+  }
+
+  /* ── Superficies ────────────────────────────────────────────────────────── */
+  :root[data-theme='dark'] .bg-white,
+  :root[data-theme='dark'] .bg-white\/85,
+  :root[data-theme='dark'] .bg-white\/80,
+  :root[data-theme='dark'] .bg-white\/70 { background-color: rgb(var(--app-surface) / 0.78); }
+  :root[data-theme='dark'] .bg-cream { background-color: transparent; }
+  :root[data-theme='dark'] .bg-slate-50,
+  :root[data-theme='dark'] .bg-slate-100,
+  :root[data-theme='dark'] .bg-slate-100\/60 { background-color: rgb(255 255 255 / 0.06); }
+  :root[data-theme='dark'] .rounded-3xl.bg-white,
+  :root[data-theme='dark'] .rounded-2xl.bg-white,
+  :root[data-theme='dark'] .rounded-2xl.bg-white\/70 {
+    border-color: rgb(255 255 255 / 0.12);
+    box-shadow: 0 26px 50px -30px rgb(0 0 0 / 0.85), inset 0 1px 0 rgb(255 255 255 / 0.08);
+  }
+  :root[data-theme='dark'] .bg-slate-50.rounded-2xl { background-color: rgb(255 255 255 / 0.05); }
+
+  /* ── Texto ──────────────────────────────────────────────────────────────── */
+  :root[data-theme='dark'] .text-ink,
+  :root[data-theme='dark'] .text-slate-900,
+  :root[data-theme='dark'] .text-slate-800,
+  :root[data-theme='dark'] .text-slate-700 { color: rgb(var(--app-ink)); }
+  :root[data-theme='dark'] .text-slate-600,
+  :root[data-theme='dark'] .text-slate-500 { color: rgb(var(--app-muted)); }
+  :root[data-theme='dark'] .text-slate-400,
+  :root[data-theme='dark'] .text-slate-300 { color: rgb(var(--app-muted) / 0.7); }
+  /* text-ink/60, text-ink/80… (la opacidad la aplica Tailwind sobre este color). */
+  :root[data-theme='dark'] [class*='text-ink\/'] { color: rgb(var(--app-ink) / var(--tw-text-opacity, 1)); }
+  :root[data-theme='dark'] main,
+  :root[data-theme='dark'] .text-ink { color: rgb(var(--app-ink)); }
+
+  /* Acentos de marca: sobre fondo oscuro el verde/naranja oscuros no se leen. */
+  :root[data-theme='dark'] .text-rex-deep { color: #C7F08A; }
+  :root[data-theme='dark'] .text-rex { color: #A9DC6B; }
+  :root[data-theme='dark'] .text-spike-dark { color: #FFB07A; }
+  :root[data-theme='dark'] .bg-rex-light { background-color: rgb(199 240 138 / 0.14); }
+
+  /* ── Insignias de estado (correcto / incorrecto / pendiente) ─────────────── */
+  :root[data-theme='dark'] .bg-emerald-50 { background-color: rgb(16 185 129 / 0.15); }
+  :root[data-theme='dark'] .bg-red-50 { background-color: rgb(239 68 68 / 0.15); }
+  :root[data-theme='dark'] .bg-amber-50, :root[data-theme='dark'] .bg-amber-50\/60 { background-color: rgb(245 158 11 / 0.15); }
+  :root[data-theme='dark'] .bg-amber-100 { background-color: rgb(245 158 11 / 0.22); }
+  :root[data-theme='dark'] .bg-red-100 { background-color: rgb(239 68 68 / 0.22); }
+  :root[data-theme='dark'] .bg-red-50\/40 { background-color: rgb(239 68 68 / 0.1); }
+  :root[data-theme='dark'] .text-emerald-700 { color: #6EE7B7; }
+  :root[data-theme='dark'] .text-red-600, :root[data-theme='dark'] .text-red-700 { color: #FCA5A5; }
+  :root[data-theme='dark'] .text-amber-700, :root[data-theme='dark'] .text-amber-800, :root[data-theme='dark'] .text-amber-600 { color: #FCD34D; }
+
+  /* ── Botones y campos ───────────────────────────────────────────────────── */
+  :root[data-theme='dark'] button[class*='border-']:not([class*='bg-']) {
+    background-color: rgb(255 255 255 / 0.07);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  }
+  :root[data-theme='dark'] button[class*='border-']:not([class*='bg-']):hover:not(:disabled) {
+    background-color: rgb(255 255 255 / 0.13);
+    box-shadow: 0 10px 22px -14px rgb(0 0 0 / 0.9), inset 0 1px 0 rgb(255 255 255 / 0.1);
+  }
+  :root[data-theme='dark'] input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  :root[data-theme='dark'] textarea,
+  :root[data-theme='dark'] select {
+    background-color: rgb(255 255 255 / 0.07);
+    color: rgb(var(--app-ink));
+  }
+  :root[data-theme='dark'] input:focus, :root[data-theme='dark'] textarea:focus, :root[data-theme='dark'] select:focus {
+    background-color: rgb(255 255 255 / 0.12);
+  }
+  :root[data-theme='dark'] ::placeholder { color: rgb(var(--app-muted) / 0.65); }
+  /* Los <option> los pinta el sistema: sin esto quedan texto claro sobre blanco. */
+  :root[data-theme='dark'] option { background-color: rgb(var(--app-surface)); color: rgb(var(--app-ink)); }
+
+  :root[data-theme='dark'] .dashboard-action {
+    background: rgb(255 255 255 / 0.05);
+    border-color: rgb(255 255 255 / 0.1);
+    color: rgb(var(--app-ink) / 0.85);
+  }
+  :root[data-theme='dark'] .dashboard-action:hover,
+  :root[data-theme='dark'] .dashboard-action-active { background: rgb(199 240 138 / 0.14); color: #C7F08A; }
+  :root[data-theme='dark'] .mode-tab { color: rgb(var(--app-muted)); }
+  :root[data-theme='dark'] .mode-tab-active { background: rgb(255 255 255 / 0.12); color: #C7F08A; }
+  :root[data-theme='dark'] .row-menu-panel {
+    background: rgb(var(--app-surface) / 0.96);
+    border-color: rgb(255 255 255 / 0.12);
+  }
+  :root[data-theme='dark'] .row-menu[open] > summary { background-color: rgb(255 255 255 / 0.12); }
+
+  /* Bloque de repaso HTML del profesor (texto autorado: se aclara la base). */
+  :root[data-theme='dark'] .rich-content { color: rgb(var(--app-ink) / 0.9); }
+  :root[data-theme='dark'] .rich-content code,
+  :root[data-theme='dark'] .rich-content pre,
+  :root[data-theme='dark'] .rich-content blockquote { background: rgb(255 255 255 / 0.07); color: rgb(var(--app-ink) / 0.85); }
+}
+
+/* Desplegable de notificaciones: opaco (el cristal dejaba leer el menú de abajo). */
+.notif-panel { background-color: #ffffff; }
+@media screen {
+  :root[data-theme='dark'] .notif-panel { background-color: rgb(var(--app-surface)); }
+}
+
+/* Variantes con opacidad de los tintes de marca y de estado (bg-rex-light/70, bg-spike/10…).
+   Tailwind genera una clase distinta por porcentaje, así que la regla base no las alcanza. */
+@media screen {
+  :root[data-theme='dark'] [class*='bg-rex-light\/'] { background-color: rgb(199 240 138 / 0.12); }
+  :root[data-theme='dark'] [class*='bg-rex\/'] { background-color: rgb(199 240 138 / 0.14); }
+  :root[data-theme='dark'] [class*='bg-spike\/'] { background-color: rgb(255 176 122 / 0.14); }
+  :root[data-theme='dark'] [class*='bg-emerald-50\/'] { background-color: rgb(16 185 129 / 0.13); }
+  :root[data-theme='dark'] [class*='bg-amber-50\/'] { background-color: rgb(245 158 11 / 0.13); }
+  :root[data-theme='dark'] [class*='bg-red-50\/'] { background-color: rgb(239 68 68 / 0.13); }
+  :root[data-theme='dark'] .bg-cream\/85 { background-color: rgb(var(--app-bg) / 0.85); }
+  /* Bordes de marca: el verde claro sobre fondo oscuro casi no se ve. */
+  :root[data-theme='dark'] .border-rex-light { border-color: rgb(199 240 138 / 0.2); }
 }

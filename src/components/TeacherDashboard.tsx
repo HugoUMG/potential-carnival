@@ -1,7 +1,7 @@
 import { Activity, BarChart3, BookOpenCheck, ClipboardCheck, Database, FolderArchive, LogOut, PlusCircle, School, UserCog, UserPlus, UserRoundCheck, Users } from 'lucide-react';
 import type { UsuarioSesion } from '../services/api';
 
-export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'archivadas' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'invitados' | 'actividad' | 'vocabulario' | 'lectores' | 'imagenes';
+export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'archivadas' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'invitados' | 'actividad' | 'vocabulario' | 'imagenes';
 
 interface TeacherDashboardProps {
   user: UsuarioSesion;
@@ -13,20 +13,40 @@ interface TeacherDashboardProps {
   onLogout: () => void;
 }
 
-export function TeacherDashboard({ user, totalWorksheets, publishedCount, selectedMenu, notificationCount, onSelectMenu, onLogout }: TeacherDashboardProps) {
-  const menuItems = [
-    { id: 'dashboard' as const, label: 'Dashboard', icon: BarChart3 },
-    { id: 'crear' as const, label: 'Crear evaluación', icon: PlusCircle },
-    { id: 'evaluaciones' as const, label: 'Evaluaciones guardadas', icon: BookOpenCheck },
-    { id: 'archivadas' as const, label: 'Archivadas', icon: FolderArchive },
-    { id: 'aulas' as const, label: 'Aulas', icon: School },
-    { id: 'estudiantes' as const, label: 'Crear estudiante', icon: UserPlus },
-    ...(user.role === 'admin' ? [{ id: 'profesores' as const, label: 'Crear profesor', icon: UserCog }] : []),
-    { id: 'revision' as const, label: 'Revisión', icon: ClipboardCheck },
-    { id: 'invitados' as const, label: 'Invitados', icon: Users },
-    { id: 'actividad' as const, label: 'Actividad de estudiantes', icon: Activity },
-  ];
+/** El menú va agrupado por momento del trabajo (crear → repartir → revisar → seguimiento):
+ *  antes eran diez botones seguidos y había que leerlos todos para encontrar uno. */
+const GROUPS: { label: string; items: { id: TeacherMenu; label: string; icon: typeof BarChart3; adminOnly?: boolean }[] }[] = [
+  {
+    label: 'Resumen',
+    items: [{ id: 'dashboard', label: 'Dashboard', icon: BarChart3 }],
+  },
+  {
+    label: 'Contenido',
+    items: [
+      { id: 'crear', label: 'Crear evaluación', icon: PlusCircle },
+      { id: 'evaluaciones', label: 'Evaluaciones guardadas', icon: BookOpenCheck },
+      { id: 'archivadas', label: 'Archivadas', icon: FolderArchive },
+    ],
+  },
+  {
+    label: 'Mis grupos',
+    items: [
+      { id: 'aulas', label: 'Aulas', icon: School },
+      { id: 'estudiantes', label: 'Estudiantes', icon: UserPlus },
+      { id: 'profesores', label: 'Profesores', icon: UserCog, adminOnly: true },
+    ],
+  },
+  {
+    label: 'Seguimiento',
+    items: [
+      { id: 'revision', label: 'Revisión', icon: ClipboardCheck },
+      { id: 'actividad', label: 'Actividad de estudiantes', icon: Activity },
+      { id: 'invitados', label: 'Invitados', icon: Users },
+    ],
+  },
+];
 
+export function TeacherDashboard({ user, totalWorksheets, publishedCount, selectedMenu, notificationCount, onSelectMenu, onLogout }: TeacherDashboardProps) {
   return (
     <aside className="rounded-3xl bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
@@ -38,21 +58,30 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
+      <nav className="mt-6 grid gap-5">
+        {GROUPS.map((group) => {
+          const items = group.items.filter((item) => !item.adminOnly || user.role === 'admin');
+          if (!items.length) return null;
           return (
-            <button key={item.id} className={`dashboard-action ${selectedMenu === item.id ? 'dashboard-action-active' : ''}`} type="button" onClick={() => onSelectMenu(item.id)}>
-              <Icon size={18} /> {item.label}
-              {item.id === 'revision' && notificationCount > 0 && (
-                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
-                  {notificationCount > 99 ? '99+' : notificationCount}
-                </span>
-              )}
-            </button>
+            <div key={group.label} className="grid gap-2">
+              <p className="px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{group.label}</p>
+              {items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button key={item.id} className={`dashboard-action ${selectedMenu === item.id ? 'dashboard-action-active' : ''}`} type="button" onClick={() => onSelectMenu(item.id)}>
+                    <Icon size={18} /> {item.label}
+                    {item.id === 'revision' && notificationCount > 0 && (
+                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
+                        {notificationCount > 99 ? '99+' : notificationCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
-      </div>
+      </nav>
 
       <div className="mt-6 rounded-2xl bg-slate-50 p-4">
         <div className="mb-3 flex items-center gap-2 text-slate-800"><Database size={18} /><h3 className="font-semibold">Base de datos</h3></div>

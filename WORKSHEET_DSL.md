@@ -24,6 +24,12 @@
    - [listeningtruefalse](#411-listeningtruefalse)
    - [truefalse](#412-truefalse)
    - [readingtruefalse](#413-readingtruefalse)
+   - [multiselect](#414-multiselect)
+   - [dragdrop](#415-dragdrop)
+   - [speaking](#416-speaking)
+   - [listeningorder](#417-listeningorder)
+   - [conversation](#418-conversation)
+   - [content](#419-content)
 5. [Sistema de bloques — block {}](#5-sistema-de-bloques--block-)
 6. [Sistema de temas — theme {}](#6-sistema-de-temas--theme-)
 7. [Calificación automática](#7-calificación-automática)
@@ -163,8 +169,47 @@ worksheet {
 | Listas: prefijo `- ` | Una entrada por línea, indentadas |
 | Bloques anidados: `keyword { }` | Con llaves de apertura y cierre |
 | Salto de línea: `\n` literal | Se convierte a salto real en el frontend |
-| Actividades aceptadas | fillblank, multiplechoice, textbox, matching, reading, imagequestion, listening, listeningfillblank, listeningmultiplechoice, listeningmatching, listeningtruefalse, truefalse, readingtruefalse |
-| Actividad PROHIBIDA | `speaking` — no implementada |
+| **Un campo por línea** | El parser lee línea por línea. Dos campos en la misma línea → el primero se traga el resto |
+| Actividades aceptadas | Los **19** tipos de `SUPPORTED_BLOCKS` (ver §4). Un tipo desconocido se descarta en silencio |
+
+### ⚠️ Regla de oro: UN CAMPO POR LÍNEA
+
+`_get_scalar` busca `^\s*clave:\s*(.+)$` con `re.MULTILINE`: captura **hasta el fin de la línea**.
+Si hay dos campos en la misma línea, el primero se lleva el texto del segundo y el segundo queda `None`.
+
+```
+❌ MAL — question y answer se pierden
+listening { text: "The bus leaves at eight." question: "When?" answer: "at eight" }
+   → text = 'The bus leaves at eight." question: "When?" answer: "at eight'
+   → question = None, answer = None
+
+✅ BIEN
+listening {
+  text: "The bus leaves at eight."
+  question: "When?"
+  answer: "at eight"
+}
+```
+
+Excepción: un bloque con **un solo** campo sí funciona en una línea (`textbox { prompt: "..." }`),
+pero conviene no depender de ello.
+
+### Validación al guardar
+
+Desde la revisión de julio 2026 el parser **valida** cada actividad antes de devolverla
+(`_activity_problem` / `_validate` en `parser.py`) y lanza `WorksheetScriptError` con el número de
+actividad y el motivo. Antes, estos casos se guardaban en silencio y el alumno se encontraba una
+pregunta imposible:
+
+| Detectado | Mensaje |
+|-----------|---------|
+| Campos en la misma línea | `falta 'question'` / `falta 'answer'` … |
+| `matching` con lados desiguales | `'left' (3) y 'right' (2) deben tener el mismo número de elementos` |
+| `dragdrop` con palabra fuera del banco | `'bank' no contiene ['goes']` |
+| `fillblank` con menos `answer` que `_____` | `'text' tiene 2 huecos _____ pero 'answer' trae 1` |
+| `answer` que no coincide con ninguna opción | `'answer' (c) no coincide con ninguna opción` |
+| `listeningmatching` sin pares | `necesita bloques 'pair { audio_text: … match: … }'` |
+| Actividad vacía (`speaking {}`, `content` sin html…) | `necesita 'prompt' … / falta 'html'` |
 
 ### Cómo el parser encuentra actividades
 
@@ -685,9 +730,11 @@ El frontend mezcla la columna derecha con un shuffle determinístico basado en e
 
 ### 4.5 reading
 
-**Descripción:** Texto de lectura con botón TTS para escuchar el contenido, seguido de preguntas abiertas que el estudiante responde.
+**Descripción:** Texto de lectura seguido de preguntas abiertas que el estudiante responde.
 
-**Cuándo usar:** Comprensión lectora, práctica de lectura + audición simultánea, textos narrativos o informativos.
+**Cuándo usar:** Comprensión lectora, textos narrativos o informativos.
+
+> **Sin reproductor de audio** (julio 2026). Lo llevaba, pero leerle el texto en voz alta al alumno convierte una evaluación de comprensión **lectora** en una de comprensión **auditiva**. Para practicar escucha están los tipos `listening*`.
 
 **Calificación:** Todas las preguntas son `pending` → la IA las califica en conjunto.
 
@@ -1448,7 +1495,7 @@ truefalse {
 
 ### 4.13 readingtruefalse
 
-**Descripción:** El estudiante lee un texto (con botón TTS opcional) y luego responde Verdadero o Falso a una lista de enunciados sobre el texto.
+**Descripción:** El estudiante lee un texto y luego responde Verdadero o Falso a una lista de enunciados sobre el texto. **Sin reproductor de audio**, por lo mismo que `reading` (§4.5).
 
 **Cuándo usar:** Comprensión lectora con verificación objetiva, textos con detalles específicos.
 
@@ -1499,6 +1546,206 @@ readingtruefalse {
   instructions: "Read the text carefully, then decide if each statement is True or False."
 }
 ```
+
+---
+
+### 4.14 multiselect
+
+**Descripción:** Como `multiplechoice` pero con **varias** respuestas correctas. Se renderiza con casillas y el aviso "Puedes elegir más de una opción."
+
+**Cuándo usar:** Clasificar (¿cuáles de estos son verbos?), identificar todos los casos que cumplen una regla.
+
+**Calificación:** Automática por **conjunto exacto** — `set(elegidas) == set(correctas)`. Todo o nada: una marca de más o de menos invalida el ítem.
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `question` | string | Sí | Enunciado |
+| `options` | list | Sí | Mínimo 2 |
+| `answer` | list | Sí | TODAS las correctas; cada una debe estar en `options` |
+
+```
+multiselect {
+  question: "Select all the verbs in the simple present."
+  options:
+  - runs
+  - running
+  - eats
+  - eaten
+  answer: ["runs", "eats"]
+}
+```
+
+**Límite pedagógico:** al ser todo-o-nada, 2–3 correctas de 4–5 opciones es lo razonable. Con 6+ opciones la probabilidad de acertar el conjunto completo se desploma y deja de medir conocimiento.
+
+Respuesta del alumno: `{ "activity-uuid": ["runs", "eats"] }`
+
+---
+
+### 4.15 dragdrop
+
+**Descripción:** Oración con huecos `_____` + banco de palabras arrastrables. Se puede arrastrar o **tocar** una palabra para colocarla en el siguiente hueco vacío (click-to-place). Tocar un hueco lleno lo vacía.
+
+**Cuándo usar:** Misma práctica que `fillblank` pero sin exigir producción escrita — útil en A1/A2 y en móvil.
+
+**Calificación:** Automática posicional, igual que `fillblank`.
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `text` | string | Sí | Oración con `_____` (mínimo uno) |
+| `answer` | list | Sí | Palabra correcta por hueco, en orden. Debe haber **exactamente** una por `_____` |
+| `bank` | list | Sí | Palabras arrastrables: las correctas + distractores. **Toda palabra de `answer` debe estar aquí** |
+
+```
+dragdrop {
+  text: "She _____ to school and _____ English every day."
+  answer: ["goes", "studies"]
+  bank:
+  - goes
+  - go
+  - studies
+  - study
+}
+```
+
+El banco se baraja de forma determinista por `activity.id` (`shuffledByHash`), así que el orden en el DSL no delata nada. Si `bank` no contiene una palabra de `answer`, el parser **rechaza la hoja** (antes el alumno simplemente no podía responder).
+
+---
+
+### 4.16 speaking
+
+> La nota histórica "speaking NO IMPLEMENTADO / PROHIBIDA" está **obsoleta**. Está implementado en sus dos modos.
+
+**Descripción:** Graba con el micrófono y transcribe con Groq Whisper (`POST /public/transcribe`). Si no hay micrófono o falla el permiso, aparece un campo de texto de respaldo.
+
+**Dos modos según haya `target`:**
+
+| Modo | Campos | Qué evalúa | Calificación |
+|------|--------|-----------|-------------|
+| Leer en voz alta | `target` (+ `prompt` opcional) | Pronunciación / lectura | Auto: similitud por subsecuencia común (LCS→Dice) ≥ **0.85** |
+| Pregunta hablada | `prompt` (sin `target`) | Contenido y gramática de lo dicho | `pending` → IA |
+
+```
+speaking {
+  prompt: "Read the sentence aloud."
+  target: "She goes to school every day."
+}
+
+speaking {
+  prompt: "What do you usually do on weekends?"
+}
+```
+
+Con `target` el alumno ve la oración, un botón 🔊 para escucharla y, tras grabar, **cada palabra pintada en verde o rojo** (`speakingWordStatus`) para saber qué repetir.
+
+**Límites:** nunca evalúa ortografía (la respuesta es una transcripción). Con `target`, menos de ~12 palabras. **No pasa a papel**: `WorksheetPrint` omite `speaking` y todos los `listening*`.
+
+---
+
+### 4.17 listeningorder
+
+**Descripción:** Estilo Duolingo. Audio TTS oculto + fichas desordenadas que el alumno toca para armar la oración en el renglón de respuesta. Tocar una ficha ya colocada la devuelve al banco.
+
+**Calificación:** Automática por **orden exacto** (misma longitud y misma palabra en cada posición).
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `audio_text` | string | Sí | Oración que lee el TTS. **OCULTA** |
+| `answer` | list | Sí | Las fichas en el orden correcto (mínimo 2) |
+| `bank` | list | No | Fichas desordenadas. Si falta, el front baraja `answer` |
+| `voice` | string | No | `male` / `female` |
+
+```
+listeningorder {
+  audio_text: "She has never been to Paris."
+  voice: female
+  answer:
+  - She
+  - has
+  - never
+  - been
+  - to
+  - Paris
+  bank:
+  - Paris
+  - She
+  - to
+  - has
+  - been
+  - never
+}
+```
+
+**Límite:** al corregir por orden exacto, la oración debe tener **un solo** orden válido. Evitar adverbios movibles (`Yesterday she went` / `She went yesterday`) y palabras repetidas.
+
+---
+
+### 4.18 conversation
+
+**Descripción:** Diálogo a dos voces. Cada turno (`- m:` masculino, `- f:` femenino) se sintetiza con su voz y los MP3 se **concatenan en una sola pista** (`GET /tts/conversation`). Luego una pregunta sobre el diálogo.
+
+**Calificación:** con `answer` → automática por comparación de texto (la IA la re-juzga si falla); sin `answer` → `pending` → IA.
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `lines` | list | Sí | Mínimo 2 turnos, formato `- f: "texto"` / `- m: "texto"` |
+| `question` | string | Sí | Pregunta sobre el diálogo |
+| `answer` | string | No | Con ella auto-califica; sin ella queda abierta |
+
+```
+conversation {
+  lines:
+  - f: "Hi, are you new here?"
+  - m: "Yes, I started today."
+  - f: "Welcome! Where are you from?"
+  question: "When did he start?"
+  answer: "today"
+}
+```
+
+`speaker` se normaliza: empieza por `f` → `female`, cualquier otra cosa → `male`.
+
+**Límite:** la concatenación es de frames MP3 crudos, sin silencio intermedio: los turnos suenan casi seguidos. 3–6 turnos cortos. Si hiciera falta pausa marcada, habría que intercalar un MP3 de silencio.
+
+---
+
+### 4.19 content
+
+**Descripción:** Bloque informativo de **solo lectura** para repasar el tema antes de los ejercicios. Se renderiza como mini-página HTML.
+
+**Calificación:** **ninguna**. `_build_answer_details` hace `continue`: no entra en el score, no cuenta como actividad, no lleva cabecera "Actividad N" ni badge "Interactiva".
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `title` | string | No | Encabezado de la tarjeta |
+| `html` | string | Sí | HTML, normalmente multilínea con `"""…"""` |
+| `sandbox` | bool | No | `true` → iframe aislado con el HTML completo |
+
+**Dos modos de render:**
+
+| Modo | Cómo | Para qué |
+|------|------|---------|
+| Por defecto | Saneado inline con **DOMPurify** (`InlineContent`) — bloquea `<script>`, `onclick`, `javascript:` | Repaso normal; hereda el tema y se imprime |
+| `sandbox: true` | `<iframe sandbox="allow-scripts">` sin `allow-same-origin` (`SandboxedHtml`) | CSS/JS/fuentes propios sin filtrarse a la app |
+
+Ambos se muestran en un recuadro de altura acotada (560 px) con scroll interno y aviso `ScrollHint`. Al **imprimir** siempre se usa la versión saneada.
+
+```
+content {
+  title: "Repaso: Present Simple"
+  html: """
+  <h2>Present Simple</h2>
+  <p>Se usa para rutinas y hechos. Tercera persona (he/she/it): verbo + <b>s</b>.</p>
+  <p>Negativo: don't / doesn't + verbo base. Pregunta: Do / Does + sujeto + verbo base.</p>
+  <p><b>Error típico:</b> "She go" → lo correcto es "She goes".</p>
+  """
+}
+```
+
+Las llaves de `<style>`, `<script>` y `@keyframes` **no** rompen el parseo: `_matching_brace` salta el contenido entre `"""`.
+
+**Regla pedagógica (la que más se incumple):** el `content` sirve para **recordar la regla**, no para resolver la hoja. Sus oraciones de ejemplo no pueden ser las de los ejercicios y no pueden contener ninguna respuesta. Debe traer: la regla en 1–2 líneas, la forma (afirmativa / negativa / pregunta), 2–3 ejemplos y el error típico.
+
+Es **opcional**: se añade cuando el profesor pide repaso/teoría o cuando el alumno ve el tema por primera vez.
 
 ---
 
@@ -1577,12 +1824,28 @@ const blocks = worksheet.blocks?.length
 
 Si no hay `blocks`, crea un bloque ficticio con todas las actividades. **La retrocompatibilidad está garantizada.**
 
+### ⚠️ `block {}` es TODO O NADA
+
+Si la hoja tiene **al menos un** `block {}`, el parser conserva **solo** las actividades que estén
+dentro de un block y **descarta en silencio** las que queden fuera. No hay error: la actividad
+simplemente desaparece de la hoja.
+
+Hay exactamente dos formas válidas, nunca mezcladas:
+
+1. **Sin ningún `block {}`** → todas las actividades cuelgan directamente de `worksheet { }`.
+2. **Con al menos un `block {}`** → **TODAS** las actividades van dentro de algún block, incluido el
+   `content` de repaso. Si algo no encaja en una sección existente, dale su propio block.
+
+Es el error clásico de la IA: dejaba el `content` de repaso fuera de los bloques y desaparecía sin
+avisar. La regla está marcada como CRITICAL en `_WORKSHEET_SYSTEM` (`ai.py`) y en `GENERATION_PROMPT`.
+
 ### Restricciones de bloques
 
 - Un bloque SIN título y SIN instrucciones no muestra ningún encabezado
 - Los bloques PUEDEN estar vacíos (aunque no tiene sentido)
 - No hay límite de cuántos bloques puede tener una hoja
 - Un bloque puede contener CUALQUIER combinación de tipos de actividad
+- La numeración "Actividad N" se reinicia en cada bloque; `content` no consume número
 
 ---
 
@@ -1674,24 +1937,60 @@ El tema se guarda en la columna `theme` (JSONB/TEXT) de la tabla `worksheets`, *
 
 ### Tabla de calificación por tipo
 
-| Tipo | Calificación | Unidades | Puede ser pending |
-|------|-------------|----------|-------------------|
-| fillblank | Auto exacta normalizada | 1 por actividad | No (la IA puede corregir) |
-| multiplechoice | Auto exacta | 1 por actividad | No |
-| textbox | IA | 1 por actividad | Sí |
-| matching | Auto exacta posicional | 1 por par (left[i] ↔ right[i]) | No |
-| reading | IA | 1 por pregunta | Sí |
-| imagequestion | IA | 1 por actividad | Sí |
-| listening | Auto exacta | 1 por actividad | No (IA puede corregir) |
-| listeningfillblank | Auto exacta posicional | 1 por actividad | No (IA puede corregir) |
+`Unidades` = cuántos ítems de puntaje genera la actividad. Cada unidad pesa **lo mismo**: una
+`truefalse` de 5 enunciados vale 5 veces más que un `multiplechoice`. Tenerlo en cuenta al armar
+la hoja.
+
+| Tipo | Calificación | Unidades | La IA puede rescatarlo |
+|------|-------------|----------|------------------------|
+| fillblank | Auto exacta posicional | 1 por actividad | **Sí** |
+| listeningfillblank | Auto exacta posicional | 1 por actividad | **Sí** |
+| listening | Auto exacta (texto libre) | 1 por actividad | **Sí** |
+| conversation (con `answer`) | Auto exacta (texto libre) | 1 por actividad | **Sí** |
+| multiplechoice | Auto exacta | 1 por actividad | No — se elige con clic |
 | listeningmultiplechoice | Auto exacta | 1 por actividad | No |
-| listeningmatching | Auto exacta posicional | 1 por par | No |
-| listeningtruefalse | Auto booleana | 1 por enunciado | No |
+| multiselect | Auto por conjunto exacto | 1 por actividad | No |
+| dragdrop | Auto exacta posicional | 1 por actividad | No |
+| matching | Auto posicional | 1 por par (left[i] ↔ right[i]) | No |
+| listeningmatching | Auto posicional | 1 por par | No |
 | truefalse | Auto booleana | 1 por enunciado | No |
 | readingtruefalse | Auto booleana | 1 por enunciado | No |
+| listeningtruefalse | Auto booleana | 1 por enunciado | No |
+| listeningorder | Auto por orden exacto | 1 por actividad | No |
+| speaking (con `target`) | Auto por similitud LCS ≥ 0.85 | 1 por actividad | No — mide pronunciación |
+| speaking (sin `target`) | `pending` → IA | 1 por actividad | — |
+| textbox | `pending` → IA | 1 por actividad | — |
+| imagequestion | `pending` → IA | 1 por actividad | — |
+| reading | `pending` → IA | **1 por pregunta** | — |
+| conversation (sin `answer`) | `pending` → IA | 1 por actividad | — |
+| content | **No se califica** | 0 | — |
 
 > **Score final:** `(correct_count / (correct_count + incorrect_count)) * 100`  
 > Los `pending` no se incluyen en el denominador hasta que el profesor los revise manualmente.
+
+### Qué puede y qué NO puede cambiar la IA
+
+`_AI_RESCUABLE` en `ai.py` = `{fillblank, listeningfillblank, listening, conversation}`.
+
+- Solo en esos cuatro puede convertir un `incorrect` en `correct`. Son los únicos donde el alumno
+  **escribe** la respuesta y el auto-corrector la compara por igualdad exacta, así que un acierto
+  legítimo (sinónimo, respuesta corta, dedazo) falla la comparación.
+- En lo que se elige con clic (opciones, true/false, matching, orden) el resultado automático es la
+  verdad: la IA solo escribe el comentario que explica la regla.
+- En los `pending` la IA decide `correct` / `incorrect` (`partial` se guarda como `incorrect`).
+- **Nunca** puede marcar como incorrecto algo que el auto-corrector dio por correcto.
+
+### Contexto que recibe la IA
+
+`AnswerDetail.context` le dice qué escuchó o leyó el alumno; sin él no puede juzgar una respuesta
+abierta a un audio. Se rellena con el diálogo (`conversation`), la oración del audio
+(`listening` → `text`; el resto → `audio_text`) y el texto de lectura (`reading`).
+
+Dos límites que el prompt de calificación explicita:
+- En `speaking`, `student_answer` es una **transcripción automática**: la ortografía y la puntuación
+  vienen del transcriptor, no del alumno, y no se penalizan.
+- En `imagequestion` el modelo **no ve la imagen**: juzga el idioma y la estructura pedida, nunca si
+  la descripción es cierta.
 
 ### Normalización de respuestas de texto
 
@@ -1792,8 +2091,15 @@ My favourite class is English.
 | `"El título de la hoja es obligatorio"` | No hay `title:` en worksheet | Agregar `title: "..."` al inicio |
 | `"Se requiere al menos una actividad"` | El script no tiene actividades | Agregar al menos una actividad |
 | `"Bloque X sin cerrar"` | Falta una `}` de cierre | Revisar el balance de llaves |
-| Actividad ignorada silenciosamente | Tipo de actividad mal escrito | Verificar el nombre exacto del tipo |
-| `pair {}` no parsea | `pairs:` usada en lugar de `pair {}` | Usar bloques `pair { }` explícitos |
+| `"Actividad N (tipo): …"` | La validación detectó una actividad que el alumno no podría responder | Leer el motivo concreto del mensaje (ver §3) |
+| Actividad ignorada silenciosamente | Tipo de actividad mal escrito, **o** actividad fuera de un `block {}` habiendo blocks | Verificar el nombre exacto del tipo y que TODO esté dentro de algún block |
+| Campos perdidos sin error | Dos campos en la misma línea | Un campo por línea (§3) |
+| Enunciado T/F que sale siempre `true` | Falta el ` | true` / ` | false` | El pipe es obligatorio |
+
+> **`listeningmatching` ya acepta los dos formatos.** El canónico sigue siendo `pair { }`, pero desde
+> julio 2026 `_parse_pairs` también lee la lista `pairs:` — es la que emite el constructor visual y la
+> que escribe la IA por costumbre YAML. Antes se ignoraba en silencio y la actividad quedaba vacía
+> (crear una `listeningmatching` en modo visual y guardar la destruía).
 
 ### Calificación
 
@@ -2106,25 +2412,51 @@ worksheet {
 
 ## Resumen rápido de campos por tipo
 
-| Tipo | `text` | `question` | `options` | `answer` | `prompt` | `left`/`right` | `content` | `questions` | `image` | `audio_text` | `pairs` | `statements` | `title` |
-|------|--------|------------|-----------|----------|----------|----------------|-----------|-------------|---------|-------------|---------|-------------|---------|
-| fillblank | ✓* | — | — | ✓ | — | — | — | — | — | — | — | — | — |
-| multiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | — | — | — | — |
-| textbox | — | — | — | — | ✓ | — | — | — | — | — | — | — | — |
-| matching | — | — | — | — | — | ✓ | — | — | — | — | — | — | — |
-| reading | — | — | — | — | — | — | ✓ | ✓ | — | — | — | — | ✓ |
-| imagequestion | — | — | — | — | ✓ | — | — | — | ✓ | — | — | — | — |
-| listening | ✓† | ✓ | — | ✓ | — | — | — | — | — | — | — | — | — |
-| listeningfillblank | ✓* | — | — | ✓ | — | — | — | — | — | ✓ | — | — | — |
-| listeningmultiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | ✓ | — | — | — |
-| listeningmatching | — | — | ✓ | — | — | — | — | — | — | — | ✓ | — | — |
-| listeningtruefalse | — | — | — | — | — | — | — | — | — | ✓ | — | ✓ | — |
-| truefalse | — | — | — | — | — | — | — | — | — | — | — | ✓ | — |
-| readingtruefalse | — | — | — | — | — | — | ✓ | — | — | — | — | ✓ | ✓ |
+| Tipo | `text` | `question` | `options` | `answer` | `prompt` | `left`/`right` | `content` | `questions` | `image` | `audio_text` | `pairs` | `statements` | `title` | otros |
+|------|--------|------------|-----------|----------|----------|----------------|-----------|-------------|---------|-------------|---------|-------------|---------|-------|
+| fillblank | ✓* | — | — | ✓ | — | — | — | — | — | — | — | — | — | |
+| multiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | — | — | — | — | |
+| multiselect | — | ✓ | ✓ | ✓‡ | — | — | — | — | — | — | — | — | — | |
+| dragdrop | ✓* | — | — | ✓‡ | — | — | — | — | — | — | — | — | — | `bank` |
+| textbox | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | |
+| matching | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | |
+| reading | — | — | — | — | — | — | ✓ | ✓ | — | — | — | — | ✓ | |
+| readingtruefalse | — | — | — | — | — | — | ✓ | — | — | — | — | ✓ | ✓ | |
+| truefalse | — | — | — | — | — | — | — | — | — | — | — | ✓ | — | |
+| imagequestion | — | — | — | — | ✓ | — | — | — | ✓ | — | — | — | — | |
+| speaking | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | `target` |
+| listening | ✓† | ✓ | — | ✓ | — | — | — | — | — | — | — | — | — | `voice` |
+| listeningfillblank | ✓* | — | — | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice` |
+| listeningmultiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice` |
+| listeningmatching | — | — | ✓ | — | — | — | — | — | — | — | ✓ | — | — | `voice` |
+| listeningtruefalse | — | — | — | — | — | — | — | — | — | ✓ | — | ✓ | — | `voice` |
+| listeningorder | — | — | — | ✓‡ | — | — | — | — | — | ✓ | — | — | — | `bank`, `voice` |
+| conversation | — | ✓ | — | opc. | — | — | — | — | — | — | — | — | — | `lines` |
+| content | — | — | — | — | — | — | — | — | — | — | — | — | opc. | `html`, `sandbox` |
 
 `*` = con marcadores `_____`  
-`†` = el `text` de `listening` es el audio TTS OCULTO (campo diferente al `text` de `fillblank`)
+`†` = el `text` de `listening` es el audio TTS OCULTO (campo diferente al `text` de `fillblank`)  
+`‡` = `answer` es siempre una **lista**  
+Todos aceptan además `instructions` (opcional). `voice` (`male`/`female`) solo aplica a `listening*`.
 
 ---
 
-*Fin del documento — Última actualización: 2026-06-15*
+## 12. Dónde se documenta el DSL (mantener sincronizado)
+
+El mismo formato se enseña en **cuatro** sitios. Si se agrega o cambia un tipo, hay que tocar los cuatro:
+
+| Sitio | Para quién | Archivo |
+|-------|-----------|---------|
+| Este documento | Desarrollo / referencia completa | `WORKSHEET_DSL.md` |
+| Resumen técnico | Claude Code | `CLAUDE.md` §3 |
+| Prompt interno de la IA | El modelo que genera desde el editor | `_WORKSHEET_SYSTEM` en `backend/app/ai.py` |
+| Prompt copiable | El profesor, para pegarlo en ChatGPT/Claude/DeepSeek | `GENERATION_PROMPT` en `src/utils/generationPrompt.ts` |
+
+La lista canónica de tipos vive en `SUPPORTED_BLOCKS` (`parser.py`). El test
+`test_every_documented_type_parses` (`backend/tests/test_parser.py`) escribe una hoja con los 19
+tipos usando exactamente la sintaxis documentada y comprueba que parsea: si la documentación empieza
+a enseñar algo que no funciona, ese test falla.
+
+---
+
+*Fin del documento — Última actualización: 2026-07-27 (19 tipos, validación del parser, rescate IA)*

@@ -46,6 +46,12 @@ class ReaderCreate(BaseModel):
     password: str = Field(min_length=8)
 
 
+class GoogleAuthRequest(BaseModel):
+    """`credential` es el ID token (JWT) que devuelve Google Identity Services."""
+
+    credential: str
+
+
 class LoginResponse(BaseModel):
     user: PublicUser
     access_token: str
@@ -116,6 +122,8 @@ class Worksheet(BaseModel):
     max_attempts: int | None = None
     theme: dict[str, str] | None = None
     ai_grading: bool = True
+    # 0 = estricto (cualquier error cuenta) … 100 = permisivo (solo importa el mensaje).
+    ai_tolerance: int = Field(default=50, ge=0, le=100)
     attempts_used: int | None = None
     attempts_remaining: int | None = None
     due_date: datetime | None = None
@@ -127,6 +135,7 @@ class WorksheetCreate(BaseModel):
     max_attempts: int | None = None
     theme: dict[str, str] | None = None
     ai_grading: bool = True
+    ai_tolerance: int = Field(default=50, ge=0, le=100)
 
 
 class WorksheetUpdate(BaseModel):
@@ -134,6 +143,7 @@ class WorksheetUpdate(BaseModel):
     max_attempts: int | None = None
     theme: dict[str, str] | None = None
     ai_grading: bool = True
+    ai_tolerance: int = Field(default=50, ge=0, le=100)
 
 
 class AiGenerateRequest(BaseModel):

@@ -4,7 +4,9 @@ dist/
 __pycache__/
 .pytest_cache/
 *.pyc
-.env
+# Cubre .env, .env.bak, .env.local… — cualquier copia lleva claves reales dentro.
+.env*
+!.env.example
 
 /data/
 /backups/

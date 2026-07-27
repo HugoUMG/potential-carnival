@@ -92,7 +92,11 @@ export interface VisualState {
 }
 
 function esc(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  // ponytail: solo las comillas, y a tipográficas. Escapar el backslash rompía dos cosas:
+  //  · los saltos de línea (`\n` → `\\n`) dejaban un backslash suelto a la vista del alumno
+  //  · el parser solo quita las comillas EXTERIORES, así que las \" quedaban literales
+  // El DSL no tiene otros escapes, así que no hay nada más que proteger.
+  return s.replace(/"/g, '”');
 }
 
 function serializeActivity(act: VisualActivity, indent: string): string[] {

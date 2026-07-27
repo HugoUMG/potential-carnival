@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, ChevronLeft, Eye, EyeOff, GraduationCap, LockKeyhole, UserRound } from 'lucide-react';
-import { getCurrentSession, login } from '../services/api';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { BookOpen, ChevronLeft, Eye, EyeOff, GraduationCap, LockKeyhole, UserPlus } from 'lucide-react';
+import { getCurrentSession, login, loginWithGoogle } from '../services/api';
 import { Spinner } from '../components/LoadingScreen';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { ThemeToggle } from '../components/ThemeToggle';
 import RexMascot from '../components/RexMascot';
 import type { UsuarioSesion } from '../services/api';
 
@@ -51,6 +53,19 @@ export function LoginPage() {
     if (e.key === 'Enter') void handleLogin();
   }
 
+  /** Google entra y, si es la primera vez, crea la cuenta de profesor en el mismo paso. */
+  async function handleGoogle(credential: string) {
+    setMessage('');
+    setIsLoggingIn(true);
+    try {
+      const user = await loginWithGoogle(credential);
+      navigate(roleRoute(user.role), { replace: true });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo entrar con Google.');
+      setIsLoggingIn(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-cream px-4 py-10 text-ink">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
@@ -61,13 +76,16 @@ export function LoginPage() {
         >
           <ChevronLeft className="mr-1 inline" size={16} /> Inicio
         </button>
-        <button
-          className="rounded-full border border-rex/30 bg-white px-4 py-2 text-sm font-bold text-rex-deep shadow-sm transition hover:border-rex hover:bg-rex-light"
-          type="button"
-          onClick={() => { setRole(role === 'teacher' ? 'student' : 'teacher'); setUsername(''); setPassword(''); setMessage(''); }}
-        >
-          {role === 'teacher' ? 'Entrar como estudiante' : 'Entrar como profesor'}
-        </button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            className="rounded-full border border-rex/30 bg-white px-4 py-2 text-sm font-bold text-rex-deep shadow-sm transition hover:border-rex hover:bg-rex-light"
+            type="button"
+            onClick={() => { setRole(role === 'teacher' ? 'student' : 'teacher'); setUsername(''); setPassword(''); setMessage(''); }}
+          >
+            {role === 'teacher' ? 'Entrar como estudiante' : 'Entrar como profesor'}
+          </button>
+        </div>
       </div>
       <section className="mx-auto mt-8 grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
         <div>
@@ -143,22 +161,36 @@ export function LoginPage() {
             </p>
           )}
 
-          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-rex-light pt-4">
-            <button
+          {/* ── Acceso con Google ───────────────────────────────────────── */}
+          <div className="mt-5 flex items-center gap-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" /> o <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <div className="mt-4">
+            <GoogleSignInButton text="signin_with" onCredential={(c) => void handleGoogle(c)} onError={setMessage} />
+          </div>
+
+          {/* ── Crear cuenta (solo profesores) y vocabulario público ─────── */}
+          <div className="mt-5 grid gap-2 border-t border-rex-light pt-4">
+            <Link
               className="flex items-center justify-center gap-2 rounded-2xl bg-spike px-4 py-3 font-bold text-white shadow-lg shadow-spike/30 transition hover:bg-spike-dark"
-              type="button"
-              onClick={() => navigate('/guest')}
+              to="/registro"
             >
-              <UserRound size={18} /> Invitado
-            </button>
+              <UserPlus size={18} /> Crear cuenta de profesor
+            </Link>
+            <p className="text-center text-xs text-slate-500">
+              Las cuentas de estudiante las crea su profesor desde el panel.
+            </p>
             <button
-              className="flex items-center justify-center gap-2 rounded-2xl bg-rex-deep px-4 py-3 font-bold text-white shadow-lg shadow-rex-deep/25 transition hover:bg-ink"
+              className="mt-1 flex items-center justify-center gap-2 rounded-2xl bg-rex-deep px-4 py-3 font-bold text-white shadow-lg shadow-rex-deep/25 transition hover:bg-ink"
               type="button"
               onClick={() => navigate('/vocab')}
             >
               <BookOpen size={18} /> Vocabulario
             </button>
           </div>
+          {/* ponytail: el modo invitado queda oculto a petición del profesor — el flujo vivo
+              es el enlace directo por hoja (/w/:id). La ruta /guest sigue existiendo; para
+              reactivarlo basta con volver a poner aquí un enlace a /guest. */}
         </div>
       </section>
     </main>
