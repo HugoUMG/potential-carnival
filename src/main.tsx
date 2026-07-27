@@ -9,27 +9,30 @@ import { VocabPublicPage } from './pages/VocabPublicPage';
 import { GuestPage } from './pages/GuestPage';
 import { DirectWorksheetPage } from './pages/DirectWorksheetPage';
 import { VocabDirectPage } from './pages/VocabDirectPage';
-import { getCurrentSession } from './services/api';
+import { SiteLayout } from './pages/site/SiteLayout';
+import { HomePage } from './pages/site/HomePage';
+import { AboutPage } from './pages/site/AboutPage';
+import { ActivitiesPage } from './pages/site/ActivitiesPage';
+import { LearnPage } from './pages/site/LearnPage';
+import { DevShots } from './pages/DevShots';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 
 // Windows no renderiza banderas (muestra "MX"/"GT"); este polyfill carga la fuente
 // "Twemoji Country Flags" para que se vean igual en PC y Android.
 polyfillCountryFlagEmojis();
 
-/** Redirige desde / al portal correcto según el rol, o a /login si no hay sesión. */
-function RootRedirect() {
-  const session = getCurrentSession();
-  if (!session) return <Navigate to="/login" replace />;
-  if (session.role === 'admin') return <Navigate to="/admin" replace />;
-  if (session.role === 'teacher') return <Navigate to="/teacher" replace />;
-  if (session.role === 'reader') return <Navigate to="/reader" replace />;
-  return <Navigate to="/student" replace />;
-}
-
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
+        {/* Sitio público: lo primero que ve quien llega sin sesión. */}
+        <Route element={<SiteLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/acerca" element={<AboutPage />} />
+          <Route path="/actividades" element={<ActivitiesPage />} />
+          <Route path="/aprende" element={<LearnPage />} />
+        </Route>
+
         <Route path="/login" element={<LoginPage />} />
 
         <Route
@@ -72,8 +75,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/guest" element={<GuestPage />} />
         <Route path="/w/:worksheetId" element={<DirectWorksheetPage />} />
         <Route path="/v/:vocabId" element={<VocabDirectPage />} />
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Banco de capturas del editor para /aprende. Solo en dev: no entra al build. */}
+        {import.meta.env.DEV && <Route path="/__shots" element={<DevShots />} />}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>,

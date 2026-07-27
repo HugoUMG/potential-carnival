@@ -213,16 +213,16 @@ export function WorksheetPrint({ worksheet, onClose }: { worksheet: Worksheet; o
 
   return createPortal(
     <div className="wp-portal">
-      <div className="wp-no-print sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
-        <div className="text-sm text-slate-600">
+      <div className="wp-no-print sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-rex-light bg-white px-4 py-3">
+        <div className="text-sm text-ink">
           Vista de impresión · <strong>{worksheet.title}</strong>
-          {skipped > 0 && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">{skipped} actividad{skipped !== 1 ? 'es' : ''} de audio/habla omitida{skipped !== 1 ? 's' : ''}</span>}
+          {skipped > 0 && <span className="ml-2 rounded-full bg-spike/10 px-2 py-0.5 text-xs font-semibold text-spike-dark">{skipped} actividad{skipped !== 1 ? 'es' : ''} de audio/habla omitida{skipped !== 1 ? 's' : ''}</span>}
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-1.5 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => window.print()}>
+          <button className="flex items-center gap-1.5 rounded-2xl bg-rex px-4 py-2 text-sm font-semibold text-white hover:bg-rex-dark" onClick={() => window.print()}>
             <Printer size={16} /> Imprimir / Guardar PDF
           </button>
-          <button className="flex items-center gap-1.5 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50" onClick={onClose}>
+          <button className="flex items-center gap-1.5 rounded-2xl border border-rex-light px-4 py-2 text-sm font-semibold text-ink hover:bg-rex-light" onClick={onClose}>
             <X size={16} /> Cerrar
           </button>
         </div>
@@ -230,6 +230,7 @@ export function WorksheetPrint({ worksheet, onClose }: { worksheet: Worksheet; o
 
       <div className="wp-sheet">
         <header className="wp-head">
+          <img src="/mascot/rex-logo.png" alt="" className="wp-logo" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           <h1 className="wp-title">{worksheet.title}</h1>
           {worksheet.description && <p className="wp-desc"><RichText text={worksheet.description} /></p>}
           <div className="wp-fields">

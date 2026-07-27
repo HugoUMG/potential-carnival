@@ -4,32 +4,36 @@ RexLearn — arte fuente de la mascota (DinoEnglish Studio)
 Esta carpeta NO se despliega (vive fuera de public/). Guarda los originales por si hay
 que reprocesar las poses o sacar una nueva.
 
-Originales (1024x1024, grillas 2x2 con fondo NEGRO puro; LOGO.png ya trae alfa):
-  - "pulgar arriba, saludando, encogido lloranndo, pensativo.png"
+Fuente actual (SVG vectorial, 1024x1024, grilla 2x2 sobre fondo NEGRO):
+  - "file (2).svg"
         TL: pulgar arriba              TR: saludando
-        BL: encogido llorando (SIN USAR)   BR: pensativo
-  - "1 feliz, 1 contento, una triste y una llorando.png"
-        TL: feliz/guino (SIN USAR)     TR: contento/bailando
-        BL: triste sentado             BR: llorando (SIN USAR)
-  - LOGO.png  -> silueta negra, ya con transparencia
+        BL: tumbado llorando (SIN USAR)    BR: pensativo
+  - "file (1).svg"
+        TL: guino/contento (SIN USAR)  TR: saltando de alegria
+        BL: sentado triste             BR: llorando (SIN USAR)
 
-Derivados en public/mascot/ (512x512 PNG transparente) y donde se usan:
-  rex-hero.png      pulgar arriba      -> Login (imagen grande)
-  rex-wave.png      saludando          -> Navbars (alumno, profesor, lector, /vocab)
-  rex-thinking.png  pensativo          -> Pantallas de carga y overlay al enviar
-  rex-happy.png     contento/bailando  -> Tarjeta de resultado al aprobar (>=70)
-  rex-sad.png       triste sentado     -> Tarjeta de resultado al no aprobar
-  rex-logo.png      silueta            -> Favicon
+Los PNG (las dos grillas y LOGO.png) son el arte previo al trazado vectorial; se
+conservan como referencia. LOGO.png es la silueta que sigue viva en
+public/mascot/rex-logo.png (logo del menu, cabecera de impresion y favicon): es pieza
+aparte, no una pose, y no tiene version SVG.
 
-Como se procesaron (Pillow + numpy):
-  1. Recorte del cuadrante (1024/2 = 512 por pose).
-  2. Quitar el fondo con flood-fill DESDE LOS BORDES, no con un umbral global: un umbral
-     global borraria tambien los ojos oscuros y la panza clara del dino.
-  3. Quedarse solo con el componente conectado mas grande -> elimina las lineas de
-     emocion y las motas sueltas que flotan alrededor del personaje.
-  4. Recorte al contenido + centrado en lienzo cuadrado + resize a 512.
-  El LOGO no lleva knockout: ya tiene alfa. Ojo: convertirlo a RGB lo compone sobre negro
-  y parece que el fondo fuese negro solido; hay que usar su alfa original.
+Derivados en public/mascot/ (SVG, ~150 kB cada uno) y donde se usan:
+  rex-hero.svg      pulgar arriba      -> Login e inicio (imagen grande)
+  rex-wave.svg      saludando          -> Navbars (alumno, profesor, lector, /vocab)
+  rex-thinking.svg  pensativo          -> Pantallas de carga y confirmacion de envio
+  rex-happy.svg     saltando           -> Tarjeta de resultado al aprobar (>=70)
+  rex-sad.svg       sentado triste     -> Tarjeta de resultado al no aprobar
 
-Si se agrega una pose nueva: procesarla igual, dejarla en public/mascot/ y referenciarla
-con <img src="/mascot/..."> + onError que la oculte (asi no rompe si falta el archivo).
+Como se regeneran:
+
+  node scripts/mascots.mjs
+
+El script abre cada SVG en Chrome headless, tira el path del fondo negro, reparte los
+demas por cuadrante segun su bounding box, descarta las motas sueltas lejos del cuerpo,
+recorta al contenido centrado en un viewBox CUADRADO (asi todas las poses se ven del
+mismo tamano aunque una este sentada y otra de pie) y redondea las coordenadas a 1
+decimal. El mapa cuadrante -> pose esta en SOURCES, al principio del script: ahi se
+agrega una pose nueva.
+
+Para usarla en la app basta con anadirla a RexMood en src/components/RexMascot.tsx;
+el componente arma la ruta /mascot/rex-{mood}.svg y esconde la imagen si falta.

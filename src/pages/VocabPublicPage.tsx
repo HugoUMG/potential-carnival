@@ -3,6 +3,7 @@ import { BookText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { VocabularyViewer } from '../components/VocabularyViewer';
 import { Spinner } from '../components/LoadingScreen';
+import RexMascot from '../components/RexMascot';
 import type { VocabularyList } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -39,13 +40,7 @@ export function VocabPublicPage() {
       <nav className="border-b border-rex/15 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <img
-              src="/mascot/rex-wave.png"
-              alt=""
-              aria-hidden
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              className="h-11 w-11 shrink-0 object-contain"
-            />
+            <RexMascot mood="wave" className="h-11 w-11 shrink-0" />
             <h1 className="flex items-center gap-1.5 font-black tracking-tight text-ink"><BookText size={18} className="text-rex" /> Portal de Vocabulario</h1>
           </div>
           <button

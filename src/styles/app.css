@@ -311,48 +311,50 @@ select {
 
 /* ── Impresión de hojas de trabajo (formato papel) ────────────────────────── */
 /* En pantalla: modal a pantalla completa. Al imprimir: solo la hoja. */
-.wp-portal { position: fixed; inset: 0; z-index: 60; overflow: auto; background: #e2e8f0; }
+.wp-portal { position: fixed; inset: 0; z-index: 60; overflow: auto; background: #F6F4E9; }
 .wp-sheet {
   max-width: 800px;
   margin: 16px auto 40px;
   background: white;
-  color: #111827;
+  color: #2B2A26;
   padding: 40px 44px;
-  box-shadow: 0 12px 40px rgb(15 23 42 / 0.18);
+  box-shadow: 0 12px 40px rgb(61 94 36 / 0.18);
   font-size: 12.5px;
   line-height: 1.45;
+  border-top: 6px solid #84B84C;
 }
-.wp-head { border-bottom: 2px solid #111827; padding-bottom: 10px; margin-bottom: 14px; }
-.wp-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
-.wp-desc { margin-top: 3px; font-size: 11.5px; color: #374151; }
+.wp-head { position: relative; border-bottom: 2px solid #84B84C; padding-bottom: 10px; margin-bottom: 14px; }
+.wp-logo { position: absolute; top: -2px; right: 0; height: 44px; width: 44px; object-fit: contain; }
+.wp-title { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #3D5E24; padding-right: 52px; }
+.wp-desc { margin-top: 3px; font-size: 11.5px; color: #2B2A26; }
 .wp-fields { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 10px; font-size: 11.5px; font-weight: 600; }
 .wp-field { white-space: nowrap; }
 /* Sin break-inside aquí: cuando la hoja no usa block {}, TODAS las actividades quedan en
    un solo wp-block; con break-inside:avoid el navegador lo empujaba entero a la 2ª página
    (dejando la 1ª casi en blanco). El corte va por actividad (.wp-activity), no por bloque. */
 .wp-block { margin-top: 14px; }
-.wp-block-title { font-size: 13.5px; font-weight: 800; background: #f1f5f9; padding: 3px 8px; border-left: 3px solid #334155; break-after: avoid; }
-.wp-block-instr { font-size: 11px; font-style: italic; color: #4b5563; margin: 3px 0 6px; }
+.wp-block-title { font-size: 13.5px; font-weight: 800; background: #EDF3DE; color: #3D5E24; padding: 3px 8px; border-left: 3px solid #EE7B30; break-after: avoid; }
+.wp-block-instr { font-size: 11px; font-style: italic; color: #5E8E32; margin: 3px 0 6px; }
 .wp-block-body { display: block; }
 .wp-activity { break-inside: avoid; margin-top: 9px; }
-.wp-num { font-weight: 700; margin-right: 2px; }
+.wp-num { font-weight: 700; margin-right: 2px; color: #5E8E32; }
 .wp-instr { font-size: 10.5px; font-style: italic; color: #6b7280; }
 .wp-hint { font-size: 10.5px; font-style: italic; color: #6b7280; }
-.wp-bank { margin-top: 2px; font-size: 11px; font-weight: 600; color: #374151; }
-.wp-reading { margin-top: 3px; white-space: pre-line; background: #f8fafc; border: 1px solid #e5e7eb; padding: 7px 9px; }
+.wp-bank { margin-top: 2px; font-size: 11px; font-weight: 600; color: #CE6014; }
+.wp-reading { margin-top: 3px; white-space: pre-line; background: #F6F4E9; border: 1px solid #EDF3DE; padding: 7px 9px; }
 .wp-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; margin-top: 3px; }
 .wp-opt { display: flex; align-items: flex-start; gap: 6px; }
-.wp-mark { font-weight: 700; }
+.wp-mark { font-weight: 700; color: #CE6014; }
 .wp-tf { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .wp-tf-opt { white-space: nowrap; font-weight: 700; letter-spacing: 1px; }
 .wp-subq { font-size: 11.5px; }
 .wp-match { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 22px; margin-top: 3px; }
 .wp-match-row { padding: 1px 0; }
-.wp-img { max-height: 190px; max-width: 100%; margin: 5px 0; border: 1px solid #e5e7eb; }
+.wp-img { max-height: 190px; max-width: 100%; margin: 5px 0; border: 1px solid #EDF3DE; }
 .wp-empty { margin-top: 18px; font-style: italic; color: #6b7280; }
-.wp-blank { display: inline-block; min-width: 92px; border-bottom: 1px solid #111827; vertical-align: baseline; }
+.wp-blank { display: inline-block; min-width: 92px; border-bottom: 1px solid #84B84C; vertical-align: baseline; }
 .wp-blank-sm { min-width: 26px; }
-.wp-writeline { border-bottom: 1px solid #94a3b8; height: 1.5em; }
+.wp-writeline { border-bottom: 1px solid #84B84C; height: 1.5em; }
 
 /* Vocabulario impreso (compacto) */
 .wp-vlist { display: grid; gap: 4px; margin-top: 4px; }
@@ -370,4 +372,344 @@ select {
   .wp-portal { position: static; overflow: visible; background: white; }
   .wp-sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; }
   @page { size: A4; margin: 14mm; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SKIN: liquid glass · metal · cyber
+   Va DESPUÉS de `@tailwind utilities`, así que al repetir una clase de Tailwind
+   (.bg-white, .bg-rex…) gana por orden. Es SOLO pintura: ni una regla cambia
+   layout, estructura ni lógica — por eso el skin se aplica a toda la app sin
+   tocar los 130 KB de App.tsx.
+   Identidad intacta: rex (#84B84C), spike (#EE7B30), cream (#F6F4E9), ink.
+   ════════════════════════════════════════════════════════════════════════════ */
+:root {
+  --rex: 132 184 76;
+  --rex-deep: 61 94 36;
+  --spike: 238 123 48;
+  --glass-brd: 1px solid rgb(255 255 255 / 0.7);
+  --glass-shadow: 0 20px 44px -26px rgb(61 94 36 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.9);
+  /* Barniz metálico: luz arriba, sombra abajo. Se superpone a cualquier color. */
+  --metal: linear-gradient(180deg, rgb(255 255 255 / 0.34) 0%, rgb(255 255 255 / 0.06) 46%, rgb(0 0 0 / 0.14) 100%);
+}
+
+/* Fondo vivo: halos de marca + rejilla cyber sutil. Fijo, no viaja con el scroll. */
+body {
+  background-color: #F6F4E9;
+  background-image:
+    radial-gradient(1100px 620px at 10% -12%, rgb(var(--rex) / 0.26), transparent 60%),
+    radial-gradient(900px 520px at 102% -4%, rgb(var(--spike) / 0.18), transparent 55%),
+    radial-gradient(900px 700px at 50% 118%, rgb(var(--rex-deep) / 0.14), transparent 62%),
+    repeating-linear-gradient(0deg, rgb(var(--rex-deep) / 0.05) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(90deg, rgb(var(--rex-deep) / 0.05) 0 1px, transparent 1px 48px);
+  background-attachment: fixed;
+}
+
+/* Los contenedores de página dejan ver el fondo. */
+.bg-cream { background-color: transparent; }
+.bg-slate-50, .bg-slate-100\/60 { background-color: rgb(248 250 252 / 0.6); }
+
+/* ── Vidrio líquido ───────────────────────────────────────────────────────── */
+.bg-white {
+  background-color: rgb(255 255 255 / 0.74);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+.bg-white\/85, .bg-white\/80, .bg-white\/70 {
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+}
+/* Solo las superficies grandes llevan borde+sombra de cristal (las píldoras no). */
+.rounded-3xl.bg-white, .rounded-2xl.bg-white, .rounded-2xl.bg-white\/70 {
+  border: var(--glass-brd);
+  box-shadow: var(--glass-shadow);
+}
+nav {
+  border-bottom: 1px solid rgb(var(--rex) / 0.18);
+  box-shadow: 0 12px 30px -28px rgb(var(--rex-deep) / 0.9);
+}
+
+/* ── Botones ──────────────────────────────────────────────────────────────── */
+button, [role='button'] {
+  transition: transform 160ms ease, box-shadow 200ms ease, background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+button:hover:not(:disabled) { transform: translateY(-1px); }
+button:active:not(:disabled) { transform: translateY(0); }
+button:disabled { transform: none; }
+
+/* Secundarios (los de contorno): cristal en vez de plano — quita el "muro de cajas".
+   El :not([class*='bg-']) es clave: si el botón ya trae su propio fondo (opción
+   marcada, True/False elegido…) se respeta, que si no le pisaríamos el estado. */
+button[class*='border-']:not([class*='bg-']) {
+  background-color: rgb(255 255 255 / 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8);
+}
+button[class*='border-']:not([class*='bg-']):hover:not(:disabled) {
+  background-color: rgb(255 255 255 / 0.85);
+  box-shadow: 0 10px 22px -14px rgb(var(--rex-deep) / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+/* Primarios (los de relleno): barniz metálico + halo neón del propio color. */
+.bg-rex, .bg-rex-dark, .bg-rex-deep, .bg-spike, .bg-spike-dark, .bg-ink,
+.bg-emerald-500, .bg-emerald-600, .bg-red-500, .bg-red-600,
+.bg-slate-800, .bg-slate-900, .bg-violet-600, .bg-blue-600 {
+  background-image: var(--metal);
+}
+.bg-rex, .bg-rex-dark { box-shadow: 0 12px 26px -14px rgb(var(--rex) / 0.95), inset 0 1px 0 rgb(255 255 255 / 0.45); }
+.bg-spike, .bg-spike-dark { box-shadow: 0 12px 26px -14px rgb(var(--spike) / 0.95), inset 0 1px 0 rgb(255 255 255 / 0.45); }
+.bg-rex-deep, .bg-ink, .bg-slate-800, .bg-slate-900 { box-shadow: 0 12px 26px -14px rgb(var(--rex-deep) / 0.95), inset 0 1px 0 rgb(255 255 255 / 0.3); }
+/* Los halos son para botones/insignias, no para barras de progreso ni tarjetas KPI. */
+.h-full.bg-rex, .h-full.bg-emerald-500, .h-full.bg-red-400, .h-full.bg-red-500 { box-shadow: none; }
+
+/* Foco visible neón (accesibilidad). */
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 2px solid rgb(var(--rex) / 0.85);
+  outline-offset: 2px;
+}
+
+/* ── Campos ───────────────────────────────────────────────────────────────── */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+textarea, select {
+  background-color: rgb(255 255 255 / 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):focus,
+textarea:focus, select:focus {
+  background-color: rgb(255 255 255 / 0.95);
+}
+
+.dashboard-action { background: rgb(255 255 255 / 0.5); backdrop-filter: blur(8px); border-color: rgb(255 255 255 / 0.7); }
+.dashboard-action:hover { background: rgb(237 243 222 / 0.85); }
+.dashboard-action-active { background: rgb(237 243 222 / 0.9); box-shadow: 0 10px 24px -16px rgb(var(--rex-deep) / 0.9); }
+.mode-tab-active { background: rgb(255 255 255 / 0.9); backdrop-filter: blur(10px); }
+
+/* Menú desbordado (⋯ Más) de las filas de evaluación: nativo <details>, sin JS. */
+.row-menu { position: relative; }
+.row-menu > summary { list-style: none; cursor: pointer; }
+.row-menu > summary::-webkit-details-marker { display: none; }
+.row-menu[open] > summary { background-color: rgb(255 255 255 / 0.95); }
+/* El panel es absolute: la regla del navegador que oculta el contenido de un
+   <details> cerrado no lo alcanza, así que se oculta a mano. */
+.row-menu:not([open]) > .row-menu-panel { display: none; }
+/* Telón invisible: al ser parte del <summary>, un clic fuera cierra el menú. Sin JS. */
+.row-menu[open] > summary::before { content: ''; position: fixed; inset: 0; z-index: 20; }
+.row-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  gap: 6px;
+  min-width: 210px;
+  padding: 8px;
+  border-radius: 18px;
+  border: var(--glass-brd);
+  background: rgb(255 255 255 / 0.86);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  box-shadow: 0 26px 50px -24px rgb(var(--rex-deep) / 0.6);
+}
+.row-menu-panel button { width: 100%; text-align: left; }
+
+@media print {
+  body { background: #fff !important; }
+  *, *::before, *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+  .bg-white { background-color: #fff !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SITIO PÚBLICO (/, /acerca, /actividades, /aprende)
+   Dos pieles con la misma paleta de marca. Todo cuelga de `.site`, así que nada
+   se filtra a la app. El interruptor pone `data-theme` en ese mismo div: las
+   páginas usan `text-site-fg/70`, `bg-site-acc/15`… (colores de Tailwind atados
+   a estas variables), así que cambiar el tema es cambiar cuatro números.
+   ════════════════════════════════════════════════════════════════════════════ */
+.site {
+  --site-bg: 10 13 8;             /* casi negro verdoso */
+  --site-fg: 233 241 222;
+  --site-acc: 199 240 138;        /* verde rex luminoso */
+  --site-acc2: 255 176 122;       /* naranja spike luminoso */
+  --site-btn-ink: 10 13 8;        /* texto sobre los botones de acento */
+  --site-glass-bg: linear-gradient(150deg, rgb(255 255 255 / 0.10), rgb(255 255 255 / 0.03));
+  --site-glass-brd: rgb(255 255 255 / 0.12);
+  --site-glass-shadow: 0 30px 60px -34px rgb(0 0 0 / 0.9), inset 0 1px 0 rgb(255 255 255 / 0.16);
+  --site-glass-shadow-hover: 0 40px 70px -34px rgb(0 0 0 / 0.95), 0 0 30px -10px rgb(var(--site-acc) / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.2);
+  --site-glow: 0.65;              /* intensidad del neón: 0 en claro */
+  --site-grid: 0.07;
+  --site-sweep: 0.05;
+  color-scheme: dark;
+}
+
+.site[data-theme='light'] {
+  --site-bg: 246 244 233;         /* crema de la marca */
+  --site-fg: 43 42 38;            /* tinta */
+  --site-acc: 61 94 36;           /* rex-deep, legible sobre crema */
+  --site-acc2: 206 96 20;         /* spike-dark */
+  --site-btn-ink: 255 255 255;
+  --site-glass-bg: linear-gradient(150deg, rgb(255 255 255 / 0.86), rgb(255 255 255 / 0.62));
+  --site-glass-brd: rgb(255 255 255 / 0.9);
+  --site-glass-shadow: 0 26px 50px -30px rgb(61 94 36 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.95);
+  --site-glass-shadow-hover: 0 34px 60px -28px rgb(61 94 36 / 0.55), 0 0 26px -12px rgb(132 184 76 / 0.7), inset 0 1px 0 rgb(255 255 255 / 1);
+  --site-glow: 0;
+  --site-grid: 0.05;
+  --site-sweep: 0.5;
+  color-scheme: light;
+}
+
+.site {
+  position: relative;
+  min-height: 100vh;
+  color: rgb(var(--site-fg));
+  background-color: rgb(var(--site-bg));
+  background-image:
+    radial-gradient(1200px 680px at 8% -10%, rgb(var(--rex) / 0.30), transparent 62%),
+    radial-gradient(900px 560px at 100% 4%, rgb(var(--spike) / 0.22), transparent 58%),
+    radial-gradient(1000px 820px at 55% 116%, rgb(var(--rex) / 0.18), transparent 60%),
+    repeating-linear-gradient(0deg, rgb(var(--site-acc) / var(--site-grid)) 0 1px, transparent 1px 54px),
+    repeating-linear-gradient(90deg, rgb(var(--site-acc) / var(--site-grid)) 0 1px, transparent 1px 54px);
+  background-attachment: fixed;
+  transition: background-color 300ms ease, color 300ms ease;
+}
+/* Barrido de luz diagonal: el "líquido" del liquid glass. */
+.site::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(118deg, transparent 34%, rgb(255 255 255 / var(--site-sweep)) 46%, transparent 58%);
+}
+.site ::selection { background: rgb(var(--site-acc) / 0.45); }
+
+.site-glass {
+  position: relative;
+  border-radius: 22px;
+  border: 1px solid var(--site-glass-brd);
+  background: var(--site-glass-bg);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: var(--site-glass-shadow);
+}
+/* Filo superior iluminado = canto de cristal. */
+.site-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0 12% auto 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--site-acc) / 0.85), transparent);
+}
+.site-glass-hover { transition: transform 260ms ease, box-shadow 260ms ease, border-color 260ms ease; }
+.site-glass-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgb(var(--site-acc) / 0.45);
+  box-shadow: var(--site-glass-shadow-hover);
+}
+
+.site-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: transform 160ms ease, box-shadow 220ms ease, background-color 220ms ease, border-color 220ms ease;
+}
+.site-btn:hover { transform: translateY(-2px); }
+.site-btn-primary {
+  color: rgb(var(--site-btn-ink));
+  background-color: rgb(var(--site-acc));
+  background-image: var(--metal);
+  box-shadow: 0 14px 34px -14px rgb(var(--rex) / 1), inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+.site-btn-spike {
+  color: rgb(var(--site-btn-ink));
+  background-color: rgb(var(--site-acc2));
+  background-image: var(--metal);
+  box-shadow: 0 14px 34px -14px rgb(var(--spike) / 1), inset 0 1px 0 rgb(255 255 255 / 0.55);
+}
+.site-btn-ghost {
+  color: rgb(var(--site-fg));
+  border: 1px solid rgb(var(--site-fg) / 0.2);
+  background: rgb(var(--site-fg) / 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.site-btn-ghost:hover { border-color: rgb(var(--site-acc) / 0.6); background: rgb(var(--site-acc) / 0.14); }
+
+/* Enlaces de navegación (píldora activa con neón). */
+.site-nav-link {
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-weight: 600;
+  color: rgb(var(--site-fg) / 0.72);
+  transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+.site-nav-link:hover { color: rgb(var(--site-fg)); background: rgb(var(--site-fg) / 0.08); }
+.site-nav-link[aria-current='page'] {
+  color: rgb(var(--site-acc));
+  background: rgb(var(--site-acc) / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(var(--site-acc) / 0.45), 0 0 22px -8px rgb(var(--site-acc) / calc(var(--site-glow) + 0.35));
+}
+
+/* Texto cromado / neón. */
+.site-chrome {
+  background: linear-gradient(180deg, rgb(var(--site-fg)) 8%, rgb(var(--site-fg) / 0.82) 42%, rgb(var(--site-acc)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.site-neon { color: rgb(var(--site-acc)); text-shadow: 0 0 22px rgb(var(--site-acc) / var(--site-glow)); }
+.site-neon-spike { color: rgb(var(--site-acc2)); text-shadow: 0 0 22px rgb(var(--site-acc2) / var(--site-glow)); }
+.site-eyebrow { letter-spacing: 0.28em; text-transform: uppercase; font-size: 11px; font-weight: 800; }
+.site-rule { height: 1px; background: linear-gradient(90deg, transparent, rgb(var(--site-acc) / 0.6), transparent); }
+
+/* Marco de las capturas de /aprende: barra de ventana + imagen. */
+.site-shot {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--site-fg) / 0.14);
+  background: rgb(var(--site-bg) / 0.72);
+  box-shadow: var(--site-glass-shadow);
+}
+.site-shot-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: rgb(var(--site-fg) / 0.08);
+  border-bottom: 1px solid rgb(var(--site-fg) / 0.1);
+}
+.site-shot-dot { width: 9px; height: 9px; border-radius: 999px; }
+
+/* Interruptor claro/oscuro de la cabecera. */
+.site-theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  color: rgb(var(--site-fg) / 0.75);
+  border: 1px solid rgb(var(--site-fg) / 0.18);
+  background: rgb(var(--site-fg) / 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+.site-theme-toggle:hover {
+  color: rgb(var(--site-acc));
+  border-color: rgb(var(--site-acc) / 0.5);
+  background: rgb(var(--site-acc) / 0.12);
+  transform: translateY(-1px);
+}
+.site-shot-dot { width: 9px; height: 9px; border-radius: 999px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .site-btn:hover, .site-glass-hover:hover, button:hover:not(:disabled) { transform: none; }
 }

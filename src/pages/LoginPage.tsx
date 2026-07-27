@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BookOpen, Eye, EyeOff, GraduationCap, LockKeyhole, UserRound } from 'lucide-react';
+import { BookOpen, ChevronLeft, Eye, EyeOff, GraduationCap, LockKeyhole, UserRound } from 'lucide-react';
 import { getCurrentSession, login } from '../services/api';
 import { Spinner } from '../components/LoadingScreen';
+import RexMascot from '../components/RexMascot';
 import type { UsuarioSesion } from '../services/api';
 
 function roleRoute(role: UsuarioSesion['role']): string {
@@ -52,7 +53,14 @@ export function LoginPage() {
 
   return (
     <main className="min-h-screen bg-cream px-4 py-10 text-ink">
-      <div className="mx-auto flex max-w-6xl items-center justify-end gap-3">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+        <button
+          className="rounded-full border border-rex/30 px-4 py-2 text-sm font-bold text-rex-deep transition hover:border-rex hover:bg-rex-light"
+          type="button"
+          onClick={() => navigate('/')}
+        >
+          <ChevronLeft className="mr-1 inline" size={16} /> Inicio
+        </button>
         <button
           className="rounded-full border border-rex/30 bg-white px-4 py-2 text-sm font-bold text-rex-deep shadow-sm transition hover:border-rex hover:bg-rex-light"
           type="button"
@@ -67,11 +75,9 @@ export function LoginPage() {
             <GraduationCap size={18} /> Plataforma educativa
           </span>
           <div className="mt-6 flex items-center gap-4">
-            <img
-              src="/mascot/rex-hero.png"
-              alt="RexLearn, la mascota de DinoEnglish Studio"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              className="h-28 w-28 shrink-0 object-contain drop-shadow-md md:h-36 md:w-36"
+            <RexMascot
+              title="RexLearn, la mascota de DinoEnglish Studio"
+              className="h-28 w-28 shrink-0 drop-shadow-md md:h-36 md:w-36"
             />
             <h1 className="text-5xl font-black tracking-tight text-ink md:text-7xl">
               Dino<span className="text-rex">English</span>
