@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, Link2, LockKeyhole, LogOut, Pencil, Printer, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, Copy, Download, Eye, GraduationCap, ImageIcon, Link2, LockKeyhole, LogOut, MoreHorizontal, Pencil, Printer, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer } from './components/WorksheetRenderer';
 import { SubmitResult } from './components/submitAnimations';
@@ -10,6 +10,7 @@ import { WorksheetPrint } from './components/WorksheetPrint';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
 import { RichText } from './components/RichText';
+import RexMascot from './components/RexMascot';
 import { TeacherDashboard, type TeacherMenu } from './components/TeacherDashboard';
 import { sampleWorksheet } from './data/sampleWorksheet';
 import {
@@ -889,13 +890,7 @@ export default function App() {
         <nav className="border-b border-rex/15 bg-white/85">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
             <div className="flex items-center gap-3">
-              <img
-                src="/mascot/rex-wave.png"
-                alt=""
-                aria-hidden
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                className="h-11 w-11 shrink-0 object-contain"
-              />
+              <RexMascot mood="wave" className="h-11 w-11 shrink-0" />
               <div>
                 <h1 className="whitespace-nowrap text-xl font-black tracking-tight">Dino<span className="text-rex">English</span> <span className="text-spike">Studio</span></h1>
                 <p className="text-sm text-ink/60">Hola, {user.name} (@{user.username})</p>
@@ -1143,13 +1138,7 @@ export default function App() {
       <nav className="border-b border-rex/15 bg-white/85">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-3">
-            <img
-              src="/mascot/rex-wave.png"
-              alt=""
-              aria-hidden
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              className="h-11 w-11 shrink-0 object-contain"
-            />
+            <RexMascot mood="wave" className="h-11 w-11 shrink-0" />
             <div>
               <h1 className="whitespace-nowrap text-xl font-black tracking-tight">Dino<span className="text-rex">English</span> <span className="text-spike">Studio</span></h1>
               <p className="text-sm text-ink/60">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p>
@@ -1455,7 +1444,9 @@ export default function App() {
                       <p className="mt-2 text-xs text-slate-400">Intentos: {worksheet.maxAttempts ?? 'Ilimitada'}</p>
                       <p className="mt-1 text-xs font-semibold text-emerald-700">Aulas: {worksheetClassrooms[worksheet.id]?.map((classroom) => classroom.name).join(', ') || 'Sin asignar'}</p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    {/* Acciones: las 4 de uso diario quedan a la vista; el resto vive en "⋯ Más"
+                        (<details> nativo, sin estado) para que la fila no sea un muro de botones. */}
+                    <div className="flex flex-wrap items-start gap-2 text-sm">
                       <button className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep" onClick={() => togglePublished(worksheet)}>{worksheet.status === 'published' ? 'Deshabilitar' : 'Habilitar'}</button>
                       {worksheet.status === 'published' && (
                         <button
@@ -1465,19 +1456,27 @@ export default function App() {
                         ><Link2 className="mr-1 inline" size={16} /> Copiar enlace</button>
                       )}
                       <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button>
-                      <button
-                        className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep disabled:cursor-not-allowed disabled:opacity-40"
-                        disabled={(responseCounts[worksheet.id] ?? 0) > 0}
-                        title={(responseCounts[worksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas. Duplícala.' : 'Editar esta evaluación'}
-                        onClick={() => startEditWorksheet(worksheet)}
-                      ><Pencil className="mr-1 inline" size={16} /> Editar</button>
-                      <button className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep" onClick={() => setPreviewWorksheet(worksheet)}>Vista previa</button>
-                      <button className="rounded-2xl border border-spike/30 px-4 py-2 font-semibold text-spike-dark" onClick={() => openPractice(worksheet)} title="Resuelve la hoja tú mismo para revisar las respuestas (no se guarda nada)"><GraduationCap className="mr-1 inline" size={16} /> Modo práctica</button>
-                      <button className="rounded-2xl border border-slate-300 px-4 py-2 font-semibold text-slate-700" onClick={() => setPrintWorksheet(worksheet)}><Printer className="mr-1 inline" size={16} /> Imprimir PDF</button>
                       <button className="rounded-2xl border border-emerald-200 px-4 py-2 font-semibold text-emerald-700" onClick={() => openAssignWorksheetModal(worksheet)}>Asignar a aula</button>
-                      <button className="rounded-2xl border border-spike/30 px-4 py-2 font-semibold text-spike-dark disabled:opacity-50" disabled={isDuplicating === worksheet.id} onClick={() => handleDuplicateWorksheet(worksheet)}><Copy className="mr-1 inline" size={16} />{isDuplicating === worksheet.id ? 'Duplicando...' : 'Duplicar'}</button>
-                      <button className="rounded-2xl border border-amber-200 px-4 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}><Archive className="mr-1 inline" size={16} /> Archivar</button>
-                      <button className="rounded-2xl border border-red-200 px-4 py-2 font-semibold text-red-600" onClick={() => removeWorksheet(worksheet)}><Trash2 className="mr-1 inline" size={16} /> Borrar</button>
+
+                      <details className="row-menu">
+                        <summary className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold text-slate-600" title="Más acciones">
+                          <MoreHorizontal className="mr-1 inline" size={16} /> Más
+                        </summary>
+                        <div className="row-menu-panel" onClick={(e) => e.currentTarget.closest('details')?.removeAttribute('open')}>
+                          <button
+                            className="rounded-xl border border-rex/30 px-3 py-2 font-semibold text-rex-deep disabled:cursor-not-allowed disabled:opacity-40"
+                            disabled={(responseCounts[worksheet.id] ?? 0) > 0}
+                            title={(responseCounts[worksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas. Duplícala.' : 'Editar esta evaluación'}
+                            onClick={() => startEditWorksheet(worksheet)}
+                          ><Pencil className="mr-2 inline" size={15} /> Editar</button>
+                          <button className="rounded-xl border border-rex/30 px-3 py-2 font-semibold text-rex-deep" onClick={() => setPreviewWorksheet(worksheet)}><Eye className="mr-2 inline" size={15} /> Vista previa</button>
+                          <button className="rounded-xl border border-spike/30 px-3 py-2 font-semibold text-spike-dark" onClick={() => openPractice(worksheet)} title="Resuelve la hoja tú mismo para revisar las respuestas (no se guarda nada)"><GraduationCap className="mr-2 inline" size={15} /> Modo práctica</button>
+                          <button className="rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-700" onClick={() => setPrintWorksheet(worksheet)}><Printer className="mr-2 inline" size={15} /> Imprimir PDF</button>
+                          <button className="rounded-xl border border-spike/30 px-3 py-2 font-semibold text-spike-dark disabled:opacity-50" disabled={isDuplicating === worksheet.id} onClick={() => handleDuplicateWorksheet(worksheet)}><Copy className="mr-2 inline" size={15} />{isDuplicating === worksheet.id ? 'Duplicando...' : 'Duplicar'}</button>
+                          <button className="rounded-xl border border-amber-200 px-3 py-2 font-semibold text-amber-700" onClick={() => toggleArchived(worksheet)}><Archive className="mr-2 inline" size={15} /> Archivar</button>
+                          <button className="rounded-xl border border-red-200 px-3 py-2 font-semibold text-red-600" onClick={() => removeWorksheet(worksheet)}><Trash2 className="mr-2 inline" size={15} /> Borrar</button>
+                        </div>
+                      </details>
                     </div>
                   </div>
                 </article>

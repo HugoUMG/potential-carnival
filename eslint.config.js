@@ -4,7 +4,8 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist'] },
+  // `scripts/` son utilidades de Node (fetch, Buffer, process…), no código de la app.
+  { ignores: ['dist', 'scripts'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

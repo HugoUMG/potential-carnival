@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import RexMascot from './RexMascot';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Animaciones del resultado de envío. El portal elige UNA al azar en cada
@@ -129,12 +130,9 @@ function Caption({ text }: { text: string }) {
 function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitle, onSeeAnswers, onClose }: SceneProps & { ok: boolean; emoji: string; title: string }) {
   return (
     <div className="relative mt-16 w-full max-w-sm rounded-3xl bg-white/95 p-8 pt-14 text-center shadow-2xl backdrop-blur">
-      <img
-        src={ok ? '/mascot/rex-happy.png' : '/mascot/rex-sad.png'}
-        alt=""
-        aria-hidden
-        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        className="absolute -top-20 left-1/2 h-36 w-36 -translate-x-1/2 object-contain drop-shadow-xl"
+      <RexMascot
+        mood={ok ? 'happy' : 'sad'}
+        className="absolute -top-20 left-1/2 h-36 w-36 -translate-x-1/2 drop-shadow-xl"
       />
       <h2 className="text-2xl font-extrabold text-ink">{emoji} {title}</h2>
       <p className="mt-1 text-sm text-slate-500">{worksheetTitle}</p>

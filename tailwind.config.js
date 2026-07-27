@@ -20,6 +20,16 @@ export default {
         },
         cream: '#F6F4E9',     // panza / fondo de página
         ink: '#2B2A26',       // contorno / texto principal
+        // ── Sitio público (/, /acerca, /actividades, /aprende) ────────────
+        // Se resuelven contra variables CSS: así el interruptor claro/oscuro
+        // cambia un solo sitio (`.site[data-theme]` en app.css) en vez de
+        // cada clase de color repartida por las páginas.
+        site: {
+          bg: 'rgb(var(--site-bg) / <alpha-value>)',
+          fg: 'rgb(var(--site-fg) / <alpha-value>)',
+          acc: 'rgb(var(--site-acc) / <alpha-value>)',   // verde rex
+          acc2: 'rgb(var(--site-acc2) / <alpha-value>)', // naranja spike
+        },
       },
       borderRadius: {
         xl: '12px',

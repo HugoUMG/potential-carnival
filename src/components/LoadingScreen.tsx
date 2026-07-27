@@ -1,3 +1,5 @@
+import RexMascot from './RexMascot';
+
 /** Spinner circular (CSS puro, sin dependencias). */
 export function Spinner({ size = 40, className = '' }: { size?: number; className?: string }) {
   return (
@@ -10,17 +12,11 @@ export function Spinner({ size = 40, className = '' }: { size?: number; classNam
   );
 }
 
-/** Mascota RexLearn pensando + spinner. Si el PNG aún no existe, se oculta y queda solo el spinner. */
+/** Mascota RexLearn pensando + spinner. */
 function DinoLoader({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center gap-4 text-center">
-      <img
-        src="/mascot/rex-thinking.png"
-        alt=""
-        aria-hidden
-        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-        className="dino-bob h-28 w-28 object-contain drop-shadow-md"
-      />
+      <RexMascot mood="thinking" className="dino-bob h-28 w-28 drop-shadow-md" />
       <Spinner size={44} />
       <p className="text-sm font-semibold text-rex-deep">{message}</p>
     </div>

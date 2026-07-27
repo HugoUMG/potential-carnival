@@ -8,6 +8,7 @@ import { BookText } from 'lucide-react';
 import { getCurrentSession, listReaderVocabulary, logoutSession, logReaderSession } from '../services/api';
 import { VocabularyViewer } from '../components/VocabularyViewer';
 import { Spinner } from '../components/LoadingScreen';
+import RexMascot from '../components/RexMascot';
 import type { VocabularyList } from '../types';
 
 export function ReaderPortal() {
@@ -40,13 +41,7 @@ export function ReaderPortal() {
       <nav className="border-b border-rex/15 bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <img
-              src="/mascot/rex-wave.png"
-              alt=""
-              aria-hidden
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              className="h-11 w-11 shrink-0 object-contain"
-            />
+            <RexMascot mood="wave" className="h-11 w-11 shrink-0" />
             <div>
               <h1 className="flex items-center gap-1.5 font-black leading-tight tracking-tight"><BookText size={18} className="text-rex" /> Vocabulario</h1>
               <p className="text-xs text-ink/60">Hola, {user.name} (@{user.username})</p>

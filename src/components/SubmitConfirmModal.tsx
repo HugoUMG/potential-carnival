@@ -1,4 +1,5 @@
 import type { StudentAnswers, Worksheet } from '../types';
+import RexMascot from './RexMascot';
 
 /**
  * Confirmación de envío EN el frontend (sin window.confirm/alert del navegador):
@@ -29,13 +30,7 @@ export function SubmitConfirmModal({ prompt, onConfirm, onClose }: {
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
-        <img
-          src={missing ? '/mascot/rex-thinking.png' : '/mascot/rex-hero.png'}
-          alt=""
-          aria-hidden
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          className="mx-auto h-24 w-24 object-contain drop-shadow-md"
-        />
+        <RexMascot mood={missing ? 'thinking' : 'hero'} className="mx-auto h-24 w-24 drop-shadow-md" />
         <h2 className="mt-2 text-xl font-extrabold text-ink">
           {missing ? `Falta tu ${prompt.field.toLowerCase()}` : '¿Enviar tus respuestas?'}
         </h2>
