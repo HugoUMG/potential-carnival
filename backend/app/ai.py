@@ -808,6 +808,38 @@ def summarize_worksheet_performance(worksheet_title: str, activities: list[dict]
         return ""
 
 
+_VOCAB_SYSTEM = """You generate English vocabulary lists for Spanish-speaking students.
+
+Output ONLY CSV. No markdown, no fences, no explanation, no header row.
+One word per line, exactly these 8 columns:
+
+block,english,spanish,type,v_past,v_participle,v_ing,v_3rd
+
+- block: short thematic group name in English (e.g. "Kitchen Verbs"). Group the list
+  into 2-4 blocks; words of the same block go together.
+- english: the word or phrase (lowercase unless a proper noun).
+- spanish: the translation (lowercase). If it needs a clarifier, use parentheses.
+- type: EXACTLY one of: verb, noun, adjective, adverb, connector, linking word,
+  preposition, phrase, other.
+- v_past, v_participle, v_ing, v_3rd: ONLY for type=verb (went,gone,going,goes).
+  For any other type leave the four columns EMPTY (trailing commas still required).
+
+Rules:
+- No commas inside a field (they break the CSV). Use "or" or a shorter translation.
+- No duplicates. Match the requested level (A1 = everyday concrete words, C1 = abstract
+  and idiomatic). Respect the requested amount of words exactly."""
+
+
+def generate_vocabulary_csv(prompt: str) -> tuple[str, str]:
+    """Prompt en lenguaje natural → CSV de vocabulario. Devuelve (csv, proveedor)."""
+    raw, provider = _ai_call(_VOCAB_SYSTEM, prompt)
+    raw = raw.strip()
+    if raw.startswith("```"):  # a veces el modelo envuelve en fences pese al prompt
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    return raw.strip(), provider
+
+
 def transcribe_audio(audio: bytes, filename: str, content_type: str) -> str:
     """Transcribe audio a texto con Groq Whisper. Lanza si no hay clave o falla."""
     key = os.getenv("GROQ_API_KEY", "")

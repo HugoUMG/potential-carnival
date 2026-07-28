@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, Printer, Link2 } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, Printer, Link2, Wand2, Eye } from 'lucide-react';
 import type { VocabularyItem, VocabularyList, VocabularyWordType } from '../types';
+import { generateVocabularyWithAI } from '../services/api';
 import { TtsButton } from './AudioPlayer';
 import { RichText } from './RichText';
 import { VocabularyPrint } from './VocabularyPrint';
@@ -72,6 +73,43 @@ function WordCard({ item }: { item: VocabularyItem }) {
         </div>
       )}
     </article>
+  );
+}
+
+// ── Palabras agrupadas por bloque (lo que ve el alumno) ───────────────────────
+
+/** Agrupa por `block` conservando el orden de entrada. Sin blocks → un solo grupo. */
+function groupByBlock(items: VocabularyItem[]): { label: string; items: VocabularyItem[] }[] {
+  if (!items.some((i) => i.block?.trim())) return [{ label: '', items }];
+  const groups: { label: string; items: VocabularyItem[] }[] = [];
+  for (const item of items) {
+    const label = item.block?.trim() || '';
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(item);
+    else groups.push({ label, items: [item] });
+  }
+  return groups;
+}
+
+export function VocabularyCards({ items }: { items: VocabularyItem[] }) {
+  return (
+    <>
+      {groupByBlock(items).map((group, gi) => (
+        <div key={gi} className={gi > 0 ? 'mt-8' : ''}>
+          {group.label && (
+            <div className="mb-3 flex items-center gap-3">
+              <span className="rounded-2xl bg-rex-light px-4 py-1.5 text-sm font-bold text-rex-deep">{group.label}</span>
+              <span className="text-xs text-slate-400">{group.items.length} palabras</span>
+            </div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {group.items.map((item, index) => (
+              <WordCard key={`${item.english}-${index}`} item={item} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -148,20 +186,6 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
 
         if (!filtered.length) return null;
 
-        // Group items by block label (preserving insertion order)
-        const hasBlocks = filtered.some((item) => item.block && item.block.trim() !== '');
-        const groups: { label: string; items: VocabularyItem[] }[] = [];
-        if (hasBlocks) {
-          for (const item of filtered) {
-            const label = item.block?.trim() || '';
-            const last = groups[groups.length - 1];
-            if (last && last.label === label) { last.items.push(item); }
-            else { groups.push({ label, items: [item] }); }
-          }
-        } else {
-          groups.push({ label: '', items: filtered });
-        }
-
         return (
           <section key={list.id} className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-start justify-between gap-3">
@@ -178,21 +202,7 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
                 <Printer size={14} /> Imprimir PDF
               </button>
             </div>
-            {groups.map((group, gi) => (
-              <div key={gi} className={gi > 0 ? 'mt-8' : ''}>
-                {group.label && (
-                  <div className="mb-3 flex items-center gap-3">
-                    <span className="rounded-2xl bg-rex-light px-4 py-1.5 text-sm font-bold text-rex-deep">{group.label}</span>
-                    <span className="text-xs text-slate-400">{group.items.length} palabras</span>
-                  </div>
-                )}
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {group.items.map((item, index) => (
-                    <WordCard key={`${item.english}-${index}`} item={item} />
-                  ))}
-                </div>
-              </div>
-            ))}
+            <VocabularyCards items={filtered} />
           </section>
         );
       })}
@@ -274,6 +284,151 @@ function parseCsv(csv: string): VocabularyItem[] {
   return items;
 }
 
+// ── Generar vocabulario con IA ────────────────────────────────────────────────
+
+// ponytail: copia de los chips del AiPanel (WorksheetEditor). Importarlos de allí
+// metería el editor visual entero en el bundle del portal público de vocabulario.
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? 'border-spike bg-spike text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:border-spike/40'}`}>
+      {children}
+    </button>
+  );
+}
+function ChipGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+const VOCAB_PRESETS: { icon: string; label: string; topic: string; types: string[] }[] = [
+  { icon: '✈️', label: 'Viajes', topic: 'travel and airports', types: [] },
+  { icon: '🍎', label: 'Comida', topic: 'food and cooking', types: ['noun', 'adjective'] },
+  { icon: '🏫', label: 'Escuela', topic: 'school and classroom', types: [] },
+  { icon: '💼', label: 'Trabajo', topic: 'work and office', types: [] },
+  { icon: '🔁', label: 'Verbos irregulares', topic: 'common irregular verbs', types: ['verb'] },
+  { icon: '🔗', label: 'Conectores', topic: 'connectors and linking words for essays', types: ['connector', 'linking word'] },
+];
+const VOCAB_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
+const VOCAB_COUNTS = [10, 15, 20, 30, 40];
+const VOCAB_TYPES: [string, string][] = [
+  ['Verbos', 'verb'], ['Sustantivos', 'noun'], ['Adjetivos', 'adjective'], ['Adverbios', 'adverb'],
+  ['Conectores', 'connector'], ['Linking words', 'linking word'], ['Preposiciones', 'preposition'], ['Frases', 'phrase'],
+];
+
+function composeVocabPrompt(topic: string, level: string, count: number, types: string[]): string {
+  if (!topic.trim()) return '';
+  const parts = [`Genera ${count} palabras de vocabulario en inglés sobre "${topic.trim()}"`];
+  if (level) parts.push(`para estudiantes de nivel ${level}`);
+  if (types.length) parts.push(`usando solo estos tipos: ${types.join(', ')}`);
+  return `${parts.join(' ')}.`;
+}
+
+function VocabAiPanel({ onResult }: { onResult: (topic: string, csv: string) => void }) {
+  const [topic, setTopic] = useState('');
+  const [level, setLevel] = useState('A2');
+  const [count, setCount] = useState(20);
+  const [types, setTypes] = useState<string[]>([]);
+  const [working, setWorking] = useState(false);
+  const [err, setErr] = useState('');
+
+  const prompt = composeVocabPrompt(topic, level, count, types);
+  const toggleType = (t: string) => setTypes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+
+  async function run() {
+    if (!prompt || working) return;
+    setWorking(true);
+    setErr('');
+    try {
+      onResult(topic.trim(), await generateVocabularyWithAI(prompt));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'La IA no pudo generar el vocabulario.');
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <section className="rounded-3xl bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-spike/15">
+          <Wand2 size={20} className="text-spike" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-spike">Generar con Inteligencia Artificial</p>
+          <h2 className="text-xl font-bold text-slate-900">Vocabulario por tema, con un clic</h2>
+        </div>
+      </div>
+      <p className="mt-2 mb-5 text-sm text-slate-500">Escribe un tema (o elige un preset) y la IA arma la lista. Se llena la vista previa de abajo: revísala antes de guardar.</p>
+
+      <ChipGroup label="⭐ Presets (un clic)">
+        {VOCAB_PRESETS.map((p) => (
+          <Chip key={p.label} active={false} onClick={() => { setTopic(p.topic); setTypes(p.types); }}>{p.icon} {p.label}</Chip>
+        ))}
+      </ChipGroup>
+
+      <div className="mt-5 grid gap-4">
+        <label className="block">
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">📖 Tema</p>
+          <input
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-spike"
+            placeholder="Ej: animales de granja, ropa, phrasal verbs con 'get'…"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void run(); }}
+          />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ChipGroup label="📚 Nivel">
+            {VOCAB_LEVELS.map((l) => <Chip key={l} active={level === l} onClick={() => setLevel(level === l ? '' : l)}>{l}</Chip>)}
+          </ChipGroup>
+          <ChipGroup label="🔢 Cantidad">
+            {VOCAB_COUNTS.map((c) => <Chip key={c} active={count === c} onClick={() => setCount(c)}>{c}</Chip>)}
+          </ChipGroup>
+        </div>
+        <ChipGroup label="🧩 Tipos de palabra (opcional, vacío = mezcla)">
+          {VOCAB_TYPES.map(([label, v]) => <Chip key={v} active={types.includes(v)} onClick={() => toggleType(v)}>{types.includes(v) ? '✓ ' : ''}{label}</Chip>)}
+        </ChipGroup>
+      </div>
+
+      {err && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{err}</p>}
+
+      <button
+        className="mt-5 flex items-center gap-2 rounded-2xl bg-spike px-5 py-3 font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
+        disabled={working || !prompt}
+        onClick={() => void run()}
+      >
+        <Wand2 size={16} /> {working ? 'Generando…' : 'Generar vocabulario'}
+      </button>
+      {prompt && <p className="mt-2 text-xs text-slate-400">Se le pedirá: {prompt}</p>}
+    </section>
+  );
+}
+
+/** Muestra la lista tal cual la ve el alumno (mismo VocabularyViewer del portal). */
+function StudentPreviewModal({ list, onClose }: { list: VocabularyList; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-slate-900/60 p-4" onClick={onClose}>
+      <div className="my-auto w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
+          <p className="text-sm font-semibold text-slate-600">👁 Así lo ve el alumno</p>
+          <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600">Cerrar</button>
+        </div>
+        <VocabularyViewer lists={[list]} />
+      </div>
+    </div>
+  );
+}
+
+/** Lista sin guardar: lo que hay en el formulario, con la forma que espera el viewer. */
+function draftList(title: string, description: string, items: VocabularyItem[]): VocabularyList {
+  return { id: 'draft', title: title.trim() || 'Lista sin título', description, created_by: '', created_at: '', items };
+}
+
 export function VocabularyManager({ lists, classrooms, readers, onCreate, onDeleted, onAssign, onUnassign, assignedClassrooms, onAssignReader, onUnassignReader, assignedReaders }: VocabularyManagerProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -283,6 +438,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
   const [saving, setSaving] = useState(false);
   const [expandedListId, setExpandedListId] = useState<string | null>(null);
   const [printList, setPrintList] = useState<VocabularyList | null>(null);
+  const [studentPreview, setStudentPreview] = useState<VocabularyList | null>(null);
 
   function handleCsvChange(value: string) {
     setCsvText(value);
@@ -312,6 +468,14 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
 
   return (
     <div className="grid gap-6">
+      <VocabAiPanel
+        onResult={(aiTopic, csv) => {
+          if (!title.trim()) setTitle(aiTopic);
+          handleCsvChange(csv);
+          setMessage('Vocabulario generado. Revísalo abajo y guarda la lista.');
+        }}
+      />
+
       {/* Formulario creación */}
       <section className="rounded-3xl bg-white p-5 shadow-sm">
         <h2 className="text-xl font-bold">Nueva lista de vocabulario</h2>
@@ -329,24 +493,22 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
         </div>
         {preview.length > 0 && (
           <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-600">Vista previa: {preview.length} palabras detectadas</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3 max-h-72 overflow-y-auto">
-              {preview.map((item, i) => {
-                const style = getTypeStyle(item.type);
-                return (
-                  <div key={i} className={`rounded-xl border p-3 text-sm ${style.card}`}>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold">{item.english}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${style.badge}`}>{style.label}</span>
-                    </div>
-                    <p className="text-slate-500">{item.spanish}</p>
-                  </div>
-                );
-              })}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-600">Vista previa: {preview.length} palabras detectadas</p>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 rounded-2xl border border-rex/30 bg-white px-3 py-2 text-sm font-semibold text-rex-deep"
+                onClick={() => setStudentPreview(draftList(title, description, preview))}
+              >
+                <Eye size={15} /> Vista previa del alumno
+              </button>
+            </div>
+            <div className="mt-3 max-h-96 overflow-y-auto">
+              <VocabularyCards items={preview} />
             </div>
           </div>
         )}
-        {message && <p className={`mt-3 rounded-2xl p-3 text-sm font-semibold ${message.includes('creada') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{message}</p>}
+        {message && <p className={`mt-3 rounded-2xl p-3 text-sm font-semibold ${/creada|generad/.test(message) ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>{message}</p>}
         <button
           className="mt-4 rounded-2xl bg-rex px-5 py-3 font-semibold text-white transition hover:bg-rex-dark disabled:opacity-60"
           disabled={saving || !title.trim() || !preview.length}
@@ -379,6 +541,13 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
                     onClick={() => setExpandedListId(expandedListId === list.id ? null : list.id)}
                   >
                     {expandedListId === list.id ? 'Ocultar' : 'Ver palabras'}
+                  </button>
+                  <button
+                    className="flex items-center gap-1.5 rounded-2xl border border-rex/30 px-3 py-2 text-sm font-semibold text-rex-deep"
+                    title="Ver la lista tal como la ve el alumno"
+                    onClick={() => setStudentPreview(list)}
+                  >
+                    <Eye size={15} /> Vista alumno
                   </button>
                   <button
                     className="flex items-center gap-1.5 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600"
@@ -446,8 +615,8 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
 
               {/* Vista expandida */}
               {expandedListId === list.id && (
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {list.items.map((item, i) => <WordCard key={i} item={item} />)}
+                <div className="mt-4">
+                  <VocabularyCards items={list.items} />
                 </div>
               )}
             </article>
@@ -456,6 +625,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
         </div>
       </section>
 
+      {studentPreview && <StudentPreviewModal list={studentPreview} onClose={() => setStudentPreview(null)} />}
       {printList && <VocabularyPrint list={printList} onClose={() => setPrintList(null)} />}
     </div>
   );
