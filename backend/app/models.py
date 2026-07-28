@@ -312,5 +312,9 @@ class VocabularyListCreate(BaseModel):
     items: list[VocabularyItem] = Field(default_factory=list)
 
 
+class VocabularyAiRequest(BaseModel):
+    prompt: str
+
+
 class VocabularyAssignment(BaseModel):
     classroom_id: str

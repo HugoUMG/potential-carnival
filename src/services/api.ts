@@ -584,6 +584,12 @@ export async function createVocabularyList(title: string, description: string, c
   return request<VocabularyList>('/vocabulary', { method: 'POST', body: JSON.stringify({ title, description, created_by: createdBy, items }) });
 }
 
+/** Tema → CSV de vocabulario generado por IA. No guarda nada: llena el formulario. */
+export async function generateVocabularyWithAI(prompt: string): Promise<string> {
+  const res = await request<{ csv: string; provider: string }>('/vocabulary/ai-generate', { method: 'POST', body: JSON.stringify({ prompt }) });
+  return res.csv;
+}
+
 export async function listVocabularyLists(): Promise<VocabularyList[]> {
   return request<VocabularyList[]>('/vocabulary');
 }

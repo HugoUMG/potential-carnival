@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, generate_worksheet_script, edit_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import ai_grade_activities, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import initialize_database
 from .models import (
     AiGenerateRequest,
@@ -37,6 +37,7 @@ from .models import (
     UserUpdate,
     VocabularyAssignment,
     VocabularyList,
+    VocabularyAiRequest,
     VocabularyListCreate,
     Worksheet,
     WorksheetCreate,
@@ -1016,6 +1017,18 @@ def public_readers_vocabulary() -> list[dict]:
 def create_vocabulary_list(payload: VocabularyListCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> VocabularyList:
     payload.created_by = current_user.id
     return repository.create_vocabulary_list(payload)
+
+
+@app.post("/vocabulary/ai-generate")
+def ai_generate_vocabulary(payload: VocabularyAiRequest, _: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, str]:
+    """Tema → CSV de vocabulario. NO guarda: el profesor revisa la vista previa y guarda."""
+    if not payload.prompt.strip():
+        raise HTTPException(status_code=422, detail="Escribe un tema para el vocabulario")
+    try:
+        csv, provider = generate_vocabulary_csv(payload.prompt.strip())
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"La IA no pudo generar el vocabulario: {exc}") from exc
+    return {"csv": csv, "provider": provider}
 
 
 @app.get("/vocabulary", response_model=list[VocabularyList])
