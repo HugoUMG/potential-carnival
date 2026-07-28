@@ -34,7 +34,7 @@ export function AboutPage() {
           <span className="block site-neon">que hace todo el trabajo.</span>
         </h1>
         <p className="mt-6 text-lg leading-relaxed text-site-fg/70">
-          DinoEnglish Studio es una plataforma web para clases de inglés. Reemplaza la fotocopia por
+          MyDinoEnglish es una plataforma web para clases de inglés. Reemplaza la fotocopia por
           una hoja interactiva: el alumno escucha audios, habla al micrófono, arrastra palabras y une
           columnas; al enviar, la hoja ya viene calificada. El profesor recupera el tiempo que se le
           iba en corregir.

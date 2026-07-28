@@ -52,7 +52,7 @@ export function HomePage() {
           </h1>
 
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-site-fg/70">
-            DinoEnglish Studio es un constructor de hojas de trabajo de inglés. El profesor arma la
+            MyDinoEnglish es un constructor de hojas de trabajo de inglés. El profesor arma la
             actividad —con IA, arrastrando bloques o escribiendo el DSL—, la comparte con un enlace y
             recibe las respuestas ya calificadas. El alumno solo abre el enlace y responde.
           </p>
@@ -83,13 +83,12 @@ export function HomePage() {
         {/* Tarjeta de vidrio con la mascota */}
         <div className="site-glass site-glass-hover p-8 text-center">
           <RexMascot
-            title="RexLearn, la mascota de DinoEnglish Studio"
+            title="RexLearn, la mascota de MyDinoEnglish"
             className="mx-auto h-52 w-52 drop-shadow-[0_18px_30px_rgba(132,184,76,0.35)]"
           />
           <p className="mt-4 text-2xl font-black tracking-tight">
-            Dino<span className="site-neon">English</span>
+            <span className="site-neon-spike">My</span>Dino<span className="site-neon">English</span>
           </p>
-          <p className="site-eyebrow site-neon-spike mt-1">Studio</p>
           <div className="site-rule my-6" />
           <div className="grid grid-cols-3 gap-2 text-center">
             {[['19', 'tipos'], ['3', 'formas'], ['0', 'instalación']].map(([big, small]) => (

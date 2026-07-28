@@ -45,7 +45,7 @@ const METHODS = [
       'Vista previa del lado del alumno antes de publicar',
     ],
     best: 'Para empezar, y para hojas cortas o muy visuales.',
-    shot: <Shot title="DinoEnglish Studio — Constructor visual" src="/shots/editor-visual.webp" alt="Constructor visual: la actividad de opción múltiple abierta, con su pregunta, sus opciones y la respuesta correcta marcada." />,
+    shot: <Shot title="MyDinoEnglish — Constructor visual" src="/shots/editor-visual.webp" alt="Constructor visual: la actividad de opción múltiple abierta, con su pregunta, sus opciones y la respuesta correcta marcada." />,
   },
   {
     id: 'dsl',
@@ -61,7 +61,7 @@ const METHODS = [
       'Ida y vuelta con el constructor visual',
     ],
     best: 'Para exámenes largos o series de hojas parecidas.',
-    shot: <Shot title="DinoEnglish Studio — Editor de script (DSL)" src="/shots/editor-dsl.webp" alt="Editor de script con un WorksheetScript real: dos bloques, dos fillblank y una actividad de escuchar y ordenar." />,
+    shot: <Shot title="MyDinoEnglish — Editor de script (DSL)" src="/shots/editor-dsl.webp" alt="Editor de script con un WorksheetScript real: dos bloques, dos fillblank y una actividad de escuchar y ordenar." />,
   },
   {
     id: 'ia',
@@ -77,7 +77,7 @@ const METHODS = [
       'El resultado es un script normal: editable y revisable',
     ],
     best: 'Para tener un borrador decente en segundos.',
-    shot: <Shot title="DinoEnglish Studio — Generar con IA" src="/shots/editor-ia.webp" alt="Panel de generación con IA: chips de nivel A2, tema, objetivo, edad y duración marcados, y el prompt compuesto en vivo abajo." />,
+    shot: <Shot title="MyDinoEnglish — Generar con IA" src="/shots/editor-ia.webp" alt="Panel de generación con IA: chips de nivel A2, tema, objetivo, edad y duración marcados, y el prompt compuesto en vivo abajo." />,
   },
 ];
 

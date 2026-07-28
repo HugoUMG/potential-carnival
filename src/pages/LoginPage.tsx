@@ -94,12 +94,11 @@ export function LoginPage() {
           </span>
           <div className="mt-6 flex items-center gap-4">
             <RexMascot
-              title="RexLearn, la mascota de DinoEnglish Studio"
+              title="RexLearn, la mascota de MyDinoEnglish"
               className="h-28 w-28 shrink-0 drop-shadow-md md:h-36 md:w-36"
             />
             <h1 className="text-5xl font-black tracking-tight text-ink md:text-7xl">
-              Dino<span className="text-rex">English</span>
-              <span className="block text-2xl font-extrabold uppercase tracking-[0.3em] text-spike md:text-3xl">Studio</span>
+              <span className="text-spike">My</span>Dino<span className="text-rex">English</span>
             </h1>
           </div>
           <p className="mt-5 max-w-2xl text-xl font-semibold text-rex-deep">
