@@ -39,7 +39,7 @@ export function SiteLayout() {
               className={`h-24 w-24 object-contain ${theme === 'dark' ? 'invert' : ''}`}
             />
             <span className="text-lg font-black tracking-tight">
-              Dino<span className="site-neon">English</span>
+              <span className="site-neon-spike">My</span>Dino<span className="site-neon">English</span>
             </span>
           </Link>
 
@@ -98,7 +98,7 @@ export function SiteLayout() {
           <Link to="/vocab" className="transition hover:text-site-fg/80">Vocabulario</Link>
           <Link to="/login" className="transition hover:text-site-fg/80">Entrar</Link>
         </div>
-        <p className="mt-4">DinoEnglish Studio — hojas de trabajo de inglés, interactivas y calificadas.</p>
+        <p className="mt-4">MyDinoEnglish — hojas de trabajo de inglés, interactivas y calificadas.</p>
       </footer>
     </div>
   );

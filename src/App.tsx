@@ -903,7 +903,7 @@ export default function App() {
             <div className="flex items-center gap-3">
               <RexMascot mood="wave" className="h-11 w-11 shrink-0" />
               <div>
-                <h1 className="whitespace-nowrap text-xl font-black tracking-tight">Dino<span className="text-rex">English</span> <span className="text-spike">Studio</span></h1>
+                <h1 className="whitespace-nowrap text-xl font-black tracking-tight"><span className="text-spike">My</span>Dino<span className="text-rex">English</span></h1>
                 <p className="text-sm text-ink/60">Hola, {user.name} (@{user.username})</p>
               </div>
             </div>
@@ -1155,7 +1155,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <RexMascot mood="wave" className="h-11 w-11 shrink-0" />
             <div>
-              <h1 className="whitespace-nowrap text-xl font-black tracking-tight">Dino<span className="text-rex">English</span> <span className="text-spike">Studio</span></h1>
+              <h1 className="whitespace-nowrap text-xl font-black tracking-tight"><span className="text-spike">My</span>Dino<span className="text-rex">English</span></h1>
               <p className="text-sm text-ink/60">Crea estudiantes, guarda evaluaciones, limita intentos y revisa respuestas.</p>
             </div>
           </div>
