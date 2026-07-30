@@ -484,6 +484,10 @@ The same text means different things depending on "type". Judge accordingly:
   possible wording, not the only one. A short answer ("at 8", "her boss") is CORRECT if it answers
   the question — do not demand a full sentence or the key's exact phrasing. Only the information
   asked for is being measured, not writing.
+  PRONOUNS: the audio is often a direct quote ("I will go back and get it") but the question asks
+  about a third person ("What will she do?"). Converting "I" → "she" (or "my" → "her", etc.) to
+  match the question's subject is CORRECT grammar, not a mismatch — never mark it wrong for using a
+  different pronoun than the audio when that pronoun is the one the question calls for.
 - "listeningfillblank": dictation. The word itself is the target, so spelling of THAT word matters
   more than elsewhere; the rest of the sentence does not.
 - "fillblank": the key may be a list, one entry per blank, in order.

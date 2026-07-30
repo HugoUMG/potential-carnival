@@ -17,3 +17,10 @@ def test_tolerance_is_clamped_and_interpolated() -> None:
     for value in (0, 50, 100):
         assert "{tolerance_rules}" not in _grade_system(value)
         assert "{value}" not in _grade_system(value)
+
+
+def test_pronoun_shift_in_listening_answers_is_explicitly_allowed() -> None:
+    # Regresión: la IA marcó "She will go back and get it" como incorrecta porque el audio
+    # decía "I will go back and get it", exigiendo que se copiara el pronombre literal en vez
+    # de adaptarlo al sujeto que pide la pregunta.
+    assert "PRONOUNS" in _grade_system(50)
