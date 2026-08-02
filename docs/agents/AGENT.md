@@ -57,6 +57,31 @@ Nada más. **No cargues toda la documentación**: el resto se abre según la tar
 
 ## 5. Antes de dar por terminada una tarea
 
+### 5.1 Actualiza la documentación del dominio que tocaste
+
+Si el cambio **altera comportamiento**, la documentación se actualiza **en el mismo cambio**, no
+"después". Si no aplica ningún documento, **dilo explícitamente** en vez de callarlo.
+
+| Tocaste… | Actualiza |
+|----------|-----------|
+| `parser.py`: tipo, campo o validación | [`07_DSL.md`](../07_DSL.md) + `_WORKSHEET_SYSTEM` (`ai.py`) + `GENERATION_PROMPT` (`generationPrompt.ts`) |
+| Un endpoint (nuevo, borrado o con otro contrato) | [`05_API.md`](../05_API.md) |
+| Tabla, columna, índice o migración | [`04_DATABASE.md`](../04_DATABASE.md) |
+| Prompts o lógica de IA | [`06_AI.md`](../06_AI.md) |
+| Renderer o componente de actividad | [`08_RENDERER.md`](../08_RENDERER.md) |
+| Auth, roles o permisos | [`09_SECURITY.md`](../09_SECURITY.md) |
+| Variable de entorno o despliegue | [`10_DEPLOYMENT.md`](../10_DEPLOYMENT.md) |
+| Cerraste o abriste un pendiente | [`13_ROADMAP.md`](../13_ROADMAP.md) |
+| Descartaste una alternativa por un motivo que no se lee en el código | [`15_DECISIONS.md`](../15_DECISIONS.md) |
+
+Un término propio nuevo va a [`14_GLOSSARY.md`](../14_GLOSSARY.md); una regla dura nueva, a
+[`12_RULES.md`](../12_RULES.md).
+
+**Qué NO documentar:** un refactor sin cambio de comportamiento, un arreglo de estilo, o algo que ya
+se lee igual de bien en el código. La documentación cuenta lo que el código no puede contar solo.
+
+### 5.2 Verifica
+
 ```bash
 python -m pytest backend/tests
 ```
