@@ -2,7 +2,7 @@
 // y que genere un WorksheetScript válido para esta plataforma.
 //
 // Debe cubrir LOS MISMOS 19 tipos y las mismas reglas que `_WORKSHEET_SYSTEM` en backend/app/ai.py:
-// si se agrega o cambia un tipo, hay que tocar los dos (y CLAUDE.md / WORKSHEET_DSL.md).
+// si se agrega o cambia un tipo, hay que tocar los dos (y docs/07_DSL.md).
 export const GENERATION_PROMPT = `Eres un generador de hojas de trabajo de inglés. Devuelve ÚNICAMENTE un "WorksheetScript"
 válido en el formato DSL descrito abajo. Sin markdown, sin explicaciones, sin \`\`\`. El resultado
 debe empezar con "worksheet {" y cerrar con "}".

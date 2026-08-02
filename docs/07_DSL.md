@@ -37,6 +37,9 @@
 9. [Saltos de línea — \n](#9-saltos-de-línea--n)
 10. [Errores comunes](#10-errores-comunes)
 11. [Hojas de trabajo completas — ejemplos](#11-hojas-de-trabajo-completas--ejemplos)
+12. [Dónde se documenta el DSL](#12-dónde-se-documenta-el-dsl-mantener-sincronizado)
+13. [Grupos por habilidad (taxonomía pedagógica)](#13-grupos-por-habilidad-taxonomía-pedagógica)
+14. [Guía de calidad al generar hojas](#14-guía-de-calidad-al-generar-hojas)
 
 ---
 
@@ -578,7 +581,7 @@ La IA recibe:
 - `student_answer`: lo que escribió el estudiante
 - `correct_answer`: `null` (no hay respuesta correcta definida)
 
-La IA evalúa relevancia, gramática y contenido, y devuelve `correct`, `incorrect` o `partial`.
+La IA evalúa relevancia, gramática y contenido, y devuelve `correct` o `incorrect` (el estado `partial` se eliminó del prompt: el matiz va en el comentario).
 
 ---
 
@@ -596,11 +599,11 @@ La IA evalúa relevancia, gramática y contenido, y devuelve `correct`, `incorre
 
 ### 4.4 matching
 
-**Descripción:** El estudiante conecta cada ítem de la columna izquierda con su par en la columna derecha usando un dropdown. Los ítems de la derecha se muestran en orden aleatorio (determinístico por ID).
+**Descripción:** El estudiante une cada ítem de la columna izquierda con su par de la derecha **trazando una línea** (arrastrando desde el punto o tocando uno de cada lado); cada par queda de un color. Los ítems de la derecha se muestran en orden aleatorio (determinístico por ID).
 
 **Cuándo usar:** Vocabulario + definiciones, modales + significados, verbos irregulares + formas pasadas.
 
-**Calificación:** Automática — comparación posicional: `left[0]` debe emparejar con `right[0]`, `left[1]` con `right[1]`, etc.
+**Calificación:** Automática — comparación posicional: `left[0]` debe emparejar con `right[0]`, `left[1]` con `right[1]`, etc. **La IA puede rescatar pares**: la clave por índice no es la única combinación válida (ver §7).
 
 ---
 
@@ -1174,18 +1177,21 @@ listeningmultiplechoice {
 
 ---
 
-#### ⚠️ SINTAXIS CRÍTICA: `pair {}` bloques (no lista YAML)
+#### Sintaxis de los pares: `pair {}` (canónico) o lista `pairs:`
 
-Los pares **DEBEN** usar bloques `pair { }`. NO se puede usar una lista YAML.
+El formato canónico son bloques `pair { }`. Desde julio 2026 `_parse_pairs` **también** acepta la
+lista `pairs:` — que es la que emite `dslSerializer.ts` y la que la IA escribe por costumbre YAML.
+Antes se ignoraba en silencio, así que crear una `listeningmatching` en el constructor visual y
+guardarla destruía la actividad (quedaba sin pares).
 
 ```
-✅ CORRECTO:
+✅ Canónico:
 pair {
   audio_text: "She had to go."
   match: "Affirmative"
 }
 
-❌ INCORRECTO (parser lo ignora):
+✅ También válido (lo que emite el constructor visual):
 pairs:
 - audio_text: "She had to go."
   match: "Affirmative"
@@ -1952,7 +1958,7 @@ la hoja.
 | listeningmultiplechoice | Auto exacta | 1 por actividad | No |
 | multiselect | Auto por conjunto exacto | 1 por actividad | No |
 | dragdrop | Auto exacta posicional | 1 por actividad | No |
-| matching | Auto posicional | 1 por par (left[i] ↔ right[i]) | No |
+| matching | Auto posicional | 1 por par (left[i] ↔ right[i]) | **Sí** — por par |
 | listeningmatching | Auto posicional | 1 por par | No |
 | truefalse | Auto booleana | 1 por enunciado | No |
 | readingtruefalse | Auto booleana | 1 por enunciado | No |
@@ -1971,14 +1977,18 @@ la hoja.
 
 ### Qué puede y qué NO puede cambiar la IA
 
-`_AI_RESCUABLE` en `ai.py` = `{fillblank, listeningfillblank, listening, conversation}`.
+`_AI_RESCUABLE` en `ai.py` = `{fillblank, listeningfillblank, listening, conversation, matching}`.
 
-- Solo en esos cuatro puede convertir un `incorrect` en `correct`. Son los únicos donde el alumno
-  **escribe** la respuesta y el auto-corrector la compara por igualdad exacta, así que un acierto
-  legítimo (sinónimo, respuesta corta, dedazo) falla la comparación.
-- En lo que se elige con clic (opciones, true/false, matching, orden) el resultado automático es la
-  verdad: la IA solo escribe el comentario que explica la regla.
-- En los `pending` la IA decide `correct` / `incorrect` (`partial` se guarda como `incorrect`).
+- En los cuatro primeros el alumno **escribe** la respuesta y el auto-corrector la compara por
+  igualdad exacta, así que un acierto legítimo (sinónimo, respuesta corta, dedazo) falla la
+  comparación. Solo ahí puede convertir un `incorrect` en `correct`.
+- **`matching` se añadió porque su clave (mismo índice) NO es la única combinación válida.** La IA
+  re-juzga **cada par por su cuenta**: correcto si izquierda+derecha forman una combinación válida
+  para lo que la actividad practica; incorrecto solo si la combinación falla (concordancia o
+  significado). No comprueba que el conjunto siga siendo una biyección.
+- En lo demás que se elige de una lista cerrada (opciones, true/false, orden, speaking con `target`)
+  el resultado automático es la verdad: la IA solo escribe el comentario que explica la regla.
+- En los `pending` la IA decide `correct` / `incorrect` (no existe `partial`).
 - **Nunca** puede marcar como incorrecto algo que el auto-corrector dio por correcto.
 
 ### Contexto que recibe la IA
@@ -2448,10 +2458,13 @@ El mismo formato se enseña en **cuatro** sitios. Si se agrega o cambia un tipo,
 
 | Sitio | Para quién | Archivo |
 |-------|-----------|---------|
-| Este documento | Desarrollo / referencia completa | `WORKSHEET_DSL.md` |
-| Resumen técnico | Claude Code | `CLAUDE.md` §3 |
+| Este documento | Desarrollo / referencia completa | `docs/07_DSL.md` |
 | Prompt interno de la IA | El modelo que genera desde el editor | `_WORKSHEET_SYSTEM` en `backend/app/ai.py` |
 | Prompt copiable | El profesor, para pegarlo en ChatGPT/Claude/DeepSeek | `GENERATION_PROMPT` en `src/utils/generationPrompt.ts` |
+
+> Antes eran cuatro: el cuarto era el resumen de `CLAUDE.md` §3, que se eliminó al reestructurar la
+> documentación precisamente para no tener que sincronizarlo. **Este documento es la referencia; no
+> se crean resúmenes paralelos del DSL.**
 
 La lista canónica de tipos vive en `SUPPORTED_BLOCKS` (`parser.py`). El test
 `test_every_documented_type_parses` (`backend/tests/test_parser.py`) escribe una hoja con los 19
@@ -2460,4 +2473,91 @@ a enseñar algo que no funciona, ese test falla.
 
 ---
 
-*Fin del documento — Última actualización: 2026-07-27 (19 tipos, validación del parser, rescate IA)*
+## 13. Grupos por habilidad (taxonomía pedagógica)
+
+Los 19 tipos se agrupan por objetivo. Esta taxonomía existe en **dos** lugares del código que deben
+mantenerse en sincronía: `ACTIVITY_GROUPS` en `WorksheetEditor.tsx` (chips del AiPanel) y la sección
+"PEDAGOGICAL GROUPS" de `_WORKSHEET_SYSTEM` en `ai.py`. Úsala también al armar hojas a mano — un
+`block {}` por grupo funciona bien.
+
+| Grupo | Tipos |
+|-------|-------|
+| 🧱 Gramática y vocabulario (cerradas) | fillblank, dragdrop, multiplechoice, multiselect, matching, truefalse |
+| 📖 Lectura | content (teoría), reading, readingtruefalse |
+| 🎧 Comprensión auditiva | listening, listeningmultiplechoice, listeningtruefalse |
+| 🎼 Escucha fina (dictado y orden) | listeningfillblank, listeningorder, listeningmatching |
+| 🗣️ Producción oral | speaking, conversation |
+| ✍️ Escritura abierta | textbox, imagequestion |
+
+### Voz por actividad (`voice`)
+
+Cualquier tipo `listening*` acepta un campo opcional `voice: male` o `voice: female` (por defecto: la
+preferencia global del usuario, masculina). Se normaliza en el parser (`_normalize_voice`) y baja
+hasta `AudioPlayer`: `male` → `en-US-GuyNeural`, `female` → `en-US-JennyNeural`. Un valor desconocido
+se pasa tal cual como nombre de voz edge-tts. Solo aplica a listening (otros tipos lo ignoran).
+
+Sirve para evitar el desajuste "voz masculina lee la oración pero la pregunta dice *she*".
+
+> Añadir `voice` obligó a tocar también el modelo Pydantic `Activity` (`models.py`) y
+> `normalizeActivity`/`withInstructions` (`api.ts`): sin eso el campo se descartaba al persistir o al
+> leer. Cualquier campo nuevo de actividad necesita ese mismo recorrido completo.
+
+---
+
+## 14. Guía de calidad al generar hojas
+
+Leer **antes** de crear una hoja. Aplican al **contenido**, más allá de que el DSL sea válido.
+
+### Respuestas y distractores
+
+- **Evitar respuestas evidentes:** los distractores deben ser *plausibles* y del mismo tipo/categoría
+  que la correcta (mismo tiempo verbal, misma clase de palabra, mismo tema). Un distractor absurdo
+  regala la respuesta.
+- **Distractores mínimamente diferentes** cuando el objetivo es discriminación fina: que se distingan
+  por *una* característica (presente/pasado, afirmativa/negativa/pregunta, singular/plural). Para
+  `wakes up`, distractores `woke up` / `waking up`, no `runs` / `sleeps`.
+- **Sin pistas dentro de la pregunta:** el enunciado no debe contener la respuesta ni delatarla por
+  concordancia obvia.
+- **Sin respuesta revelada en otra actividad.**
+
+### Evitar patrones predecibles
+
+Un alumno no debe poder acertar "por el patrón" sin saber.
+
+- **No agrupar por tipo si eso crea un patrón de respuesta.** Cuando el objetivo es discriminar
+  (ej. presente vs. pasado), **mezclar** los ítems en un solo bloque en orden variado.
+- **`truefalse` / `readingtruefalse` / `listeningtruefalse`:** variar el patrón de `answer` (ni todas
+  `true`, ni alternancia mecánica). Mezcla irregular.
+- **`multiplechoice` / `multiselect` / `dragdrop`:** la app **baraja las opciones al mostrarlas**, así
+  que la posición de la correcta en el DSL no importa — pero **sí** variar cuál es la correcta entre
+  ítems.
+- **`fillblank`:** que la respuesta no sea siempre la misma palabra ni siga un patrón obvio.
+
+### Nivel y coherencia
+
+- Respetar el **nivel** pedido (A1/A2/B1…): vocabulario, longitud de oración y estructuras acordes.
+  En listening de discriminación fina, **oraciones cortas** para que la palabra objetivo pese.
+- Mantener un **tema/hilo** coherente en toda la hoja cuando aplique.
+- **`fillblank` sin ambigüedad:** si hay varias respuestas válidas legítimas, usar `answer` como
+  **lista** o replantear el ítem. El corrector IA valida equivalencias, pero no conviene depender.
+
+### `content` como repaso
+
+- Sirve para **recordar la regla**, no para resolver la hoja. Es opcional: se añade cuando el profesor
+  pide repaso/teoría o cuando el alumno ve el tema por primera vez.
+- Cuando se incluye debe traer: la regla en 1–2 líneas en lenguaje sencillo (explicación en español +
+  ejemplos en inglés), la **forma** (afirmativa / negativa / pregunta), 2–3 ejemplos y el error típico.
+- **Sus ejemplos NO pueden ser oraciones de los ejercicios ni contener ninguna respuesta.** Va
+  primero, en su propio `block`.
+
+### Recordatorios técnicos que también son errores de generación
+
+- `info {}` usa strings planos (`- Name`), no `- label: "…"`.
+- Cada campo del DSL en **su propia línea**.
+- Los listenings usan **TTS**, nunca un campo `audio:`. El `audio_text`/`text` oculto no debe repetir
+  la pregunta visible de forma que delate la respuesta.
+- Comillas internas: usar tipográficas `“ ”` (las `\"` quedan literales).
+
+---
+
+*Última actualización: 2026-08-01 (movido a `docs/07_DSL.md`; 19 tipos, validación del parser, rescate IA de matching)*

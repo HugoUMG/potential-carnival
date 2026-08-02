@@ -192,7 +192,7 @@ def test_validation_allows_reading_without_questions():
 
 
 # Una hoja con LOS 19 tipos escrita exactamente como la documentan los tres sitios que la enseñan:
-# `_WORKSHEET_SYSTEM` (ai.py), `GENERATION_PROMPT` (src/utils/generationPrompt.ts) y WORKSHEET_DSL.md.
+# `_WORKSHEET_SYSTEM` (ai.py), `GENERATION_PROMPT` (src/utils/generationPrompt.ts) y docs/07_DSL.md.
 # Si esto deja de parsear, la documentación está enseñando una sintaxis que no funciona.
 ALL_TYPES = '''worksheet {
   title: "Referencia de los 19 tipos"

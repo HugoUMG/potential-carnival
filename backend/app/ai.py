@@ -499,6 +499,15 @@ The same text means different things depending on "type". Judge accordingly:
   picture you cannot check. Judge only what is checkable: does it answer the prompt, is it English
   the level can be expected to produce, does it use the structure the prompt asked for? If it is a
   plausible description, it is correct.
+- "matching": each item is ONE pair — "prompt" is the LEFT item, "student_answer" the right item the
+  student joined it to, "correct_answer" the one the key expects. THE KEY IS OFTEN NOT THE ONLY
+  VALID PAIRING: with pronouns + verb phrases, "I / wasn't going to eat that cake" and
+  "She / wasn't going to eat that cake" are both perfect English. Judge the PAIR THE STUDENT MADE on
+  its own: if left + right together form a correct, sensible combination for what the activity
+  practises, it is "correct" even though it differs from the key. Mark "incorrect" only when the
+  combination itself fails — wrong agreement ("She were going…"), or the wrong meaning
+  ("can" → "Advice", "should" → "Ability"). Never say "la respuesta debe ser sobre X" just because
+  the key says X.
 - "textbox" / "reading": open writing. Content first, then form.
 
 ════ 3. ERROR TOLERANCE ════
@@ -514,9 +523,12 @@ measured, not a slip.
   typos. Re-judge them properly: if under the tolerance above the answer counts as right, set
   "correct" and leave "comment" EMPTY (no comment for a typo forgiven). Otherwise keep "incorrect"
   and explain.
-- Any other type with auto_status "incorrect" (multiplechoice, truefalse, matching, order…): the
-  student CLICKED an option, so the automatic grade is final — keep "incorrect" and write the
-  comment that teaches the rule. Do not try to turn these into "correct".
+- matching with auto_status "incorrect": rejected for not being the key's pairing, which is wrong
+  whenever more than one pairing is valid (see 2b). Re-judge the pair; if it works, set "correct"
+  and leave "comment" EMPTY. Otherwise keep "incorrect" and explain what does not fit.
+- Any other type with auto_status "incorrect" (multiplechoice, truefalse, order…): the student
+  CLICKED one of a closed list of options, so the automatic grade is final — keep "incorrect" and
+  write the comment that teaches the rule. Do not try to turn these into "correct".
 - "pending" (textbox, imagequestion, reading, speaking): set "correct" or "incorrect" — there is no
   half mark. If the answer does the task with a minor slip, it is "correct" and the slip goes in the
   comment. If it misses the task or gets the content wrong, it is "incorrect".
@@ -571,9 +583,14 @@ COUNT AS WRONG ONLY: an answer whose meaning is wrong, that answers something el
 wrong key structure the exercise is practising, or that is empty/unintelligible."""
 
 
-# Tipos cuya respuesta el alumno ESCRIBE libremente y el auto-corrector compara por igualdad
-# exacta: solo en estos puede la IA convertir un "incorrect" en "correct".
-_AI_RESCUABLE = {"fillblank", "listeningfillblank", "listening", "conversation"}
+# Tipos donde el auto-corrector puede fallar contra una respuesta legítima: texto libre comparado
+# por igualdad exacta, y `matching`, cuya clave (mismo índice) NO es la única combinación válida
+# — pronombre + frase verbal admite varias. Solo en estos puede la IA convertir "incorrect" en
+# "correct".
+# ponytail: la IA juzga cada par por separado; no comprueba que el conjunto siga siendo una
+# biyección. Si aparecen alumnos rescatados usando el mismo lado derecho dos veces, validar el
+# emparejamiento completo en una sola llamada.
+_AI_RESCUABLE = {"fillblank", "listeningfillblank", "listening", "conversation", "matching"}
 
 
 def _grade_system(tolerance: int) -> str:
@@ -758,11 +775,10 @@ def ai_grade_activities(details: list[Any], worksheet_title: str, tolerance: int
         d.graded_by = provider  # qué IA/modelo calificó (lo ve solo el profesor)
         original_status = d.status
         ai_status = grade.get("status", d.status)
-        # La IA solo puede rescatar lo que el auto-corrector compara como TEXTO LIBRE escrito
-        # por el alumno: ahí un acierto legítimo (sinónimo, respuesta corta, dedazo) falla la
-        # comparación exacta. `listening` y `conversation` estaban fuera y quedaban incorrectas
-        # para siempre aunque el contenido fuera correcto. Nunca toca lo elegido con clic
-        # (opciones, true/false, matching): ahí el exacto ya es la verdad.
+        # La IA solo puede rescatar donde el auto-corrector puede equivocarse (_AI_RESCUABLE):
+        # texto libre comparado por igualdad exacta, y `matching`, cuya clave por índice no es la
+        # única combinación válida. Nunca toca lo elegido de una lista cerrada (opciones,
+        # true/false, order): ahí el exacto ya es la verdad.
         if d.status == "incorrect" and d.activity_type in _AI_RESCUABLE:
             if ai_status == "correct":
                 d.status = "correct"
