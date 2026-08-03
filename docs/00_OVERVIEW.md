@@ -92,4 +92,6 @@ Además, sin cuenta:
 
 `00` Visión general · `01` Arquitectura · `02` Backend · `03` Frontend · `04` Base de datos ·
 `05` API · `06` IA · `07` DSL · `08` Renderer · `09` Seguridad · `10` Despliegue · `11` Testing ·
-`12` Reglas · `13` Roadmap · `14` Glosario · `15` Decisiones · `agents/` instrucciones para agentes.
+`12` Reglas · `13` Roadmap · `14` Glosario · `15` Decisiones · `16` Selección de modelo ·
+`prompts/` plantillas de prompt por tipo de tarea · `agents/` instrucciones para agentes
+(incluido el [orquestador](agents/ORCHESTRATOR.md)).

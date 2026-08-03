@@ -28,6 +28,11 @@ Nada más. **No cargues toda la documentación**: el resto se abre según la tar
 | Un término desconocido | `14_GLOSSARY.md` |
 | "¿Por qué está hecho así?" antes de proponer un cambio | `15_DECISIONS.md` |
 
+> Para **delegar** una tarea a otro modelo, el orquestador genera el prompt desde
+> [`docs/prompts/`](../prompts/README.md) y elige el modelo con
+> [`docs/16_MODEL_SELECTION`](../16_MODEL_SELECTION.md). Ver
+> [`docs/agents/ORCHESTRATOR.md`](ORCHESTRATOR.md).
+
 ## 3. Reglas que valen para cualquier tarea
 
 - **Nunca `DROP TABLE` ni `DROP COLUMN`.** La base está en producción con datos reales.
@@ -73,6 +78,8 @@ Si el cambio **altera comportamiento**, la documentación se actualiza **en el m
 | Variable de entorno o despliegue | [`10_DEPLOYMENT.md`](../10_DEPLOYMENT.md) |
 | Cerraste o abriste un pendiente | [`13_ROADMAP.md`](../13_ROADMAP.md) |
 | Descartaste una alternativa por un motivo que no se lee en el código | [`15_DECISIONS.md`](../15_DECISIONS.md) |
+| Cambiaste el catálogo de modelos, sus precios o una regla de enrutado | [`16_MODEL_SELECTION.md`](../16_MODEL_SELECTION.md) |
+| Añadiste o cambiaste una plantilla de prompt | `docs/prompts/` (la plantilla correspondiente) |
 
 Un término propio nuevo va a [`14_GLOSSARY.md`](../14_GLOSSARY.md); una regla dura nueva, a
 [`12_RULES.md`](../12_RULES.md).

@@ -25,6 +25,13 @@ Después, **solo** el documento del dominio que toque la tarea (tabla en `AGENT.
   cosa ni la otra.
 - Windows + PowerShell como shell por defecto.
 
+## Orquestador
+
+OpenCode es donde vive el **orquestador**: el modelo barato (DeepSeek V4 Flash) se usa por defecto
+para clasificar, planificar y delegar tareas sin programar. Ver
+[`ORCHESTRATOR.md`](ORCHESTRATOR.md), [`16_MODEL_SELECTION`](../16_MODEL_SELECTION.md) y las
+plantillas de [`docs/prompts/`](../prompts/README.md).
+
 ## Errores típicos de un modelo que llega sin contexto
 
 - Proponer un ORM, Alembic o `python-dotenv`. Ya se descartaron: ver `15_DECISIONS.md`.
