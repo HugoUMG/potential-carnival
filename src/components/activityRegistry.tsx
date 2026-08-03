@@ -523,7 +523,7 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
   );
 }
 
-function TrueFalseButtons({ index, selected, readonly, onChange }: { index: number; selected: string | undefined; readonly?: boolean; onChange: (val: string) => void }) {
+function TrueFalseButtons({ selected, readonly, onChange }: { selected: string | undefined; readonly?: boolean; onChange: (val: string) => void }) {
   return (
     <div className="flex gap-2">
       <button type="button" disabled={readonly} onClick={() => { playSfx('toggle'); onChange('true'); }}
@@ -573,7 +573,7 @@ function TrueFalseRenderer({ activity, value, readonly, onChange }: ActivityRend
       {activity.statements.map((stmt, index) => (
         <div key={index} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
           <span className="text-sm font-medium text-slate-800">{stmt.text}</span>
-          <TrueFalseButtons index={index} selected={selections[String(index)]} readonly={readonly} onChange={(val) => onChange(activity.id, { ...selections, [String(index)]: val })} />
+          <TrueFalseButtons selected={selections[String(index)]} readonly={readonly} onChange={(val) => onChange(activity.id, { ...selections, [String(index)]: val })} />
         </div>
       ))}
     </div>
@@ -594,7 +594,7 @@ function ReadingTrueFalseRenderer({ activity, value, readonly, onChange }: Activ
         {activity.statements.map((stmt, index) => (
           <div key={index} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
             <span className="text-sm font-medium text-slate-800">{stmt.text}</span>
-            <TrueFalseButtons index={index} selected={selections[String(index)]} readonly={readonly} onChange={(val) => onChange(activity.id, { ...selections, [String(index)]: val })} />
+            <TrueFalseButtons selected={selections[String(index)]} readonly={readonly} onChange={(val) => onChange(activity.id, { ...selections, [String(index)]: val })} />
           </div>
         ))}
       </div>

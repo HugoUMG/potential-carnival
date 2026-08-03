@@ -24,6 +24,9 @@ export function ReaderPortal() {
       .then(setVocabLists)
       .catch(() => {})
       .finally(() => setLoading(false));
+    // Depende del id, no del objeto `user`: si no, cada re-render con un `user` nuevo repetiría
+    // el registro de sesión y la carga de listas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Redirigir si token expira

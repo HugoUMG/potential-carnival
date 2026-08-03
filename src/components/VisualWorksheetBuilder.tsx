@@ -1,7 +1,11 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Constructor visual de hojas de trabajo.
  * Alternativa al editor de script DSL — misma funcionalidad, interfaz drag-and-form.
  * Tipos soportados: todos los tipos del sistema excepto speaking.
+ *
+ * Exporta `worksheetToVisualState` además de los componentes: vive aquí porque es el inverso de
+ * las tarjetas de este archivo. El coste es un refresco completo en desarrollo al tocarlo.
  */
 
 import { useRef, useState } from 'react';
@@ -106,50 +110,41 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     return { ...base, statements: tf.statements.map((s) => ({ id: crypto.randomUUID(), text: s.text, answer: s.answer })) };
   }
   if (act.type === 'listening') {
-    return { ...base, audioText: (act as any).text ?? '', question: (act as any).question ?? '', answer: (act as any).answer ?? '' };
+    return { ...base, audioText: act.text ?? '', question: act.question ?? '', answer: act.answer ?? '' };
   }
   if (act.type === 'listeningfillblank') {
-    const a = act as any;
-    return { ...base, audioText: a.audio_text ?? '', text: a.text ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? '') };
+    return { ...base, audioText: act.audio_text ?? '', text: act.text ?? '', answer: Array.isArray(act.answer) ? act.answer.join(', ') : (act.answer ?? '') };
   }
   if (act.type === 'listeningmultiplechoice') {
-    const a = act as any;
-    return { ...base, audioText: a.audio_text ?? '', question: a.question ?? '', options: a.options ?? [], correctOption: a.answer ?? '' };
+    return { ...base, audioText: act.audio_text ?? '', question: act.question ?? '', options: act.options ?? [], correctOption: act.answer ?? '' };
   }
   if (act.type === 'listeningmatching') {
-    const a = act as any;
-    const pairs: VisualPair[] = (a.pairs ?? []).map((p: any) => ({ id: crypto.randomUUID(), audioText: p.audio_text ?? '', match: p.match ?? '' }));
-    return { ...base, pairs, options: a.options ?? [] };
+    const pairs: VisualPair[] = (act.pairs ?? []).map((p) => ({ id: crypto.randomUUID(), audioText: p.audio_text ?? '', match: p.match ?? '' }));
+    return { ...base, pairs, options: act.options ?? [] };
   }
   if (act.type === 'listeningtruefalse') {
-    const a = act as any;
-    const statements: VisualStatement[] = (a.statements ?? []).map((s: any) => ({ id: crypto.randomUUID(), text: s.text ?? '', answer: s.answer ?? false }));
-    return { ...base, audioText: a.audio_text ?? '', statements };
+    const statements: VisualStatement[] = (act.statements ?? []).map((s) => ({ id: crypto.randomUUID(), text: s.text ?? '', answer: s.answer ?? false }));
+    return { ...base, audioText: act.audio_text ?? '', statements };
   }
   if (act.type === 'listeningorder') {
-    const a = act as any;
-    return { ...base, audioText: a.audio_text ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? ''), bank: a.bank ?? [] };
+    return { ...base, audioText: act.audio_text ?? '', answer: Array.isArray(act.answer) ? act.answer.join(', ') : (act.answer ?? ''), bank: act.bank ?? [] };
   }
   if (act.type === 'conversation') {
-    const a = act as any;
-    const lines: VisualLine[] = (a.lines ?? []).map((l: any) => ({ id: crypto.randomUUID(), speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text ?? '' }));
-    return { ...base, lines, question: a.question ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? '') };
+    const lines: VisualLine[] = (act.lines ?? []).map((l) => ({ id: crypto.randomUUID(), speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text ?? '' }));
+    return { ...base, lines, question: act.question ?? '', answer: Array.isArray(act.answer) ? act.answer.join(', ') : (act.answer ?? '') };
   }
   if (act.type === 'content') {
-    const a = act as any;
-    return { ...base, readingTitle: a.title ?? '', html: a.html ?? '', sandbox: !!a.sandbox };
+    return { ...base, readingTitle: act.title ?? '', html: act.html ?? '', sandbox: !!act.sandbox };
   }
   if (act.type === 'reading') {
-    const a = act as any;
-    return { ...base, readingTitle: a.title ?? '', readingContent: a.content ?? '', readingQuestions: a.questions ?? [] };
+    return { ...base, readingTitle: act.title ?? '', readingContent: act.content ?? '', readingQuestions: act.questions ?? [] };
   }
   if (act.type === 'readingtruefalse') {
     const rtf = act as ReadingTrueFalseActivity;
     return { ...base, readingTitle: rtf.title ?? '', readingContent: rtf.content ?? '', statements: (rtf.statements ?? []).map((s) => ({ id: crypto.randomUUID(), text: s.text, answer: s.answer })) };
   }
   if (act.type === 'imagequestion') {
-    const a = act as any;
-    return { ...base, imageUrl: a.image ?? '', prompt: a.prompt ?? '' };
+    return { ...base, imageUrl: act.image ?? '', prompt: act.prompt ?? '' };
   }
   if (act.type === 'speaking') {
     const sp = act as SpeakingActivity;

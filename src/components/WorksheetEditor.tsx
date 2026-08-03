@@ -418,7 +418,7 @@ export function WorksheetEditor({
     setAiSuccess('');
     try {
       const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId);
-      onScriptChange((generated as any).script_content ?? generated.scriptContent ?? '');
+      onScriptChange(generated.scriptContent ?? '');
       setAiSuccess('✓ Hoja generada. Revisa el script y guárdalo cuando estés listo.');
       setMode('script');
     } catch (err) {

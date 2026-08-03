@@ -692,8 +692,12 @@ export async function aiEditWorksheet(scriptContent: string, instruction: string
 }
 
 export async function generateWorksheetWithAI(prompt: string, createdBy: string): Promise<Worksheet> {
-  return request<Worksheet>('/worksheets/ai-generate', {
+  // El endpoint devuelve la hoja en el formato del backend (script_content, json_content…), igual
+  // que crear o actualizar. Antes se devolvía tal cual diciendo que era un `Worksheet`, así que
+  // quien la usaba tenía que ir a buscar `script_content` con un cast a `any`.
+  const worksheet = await request<BackendWorksheet>('/worksheets/ai-generate', {
     method: 'POST',
     body: JSON.stringify({ prompt, created_by: createdBy }),
   });
+  return normalizeWorksheet(worksheet);
 }

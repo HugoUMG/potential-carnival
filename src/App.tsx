@@ -307,6 +307,9 @@ export default function App() {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       void Notification.requestPermission();
     }
+    // Depende del id, no del objeto `user`: se pide el permiso una vez por sesión, no cada vez
+    // que `user` cambia de referencia.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   useEffect(() => {
