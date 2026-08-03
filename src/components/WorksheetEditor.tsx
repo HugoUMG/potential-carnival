@@ -277,6 +277,8 @@ interface WorksheetEditorProps {
   /** Hoja recién guardada; null mientras se edita. Dispara el aviso "Guardada". */
   savedWorksheet?: Worksheet | null;
   onPreviewSaved?: () => void;
+  /** La IA genera Y guarda: hay que adoptar esa hoja como la que se está editando. */
+  onAiGenerated?: (worksheet: Worksheet) => void;
 }
 
 type EditorMode = 'script' | 'visual' | 'ai';
@@ -332,7 +334,7 @@ function toleranceLabel(value: number): { title: string; detail: string } {
 export function WorksheetEditor({
   worksheet, scriptDraft, maxAttemptsDraft, aiGradingDraft, aiToleranceDraft, isSaving, isEditing, message, userId,
   onScriptChange, onMaxAttemptsChange, onAiGradingChange, onAiToleranceChange, onSaveScript,
-  savedWorksheet, onPreviewSaved,
+  savedWorksheet, onPreviewSaved, onAiGenerated,
 }: WorksheetEditorProps) {
   const [mode, setMode] = useState<EditorMode>('script');
   const [skippedWarning, setSkippedWarning] = useState<number | null>(null);
@@ -419,7 +421,10 @@ export function WorksheetEditor({
     try {
       const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId);
       onScriptChange(generated.scriptContent ?? '');
-      setAiSuccess('✓ Hoja generada. Revisa el script y guárdalo cuando estés listo.');
+      // `/worksheets/ai-generate` YA guardó la hoja. Hay que atar el editor a ella o el primer
+      // "guardar" crearía una segunda: la generada quedaría huérfana en la lista.
+      onAiGenerated?.(generated);
+      setAiSuccess('✓ Hoja generada y guardada. Revísala y guarda de nuevo si la cambias.');
       setMode('script');
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Error al generar con IA. Intenta de nuevo.');

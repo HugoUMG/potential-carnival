@@ -101,6 +101,10 @@ copia. Por el mismo motivo, actualizar **no** vuelve a poner `editingWorksheetId
 Solo se empieza una hoja nueva desde el menú "Crear evaluación" o el botón "Nueva evaluación", que
 limpian el `editingWorksheetId` a propósito.
 
+**Generar con IA no devuelve un borrador: `POST /worksheets/ai-generate` YA guarda la hoja.** Por eso
+`adoptAiWorksheet` la adopta como la hoja en edición. Sin eso, el primer "guardar" después de generar
+creaba una segunda y la generada quedaba huérfana en la lista → [05](05_API.md).
+
 Guardar tampoco saca del editor ni abre la vista previa: aparece `SavedPanel` ("Guardada") con cuatro
 atajos — vista previa, constructor visual, script e IA. El `useEffect` de `WorksheetEditor` que vigila
 `worksheet.scriptContent` recarga el constructor visual cuando la hoja cambió por fuera; sin él,

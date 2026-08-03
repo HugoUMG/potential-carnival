@@ -455,6 +455,16 @@ export default function App() {
     setAdminMenu('crear');
   }
 
+  /** La IA no devuelve un borrador: `/worksheets/ai-generate` ya la guardó. Se adopta como la hoja
+   *  en edición para que el siguiente "guardar" la ACTUALICE en vez de crear una copia. */
+  function adoptAiWorksheet(worksheet: Worksheet) {
+    setActiveWorksheet(worksheet);
+    setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== sampleWorksheet.id && item.id !== worksheet.id)]);
+    setSelectedActivityId(worksheet.activities[0]?.id ?? '');
+    setEditingWorksheetId(worksheet.id);
+    setSavedWorksheet(worksheet);
+  }
+
   async function saveScript(scriptOverride?: string) {
     if (!user) return;
     // scriptOverride: lo pasa el modo visual con el DSL recién serializado (evita el closure viejo de scriptDraft).
@@ -1399,7 +1409,7 @@ export default function App() {
             </div>
           </section>
         )}
-        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} aiToleranceDraft={aiToleranceDraft} isSaving={isSaving} isEditing={!!editingWorksheetId} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={(script) => { setScriptDraft(script); setSavedWorksheet(null); }} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onAiToleranceChange={setAiToleranceDraft} onSaveScript={saveScript} savedWorksheet={savedWorksheet} onPreviewSaved={() => setPreviewWorksheet(savedWorksheet)} />}
+        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} aiToleranceDraft={aiToleranceDraft} isSaving={isSaving} isEditing={!!editingWorksheetId} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={(script) => { setScriptDraft(script); setSavedWorksheet(null); }} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onAiToleranceChange={setAiToleranceDraft} onSaveScript={saveScript} savedWorksheet={savedWorksheet} onPreviewSaved={() => setPreviewWorksheet(savedWorksheet)} onAiGenerated={adoptAiWorksheet} />}
         {adminMenu === 'estudiantes' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-rex">Estudiantes</p>

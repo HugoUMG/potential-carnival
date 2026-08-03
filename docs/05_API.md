@@ -69,8 +69,8 @@ PUT    /users/{id}/password                   — Cambiar contraseña (los reade
 ```
 POST   /worksheets                            — Crear desde script DSL
 PUT    /worksheets/{id}                       — Editar en el sitio (409 si ya tiene respuestas)
-POST   /worksheets/ai-generate                — Generar hoja con IA desde un prompt
-POST   /worksheets/ai-edit                    — Reescribir el script con una instrucción en lenguaje natural
+POST   /worksheets/ai-generate                — Generar hoja con IA desde un prompt (LA GUARDA: devuelve la hoja creada, no un borrador)
+POST   /worksheets/ai-edit                    — Reescribir el script con una instrucción en lenguaje natural (NO guarda)
 GET    /worksheets                            — Listar (filtros: created_by, published, archived)
 GET    /worksheets/{id}                       — Detalle (payload COMPLETO, con claves: es del profesor)
 GET    /worksheets/response-counts            — Conteo de respuestas por hoja (bulk)
