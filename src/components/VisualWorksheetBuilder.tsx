@@ -8,14 +8,15 @@ import { useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { SandboxedHtml } from './SandboxedHtml';
 import {
-  AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2,
-  GripVertical, List, Loader2, PlusCircle, Save, Trash2, ToggleLeft, Upload,
+  AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2, Eye,
+  GripVertical, List, Loader2, Pencil, PlusCircle, Save, Trash2, ToggleLeft, Upload,
   Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText,
 } from 'lucide-react';
 import { subirImagen } from '../services/api';
-import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock } from '../types';
+import { activityRegistry } from './activityRegistry';
+import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock, ActivityRendererProps } from '../types';
 import {
-  serializeToScript, emptyActivity, emptyBlock, emptyState,
+  serializeToScript, toWorksheetActivity, emptyActivity, emptyBlock, emptyState,
   type VisualActivity, type VisualBlock, type VisualState, type VisualStatement, type VisualPair, type VisualLine, type VisualActivityType,
 } from '../utils/dslSerializer';
 
@@ -788,12 +789,26 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
   );
 }
 
-function ActivityCard({ act, index, total, onUpdate, onRemove, onMove, onDragStartHandle, onDragOverCard, onDropCard, onDragEndCard, over }: {
+/** Cómo verá el alumno esta actividad, pintada con el renderer de verdad (no una imitación).
+ *  Es lo que se muestra en la tarjeta plegada: diseñar y ver se parecen porque son lo mismo. */
+function StudentPreview({ act }: { act: VisualActivity }) {
+  const entry = activityRegistry[act.type as keyof typeof activityRegistry];
+  if (!entry) return <p className="text-sm italic text-slate-400">Este tipo no tiene vista previa.</p>;
+  const Renderer = entry.Renderer as React.ComponentType<ActivityRendererProps>;
+  return (
+    // pointer-events-none: la vista previa no se responde, se abre. El clic lo recoge la tarjeta.
+    <div className="pointer-events-none select-none">
+      <Renderer activity={toWorksheetActivity(act)} readonly onChange={() => {}} />
+    </div>
+  );
+}
+
+function ActivityCard({ act, index, total, expanded, onToggle, onUpdate, onRemove, onMove, onDragStartHandle, onDragOverCard, onDropCard, onDragEndCard, over }: {
   act: VisualActivity; index: number; total: number;
+  expanded: boolean; onToggle: () => void;
   onUpdate: (a: VisualActivity) => void; onRemove: () => void; onMove: (dir: -1 | 1) => void;
   onDragStartHandle: () => void; onDragOverCard: (e: React.DragEvent) => void; onDropCard: () => void; onDragEndCard: () => void; over: boolean;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const meta = TYPE_META[act.type];
 
   return (
@@ -817,15 +832,26 @@ function ActivityCard({ act, index, total, onUpdate, onRemove, onMove, onDragSta
         <div className="ml-auto flex items-center gap-1">
           <button type="button" disabled={index === 0} onClick={() => onMove(-1)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white disabled:opacity-30"><ChevronUp size={14} /></button>
           <button type="button" disabled={index === total - 1} onClick={() => onMove(1)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white disabled:opacity-30"><ChevronDown size={14} /></button>
-          <button type="button" onClick={() => setExpanded((v) => !v)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white">
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          <button type="button" onClick={onToggle} title={expanded ? 'Cerrar y ver como el alumno' : 'Editar'} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white">
+            {expanded ? <Eye size={14} /> : <Pencil size={14} />}
           </button>
           <button type="button" onClick={onRemove} className="rounded-lg p-1.5 text-red-400 transition hover:bg-red-50"><Trash2 size={14} /></button>
         </div>
       </div>
-      {expanded && (
+      {expanded ? (
         <div className="border-t border-white/60 bg-white/70 px-4 py-4 grid gap-4">
           <ActivityEditor act={act} onChange={onUpdate} />
+        </div>
+      ) : (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onToggle}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+          title="Clic para editar"
+          className="cursor-text border-t border-white/60 bg-white px-4 py-4 transition hover:bg-slate-50"
+        >
+          <StudentPreview act={act} />
         </div>
       )}
     </div>
@@ -834,8 +860,9 @@ function ActivityCard({ act, index, total, onUpdate, onRemove, onMove, onDragSta
 
 // ── Tarjeta de bloque ─────────────────────────────────────────────────────────
 
-function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveBlock }: {
+function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActivity, onUpdate, onRemove, onMoveBlock }: {
   block: VisualBlock; blockIndex: number; totalBlocks: number;
+  openActivityId: string | null; onOpenActivity: (id: string | null) => void;
   onUpdate: (b: VisualBlock) => void; onRemove: () => void; onMoveBlock: (dir: -1 | 1) => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
@@ -861,7 +888,9 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
     onUpdate({ ...block, activities: arr });
   };
   const addActivity = (type: VisualActivityType) => {
-    onUpdate({ ...block, activities: [...block.activities, emptyActivity(type)] });
+    const nueva = emptyActivity(type);
+    onUpdate({ ...block, activities: [...block.activities, nueva] });
+    onOpenActivity(nueva.id); // recién creada = vacía: se abre para llenarla, no para mirarla
     setShowPicker(false);
   };
 
@@ -891,6 +920,8 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
         )}
         {block.activities.map((act, i) => (
           <ActivityCard key={act.id} act={act} index={i} total={block.activities.length}
+            expanded={openActivityId === act.id}
+            onToggle={() => onOpenActivity(openActivityId === act.id ? null : act.id)}
             onUpdate={(a) => updateActivity(act.id, a)}
             onRemove={() => removeActivity(act.id)}
             onMove={(dir) => moveActivity(i, dir)}
@@ -950,6 +981,9 @@ interface VisualWorksheetBuilderProps {
 
 export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, isEditing, message, onMaxAttemptsChange, onSave, getScriptRef }: VisualWorksheetBuilderProps) {
   const [state, setState] = useState<VisualState>(initialState);
+  // Una sola tarjeta abierta en toda la hoja (como Google Forms): el resto se ve como la ve el
+  // alumno. null = todas plegadas, que es la vista de "así queda".
+  const [openActivityId, setOpenActivityId] = useState<string | null>(null);
   if (getScriptRef) getScriptRef.current = () => serializeToScript(state); // para "Pídele a la IA" en modo visual
 
   const updateBlock = (id: string, block: VisualBlock) =>
@@ -1023,6 +1057,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
 
       {state.blocks.map((block, i) => (
         <BlockCard key={block.id} block={block} blockIndex={i} totalBlocks={state.blocks.length}
+          openActivityId={openActivityId} onOpenActivity={setOpenActivityId}
           onUpdate={(b) => updateBlock(block.id, b)}
           onRemove={() => removeBlock(block.id)}
           onMoveBlock={(dir) => moveBlock(i, dir)} />

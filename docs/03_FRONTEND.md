@@ -67,7 +67,7 @@ Seguimiento (antes eran diez botones seguidos).
 |---------|----------|
 | `theme.ts` | `initTheme()` / `toggleTheme()`; el tema vive en `data-theme` del `<html>` |
 | `sfx.ts` | Blips de clic sintetizados con ZzFX (sin archivos de audio) |
-| `dslSerializer.ts` | Estado del constructor visual → DSL |
+| `dslSerializer.ts` | Estado del constructor visual → DSL (`serializeToScript`) y → actividad del renderer (`toWorksheetActivity`) |
 | `generationPrompt.ts` | `GENERATION_PROMPT`: el prompt que el profesor copia para otra IA |
 | `voicePreference.ts` | Preferencia global de voz TTS |
 
@@ -87,8 +87,35 @@ El único estado compartido fuera de React son `localStorage` (JWT, tema, `dw_co
 directo, `guest_token`) y el atributo `data-theme`.
 
 Estados con nombre que conviene conocer en `App.tsx`:
-`editingWorksheetId` (editar en el sitio), `practiceWorksheet` / `practiceAnswers` / `practiceResult`
-(modo práctica), `activeWorksheet`, `submitResult`.
+`editingWorksheetId` (editar en el sitio), `savedWorksheet` (aviso "Guardada"), `practiceWorksheet` /
+`practiceAnswers` / `practiceResult` (modo práctica), `activeWorksheet`, `submitResult`.
+
+## Guardar una hoja: siempre la MISMA hoja
+
+`saveScript` elige entre `createWorksheet` y `updateWorksheet` según `editingWorksheetId`. La regla:
+
+**Al crear, el editor queda atado a la hoja recién creada (`setEditingWorksheetId(worksheet.id)`).**
+No hacerlo fue un bug real: cada guardado posterior volvía a entrar por `createWorksheet` y nacía una
+copia. Por el mismo motivo, actualizar **no** vuelve a poner `editingWorksheetId` a `null`.
+
+Solo se empieza una hoja nueva desde el menú "Crear evaluación" o el botón "Nueva evaluación", que
+limpian el `editingWorksheetId` a propósito.
+
+Guardar tampoco saca del editor ni abre la vista previa: aparece `SavedPanel` ("Guardada") con cuatro
+atajos — vista previa, constructor visual, script e IA. El `useEffect` de `WorksheetEditor` que vigila
+`worksheet.scriptContent` recarga el constructor visual cuando la hoja cambió por fuera; sin él,
+"ver y editar en gráfico" abría la versión anterior y el siguiente guardado la revertía.
+
+## Constructor visual: se diseña sobre lo que verá el alumno
+
+Cada actividad plegada se pinta con el **renderer de verdad** (`activityRegistry`, en `readonly` y
+dentro de un `pointer-events-none`), no con una imitación. Al hacer clic se abre el formulario de
+edición, y solo hay **una tarjeta abierta a la vez** en toda la hoja.
+
+El puente es `toWorksheetActivity` (`dslSerializer.ts`), espejo exacto de `serializeActivity`: los dos
+traducen los campos planos del constructor a la forma real del tipo. Si tocas uno y no el otro, la
+tarjeta del profesor **miente** sobre lo que verá el alumno en vez de fallar. El `switch` exhaustivo
+sobre la unión hace que `tsc` avise si falta un tipo entero, pero no si falta un campo.
 
 ## Modo oscuro: **no se toca el JSX**
 

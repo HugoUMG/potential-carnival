@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
-import { Code2, LayoutTemplate, Sparkles, Save, Loader2, Wand2, ClipboardCopy, Check } from 'lucide-react';
+import { Code2, Eye, LayoutTemplate, Sparkles, Save, Loader2, Wand2, ClipboardCopy, Check } from 'lucide-react';
 import { VisualWorksheetBuilder, worksheetToVisualState } from './VisualWorksheetBuilder';
 import { emptyState } from '../utils/dslSerializer';
 import { generateWorksheetWithAI, aiEditWorksheet } from '../services/api';
@@ -274,9 +274,44 @@ interface WorksheetEditorProps {
   onAiGradingChange: (value: boolean) => void;
   onAiToleranceChange: (value: number) => void;
   onSaveScript: (script?: string) => void;
+  /** Hoja recién guardada; null mientras se edita. Dispara el aviso "Guardada". */
+  savedWorksheet?: Worksheet | null;
+  onPreviewSaved?: () => void;
 }
 
 type EditorMode = 'script' | 'visual' | 'ai';
+
+/** Aviso tras guardar. Sustituye a la vista previa que antes se abría sola y sacaba del editor:
+ *  desde aquí eliges tú qué hacer con la hoja, y sigues sobre la MISMA (no nace una copia). */
+function SavedPanel({ worksheet, onPreview, onVisual, onScript, onAi }: {
+  worksheet: Worksheet;
+  onPreview: () => void; onVisual: () => void; onScript: () => void; onAi: () => void;
+}) {
+  const acciones = [
+    { label: 'Vista previa', icon: <Eye size={15} />, onClick: onPreview, title: 'Verla como la verá el alumno' },
+    { label: 'Ver y editar en gráfico', icon: <LayoutTemplate size={15} />, onClick: onVisual, title: 'Abrir el constructor visual sobre esta hoja' },
+    { label: 'Editar', icon: <Code2 size={15} />, onClick: onScript, title: 'Volver al script' },
+    { label: 'Pedir cambios a la IA', icon: <Sparkles size={15} />, onClick: onAi, title: 'Describir los cambios en lenguaje natural' },
+  ];
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+      <p className="flex items-center gap-2 text-sm font-bold text-emerald-800">
+        <Check size={16} /> Guardada
+      </p>
+      <p className="mt-0.5 text-sm text-emerald-700">
+        «{worksheet.title}» está guardada. Sigues sobre la misma hoja: lo que cambies y vuelvas a guardar la actualiza.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {acciones.map((a) => (
+          <button key={a.label} type="button" onClick={a.onClick} title={a.title}
+            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100">
+            {a.icon} {a.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** Los tres escalones que entiende el backend (`_grade_system` en ai.py). */
 function toleranceLabel(value: number): { title: string; detail: string } {
@@ -297,6 +332,7 @@ function toleranceLabel(value: number): { title: string; detail: string } {
 export function WorksheetEditor({
   worksheet, scriptDraft, maxAttemptsDraft, aiGradingDraft, aiToleranceDraft, isSaving, isEditing, message, userId,
   onScriptChange, onMaxAttemptsChange, onAiGradingChange, onAiToleranceChange, onSaveScript,
+  savedWorksheet, onPreviewSaved,
 }: WorksheetEditorProps) {
   const [mode, setMode] = useState<EditorMode>('script');
   const [skippedWarning, setSkippedWarning] = useState<number | null>(null);
@@ -337,6 +373,21 @@ export function WorksheetEditor({
 
   const [visualState, setVisualState] = useState(() => buildVisualState());
   const [visualKey, setVisualKey] = useState(0); // remonta el builder al "empezar de cero"
+
+  // El constructor guarda su propia copia del estado, así que hay que recargarlo cuando la hoja
+  // cambia por fuera (al guardar desde el script, al abrir otra hoja). Sin esto, "ver y editar en
+  // gráfico" después de guardar abría la versión anterior y el siguiente guardado la revertía.
+  const loadedScript = useRef(worksheet.scriptContent);
+  useEffect(() => {
+    if (worksheet.scriptContent === loadedScript.current) return;
+    loadedScript.current = worksheet.scriptContent;
+    if (mode === 'visual') return; // lo guardó el propio builder: su estado ya es el bueno
+    const hasContent = worksheet.blocks?.length || worksheet.activities.length;
+    const { state, skipped } = hasContent ? worksheetToVisualState(worksheet) : { state: emptyState(), skipped: 0 };
+    setVisualState(state);
+    setSkippedWarning(skipped > 0 ? skipped : null);
+    setVisualKey((k) => k + 1);
+  }, [worksheet, mode]);
 
   const clearAll = () => {
     if (!confirm('¿Empezar de cero? Se limpiará el contenido actual del editor (no afecta lo ya guardado).')) return;
@@ -383,6 +434,16 @@ export function WorksheetEditor({
     { id: 'ai',      label: 'Generar con IA', icon: <Sparkles size={15} /> },
   ];
 
+  const savedPanel = savedWorksheet ? (
+    <SavedPanel
+      worksheet={savedWorksheet}
+      onPreview={() => onPreviewSaved?.()}
+      onVisual={switchToVisual}
+      onScript={() => setMode('script')}
+      onAi={() => setMode('ai')}
+    />
+  ) : null;
+
   // En modo script: layout de 3 columnas. En visual e IA: ancho completo.
   if (mode !== 'script') {
     return (
@@ -402,6 +463,8 @@ export function WorksheetEditor({
             </button>
           ))}
         </div>
+
+        {savedPanel}
 
         <div className="flex flex-wrap items-center gap-3">
           {mode === 'visual' && <AskAiEdit getScript={() => visualScriptRef.current?.() ?? scriptDraft} onApply={(s) => { onScriptChange(s); setMode('script'); }} />}
@@ -443,6 +506,8 @@ export function WorksheetEditor({
           </button>
         ))}
       </div>
+
+      {savedPanel}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <AskAiEdit getScript={() => scriptDraft} onApply={onScriptChange} />

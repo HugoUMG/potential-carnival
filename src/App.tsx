@@ -232,6 +232,8 @@ export default function App() {
   const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
   const [submitPrompt, setSubmitPrompt] = useState<SubmitPrompt | null>(null);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
+  /** Hoja recién guardada: mientras esté, el editor muestra el aviso "Guardada" con sus atajos. */
+  const [savedWorksheet, setSavedWorksheet] = useState<Worksheet | null>(null);
   // Modo práctica: el profesor resuelve la hoja para verificar sus respuestas (no se guarda nada).
   const [practiceWorksheet, setPracticeWorksheet] = useState<Worksheet | null>(null);
   const [practiceAnswers, setPracticeAnswers] = useState<StudentAnswers>({});
@@ -441,6 +443,7 @@ export default function App() {
     }
     setEditingWorksheetId(worksheet.id);
     setActiveWorksheet(worksheet);
+    setSavedWorksheet(null);
     setScriptDraft(worksheet.scriptContent);
     setMaxAttemptsDraft(worksheet.maxAttempts ? String(worksheet.maxAttempts) : 'unlimited');
     setAiGradingDraft(worksheet.aiGrading ?? true);
@@ -458,23 +461,25 @@ export default function App() {
     setMessage('');
     try {
       const maxAttempts = maxAttemptsDraft === 'unlimited' ? null : Number(maxAttemptsDraft);
+      // Guardar NO saca del editor ni abre la vista previa de golpe: se queda aquí con el aviso
+      // de "Guardada" y sus botones. Antes, cada guardado te echaba a la lista y había que volver
+      // a entrar para seguir tocando la misma hoja.
       if (editingWorksheetId) {
         const worksheet = await updateWorksheet(editingWorksheetId, script, maxAttempts, aiGradingDraft, aiToleranceDraft);
         setActiveWorksheet(worksheet);
         setWorksheets((current) => current.map((item) => (item.id === worksheet.id ? worksheet : item)));
         setSelectedActivityId(worksheet.activities[0]?.id ?? '');
-        setEditingWorksheetId(null);
-        setAdminMenu('evaluaciones');
-        setMessage('Evaluación actualizada.');
-        setPreviewWorksheet(worksheet); // vista previa de cómo la verá el estudiante
+        setSavedWorksheet(worksheet);
       } else {
         const worksheet = await createWorksheet(script, user.id, maxAttempts, aiGradingDraft, aiToleranceDraft);
         setActiveWorksheet(worksheet);
         setWorksheets((current) => [worksheet, ...current.filter((item) => item.id !== sampleWorksheet.id)]);
         setSelectedActivityId(worksheet.activities[0]?.id ?? '');
-        setAdminMenu('evaluaciones');
-        setMessage('Evaluación guardada. Ahora puedes habilitarla.');
-        setPreviewWorksheet(worksheet); // vista previa de cómo la verá el estudiante
+        // Clave contra los borradores duplicados: a partir de aquí el editor queda atado a la hoja
+        // recién creada. Sin esto, el siguiente guardado volvía a entrar por `createWorksheet` y
+        // nacía una copia nueva por cada vez que le dabas a guardar.
+        setEditingWorksheetId(worksheet.id);
+        setSavedWorksheet(worksheet);
       }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No se pudo guardar la evaluación.');
@@ -660,6 +665,7 @@ export default function App() {
       setAiGradingDraft(true);
       setAiToleranceDraft(50);
       setMessage('');
+      setSavedWorksheet(null);
     }
     if (menu === 'revision' && user) {
       localStorage.setItem(`teacher_notif_since_${user.id}`, new Date().toISOString());
@@ -1390,7 +1396,7 @@ export default function App() {
             </div>
           </section>
         )}
-        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} aiToleranceDraft={aiToleranceDraft} isSaving={isSaving} isEditing={!!editingWorksheetId} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={setScriptDraft} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onAiToleranceChange={setAiToleranceDraft} onSaveScript={saveScript} />}
+        {adminMenu === 'crear' && <WorksheetEditor worksheet={activeWorksheet} selectedActivity={selectedActivity} scriptDraft={scriptDraft} maxAttemptsDraft={maxAttemptsDraft} aiGradingDraft={aiGradingDraft} aiToleranceDraft={aiToleranceDraft} isSaving={isSaving} isEditing={!!editingWorksheetId} message={message} userId={user?.id ?? ''} onAddActivity={(activity: WorksheetActivity) => { setActiveWorksheet((current) => ({ ...current, activities: [...current.activities, activity] })); setSelectedActivityId(activity.id); }} onScriptChange={(script) => { setScriptDraft(script); setSavedWorksheet(null); }} onMaxAttemptsChange={setMaxAttemptsDraft} onAiGradingChange={setAiGradingDraft} onAiToleranceChange={setAiToleranceDraft} onSaveScript={saveScript} savedWorksheet={savedWorksheet} onPreviewSaved={() => setPreviewWorksheet(savedWorksheet)} />}
         {adminMenu === 'estudiantes' && (
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-rex">Estudiantes</p>
@@ -1429,7 +1435,7 @@ export default function App() {
                 <h2 className="text-2xl font-bold">Tus hojas de trabajo</h2>
                 <p className="mt-1 max-w-2xl text-sm text-slate-500">Todo lo que has creado. Desde aquí habilitas una hoja para que se pueda responder, la asignas a un aula o copias su enlace directo, y en “Más” la editas, duplicas, imprimes o archivas.</p>
               </div>
-              <button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={() => { setEditingWorksheetId(null); setScriptDraft(''); setMaxAttemptsDraft('unlimited'); setAiGradingDraft(true); setAiToleranceDraft(50); setMessage(''); setAdminMenu('crear'); }}>Nueva evaluación</button>
+              <button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={() => { setEditingWorksheetId(null); setScriptDraft(''); setMaxAttemptsDraft('unlimited'); setAiGradingDraft(true); setAiToleranceDraft(50); setMessage(''); setSavedWorksheet(null); setAdminMenu('crear'); }}>Nueva evaluación</button>
             </div>
             {/* Search */}
             <div className="mt-4 relative">
