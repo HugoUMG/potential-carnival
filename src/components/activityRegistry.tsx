@@ -997,7 +997,9 @@ function ContentRenderer({ activity }: ActivityRendererProps<ContentActivity>) {
 function ImageQuestionRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ImageQuestionActivity>) {
   return (
     <div>
-      <img className="mb-4 h-56 w-full rounded-2xl object-cover" src={activity.image} alt="Worksheet prompt image" />
+      {/* Sin object-cover: la altura fija recortaba la foto y en un `imagequestion` el alumno
+          tiene que ver la imagen entera para responder. w-auto + max-* respeta la proporción. */}
+      <img className="mx-auto mb-4 block max-h-[26rem] w-auto max-w-full rounded-2xl" src={activity.image} alt="Worksheet prompt image" />
       <TextBoxRenderer activity={{ ...activity, type: 'textbox' }} value={value} readonly={readonly} onChange={onChange} />
     </div>
   );

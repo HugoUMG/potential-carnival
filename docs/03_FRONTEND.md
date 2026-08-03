@@ -46,7 +46,7 @@ Seguimiento (antes eran diez botones seguidos).
 | `WorksheetRenderer.tsx` | Pinta una hoja al alumno (bloques, tema, `gradeStatus`) → [08](08_RENDERER.md) |
 | `activityRegistry.tsx` | Un componente por tipo de actividad → [08](08_RENDERER.md) |
 | `WorksheetEditor.tsx` | Editor del profesor en tres modos (script / visual / IA) |
-| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 19 tipos |
+| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 19 tipos. En `imagequestion`, "Subir" llama a `subirImagen()` y rellena el campo con la URL |
 | `WorksheetPrint.tsx` | Vista de papel + `window.print()` → PDF |
 | `VocabularyViewer.tsx` / `VocabularyPrint.tsx` | Listas de vocabulario |
 | `AudioPlayer.tsx` | Reproductor TTS (`/tts`, y `/tts/conversation` con la prop `conversation`) |

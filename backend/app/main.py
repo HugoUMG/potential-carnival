@@ -1,5 +1,6 @@
 from typing import Any
 import asyncio
+import hashlib
 import os
 import time
 
@@ -334,6 +335,36 @@ def list_worksheet_classrooms(worksheet_id: str, current_user: PublicUser = Depe
 @app.get("/dashboard/teacher", response_model=TeacherDashboardStats)
 def teacher_dashboard(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
     return repository.teacher_dashboard(None if current_user.role == UserRole.admin else current_user.id)
+
+
+@app.post("/uploads/signature")
+def upload_signature(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Firma una subida directa del navegador a Cloudinary.
+
+    El archivo NUNCA pasa por este backend: el front hace POST a Cloudinary con esta firma.
+    Render no gasta ancho de banda ni RAM, y la subida no depende del cold start del free tier.
+
+    ponytail: firma HMAC a mano (SHA-1, 4 líneas) en vez de instalar el SDK de Cloudinary,
+    que solo se usaría para esto. Si algún día hace falta borrar o listar assets, ahí sí.
+    """
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+    api_key = os.getenv("CLOUDINARY_API_KEY")
+    api_secret = os.getenv("CLOUDINARY_API_SECRET")
+    if not (cloud_name and api_key and api_secret):
+        raise HTTPException(status_code=503, detail="La subida de imágenes no está configurada en el servidor.")
+
+    timestamp = int(time.time())
+    folder = f"mydinoenglish/{current_user.id}"
+    # Cloudinary firma los parámetros ordenados alfabéticamente: folder antes que timestamp.
+    # La firma debe cubrir EXACTAMENTE los campos que el front envía (aparte de file/api_key).
+    to_sign = f"folder={folder}&timestamp={timestamp}{api_secret}"
+    return {
+        "cloud_name": cloud_name,
+        "api_key": api_key,
+        "timestamp": timestamp,
+        "folder": folder,
+        "signature": hashlib.sha1(to_sign.encode()).hexdigest(),
+    }
 
 
 @app.get("/tts")

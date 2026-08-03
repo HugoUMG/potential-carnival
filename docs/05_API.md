@@ -158,6 +158,23 @@ GET    /readers/{id}/vocabulary
 POST   /reader/log-session                    — Registra el acceso de un lector
 ```
 
+## Imágenes (subida)
+
+```
+POST   /uploads/signature                     — Firma una subida directa a Cloudinary (profesor/admin)
+```
+
+Devuelve `{cloud_name, api_key, timestamp, folder, signature}`. **El archivo no pasa por este
+backend**: con esa firma el navegador hace `POST` a
+`https://api.cloudinary.com/v1_1/{cloud_name}/image/upload` y se queda con `secure_url`, que es lo
+que se pega en el campo `image:` del DSL. El backend no gasta ancho de banda ni depende del cold
+start de Render.
+
+`folder` es siempre `mydinoenglish/{id del profesor}` — lo fija el servidor, no el cliente, así que
+nadie puede escribir en la carpeta de otro. La firma caduca (Cloudinary rechaza timestamps viejos).
+Requiere `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET`; sin ellas
+responde **503**.
+
 ## Audio (TTS)
 
 ```

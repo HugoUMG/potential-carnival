@@ -4,14 +4,15 @@
  * Tipos soportados: todos los tipos del sistema excepto speaking.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { SandboxedHtml } from './SandboxedHtml';
 import {
   AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2,
-  GripVertical, List, PlusCircle, Save, Trash2, ToggleLeft,
+  GripVertical, List, Loader2, PlusCircle, Save, Trash2, ToggleLeft, Upload,
   Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText,
 } from 'lucide-react';
+import { subirImagen } from '../services/api';
 import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock } from '../types';
 import {
   serializeToScript, emptyActivity, emptyBlock, emptyState,
@@ -601,15 +602,58 @@ function ReadingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: V
 }
 
 function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      onChange({ ...act, imageUrl: await subirImagen(file) });
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'No se pudo subir la imagen.');
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = ''; // permite reintentar el mismo archivo
+    }
+  }
+
   return (
     <div className="grid gap-4">
-      <label className="block">
+      {/* No es <label>: envuelve el botón de subir, y un click en él abriría el input de texto. */}
+      <div className="block">
         <FieldLabel>URL de la imagen</FieldLabel>
-        <TextInput value={act.imageUrl} onChange={(v) => onChange({ ...act, imageUrl: v })} placeholder="https://..." />
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <TextInput value={act.imageUrl} onChange={(v) => onChange({ ...act, imageUrl: v })} placeholder="https://..." />
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => void upload(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            className="mt-1 flex shrink-0 items-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+            onClick={() => fileInput.current?.click()}
+            disabled={uploading}
+            title="Subir una imagen desde tu computadora"
+          >
+            {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+            {uploading ? 'Subiendo…' : 'Subir'}
+          </button>
+        </div>
+        {uploadError && <p className="mt-1 text-xs font-semibold text-rose-600">{uploadError}</p>}
         {act.imageUrl && (
-          <img src={act.imageUrl} alt="preview" className="mt-2 max-h-40 w-full rounded-xl object-cover border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          // key: sin ella React reutiliza el nodo y el display:none de una URL rota
+          // se queda pegado — la imagen recién subida no se vería.
+          <img key={act.imageUrl} src={act.imageUrl} alt="preview" className="mt-2 block max-h-40 w-auto max-w-full rounded-xl border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         )}
-      </label>
+      </div>
       <label className="block">
         <FieldLabel>Pregunta / Prompt</FieldLabel>
         <TextArea value={act.prompt} onChange={(v) => onChange({ ...act, prompt: v })} placeholder="Describe what you see in the image." />
