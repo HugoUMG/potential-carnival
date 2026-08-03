@@ -3,6 +3,8 @@
  * Soporta todos los tipos de actividad del sistema.
  */
 
+import type { WorksheetActivity } from '../types';
+
 export interface VisualStatement {
   id: string;
   text: string;
@@ -339,6 +341,80 @@ export function serializeToScript(state: VisualState): string {
   }
   lines.push('}');
   return lines.join('\n');
+}
+
+/** Lista separada por comas → array, que es como el constructor guarda varias respuestas. */
+function csv(value: string): string[] {
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+/**
+ * `VisualActivity` → `WorksheetActivity`: deja que el constructor pinte la actividad con el MISMO
+ * componente que ve el alumno (`activityRegistry`) en vez de una imitación que se desincroniza.
+ *
+ * Es el espejo exacto de `serializeActivity` de este mismo archivo: los dos traducen los campos
+ * planos del constructor a la forma real de cada tipo. Si añades un campo a un tipo y solo tocas
+ * uno de los dos, la tarjeta del profesor mentirá sobre lo que verá el alumno — no falla, miente.
+ */
+export function toWorksheetActivity(act: VisualActivity): WorksheetActivity {
+  const base = {
+    id: act.id,
+    ...(act.instructions.trim() ? { instructions: act.instructions } : {}),
+    ...(act.voice.trim() ? { voice: act.voice } : {}),
+  };
+  const statements = act.statements.filter((s) => s.text.trim()).map((s) => ({ text: s.text, answer: s.answer }));
+  const options = act.options.filter((o) => o.trim());
+
+  switch (act.type) {
+    case 'fillblank': {
+      const answers = csv(act.answer);
+      return { ...base, type: 'fillblank', text: act.text, answer: answers.length > 1 ? answers : (answers[0] ?? '') };
+    }
+    case 'multiplechoice':
+      return { ...base, type: 'multiplechoice', question: act.question, options, answer: act.correctOption };
+    case 'multiselect':
+      return { ...base, type: 'multiselect', question: act.question, options, answer: act.correctOptions.filter((o) => o.trim()) };
+    case 'dragdrop':
+      return { ...base, type: 'dragdrop', text: act.text, answer: csv(act.answer), bank: act.bank.filter((b) => b.trim()) };
+    case 'matching':
+      return { ...base, type: 'matching', left: act.left.filter((l) => l.trim()), right: act.right.filter((r) => r.trim()) };
+    case 'textbox':
+      return { ...base, type: 'textbox', prompt: act.prompt };
+    case 'truefalse':
+      return { ...base, type: 'truefalse', statements };
+    case 'listening':
+      return { ...base, type: 'listening', text: act.audioText, question: act.question, answer: act.answer };
+    case 'listeningfillblank': {
+      const answers = csv(act.answer);
+      return { ...base, type: 'listeningfillblank', audio_text: act.audioText, text: act.text, answer: answers.length > 1 ? answers : (answers[0] ?? '') };
+    }
+    case 'listeningmultiplechoice':
+      return { ...base, type: 'listeningmultiplechoice', audio_text: act.audioText, question: act.question, options, answer: act.correctOption };
+    case 'listeningmatching':
+      return {
+        ...base, type: 'listeningmatching', options,
+        pairs: act.pairs.filter((p) => p.audioText.trim() || p.match.trim()).map((p) => ({ audio_text: p.audioText, match: p.match })),
+      };
+    case 'listeningtruefalse':
+      return { ...base, type: 'listeningtruefalse', audio_text: act.audioText, statements };
+    case 'listeningorder':
+      return { ...base, type: 'listeningorder', audio_text: act.audioText, answer: csv(act.answer), bank: act.bank.filter((b) => b.trim()) };
+    case 'conversation':
+      return {
+        ...base, type: 'conversation', question: act.question, answer: act.answer,
+        lines: act.lines.filter((l) => l.text.trim()).map((l) => ({ speaker: l.speaker, text: l.text })),
+      };
+    case 'content':
+      return { ...base, type: 'content', title: act.readingTitle, html: act.html, sandbox: act.sandbox };
+    case 'reading':
+      return { ...base, type: 'reading', title: act.readingTitle, content: act.readingContent, questions: act.readingQuestions.filter((q) => q.trim()) };
+    case 'readingtruefalse':
+      return { ...base, type: 'readingtruefalse', title: act.readingTitle, content: act.readingContent, statements };
+    case 'imagequestion':
+      return { ...base, type: 'imagequestion', image: act.imageUrl, prompt: act.prompt };
+    case 'speaking':
+      return { ...base, type: 'speaking', prompt: act.prompt, target: act.target };
+  }
 }
 
 const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {

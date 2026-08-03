@@ -53,7 +53,9 @@ function getOrCreateSession(): GuestSession | null {
       localStorage.setItem('guestSession', JSON.stringify(upgraded));
       return upgraded;
     }
-  } catch {}
+  } catch {
+    // localStorage con JSON corrupto o bloqueado: se trata como "sin sesión de invitado".
+  }
   return null;
 }
 
@@ -236,6 +238,9 @@ export function GuestPage() {
       .then(setResponses)
       .catch(() => {})
       .finally(() => setLoadingResponses(false));
+    // Depende del token, no del objeto `session`: el token identifica al invitado y no cambia
+    // mientras dura la sesión, así que evita repetir las dos peticiones en cada re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.token]);
 
   useEffect(() => {
@@ -243,6 +248,8 @@ export function GuestPage() {
     const answeredIds = new Set(responses.map((r) => r.worksheet_id));
     const firstActive = worksheets.find((w) => !answeredIds.has(w.id));
     setActiveWorksheet(firstActive ?? worksheets[0]);
+    // Igual que arriba: el token basta para saber de qué invitado hablamos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worksheets, responses, session?.token]);
 
   if (!session) return <NameEntry onEnter={handleEnterName} />;

@@ -298,6 +298,26 @@ rota. Es mejor que falle el profesor al guardar que el alumno al resolver.
 
 ---
 
+## 🟢 ADR-18 — La tarjeta plegada del constructor usa el renderer del alumno
+
+**Decisión.** En el constructor visual, la actividad plegada se pinta con el componente de
+`activityRegistry` (`readonly` + `pointer-events-none`) traduciendo el estado con
+`toWorksheetActivity`. Lo que el profesor ve plegado **es** lo que verá el alumno.
+
+**Motivo.** El formato de Google Forms: diseñar y previsualizar no son dos pantallas. Una imitación
+"parecida" se desincroniza en cuanto cambia un renderer, y el profesor descubre la diferencia cuando
+ya la ha mandado a clase.
+
+**Alternativa descartada.** Un endpoint `POST /worksheets/parse` que devolviera el JSON real para
+pintarlo: una sola fuente de verdad y sin mapeo nuevo en TypeScript, pero mete una llamada de red
+(con su debounce) en cada tecla del constructor. Se prefirió el mapeo local por latencia cero.
+
+**Consecuencia.** `toWorksheetActivity` es un tercer sitio que recorrer al añadir un campo, junto a
+`serializeActivity` y `worksheetToVisualState`. Si falta un tipo entero, `tsc` lo caza por el `switch`
+exhaustivo; **si falta un campo, no lo caza nadie**: la tarjeta miente en silencio.
+
+---
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

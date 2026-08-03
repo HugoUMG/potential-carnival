@@ -219,6 +219,43 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/** Sube una imagen a Cloudinary y devuelve su URL, lista para pegar en `image:` del DSL. */
+export async function subirImagen(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('El archivo debe ser una imagen.');
+  if (file.size > MAX_IMAGE_BYTES) throw new Error('La imagen supera los 10 MB.');
+
+  const firma = await request<{
+    cloud_name: string;
+    api_key: string;
+    timestamp: number;
+    folder: string;
+    signature: string;
+  }>('/uploads/signature', { method: 'POST' });
+
+  const form = new FormData();
+  form.append('file', file);
+  form.append('api_key', firma.api_key);
+  form.append('timestamp', String(firma.timestamp));
+  form.append('folder', firma.folder);
+  form.append('signature', firma.signature);
+
+  // El archivo va directo del navegador a Cloudinary, sin pasar por nuestro backend.
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${firma.cloud_name}/image/upload`, {
+    method: 'POST',
+    body: form,
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.secure_url) {
+    throw new Error(data?.error?.message ?? 'No se pudo subir la imagen.');
+  }
+  // f_auto,q_auto: Cloudinary sirve WebP/AVIF y comprime — una foto de 4 MB llega como ~80 KB.
+  // c_limit (no c_scale, el default de w_): solo reduce, nunca agranda ni recorta. Sin él, una
+  // imagen de 300 px se estiraría a 1200 y se vería borrosa; la proporción se respeta siempre.
+  return (data.secure_url as string).replace('/upload/', '/upload/f_auto,q_auto,c_limit,w_1200/');
+}
+
 function withInstructions<T extends WorksheetActivity>(activity: T, source: BackendActivity): T {
   let out = activity;
   if (source.instructions) out = { ...out, instructions: source.instructions };
@@ -655,8 +692,12 @@ export async function aiEditWorksheet(scriptContent: string, instruction: string
 }
 
 export async function generateWorksheetWithAI(prompt: string, createdBy: string): Promise<Worksheet> {
-  return request<Worksheet>('/worksheets/ai-generate', {
+  // El endpoint devuelve la hoja en el formato del backend (script_content, json_content…), igual
+  // que crear o actualizar. Antes se devolvía tal cual diciendo que era un `Worksheet`, así que
+  // quien la usaba tenía que ir a buscar `script_content` con un cast a `any`.
+  const worksheet = await request<BackendWorksheet>('/worksheets/ai-generate', {
     method: 'POST',
     body: JSON.stringify({ prompt, created_by: createdBy }),
   });
+  return normalizeWorksheet(worksheet);
 }

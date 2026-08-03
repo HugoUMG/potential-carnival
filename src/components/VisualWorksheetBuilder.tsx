@@ -1,20 +1,26 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Constructor visual de hojas de trabajo.
  * Alternativa al editor de script DSL — misma funcionalidad, interfaz drag-and-form.
  * Tipos soportados: todos los tipos del sistema excepto speaking.
+ *
+ * Exporta `worksheetToVisualState` además de los componentes: vive aquí porque es el inverso de
+ * las tarjetas de este archivo. El coste es un refresco completo en desarrollo al tocarlo.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { SandboxedHtml } from './SandboxedHtml';
 import {
-  AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2,
-  GripVertical, List, PlusCircle, Save, Trash2, ToggleLeft,
+  AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2, Eye,
+  GripVertical, List, Loader2, Pencil, PlusCircle, Save, Trash2, ToggleLeft, Upload,
   Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText,
 } from 'lucide-react';
-import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock } from '../types';
+import { subirImagen } from '../services/api';
+import { activityRegistry } from './activityRegistry';
+import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock, ActivityRendererProps } from '../types';
 import {
-  serializeToScript, emptyActivity, emptyBlock, emptyState,
+  serializeToScript, toWorksheetActivity, emptyActivity, emptyBlock, emptyState,
   type VisualActivity, type VisualBlock, type VisualState, type VisualStatement, type VisualPair, type VisualLine, type VisualActivityType,
 } from '../utils/dslSerializer';
 
@@ -104,50 +110,41 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     return { ...base, statements: tf.statements.map((s) => ({ id: crypto.randomUUID(), text: s.text, answer: s.answer })) };
   }
   if (act.type === 'listening') {
-    return { ...base, audioText: (act as any).text ?? '', question: (act as any).question ?? '', answer: (act as any).answer ?? '' };
+    return { ...base, audioText: act.text ?? '', question: act.question ?? '', answer: act.answer ?? '' };
   }
   if (act.type === 'listeningfillblank') {
-    const a = act as any;
-    return { ...base, audioText: a.audio_text ?? '', text: a.text ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? '') };
+    return { ...base, audioText: act.audio_text ?? '', text: act.text ?? '', answer: Array.isArray(act.answer) ? act.answer.join(', ') : (act.answer ?? '') };
   }
   if (act.type === 'listeningmultiplechoice') {
-    const a = act as any;
-    return { ...base, audioText: a.audio_text ?? '', question: a.question ?? '', options: a.options ?? [], correctOption: a.answer ?? '' };
+    return { ...base, audioText: act.audio_text ?? '', question: act.question ?? '', options: act.options ?? [], correctOption: act.answer ?? '' };
   }
   if (act.type === 'listeningmatching') {
-    const a = act as any;
-    const pairs: VisualPair[] = (a.pairs ?? []).map((p: any) => ({ id: crypto.randomUUID(), audioText: p.audio_text ?? '', match: p.match ?? '' }));
-    return { ...base, pairs, options: a.options ?? [] };
+    const pairs: VisualPair[] = (act.pairs ?? []).map((p) => ({ id: crypto.randomUUID(), audioText: p.audio_text ?? '', match: p.match ?? '' }));
+    return { ...base, pairs, options: act.options ?? [] };
   }
   if (act.type === 'listeningtruefalse') {
-    const a = act as any;
-    const statements: VisualStatement[] = (a.statements ?? []).map((s: any) => ({ id: crypto.randomUUID(), text: s.text ?? '', answer: s.answer ?? false }));
-    return { ...base, audioText: a.audio_text ?? '', statements };
+    const statements: VisualStatement[] = (act.statements ?? []).map((s) => ({ id: crypto.randomUUID(), text: s.text ?? '', answer: s.answer ?? false }));
+    return { ...base, audioText: act.audio_text ?? '', statements };
   }
   if (act.type === 'listeningorder') {
-    const a = act as any;
-    return { ...base, audioText: a.audio_text ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? ''), bank: a.bank ?? [] };
+    return { ...base, audioText: act.audio_text ?? '', answer: Array.isArray(act.answer) ? act.answer.join(', ') : (act.answer ?? ''), bank: act.bank ?? [] };
   }
   if (act.type === 'conversation') {
-    const a = act as any;
-    const lines: VisualLine[] = (a.lines ?? []).map((l: any) => ({ id: crypto.randomUUID(), speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text ?? '' }));
-    return { ...base, lines, question: a.question ?? '', answer: Array.isArray(a.answer) ? a.answer.join(', ') : (a.answer ?? '') };
+    const lines: VisualLine[] = (act.lines ?? []).map((l) => ({ id: crypto.randomUUID(), speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text ?? '' }));
+    return { ...base, lines, question: act.question ?? '', answer: Array.isArray(act.answer) ? act.answer.join(', ') : (act.answer ?? '') };
   }
   if (act.type === 'content') {
-    const a = act as any;
-    return { ...base, readingTitle: a.title ?? '', html: a.html ?? '', sandbox: !!a.sandbox };
+    return { ...base, readingTitle: act.title ?? '', html: act.html ?? '', sandbox: !!act.sandbox };
   }
   if (act.type === 'reading') {
-    const a = act as any;
-    return { ...base, readingTitle: a.title ?? '', readingContent: a.content ?? '', readingQuestions: a.questions ?? [] };
+    return { ...base, readingTitle: act.title ?? '', readingContent: act.content ?? '', readingQuestions: act.questions ?? [] };
   }
   if (act.type === 'readingtruefalse') {
     const rtf = act as ReadingTrueFalseActivity;
     return { ...base, readingTitle: rtf.title ?? '', readingContent: rtf.content ?? '', statements: (rtf.statements ?? []).map((s) => ({ id: crypto.randomUUID(), text: s.text, answer: s.answer })) };
   }
   if (act.type === 'imagequestion') {
-    const a = act as any;
-    return { ...base, imageUrl: a.image ?? '', prompt: a.prompt ?? '' };
+    return { ...base, imageUrl: act.image ?? '', prompt: act.prompt ?? '' };
   }
   if (act.type === 'speaking') {
     const sp = act as SpeakingActivity;
@@ -601,15 +598,58 @@ function ReadingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: V
 }
 
 function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      onChange({ ...act, imageUrl: await subirImagen(file) });
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'No se pudo subir la imagen.');
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = ''; // permite reintentar el mismo archivo
+    }
+  }
+
   return (
     <div className="grid gap-4">
-      <label className="block">
+      {/* No es <label>: envuelve el botón de subir, y un click en él abriría el input de texto. */}
+      <div className="block">
         <FieldLabel>URL de la imagen</FieldLabel>
-        <TextInput value={act.imageUrl} onChange={(v) => onChange({ ...act, imageUrl: v })} placeholder="https://..." />
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <TextInput value={act.imageUrl} onChange={(v) => onChange({ ...act, imageUrl: v })} placeholder="https://..." />
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => void upload(e.target.files?.[0])}
+          />
+          <button
+            type="button"
+            className="mt-1 flex shrink-0 items-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+            onClick={() => fileInput.current?.click()}
+            disabled={uploading}
+            title="Subir una imagen desde tu computadora"
+          >
+            {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+            {uploading ? 'Subiendo…' : 'Subir'}
+          </button>
+        </div>
+        {uploadError && <p className="mt-1 text-xs font-semibold text-rose-600">{uploadError}</p>}
         {act.imageUrl && (
-          <img src={act.imageUrl} alt="preview" className="mt-2 max-h-40 w-full rounded-xl object-cover border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          // key: sin ella React reutiliza el nodo y el display:none de una URL rota
+          // se queda pegado — la imagen recién subida no se vería.
+          <img key={act.imageUrl} src={act.imageUrl} alt="preview" className="mt-2 block max-h-40 w-auto max-w-full rounded-xl border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         )}
-      </label>
+      </div>
       <label className="block">
         <FieldLabel>Pregunta / Prompt</FieldLabel>
         <TextArea value={act.prompt} onChange={(v) => onChange({ ...act, prompt: v })} placeholder="Describe what you see in the image." />
@@ -744,12 +784,26 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
   );
 }
 
-function ActivityCard({ act, index, total, onUpdate, onRemove, onMove, onDragStartHandle, onDragOverCard, onDropCard, onDragEndCard, over }: {
+/** Cómo verá el alumno esta actividad, pintada con el renderer de verdad (no una imitación).
+ *  Es lo que se muestra en la tarjeta plegada: diseñar y ver se parecen porque son lo mismo. */
+function StudentPreview({ act }: { act: VisualActivity }) {
+  const entry = activityRegistry[act.type as keyof typeof activityRegistry];
+  if (!entry) return <p className="text-sm italic text-slate-400">Este tipo no tiene vista previa.</p>;
+  const Renderer = entry.Renderer as React.ComponentType<ActivityRendererProps>;
+  return (
+    // pointer-events-none: la vista previa no se responde, se abre. El clic lo recoge la tarjeta.
+    <div className="pointer-events-none select-none">
+      <Renderer activity={toWorksheetActivity(act)} readonly onChange={() => {}} />
+    </div>
+  );
+}
+
+function ActivityCard({ act, index, total, expanded, onToggle, onUpdate, onRemove, onMove, onDragStartHandle, onDragOverCard, onDropCard, onDragEndCard, over }: {
   act: VisualActivity; index: number; total: number;
+  expanded: boolean; onToggle: () => void;
   onUpdate: (a: VisualActivity) => void; onRemove: () => void; onMove: (dir: -1 | 1) => void;
   onDragStartHandle: () => void; onDragOverCard: (e: React.DragEvent) => void; onDropCard: () => void; onDragEndCard: () => void; over: boolean;
 }) {
-  const [expanded, setExpanded] = useState(true);
   const meta = TYPE_META[act.type];
 
   return (
@@ -773,15 +827,26 @@ function ActivityCard({ act, index, total, onUpdate, onRemove, onMove, onDragSta
         <div className="ml-auto flex items-center gap-1">
           <button type="button" disabled={index === 0} onClick={() => onMove(-1)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white disabled:opacity-30"><ChevronUp size={14} /></button>
           <button type="button" disabled={index === total - 1} onClick={() => onMove(1)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white disabled:opacity-30"><ChevronDown size={14} /></button>
-          <button type="button" onClick={() => setExpanded((v) => !v)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white">
-            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          <button type="button" onClick={onToggle} title={expanded ? 'Cerrar y ver como el alumno' : 'Editar'} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white">
+            {expanded ? <Eye size={14} /> : <Pencil size={14} />}
           </button>
           <button type="button" onClick={onRemove} className="rounded-lg p-1.5 text-red-400 transition hover:bg-red-50"><Trash2 size={14} /></button>
         </div>
       </div>
-      {expanded && (
+      {expanded ? (
         <div className="border-t border-white/60 bg-white/70 px-4 py-4 grid gap-4">
           <ActivityEditor act={act} onChange={onUpdate} />
+        </div>
+      ) : (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onToggle}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+          title="Clic para editar"
+          className="cursor-text border-t border-white/60 bg-white px-4 py-4 transition hover:bg-slate-50"
+        >
+          <StudentPreview act={act} />
         </div>
       )}
     </div>
@@ -790,8 +855,9 @@ function ActivityCard({ act, index, total, onUpdate, onRemove, onMove, onDragSta
 
 // ── Tarjeta de bloque ─────────────────────────────────────────────────────────
 
-function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveBlock }: {
+function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActivity, onUpdate, onRemove, onMoveBlock }: {
   block: VisualBlock; blockIndex: number; totalBlocks: number;
+  openActivityId: string | null; onOpenActivity: (id: string | null) => void;
   onUpdate: (b: VisualBlock) => void; onRemove: () => void; onMoveBlock: (dir: -1 | 1) => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
@@ -817,7 +883,9 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
     onUpdate({ ...block, activities: arr });
   };
   const addActivity = (type: VisualActivityType) => {
-    onUpdate({ ...block, activities: [...block.activities, emptyActivity(type)] });
+    const nueva = emptyActivity(type);
+    onUpdate({ ...block, activities: [...block.activities, nueva] });
+    onOpenActivity(nueva.id); // recién creada = vacía: se abre para llenarla, no para mirarla
     setShowPicker(false);
   };
 
@@ -847,6 +915,8 @@ function BlockCard({ block, blockIndex, totalBlocks, onUpdate, onRemove, onMoveB
         )}
         {block.activities.map((act, i) => (
           <ActivityCard key={act.id} act={act} index={i} total={block.activities.length}
+            expanded={openActivityId === act.id}
+            onToggle={() => onOpenActivity(openActivityId === act.id ? null : act.id)}
             onUpdate={(a) => updateActivity(act.id, a)}
             onRemove={() => removeActivity(act.id)}
             onMove={(dir) => moveActivity(i, dir)}
@@ -906,6 +976,9 @@ interface VisualWorksheetBuilderProps {
 
 export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, isEditing, message, onMaxAttemptsChange, onSave, getScriptRef }: VisualWorksheetBuilderProps) {
   const [state, setState] = useState<VisualState>(initialState);
+  // Una sola tarjeta abierta en toda la hoja (como Google Forms): el resto se ve como la ve el
+  // alumno. null = todas plegadas, que es la vista de "así queda".
+  const [openActivityId, setOpenActivityId] = useState<string | null>(null);
   if (getScriptRef) getScriptRef.current = () => serializeToScript(state); // para "Pídele a la IA" en modo visual
 
   const updateBlock = (id: string, block: VisualBlock) =>
@@ -979,6 +1052,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
 
       {state.blocks.map((block, i) => (
         <BlockCard key={block.id} block={block} blockIndex={i} totalBlocks={state.blocks.length}
+          openActivityId={openActivityId} onOpenActivity={setOpenActivityId}
           onUpdate={(b) => updateBlock(block.id, b)}
           onRemove={() => removeBlock(block.id)}
           onMoveBlock={(dir) => moveBlock(i, dir)} />

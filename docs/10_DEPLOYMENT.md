@@ -66,6 +66,9 @@ Sin `DATABASE_URL` el backend usa SQLite en `data/worksheet_builder.db`. Con ell
 | `GROQ_API_KEY` | No | Fallback de IA **y transcripción Whisper** de `speaking` |
 | `GEMINI_MODEL` | No | Default `gemini-3.1-flash-lite` |
 | `DB_POOL_MAX` | No | Tamaño máximo del pool de Postgres (default 5) |
+| `CLOUDINARY_CLOUD_NAME` | No | Subida de imágenes. Sin las tres, `/uploads/signature` responde 503 |
+| `CLOUDINARY_API_KEY` | No | Se envía al navegador (es pública) |
+| `CLOUDINARY_API_SECRET` | No | **Nunca sale del backend**: solo se usa para firmar |
 | `SEED_DEMO_USERS` | — | `false` en producción |
 
 ### Frontend (build time)

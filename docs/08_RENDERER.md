@@ -125,6 +125,22 @@ return <span className={`whitespace-pre-line ${className}`}>{processed}</span>;
 Instrucciones de mecánica en **español** ("Escribe la palabra que falta", "Elige…"); el inglés se
 reserva para el contenido que se evalúa.
 
+## Imágenes (`imagequestion`)
+
+La imagen **nunca se recorta**: en un `imagequestion` el alumno responde sobre lo que ve, así que
+un encuadre forzado puede dejar fuera justo el detalle que hay que describir.
+
+```tsx
+<img className="mx-auto mb-4 block max-h-[26rem] w-auto max-w-full rounded-2xl" … />
+```
+
+`w-auto` + `max-w-full` + `max-h-[26rem]` conserva la proporción y solo limita el tamaño; **no uses
+`object-cover` ni una altura fija** (`h-56`), que es lo que había antes y recortaba. En impresión,
+`.wp-img` hace lo mismo con `max-height: 190px`.
+
+Las imágenes subidas llegan con `f_auto,q_auto,c_limit,w_1200` en la URL → [05](05_API.md).
+`c_limit` solo reduce: una foto pequeña se queda a su tamaño en vez de estirarse.
+
 ## Feedback al alumno
 
 - **Sonidos de clic** (`utils/sfx.ts`, ZzFX sintetizado, sin archivos): al elegir opción, multiselect,

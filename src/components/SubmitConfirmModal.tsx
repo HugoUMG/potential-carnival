@@ -1,3 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
+// Exporta `missingNameLabel` junto a los componentes: solo cuesta un refresco completo en
+// desarrollo, y separarlo en otro archivo por eso no compensa (mismo criterio en activityRegistry).
 import type { StudentAnswers, Worksheet } from '../types';
 import RexMascot from './RexMascot';
 
