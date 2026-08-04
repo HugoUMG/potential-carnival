@@ -90,8 +90,13 @@ DELETE /worksheets/{id}
 contrato no cambia y las llamadas que no manden el campo se comportan como siempre — ver
 [06_AI](06_AI.md#modo-físico--imprimible).
 
+También acepta **`ai_grading`** (`bool`, por defecto `true`) y **`ai_tolerance`** (`int` 0–100, por
+defecto 50): la hoja generada se guarda con esos valores (misma autoevaluación con IA que al crear
+desde el editor). El editor las manda desde los controles "Autoevaluación con IA" del panel de
+generación.
+
 ```json
-{ "prompt": "Past simple, A2, 8 actividades", "created_by": "…", "printable": true }
+{ "prompt": "Past simple, A2, 8 actividades", "created_by": "…", "printable": true, "ai_grading": true, "ai_tolerance": 30 }
 ```
 
 ## Aulas

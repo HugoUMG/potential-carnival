@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { subirImagen } from '../services/api';
 import { ImagePickerModal } from './ImagePicker';
+import { AiGradingControls } from './AiGradingControls';
 import { activityRegistry } from './activityRegistry';
 import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock, ActivityRendererProps } from '../types';
 import {
@@ -1118,15 +1119,19 @@ function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActiv
 interface VisualWorksheetBuilderProps {
   initialState: VisualState;
   maxAttemptsDraft: string;
+  aiGradingDraft: boolean;
+  aiToleranceDraft: number;
   isSaving?: boolean;
   isEditing?: boolean;
   message?: string;
   onMaxAttemptsChange: (value: string) => void;
+  onAiGradingChange: (value: boolean) => void;
+  onAiToleranceChange: (value: number) => void;
   onSave: (script: string) => void;
   getScriptRef?: React.MutableRefObject<(() => string) | null>; // expone el script serializado actual
 }
 
-export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, isEditing, message, onMaxAttemptsChange, onSave, getScriptRef }: VisualWorksheetBuilderProps) {
+export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, aiGradingDraft, aiToleranceDraft, isSaving, isEditing, message, onMaxAttemptsChange, onAiGradingChange, onAiToleranceChange, onSave, getScriptRef }: VisualWorksheetBuilderProps) {
   const [state, setState] = useState<VisualState>(initialState);
   // Una sola tarjeta abierta en toda la hoja (como Google Forms): el resto se ve como la ve el
   // alumno. null = todas plegadas, que es la vista de "así queda".
@@ -1234,6 +1239,8 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
             <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar evaluación'}
           </button>
         </div>
+        <AiGradingControls checked={aiGradingDraft} tolerance={aiToleranceDraft}
+          onCheckedChange={onAiGradingChange} onToleranceChange={onAiToleranceChange} />
         {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-sm font-medium text-rex-deep">{message}</p>}
       </div>
     </div>

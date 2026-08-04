@@ -3,6 +3,7 @@ import { Code2, Eye, LayoutTemplate, Sparkles, Save, Loader2, Wand2, ClipboardCo
 import { VisualWorksheetBuilder, worksheetToVisualState } from './VisualWorksheetBuilder';
 import { emptyState } from '../utils/dslSerializer';
 import { generateWorksheetWithAI, aiEditWorksheet } from '../services/api';
+import { AiGradingControls } from './AiGradingControls';
 import { GENERATION_PROMPT } from '../utils/generationPrompt';
 import type { Worksheet, WorksheetActivity } from '../types';
 
@@ -299,7 +300,7 @@ export function AskAiEdit({ getScript, onApply }: { getScript: () => string; onA
 
 // ── Panel de generación con IA ────────────────────────────────────────────────
 
-function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, printable, setPrintable }: {
+function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, printable, setPrintable, aiGradingDraft, aiToleranceDraft, onAiGradingChange, onAiToleranceChange }: {
   aiPrompt: string;
   setAiPrompt: (v: string) => void;
   isGenerating: boolean;
@@ -307,6 +308,10 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, pri
   onGenerate: () => void;
   printable: boolean;
   setPrintable: (v: boolean) => void;
+  aiGradingDraft: boolean;
+  aiToleranceDraft: number;
+  onAiGradingChange: (v: boolean) => void;
+  onAiToleranceChange: (v: number) => void;
 }) {
   const [b, setB] = useState<BuilderState>(EMPTY_BUILDER);
   // Cualquier cambio en los chips recompone el prompt (se puede afinar a mano en el textarea).
@@ -390,6 +395,10 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, pri
           <span className="block text-xs text-slate-500">La hoja se genera solo con actividades que se resuelven en papel: sin audio ni micrófono.</span>
         </span>
       </button>
+
+      {/* Autoevaluación con IA: la hoja generada se guarda con estos valores. */}
+      <AiGradingControls checked={aiGradingDraft} tolerance={aiToleranceDraft}
+        onCheckedChange={onAiGradingChange} onToleranceChange={onAiToleranceChange} />
 
       <label className="mt-6 block">
         <span className="text-sm font-semibold text-slate-700">📝 Prompt generado <span className="font-normal text-slate-400">(puedes ajustarlo a mano)</span></span>
@@ -476,22 +485,6 @@ function SavedPanel({ worksheet, onPreview, onVisual, onScript, onAi }: {
       </div>
     </div>
   );
-}
-
-/** Los tres escalones que entiende el backend (`_grade_system` en ai.py). */
-function toleranceLabel(value: number): { title: string; detail: string } {
-  if (value <= 33) return {
-    title: 'Estricta',
-    detail: 'Cuenta como error la puntuación final, la mayúscula inicial, los acentos y cualquier falta de ortografía. Para exámenes de precisión escrita.',
-  };
-  if (value <= 66) return {
-    title: 'Equilibrada',
-    detail: 'Perdona puntuación, mayúsculas, acentos y un dedazo evidente ("wass" → "was"). Marca error si cambia la palabra, el tiempo verbal o el número.',
-  };
-  return {
-    title: 'Permisiva',
-    detail: 'Solo importa el mensaje: perdona ortografía y descuidos de gramática mientras se entienda. Marca error solo si el significado está mal.',
-  };
 }
 
 export function WorksheetEditor({
@@ -584,7 +577,7 @@ export function WorksheetEditor({
     setAiError('');
     setAiSuccess('');
     try {
-      const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId, printable);
+      const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId, printable, aiGradingDraft, aiToleranceDraft);
       onScriptChange(generated.scriptContent ?? '');
       // `/worksheets/ai-generate` YA guardó la hoja. Hay que atar el editor a ella o el primer
       // "guardar" crearía una segunda: la generada quedaría huérfana en la lista.
@@ -666,11 +659,15 @@ export function WorksheetEditor({
 
         {mode === 'visual' && (
           <VisualWorksheetBuilder key={visualKey} initialState={visualState} maxAttemptsDraft={maxAttemptsDraft}
-            isSaving={isSaving} isEditing={isEditing} message={message} onMaxAttemptsChange={onMaxAttemptsChange} onSave={handleVisualSave} getScriptRef={visualScriptRef} />
+            aiGradingDraft={aiGradingDraft} aiToleranceDraft={aiToleranceDraft}
+            isSaving={isSaving} isEditing={isEditing} message={message} onMaxAttemptsChange={onMaxAttemptsChange}
+            onAiGradingChange={onAiGradingChange} onAiToleranceChange={onAiToleranceChange} onSave={handleVisualSave} getScriptRef={visualScriptRef} />
         )}
 
         {mode === 'ai' && <AiPanel aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} isGenerating={isGenerating}
-          aiError={aiError} onGenerate={() => void handleGenerate()} printable={printable} setPrintable={setPrintable} />}
+          aiError={aiError} onGenerate={() => void handleGenerate()} printable={printable} setPrintable={setPrintable}
+          aiGradingDraft={aiGradingDraft} aiToleranceDraft={aiToleranceDraft}
+          onAiGradingChange={onAiGradingChange} onAiToleranceChange={onAiToleranceChange} />}
       </div>
     );
   }
@@ -778,49 +775,8 @@ export function WorksheetEditor({
           </select>
         </label>
 
-        <label className="mt-4 flex max-w-xl items-start gap-3 rounded-2xl border border-slate-200 p-4">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-5 w-5 rounded border-slate-300 text-rex focus:ring-rex-light"
-            checked={aiGradingDraft}
-            onChange={(event) => onAiGradingChange(event.target.checked)}
-          />
-          <span>
-            <span className="block text-sm font-semibold text-slate-700">Autoevaluación con IA</span>
-            <span className="block text-xs text-slate-500">Si está activa, la IA califica y comenta las respuestas abiertas/incorrectas al enviarse. Solo tú ves esta opción; el alumno no la percibe.</span>
-          </span>
-        </label>
-
-        {/* Tolerancia: define cuánto perdona la IA los errores de forma (puntuación, dedazos)
-            sin perdonar nunca el contenido que la actividad evalúa. */}
-        {aiGradingDraft && (() => {
-          const { title, detail } = toleranceLabel(aiToleranceDraft);
-          return (
-            <div className="mt-3 max-w-xl rounded-2xl border border-slate-200 p-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold text-slate-700">Tolerancia a errores de forma</span>
-                <span className="rounded-full bg-rex-light px-3 py-0.5 text-xs font-bold text-rex-deep">{title} · {aiToleranceDraft}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={aiToleranceDraft}
-                onChange={(event) => onAiToleranceChange(Number(event.target.value))}
-                className="mt-3 w-full accent-rex"
-                aria-label="Tolerancia a errores de forma"
-              />
-              <div className="flex justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                <span>Estricta</span><span>Equilibrada</span><span>Permisiva</span>
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-500">{detail}</p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                Nunca perdona el contenido: si la actividad practica pasado simple y el alumno usa presente, se marca error en cualquier nivel.
-              </p>
-            </div>
-          );
-        })()}
+        <AiGradingControls checked={aiGradingDraft} tolerance={aiToleranceDraft}
+          onCheckedChange={onAiGradingChange} onToleranceChange={onAiToleranceChange} />
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500">Al guardar, el backend valida el script y almacena la evaluación.</p>
