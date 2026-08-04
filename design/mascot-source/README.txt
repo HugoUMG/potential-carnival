@@ -4,33 +4,45 @@ RexLearn — arte fuente de la mascota (DinoEnglish Studio)
 Esta carpeta NO se despliega (vive fuera de public/). Guarda los originales por si hay
 que reprocesar las poses o sacar una nueva.
 
-Fuente actual (SVG vectorial, 1024x1024, grilla 2x2 sobre fondo NEGRO):
+Fuente vectorial vieja (SVG, 1024x1024, grilla 2x2 sobre fondo NEGRO) — hoy solo queda
+viva para rex-wave.svg, el resto se reemplazo por cutouts de IA (ver mas abajo):
   - "file (2).svg"
-        TL: pulgar arriba              TR: saludando
-        BL: tumbado llorando (SIN USAR)    BR: pensativo
+        TL: pulgar arriba (SIN USAR)   TR: saludando
+        BL: tumbado llorando (SIN USAR)    BR: pensativo (SIN USAR)
   - "file (1).svg"
-        TL: guino/contento (SIN USAR)  TR: saltando de alegria
-        BL: sentado triste             BR: llorando (SIN USAR)
+        TL: guino/contento (SIN USAR)  TR: saltando de alegria (SIN USAR)
+        BL: sentado triste (SIN USAR)  BR: llorando (SIN USAR)
 
 Los PNG (las dos grillas y LOGO.png) son el arte previo al trazado vectorial; se
 conservan como referencia. LOGO.png es la silueta que sigue viva en
 public/mascot/rex-logo.png (logo del menu, cabecera de impresion y favicon): es pieza
 aparte, no una pose, y no tiene version SVG.
 
-Derivados en public/mascot/ (SVG, ~150 kB cada uno) y donde se usan:
+Derivados en public/mascot/ y donde se usan:
   rex-hero.svg      dino de pie sonriendo -> Login, registro e inicio (imagen grande)
   rex-wave.svg      saludando          -> Navbars (alumno, profesor, lector, /vocab)
-  rex-thinking.svg  pensativo          -> Pantallas de carga y confirmacion de envio
-  rex-happy.svg     saltando           -> Tarjeta de resultado al aprobar (>=70)
-  rex-sad.svg       sentado triste     -> Tarjeta de resultado al no aprobar
+  rex-thinking.svg  pensativo, mano en el menton -> Pantallas de carga y confirmacion de envio
+  rex-happy.svg     brazos arriba celebrando -> Tarjeta de resultado al aprobar (>=70)
+  rex-sad.svg       llorando de pie    -> Tarjeta de resultado al no aprobar
 
-rex-hero.svg es un caso aparte: no viene del trazado vectorial de mas abajo, sino de un
-PNG generado por IA (recortado a fondo transparente, sin sombra, guardado aqui como
-"rex-hero-cutout.png") incrustado como base64 dentro de un <image> del propio SVG. Se
-incrusta en vez de referenciarse como archivo aparte porque un SVG cargado via <img src>
+rex-hero.svg, rex-thinking.svg, rex-happy.svg y rex-sad.svg son cutouts de PNG generados
+por IA (recortados a fondo transparente, sin sombra — los originales traen fondo crema y
+una sombra ovalada que se ve mal en modo oscuro) guardados aqui como
+"rex-{pose}-cutout.png", incrustados como base64 dentro de un <image> del propio SVG. Se
+incrustan en vez de referenciarse como archivo aparte porque un SVG cargado via <img src>
 (como hace RexMascot) no puede resolver referencias externas a otro archivo raster.
+Solo rex-wave.svg sigue viniendo del trazado vectorial de mas abajo.
 
-Como se regeneran:
+Como se regenera un cutout nuevo (rex-hero, rex-thinking, rex-happy, rex-sad):
+  1. Recortar el fondo a transparente con flood fill desde los bordes (tolerancia de
+     color generosa para tragarse tambien la sombra ovalada) + un feather de ~1px en el
+     canal alfa para que el borde no quede dentado.
+  2. Recortar al bounding box del contenido y centrarlo en un lienzo cuadrado con ~6% de
+     margen transparente.
+  3. Incrustar el PNG resultante como base64 en un <svg><image .../></svg> del mismo
+     tamano cuadrado.
+
+Como se regenera rex-wave.svg (el unico que sigue en el pipeline viejo):
 
   node scripts/mascots.mjs
 
