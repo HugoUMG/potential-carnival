@@ -4,6 +4,8 @@ import { Moon, RotateCcw, Send, Sun } from 'lucide-react';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { LoadingScreen, LoadingOverlay } from '../components/LoadingScreen';
 import { SubmitConfirmModal, missingNameLabel, type SubmitPrompt } from '../components/SubmitConfirmModal';
+import RexMascot from '../components/RexMascot';
+import { moodForScore } from '../utils/scoreMood';
 import { getPublicWorksheet, submitDirectResponse, type DetalleRespuesta } from '../services/api';
 import { toggleTheme, useTheme } from '../utils/theme';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
@@ -152,14 +154,17 @@ export function DirectWorksheetPage() {
       <main className="min-h-screen bg-cream py-8 text-slate-900">
         <ThemeFab />
         <div className="mx-auto max-w-4xl px-4">
-          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-lg font-bold">
-              Tu resultado: <span className="text-rex-deep">{result.score ?? 0}</span>
-              <span className="ml-3 text-sm font-semibold text-emerald-700">✓ {result.correct} correctas</span>
-              <span className="ml-3 text-sm font-semibold text-red-600">✗ {result.incorrect} incorrectas</span>
-              {result.pending > 0 && <span className="ml-3 text-sm font-semibold text-amber-600">… {result.pending} en revisión</span>}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">Aquí puedes ver siempre qué respondiste bien y mal.</p>
+          <div className="mb-4 flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+            <RexMascot mood={moodForScore(result.score)} className="h-16 w-16 shrink-0 drop-shadow-md" />
+            <div>
+              <p className="text-lg font-bold">
+                Tu resultado: <span className="text-rex-deep">{result.score ?? 0}</span>
+                <span className="ml-3 text-sm font-semibold text-emerald-700">✓ {result.correct} correctas</span>
+                <span className="ml-3 text-sm font-semibold text-red-600">✗ {result.incorrect} incorrectas</span>
+                {result.pending > 0 && <span className="ml-3 text-sm font-semibold text-amber-600">… {result.pending} en revisión</span>}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Aquí puedes ver siempre qué respondiste bien y mal.</p>
+            </div>
           </div>
 
           <WorksheetRenderer worksheet={worksheet} answers={result.answers} readonly onAnswerChange={() => undefined} gradeStatus={gradeStatusFrom(result.details)} />

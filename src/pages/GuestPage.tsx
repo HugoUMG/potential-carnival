@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { RichText } from '../components/RichText';
 import { SubmitResult } from '../components/submitAnimations';
+import RexMascot from '../components/RexMascot';
+import { moodForScore } from '../utils/scoreMood';
 import { LoadingScreen, LoadingOverlay, Spinner } from '../components/LoadingScreen';
 import { SubmitConfirmModal, missingNameLabel, type SubmitPrompt } from '../components/SubmitConfirmModal';
 import type { RespuestaEstudiante } from '../services/api';
@@ -398,8 +400,13 @@ export function GuestPage() {
               const incorrect = resp.details.filter((d) => d.status === 'incorrect').length;
               return (
                 <>
-                  <h2 className="text-xl font-bold">{activeWorksheet?.title}</h2>
-                  <p className="mt-1 text-sm text-slate-500">Entregado: {new Date(resp.submitted_at).toLocaleString()}</p>
+                  <div className="flex items-center gap-4">
+                    <RexMascot mood={moodForScore(resp.score)} className="h-16 w-16 shrink-0 drop-shadow-md" />
+                    <div>
+                      <h2 className="text-xl font-bold">{activeWorksheet?.title}</h2>
+                      <p className="mt-1 text-sm text-slate-500">Entregado: {new Date(resp.submitted_at).toLocaleString()}</p>
+                    </div>
+                  </div>
                   <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold">
                     <span className="rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700">Aciertos: {resp.correct_count}</span>
                     <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">Fallos: {incorrect}</span>

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import RexMascot from './RexMascot';
+import { moodForScore } from '../utils/scoreMood';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Animaciones del resultado de envío. El portal elige UNA al azar en cada
@@ -126,12 +127,13 @@ function Caption({ text }: { text: string }) {
 }
 
 /** Tarjeta blanca final con puntuación y botones · igual para todas las animaciones.
- *  RexLearn asoma sobre la tarjeta y reacciona al resultado (feliz si aprobó, triste si no). */
+ *  RexLearn asoma sobre la tarjeta y reacciona a la nota (ver moodForScore); sin nota
+ *  todavía, usa el resultado binario de la escena (ok). */
 function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitle, onSeeAnswers, onClose }: SceneProps & { ok: boolean; emoji: string; title: string }) {
   return (
     <div className="relative mt-16 w-full max-w-sm rounded-3xl bg-white/95 p-8 pt-14 text-center shadow-2xl backdrop-blur">
       <RexMascot
-        mood={ok ? 'happy' : 'sad'}
+        mood={score !== null ? moodForScore(score) : (ok ? 'happy' : 'sad')}
         className="absolute -top-20 left-1/2 h-36 w-36 -translate-x-1/2 drop-shadow-xl"
       />
       <h2 className="text-2xl font-extrabold text-ink">{emoji} {title}</h2>

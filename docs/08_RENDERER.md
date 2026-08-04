@@ -167,8 +167,16 @@ quedan a la misma altura.
 - **Sonidos de clic** (`utils/sfx.ts`, ZzFX sintetizado, sin archivos): al elegir opción, multiselect,
   drag&drop, matching, true/false y variantes de listening. El primer clic habilita el audio.
 - **Animación de envío** (`submitAnimations.tsx`): al enviar se elige **una al azar** (cohete /
-  pastelero / paracaidista), con SFX ZzFX. Umbral de éxito **≥ 70** (`PASS_THRESHOLD`). Para añadir
-  otra, se registra en `SUBMIT_ANIMATIONS`.
+  pastelero / paracaidista), con SFX ZzFX. Umbral de éxito **≥ 70** (`PASS_THRESHOLD`, decide la
+  escena: despegue/pastel perfecto vs. choque/quemado). Para añadir otra, se registra en
+  `SUBMIT_ANIMATIONS`.
+- **Mascota según la nota** (`moodForScore` en `utils/scoreMood.ts`): <50 `sad` (llorando), 50-74
+  `thinking` (pensativo, "le falta mejorar"), ≥75 `happy` (celebrando); sin nota todavía (respuestas
+  abiertas pendientes de calificar), `thinking`. Es independiente de `PASS_THRESHOLD` — decide qué
+  `RexMascot` se muestra, no la escena. Aparece junto a la nota en: el resultado de hoja por enlace
+  directo (`DirectWorksheetPage`), la pestaña Calificadas de invitado y de alumno, la revisión del
+  profesor (por evaluación y por invitado) y la tarjeta final de `submitAnimations.tsx` (que sin nota
+  cae al `ok` binario de la escena).
 - **Confirmación de envío**: `SubmitConfirmModal`, propio, no `window.confirm`.
 
 ## Impresión (`WorksheetPrint.tsx`)
