@@ -155,6 +155,8 @@ class AiGenerateRequest(BaseModel):
     # Modo físico: la hoja se va a imprimir, así que se generan solo tipos que pasan a papel.
     # Opcional y apagado por defecto — no rompe las llamadas existentes.
     printable: bool = False
+    ai_grading: bool = True
+    ai_tolerance: int = Field(default=50, ge=0, le=100)
 
 
 class AiEditRequest(BaseModel):

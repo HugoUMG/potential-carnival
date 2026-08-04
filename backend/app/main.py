@@ -522,7 +522,8 @@ def ai_generate(payload: AiGenerateRequest, current_user: PublicUser = Depends(r
         # Prompt + filtro: el prompt es barato, pero el modelo cuela un listening de vez en cuando
         # y en papel eso es una actividad que el alumno no puede resolver.
         script = strip_non_printable(script)
-    return create_worksheet(WorksheetCreate(script_content=script, created_by=current_user.id), current_user)
+    return create_worksheet(WorksheetCreate(script_content=script, created_by=current_user.id,
+                                            ai_grading=payload.ai_grading, ai_tolerance=payload.ai_tolerance), current_user)
 
 
 @app.post("/worksheets/ai-edit")

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { subirImagen } from '../services/api';
 import { ImagePickerModal } from './ImagePicker';
+import { AiGradingControls } from './AiGradingControls';
 import { activityRegistry } from './activityRegistry';
 import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock, ActivityRendererProps } from '../types';
 import {
@@ -35,20 +36,20 @@ const VISUAL_TYPES: VisualActivityType[] = [
 ];
 
 const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
-  fillblank:              { label: 'Fill in the Blank',        icon: <AlignLeft size={14} />,    color: 'text-rex-deep',    bg: 'bg-rex-light border-rex-light' },
+  fillblank:              { label: 'Fill in the Blank',        icon: <AlignLeft size={14} />,    color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
   multiplechoice:         { label: 'Multiple Choice',          icon: <CheckSquare size={14} />,  color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
-  multiselect:            { label: 'Multi-Select',             icon: <ListChecks size={14} />,   color: 'text-rex-deep',     bg: 'bg-rex-light border-rex-light' },
+  multiselect:            { label: 'Multi-Select',             icon: <ListChecks size={14} />,   color: 'text-rex-deep',     bg: 'bg-rex/10 border-rex/30' },
   dragdrop:               { label: 'Drag & Drop',              icon: <Move size={14} />,         color: 'text-pink-700',    bg: 'bg-pink-50 border-pink-200' },
   matching:               { label: 'Matching',                 icon: <Columns2 size={14} />,     color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
   textbox:                { label: 'Open Answer',              icon: <List size={14} />,         color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200' },
   truefalse:              { label: 'True / False',             icon: <ToggleLeft size={14} />,   color: 'text-rose-700',    bg: 'bg-rose-50 border-rose-200' },
-  listening:              { label: 'Listening',                icon: <Volume2 size={14} />,      color: 'text-rex-deep',    bg: 'bg-rex-light border-rex-light' },
+  listening:              { label: 'Listening',                icon: <Volume2 size={14} />,      color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
   listeningfillblank:     { label: 'Listening + Fill Blank',   icon: <Headphones size={14} />,   color: 'text-teal-700',    bg: 'bg-teal-50 border-teal-200' },
-  listeningmultiplechoice:{ label: 'Listening + MC',           icon: <Headphones size={14} />,   color: 'text-rex-deep',  bg: 'bg-rex-light border-rex-light' },
+  listeningmultiplechoice:{ label: 'Listening + MC',           icon: <Headphones size={14} />,   color: 'text-rex-deep',  bg: 'bg-rex/10 border-rex/30' },
   listeningmatching:      { label: 'Listening + Matching',     icon: <Headphones size={14} />,   color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
   listeningtruefalse:     { label: 'Listening + True/False',   icon: <Headphones size={14} />,   color: 'text-spike-dark', bg: 'bg-spike/10 border-spike/30' },
-  listeningorder:         { label: 'Listening + Ordenar',      icon: <Headphones size={14} />,   color: 'text-rex-deep',    bg: 'bg-rex-light border-rex-light' },
-  conversation:           { label: 'Conversación (2 voces)',   icon: <MessagesSquare size={14} />, color: 'text-rex-deep',   bg: 'bg-rex-light border-rex-light' },
+  listeningorder:         { label: 'Listening + Ordenar',      icon: <Headphones size={14} />,   color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
+  conversation:           { label: 'Conversación (2 voces)',   icon: <MessagesSquare size={14} />, color: 'text-rex-deep',   bg: 'bg-rex/10 border-rex/30' },
   reading:                { label: 'Reading',                  icon: <BookOpen size={14} />,     color: 'text-lime-700',    bg: 'bg-lime-50 border-lime-200' },
   readingtruefalse:       { label: 'Reading + True/False',     icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
   imagequestion:          { label: 'Image Question',           icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
@@ -1118,15 +1119,19 @@ function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActiv
 interface VisualWorksheetBuilderProps {
   initialState: VisualState;
   maxAttemptsDraft: string;
+  aiGradingDraft: boolean;
+  aiToleranceDraft: number;
   isSaving?: boolean;
   isEditing?: boolean;
   message?: string;
   onMaxAttemptsChange: (value: string) => void;
+  onAiGradingChange: (value: boolean) => void;
+  onAiToleranceChange: (value: number) => void;
   onSave: (script: string) => void;
   getScriptRef?: React.MutableRefObject<(() => string) | null>; // expone el script serializado actual
 }
 
-export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSaving, isEditing, message, onMaxAttemptsChange, onSave, getScriptRef }: VisualWorksheetBuilderProps) {
+export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, aiGradingDraft, aiToleranceDraft, isSaving, isEditing, message, onMaxAttemptsChange, onAiGradingChange, onAiToleranceChange, onSave, getScriptRef }: VisualWorksheetBuilderProps) {
   const [state, setState] = useState<VisualState>(initialState);
   // Una sola tarjeta abierta en toda la hoja (como Google Forms): el resto se ve como la ve el
   // alumno. null = todas plegadas, que es la vista de "así queda".
@@ -1234,6 +1239,8 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, isSavin
             <Save className="mr-2 inline" size={18} /> {isSaving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar evaluación'}
           </button>
         </div>
+        <AiGradingControls checked={aiGradingDraft} tolerance={aiToleranceDraft}
+          onCheckedChange={onAiGradingChange} onToleranceChange={onAiToleranceChange} />
         {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-sm font-medium text-rex-deep">{message}</p>}
       </div>
     </div>

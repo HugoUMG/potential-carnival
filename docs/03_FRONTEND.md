@@ -46,7 +46,8 @@ Seguimiento (antes eran diez botones seguidos).
 | `WorksheetRenderer.tsx` | Pinta una hoja al alumno (bloques, tema, `gradeStatus`) → [08](08_RENDERER.md). Exporta además `WorksheetThumb`, la miniatura estática de las tarjetas del profesor |
 | `activityRegistry.tsx` | Un componente por tipo de actividad → [08](08_RENDERER.md) |
 | `WorksheetEditor.tsx` | Editor del profesor en tres modos (script / visual / IA) |
-| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 21 tipos. El selector de imagen es `ImageField` (URL + Subir + Biblioteca + arrastrar y soltar) y lo comparten `imagequestion`, `imagechoice` (una por opción) e `imagematching` (una por fila): "Subir" llama a `subirImagen()`, "Biblioteca" abre `ImagePickerModal` |
+| `AiGradingControls.tsx` | Controles compartidos de los tres modos: "Autoevaluación con IA" + barra de tolerancia a errores de forma (`toleranceLabel` exportado) |
+| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 21 tipos. El picker de tipos (`TYPE_META` en `VisualWorksheetBuilder.tsx:37`) pinta cada opción como una tarjeta con borde y tinte de su color de acento (`bg-X/10 border-X/30`), tanto en el picker como en las tarjetas del lienzo. El selector de imagen es `ImageField` (URL + Subir + Biblioteca + arrastrar y soltar) y lo comparten `imagequestion`, `imagechoice` (una por opción) e `imagematching` (una por fila): "Subir" llama a `subirImagen()`, "Biblioteca" abre `ImagePickerModal` |
 | `ImagePicker.tsx` | `MyImagesGrid` (biblioteca personal: subir/copiar/borrar, y selector si recibe `onSelect`), `FreeImagePicker` (buscador simple de la gratuita para el modal) e `ImagePickerModal` (las dos en pestañas Gratuita/Mía) |
 | `WorksheetPrint.tsx` | Vista de papel + `window.print()` → PDF |
 | `VocabularyViewer.tsx` / `VocabularyPrint.tsx` | Listas de vocabulario |
@@ -184,6 +185,14 @@ Guardar tampoco saca del editor ni abre la vista previa: aparece `SavedPanel` ("
 atajos — vista previa, constructor visual, script e IA. El `useEffect` de `WorksheetEditor` que vigila
 `worksheet.scriptContent` recarga el constructor visual cuando la hoja cambió por fuera; sin él,
 "ver y editar en gráfico" abría la versión anterior y el siguiente guardado la revertía.
+
+## Autoevaluación con IA: los tres modos comparten los mismos controles
+
+"Autoevaluación con IA" (checkbox) y "Tolerancia a errores de forma" (barra 0–100) viven en
+`AiGradingControls.tsx` y se renderizan en los tres modos del editor (script, visual e IA). El estado
+es uno solo (`aiGradingDraft`/`aiToleranceDraft` en `App.tsx`) y viaja a `createWorksheet`/
+`updateWorksheet`. En el modo IA, `handleGenerate` los manda también en el body de
+`POST /worksheets/ai-generate`, así la hoja generada (que el backend YA guarda) nace con esos valores.
 
 ## Constructor visual: se diseña sobre lo que verá el alumno
 
