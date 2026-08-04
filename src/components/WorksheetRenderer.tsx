@@ -80,34 +80,57 @@ function isThumbSafe(activity: WorksheetActivity): boolean {
   return !(activity.type === 'content' && activity.sandbox);
 }
 
+/** Tarjeta de reemplazo para audio/habla en la miniatura: no monta AudioPlayer (evitaría
+ *  descargar TTS de más) pero igual muestra icono + nombre del tipo, nunca un hueco vacío. */
+function ThumbPlaceholderCard({ activity }: { activity: WorksheetActivity }) {
+  const definition = activityRegistry[activity.type];
+  return (
+    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-rex-light text-lg">{definition.icon}</span>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-rex">Actividad</p>
+          <h2 className="font-semibold text-slate-900">{definition.label}</h2>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** Mini vista previa ESTÁTICA de una hoja, para las tarjetas de «Evaluaciones guardadas».
  *
  *  Usa el renderer del alumno (ADR-18: ver y diseñar se parecen porque son lo mismo) en `readonly`,
  *  sin interacción (`pointer-events-none`) y encogido con `scale`. No es un mini-DSL ni una
  *  imitación: si un tipo cambia de aspecto, la miniatura cambia sola.
  *
+ *  Toda hoja con actividades muestra algo: las de audio/habla caen a `ThumbPlaceholderCard` en vez
+ *  de desaparecer de la miniatura.
+ *
+ *  `group-hover:-translate-y-1/3` desliza el contenido muy despacio (8s) cuando el `article`
+ *  contenedor (`.group`) recibe hover, para que se vea más sin necesidad de abrir el editor.
+ *
  *  ponytail: `scale` sobre el renderer completo en vez de una vista propia. Cuesta pintar dos
  *  actividades de más en el DOM; a cambio no hay un segundo renderer que se desincronice. */
-export function WorksheetThumb({ worksheet, limit = 2 }: { worksheet: Worksheet; limit?: number }) {
-  const visible = worksheet.activities.filter(isThumbSafe).slice(0, limit);
+export function WorksheetThumb({ worksheet, limit = 3 }: { worksheet: Worksheet; limit?: number }) {
+  const visible = worksheet.activities.slice(0, limit);
   const hidden = worksheet.activities.length - visible.length;
 
   if (!visible.length) {
     return (
       <div className="grid h-full place-items-center bg-slate-50 px-4 text-center">
-        <p className="text-xs font-semibold text-slate-400">
-          {worksheet.activities.length ? 'Vista previa no disponible (audio o habla)' : 'Hoja sin actividades'}
-        </p>
+        <p className="text-xs font-semibold text-slate-400">Hoja sin actividades</p>
       </div>
     );
   }
 
   return (
     <div className="pointer-events-none h-full select-none bg-white" aria-hidden>
-      <div className="w-[250%] origin-top-left scale-[0.4] p-3">
+      <div className="w-[250%] origin-top-left scale-[0.4] p-3 transition-transform duration-[8000ms] ease-linear group-hover:-translate-y-1/3">
         <div className="grid gap-3">
           {visible.map((activity, index) => (
-            <ActivityCard key={activity.id} activity={activity} readonly onAnswerChange={() => undefined} index={index} />
+            isThumbSafe(activity)
+              ? <ActivityCard key={activity.id} activity={activity} readonly onAnswerChange={() => undefined} index={index} />
+              : <ThumbPlaceholderCard key={activity.id} activity={activity} />
           ))}
           {hidden > 0 && <p className="text-lg font-semibold text-slate-400">+{hidden} actividad{hidden !== 1 ? 'es' : ''} más</p>}
         </div>
