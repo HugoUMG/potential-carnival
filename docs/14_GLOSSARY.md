@@ -136,3 +136,14 @@ spinners.
 
 **`ponytail:`** — Marca en un comentario del código: simplificación deliberada, con su límite y su
 camino de mejora si algún día hace falta.
+
+## Orquestación
+
+**Orquestador** — El rol que clasifica cada tarea, elige el modelo y genera el prompt listo para
+delegar. Vive en `docs/agents/ORCHESTRATOR.md`; **no programa**. Su criterio de selección de modelo
+está en [16_MODEL_SELECTION](16_MODEL_SELECTION.md) y sus plantillas en
+[prompts/](prompts/README.md).
+
+**Plantilla de prompt** — Uno de los archivos de `docs/prompts/`: un prompt prefabricado con
+marcadores (`[TAREA]`, `[DOMINIO]`…) que el orquestador rellena para delegar con el mismo rigor a
+cualquier modelo.

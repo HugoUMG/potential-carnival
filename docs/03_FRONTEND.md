@@ -46,7 +46,8 @@ Seguimiento (antes eran diez botones seguidos).
 | `WorksheetRenderer.tsx` | Pinta una hoja al alumno (bloques, tema, `gradeStatus`) → [08](08_RENDERER.md) |
 | `activityRegistry.tsx` | Un componente por tipo de actividad → [08](08_RENDERER.md) |
 | `WorksheetEditor.tsx` | Editor del profesor en tres modos (script / visual / IA) |
-| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 19 tipos. En `imagequestion`, "Subir" llama a `subirImagen()` y rellena el campo con la URL |
+| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 19 tipos. En `imagequestion`, "Subir" llama a `subirImagen()` y rellena el campo con la URL; "Biblioteca" abre `ImagePickerModal` |
+| `ImagePicker.tsx` | `MyImagesGrid` (biblioteca personal: subir/copiar/borrar, y selector si recibe `onSelect`), `FreeImagePicker` (buscador simple de la gratuita para el modal) e `ImagePickerModal` (las dos en pestañas Gratuita/Mía) |
 | `WorksheetPrint.tsx` | Vista de papel + `window.print()` → PDF |
 | `VocabularyViewer.tsx` / `VocabularyPrint.tsx` | Listas de vocabulario |
 | `AudioPlayer.tsx` | Reproductor TTS (`/tts`, y `/tts/conversation` con la prop `conversation`) |
@@ -162,6 +163,12 @@ Tailwind que la pantalla ya usa** (`.bg-white`, `.text-slate-500`, `.bg-rex-ligh
   `dw_count_{id}` en `localStorage`.
 - **Portal del alumno:** pestañas Activas / Calificadas / Vocabulario / Perfil. El perfil ya muestra
   información personal, sus aulas, el historial de notas y el cambio de contraseña propio.
+- **Biblioteca de imágenes (`ImageLibraryPage`):** sub-pestañas **Gratuita** (el JSON estático de
+  siempre) y **Mía** (`MyImagesGrid`, persistida en `teacher_images` vía `/uploads/images`). Subir en
+  "Mía" reutiliza `subirImagen()` + `registrarImagen()`; cada tile tiene copiar URL y borrar con
+  confirmación. El mismo `MyImagesGrid` se reusa dentro de `ImagePickerModal` (botón "Biblioteca" del
+  editor de `imagequestion`), donde además hace de selector: clic en la imagen la elige y cierra el
+  modal en vez de solo copiar.
 
 ## Convenciones
 

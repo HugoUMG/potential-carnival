@@ -175,6 +175,16 @@ nadie puede escribir en la carpeta de otro. La firma caduca (Cloudinary rechaza 
 Requiere `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET`; sin ellas
 responde **503**.
 
+```
+GET    /uploads/images                        — Biblioteca personal del profesor (recientes primero)
+POST   /uploads/images                        — Registra { public_id, url } tras subir a Cloudinary
+DELETE /uploads/images/{id}                   — Borra una imagen propia (404 si no es del profesor)
+```
+
+Estos tres solo guardan/leen la fila en `teacher_images` (tabla, ver [04_DATABASE](04_DATABASE.md));
+el archivo en sí lo sube el navegador directo a Cloudinary con la firma de arriba, igual que antes.
+La biblioteca **gratuita** (`src/data/image-library.json`) es estática y no pasa por el backend.
+
 ## Audio (TTS)
 
 ```

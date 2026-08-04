@@ -1,7 +1,7 @@
-import { useState, useMemo, useRef } from 'react';
-import { Check, Copy, Download, ImageIcon, Loader2, Search, Upload, X } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Check, Copy, Download, ImageIcon, Search, X } from 'lucide-react';
 import libraryData from '../data/image-library.json';
-import { subirImagen } from '../services/api';
+import { MyImagesGrid } from '../components/ImagePicker';
 
 type ImageEntry = {
   id: string;
@@ -24,18 +24,14 @@ type Category = {
 
 const categories = libraryData.categories as Category[];
 const ALL_ID = '__all__';
-const UPLOADED_ID = '__uploaded__';
 
 export function ImageLibraryPage() {
+  const [tab, setTab] = useState<'gratis' | 'mia'>('gratis');
   const [selectedCategory, setSelectedCategory] = useState(ALL_ID);
   const [search, setSearch] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<ImageEntry | null>(null);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
-  const fileInput = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const allImages: (ImageEntry & { categoryName: string; categoryColor: string })[] = useMemo(
     () =>
@@ -67,21 +63,6 @@ export function ImageLibraryPage() {
     });
   }
 
-  async function handleUpload(file: File | undefined) {
-    if (!file) return;
-    setUploading(true);
-    setUploadError(null);
-    setUploadedUrl(null);
-    try {
-      setUploadedUrl(await subirImagen(file));
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : 'No se pudo subir la imagen.');
-    } finally {
-      setUploading(false);
-      if (fileInput.current) fileInput.current.value = ''; // permite re-subir el mismo archivo
-    }
-  }
-
   function downloadJson() {
     const blob = new Blob([JSON.stringify(libraryData, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -109,54 +90,48 @@ export function ImageLibraryPage() {
           <div>
             <h2 className="text-2xl font-bold">Biblioteca de Imágenes</h2>
             <p className="text-sm text-slate-500">
-              {libraryData.meta.total_images} imágenes • {categories.length} categorías • para actividad <code className="rounded bg-slate-100 px-1">imagequestion</code>
+              {tab === 'gratis'
+                ? `${libraryData.meta.total_images} imágenes • ${categories.length} categorías`
+                : 'Tus imágenes subidas'} • para actividad <code className="rounded bg-slate-100 px-1">imagequestion</code>
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => void handleUpload(e.target.files?.[0])}
-          />
-          <button
-            className="flex items-center gap-2 rounded-2xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
-            onClick={() => fileInput.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? <><Loader2 size={15} className="animate-spin" /> Subiendo…</> : <><Upload size={15} /> Subir imagen</>}
-          </button>
-          <button
-            className="flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-            onClick={downloadJson}
-          >
-            <Download size={15} /> Descargar JSON
-          </button>
-        </div>
+        {tab === 'gratis' && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              onClick={downloadJson}
+            >
+              <Download size={15} /> Descargar JSON
+            </button>
+          </div>
+        )}
       </div>
 
-      {uploadError && (
-        <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{uploadError}</p>
-      )}
+      {/* Sub-pestañas: la gratuita (JSON estático) y la personal (persistida en BD) */}
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${tab === 'gratis' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+          onClick={() => setTab('gratis')}
+        >
+          Gratuita
+        </button>
+        <button
+          type="button"
+          className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${tab === 'mia' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+          onClick={() => setTab('mia')}
+        >
+          Mía
+        </button>
+      </div>
 
-      {uploadedUrl && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-          <img src={uploadedUrl} alt="Imagen subida" className="h-20 w-20 rounded-xl object-cover" />
-          <div className="min-w-[200px] flex-1">
-            <p className="text-sm font-semibold text-emerald-800">Imagen subida — pégala en el campo <code>image:</code></p>
-            <p className="mt-1 break-all font-mono text-xs text-slate-600">{uploadedUrl}</p>
-          </div>
-          <button
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white ${copiedId === UPLOADED_ID ? 'bg-emerald-500' : 'bg-violet-600 hover:bg-violet-700'}`}
-            onClick={() => copyUrl({ id: UPLOADED_ID, url: uploadedUrl })}
-          >
-            {copiedId === UPLOADED_ID ? <><Check size={14} /> ¡Copiado!</> : <><Copy size={14} /> Copiar URL</>}
-          </button>
+      {tab === 'mia' ? (
+        <div className="mt-4">
+          <MyImagesGrid />
         </div>
-      )}
-
+      ) : (
+        <>
       <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <strong>¿Cómo usar?</strong> Haz clic en <strong>Copiar URL</strong> y pégala en el campo <code>image:</code> de tu actividad DSL. Si una imagen no carga, reemplaza la URL con otra de <a href="https://unsplash.com" target="_blank" rel="noreferrer" className="underline">unsplash.com</a>.
       </p>
@@ -342,6 +317,8 @@ export function ImageLibraryPage() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </section>
   );

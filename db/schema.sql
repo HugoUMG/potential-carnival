@@ -115,3 +115,15 @@ CREATE TABLE IF NOT EXISTS vocabulary_reader_assignments (
   FOREIGN KEY (reader_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (list_id)   REFERENCES vocabulary_lists(id) ON DELETE CASCADE
 );
+
+-- Biblioteca de imágenes personal del profesor (coexiste con la gratuita, que es un JSON estático)
+CREATE TABLE IF NOT EXISTS teacher_images (
+  id         TEXT PRIMARY KEY,
+  teacher_id TEXT NOT NULL,
+  public_id  TEXT NOT NULL,
+  url        TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_images_teacher_id ON teacher_images(teacher_id);

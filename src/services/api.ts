@@ -221,8 +221,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
-/** Sube una imagen a Cloudinary y devuelve su URL, lista para pegar en `image:` del DSL. */
-export async function subirImagen(file: File): Promise<string> {
+export interface MiImagen {
+  id: string;
+  teacher_id: string;
+  public_id: string;
+  url: string;
+  created_at: string;
+}
+
+/** Sube una imagen a Cloudinary y devuelve su URL (para pegar en `image:` del DSL) y su public_id (para registrarla en la biblioteca personal con `registrarImagen`). */
+export async function subirImagen(file: File): Promise<{ url: string; public_id: string }> {
   if (!file.type.startsWith('image/')) throw new Error('El archivo debe ser una imagen.');
   if (file.size > MAX_IMAGE_BYTES) throw new Error('La imagen supera los 10 MB.');
 
@@ -253,7 +261,21 @@ export async function subirImagen(file: File): Promise<string> {
   // f_auto,q_auto: Cloudinary sirve WebP/AVIF y comprime — una foto de 4 MB llega como ~80 KB.
   // c_limit (no c_scale, el default de w_): solo reduce, nunca agranda ni recorta. Sin él, una
   // imagen de 300 px se estiraría a 1200 y se vería borrosa; la proporción se respeta siempre.
-  return (data.secure_url as string).replace('/upload/', '/upload/f_auto,q_auto,c_limit,w_1200/');
+  const url = (data.secure_url as string).replace('/upload/', '/upload/f_auto,q_auto,c_limit,w_1200/');
+  return { url, public_id: data.public_id as string };
+}
+
+/** Biblioteca de imágenes personal del profesor (persistida en BD), separada de la gratuita. */
+export async function listarMisImagenes(): Promise<MiImagen[]> {
+  return request<MiImagen[]>('/uploads/images');
+}
+
+export async function registrarImagen(publicId: string, url: string): Promise<MiImagen> {
+  return request<MiImagen>('/uploads/images', { method: 'POST', body: JSON.stringify({ public_id: publicId, url }) });
+}
+
+export async function borrarMiImagen(id: string): Promise<void> {
+  await request<void>(`/uploads/images/${id}`, { method: 'DELETE' });
 }
 
 function withInstructions<T extends WorksheetActivity>(activity: T, source: BackendActivity): T {

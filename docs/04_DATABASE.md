@@ -74,6 +74,10 @@ vocabulary_reader_assignments (reader_id, list_id, assigned_at)     -- PK compue
 -- Registros de acceso
 guest_access_logs  (id, guest_token, name, classroom_id, classroom_name, accessed_at)
 reader_access_logs (id, reader_id → users, reader_name, accessed_at)
+
+-- Biblioteca de imágenes personal del profesor (coexiste con la gratuita, que es
+-- src/data/image-library.json estático, no una tabla)
+teacher_images (id, teacher_id → users, public_id, url, created_at)
 ```
 
 ### Convenciones
@@ -111,6 +115,9 @@ ON worksheet_responses (worksheet_id, guest_token) WHERE guest_token IS NOT NULL
 idx_sessions_user_id · idx_sessions_logged_in
 idx_guest_access_logs_token · idx_guest_access_logs_at
 idx_reader_access_logs_reader · idx_reader_access_logs_at
+
+-- Imágenes del profesor
+idx_teacher_images_teacher_id
 ```
 
 > **Ojo con el histórico:** existió un `UNIQUE INDEX idx_responses_unique_attempt (worksheet_id,

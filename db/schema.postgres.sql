@@ -180,3 +180,15 @@ UPDATE users SET created_by = (
 
 -- Tolerancia de la calificación con IA por hoja (0 estricto … 100 permisivo).
 ALTER TABLE worksheets ADD COLUMN IF NOT EXISTS ai_tolerance INTEGER NOT NULL DEFAULT 50;
+
+-- Biblioteca de imágenes personal del profesor (coexiste con la gratuita, que es un JSON estático)
+CREATE TABLE IF NOT EXISTS teacher_images (
+  id         TEXT PRIMARY KEY,
+  teacher_id TEXT NOT NULL,
+  public_id  TEXT NOT NULL,
+  url        TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_teacher_images_teacher_id ON teacher_images(teacher_id);
