@@ -318,3 +318,18 @@ class VocabularyAiRequest(BaseModel):
 
 class VocabularyAssignment(BaseModel):
     classroom_id: str
+
+
+# ─── Imágenes del profesor ──────────────────────────────────────────────────
+
+class TeacherImage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    teacher_id: str
+    public_id: str
+    url: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class TeacherImageCreate(BaseModel):
+    public_id: str
+    url: str

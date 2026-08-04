@@ -13,10 +13,11 @@ import DOMPurify from 'dompurify';
 import { SandboxedHtml } from './SandboxedHtml';
 import {
   AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2, Eye,
-  GripVertical, List, Loader2, Pencil, PlusCircle, Save, Trash2, ToggleLeft, Upload,
+  GripVertical, Library, List, Loader2, Pencil, PlusCircle, Save, Trash2, ToggleLeft, Upload,
   Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText,
 } from 'lucide-react';
 import { subirImagen } from '../services/api';
+import { ImagePickerModal } from './ImagePicker';
 import { activityRegistry } from './activityRegistry';
 import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock, ActivityRendererProps } from '../types';
 import {
@@ -601,13 +602,15 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   async function upload(file: File | undefined) {
     if (!file) return;
     setUploading(true);
     setUploadError(null);
     try {
-      onChange({ ...act, imageUrl: await subirImagen(file) });
+      const { url } = await subirImagen(file);
+      onChange({ ...act, imageUrl: url });
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'No se pudo subir la imagen.');
     } finally {
@@ -642,6 +645,14 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
             {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
             {uploading ? 'Subiendo…' : 'Subir'}
           </button>
+          <button
+            type="button"
+            className="mt-1 flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+            onClick={() => setPickerOpen(true)}
+            title="Elegir una imagen ya subida o de la biblioteca gratuita"
+          >
+            <Library size={15} /> Biblioteca
+          </button>
         </div>
         {uploadError && <p className="mt-1 text-xs font-semibold text-rose-600">{uploadError}</p>}
         {act.imageUrl && (
@@ -654,6 +665,9 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
         <FieldLabel>Pregunta / Prompt</FieldLabel>
         <TextArea value={act.prompt} onChange={(v) => onChange({ ...act, prompt: v })} placeholder="Describe what you see in the image." />
       </label>
+      {pickerOpen && (
+        <ImagePickerModal onSelect={(url) => onChange({ ...act, imageUrl: url })} onClose={() => setPickerOpen(false)} />
+      )}
     </div>
   );
 }

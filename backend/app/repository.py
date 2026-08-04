@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .database import get_connection, get_database_backend
-from .models import PublicUser, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, UserRole, UserSession, Worksheet, WorksheetResponse
+from .models import PublicUser, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, TeacherImage, UserRole, UserSession, Worksheet, WorksheetResponse
 from .security import hash_password, needs_password_rehash, verify_password
 
 
@@ -1318,6 +1318,46 @@ class WorksheetRepository:
             created_by=data["created_by"],
             created_at=_parse_datetime(data["created_at"]),
             items=items,
+        )
+
+    # ─── Imágenes del profesor ──────────────────────────────────────────────
+
+    def list_teacher_images(self, teacher_id: str) -> list[TeacherImage]:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM teacher_images WHERE teacher_id = {placeholder} ORDER BY created_at DESC",
+                (teacher_id,),
+            ).fetchall()
+        return [self._teacher_image_from_row(r) for r in rows]
+
+    def add_teacher_image(self, teacher_id: str, public_id: str, url: str) -> TeacherImage:
+        image = TeacherImage(teacher_id=teacher_id, public_id=public_id, url=url)
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO teacher_images (id, teacher_id, public_id, url, created_at) VALUES ({self._placeholders(5)})",
+                (image.id, image.teacher_id, image.public_id, image.url, image.created_at.isoformat()),
+            )
+        return image
+
+    def delete_teacher_image(self, image_id: str, teacher_id: str) -> bool:
+        """Borra siempre por dueño: un profesor nunca puede tocar la imagen de otro."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(
+                f"DELETE FROM teacher_images WHERE id = {placeholder} AND teacher_id = {placeholder}",
+                (image_id, teacher_id),
+            )
+            return bool(cursor.rowcount)
+
+    def _teacher_image_from_row(self, row: object) -> TeacherImage:
+        data = dict(row)
+        return TeacherImage(
+            id=data["id"],
+            teacher_id=data["teacher_id"],
+            public_id=data["public_id"],
+            url=data["url"],
+            created_at=_parse_datetime(data["created_at"]),
         )
 
 

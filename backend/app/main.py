@@ -33,6 +33,8 @@ from .models import (
     StudentCreate,
     TeacherCreate,
     TeacherDashboardStats,
+    TeacherImage,
+    TeacherImageCreate,
     UserRole,
     UserSession,
     UserUpdate,
@@ -365,6 +367,22 @@ def upload_signature(current_user: PublicUser = Depends(require_teacher_or_admin
         "folder": folder,
         "signature": hashlib.sha1(to_sign.encode()).hexdigest(),
     }
+
+
+@app.get("/uploads/images", response_model=list[TeacherImage])
+def list_my_images(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[TeacherImage]:
+    return repository.list_teacher_images(current_user.id)
+
+
+@app.post("/uploads/images", response_model=TeacherImage)
+def register_image(payload: TeacherImageCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> TeacherImage:
+    return repository.add_teacher_image(current_user.id, payload.public_id, payload.url)
+
+
+@app.delete("/uploads/images/{image_id}", status_code=204)
+def delete_my_image(image_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    if not repository.delete_teacher_image(image_id, current_user.id):
+        raise HTTPException(status_code=404, detail="Imagen no encontrada")
 
 
 @app.get("/tts")

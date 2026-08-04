@@ -18,7 +18,7 @@ Los tres, más `python -m compileall backend/app backend/tests`, son la verifica
 un commit grande. No hay CI que los ejecute: el único workflow de GitHub Actions es el respaldo
 semanal de la base.
 
-> **Estado real a 2026-08-01:** `pytest` pasa (38 tests). `npm run lint` **no** está limpio: reporta
+> **Estado real a 2026-08-03:** `pytest` pasa (41 tests). `npm run lint` **no** está limpio: reporta
 > 18 errores y 6 avisos heredados (`no-explicit-any` en `VisualWorksheetBuilder.tsx` y
 > `WorksheetEditor.tsx`, una variable sin usar en `activityRegistry.tsx`, un bloque vacío en
 > `GuestPage.tsx`, dependencias de `useEffect`). La regla al trabajar es **no añadir errores nuevos**;
@@ -38,6 +38,7 @@ red que hay.
 | `test_google_auth.py` | `/auth/google`: token válido, **503 sin `GOOGLE_CLIENT_ID` sin llamar a Google**, rechazo de claims inválidos (`aud`, `iss`, `email_verified`), 401 si Google rechaza |
 | `test_security.py` | Que el hash no guarde texto plano y verifique; round-trip del JWT |
 | `test_dotenv.py` | El parser de `.env`: UTF-8, la línea añadida en UTF-16 por PowerShell, que el entorno existente gane, y que la ausencia del archivo no sea error |
+| `test_teacher_images.py` | El aislamiento de la biblioteca personal: un profesor no ve ni puede borrar la imagen de otro (`delete_teacher_image` filtra por `teacher_id` en el SQL) |
 
 Además, un check de TypeScript que se corre a mano:
 
@@ -74,6 +75,7 @@ algo que no funciona, ese test falla.
 | El prompt de calificación | Un `assert` en `test_grade_prompt.py` sobre la regla concreta |
 | Permisos o propiedad de recursos | `test_student_isolation.py` |
 | Auth | `test_security.py` / `test_google_auth.py` |
+| Biblioteca de imágenes personal (permisos por dueño) | `test_teacher_images.py` |
 | Frontend | No hay test: verificarlo en el navegador y dejar `npm run lint` y `npm run build` limpios |
 
 Regla de fondo: **una lógica no trivial deja un check que falla si se rompe**. No hace falta una
