@@ -458,15 +458,8 @@ export default function App() {
   }
 
   /** Abre el editor sobre una hoja existente para editarla EN EL SITIO (misma hoja).
-   *  Bloquea si ya tiene respuestas registradas (para no invalidar lo entregado).
    *  `isolated` = pantalla dedicada a ESA hoja, sin menú lateral (ADR-22). */
   function startEditWorksheet(worksheet: Worksheet, isolated = false) {
-    if ((responseCounts[worksheet.id] ?? 0) > 0) {
-      setActiveWorksheet(worksheet);
-      setAdminMenu('evaluaciones');
-      setMessage('Esta evaluación ya tiene respuestas, no se puede editar. Duplícala si necesitas cambiarla.');
-      return;
-    }
     setIsolatedEdit(isolated);
     setEditingWorksheetId(worksheet.id);
     setActiveWorksheet(worksheet);
@@ -1510,13 +1503,12 @@ export default function App() {
               {pagedWorksheets.map((worksheet) => {
                 const responses = responseCounts[worksheet.id] ?? 0;
                 const newCount = responses - (responseSeen[worksheet.id] ?? 0);
-                const locked = responses > 0; // con respuestas ya entregadas no se puede editar
                 return (
                   <article key={worksheet.id} className="group relative flex flex-col rounded-2xl border border-slate-100 bg-white transition hover:border-rex/40 hover:shadow-lg">
                     <button
                       type="button"
                       className="relative block h-40 w-full overflow-hidden rounded-t-2xl border-b border-slate-100 bg-white text-left"
-                      title={locked ? 'Ya tiene respuestas: ábrela para verla (no se puede editar)' : 'Abrir el editor de esta evaluación'}
+                      title="Abrir el editor de esta evaluación"
                       onClick={() => startEditWorksheet(worksheet, true)}
                     >
                       <WorksheetThumb worksheet={worksheet} />
@@ -2081,9 +2073,8 @@ export default function App() {
               <h2 className="text-xl font-bold">Vista previa: {previewWorksheet.title}</h2>
               <div className="flex gap-2">
                 <button
-                  className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={(responseCounts[previewWorksheet.id] ?? 0) > 0}
-                  title={(responseCounts[previewWorksheet.id] ?? 0) > 0 ? 'No se puede editar: ya tiene respuestas.' : 'Editar esta evaluación'}
+                  className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep"
+                  title="Editar esta evaluación"
                   onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); startEditWorksheet(w); }}
                 ><Pencil className="mr-1 inline" size={16} /> Editar</button>
                 <button className="rounded-2xl border border-spike/30 px-4 py-2 font-semibold text-spike-dark" onClick={() => { const w = previewWorksheet; setPreviewWorksheet(null); openPractice(w); }} title="Resuélvela tú mismo para revisar las respuestas"><GraduationCap className="mr-1 inline" size={16} /> Modo práctica</button>

@@ -22,7 +22,7 @@
 | 401 | Sin token, token caducado o credenciales incorrectas |
 | 403 | Rol insuficiente, o recurso de otro profesor |
 | 404 | No existe, o no es visible para quien pregunta |
-| 409 | Doble envío de respuestas · editar una hoja que ya tiene respuestas |
+| 409 | Doble envío de respuestas |
 | 503 | Falta una API key obligatoria (`GOOGLE_CLIENT_ID`, proveedor de IA) |
 
 ---
@@ -68,7 +68,7 @@ PUT    /users/{id}/password                   — Cambiar contraseña (los reade
 
 ```
 POST   /worksheets                            — Crear desde script DSL
-PUT    /worksheets/{id}                       — Editar en el sitio (409 si ya tiene respuestas)
+PUT    /worksheets/{id}                       — Editar en el sitio (no crea copia)
 POST   /worksheets/ai-generate                — Generar hoja con IA desde un prompt (LA GUARDA: devuelve la hoja creada, no un borrador)
 POST   /worksheets/ai-edit                    — Reescribir el script con una instrucción en lenguaje natural (NO guarda)
 GET    /worksheets                            — Listar (filtros: created_by, published, archived)

@@ -415,7 +415,7 @@ export async function createWorksheet(scriptContent: string, createdBy: string, 
   return normalizeWorksheet(worksheet);
 }
 
-/** Edita en el sitio una hoja existente (409 si ya tiene respuestas registradas). */
+/** Edita en el sitio una hoja existente (misma hoja, no se crea copia). */
 export async function updateWorksheet(worksheetId: string, scriptContent: string, maxAttempts: number | null, aiGrading = true, aiTolerance = 50): Promise<Worksheet> {
   const worksheet = await request<BackendWorksheet>(`/worksheets/${worksheetId}`, { method: 'PUT', body: JSON.stringify({ script_content: scriptContent, max_attempts: maxAttempts, ai_grading: aiGrading, ai_tolerance: aiTolerance }) });
   return normalizeWorksheet(worksheet);

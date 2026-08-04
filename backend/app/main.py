@@ -492,9 +492,6 @@ def update_worksheet(worksheet_id: str, payload: WorksheetUpdate, current_user: 
     existing = repository.get_worksheet(worksheet_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Hoja de trabajo no encontrada")
-    # Candado: no se puede editar en el sitio si ya hay respuestas (para no invalidar lo entregado).
-    if repository.count_responses(worksheet_id) > 0:
-        raise HTTPException(status_code=409, detail="La evaluación ya tiene respuestas; no se puede editar. Duplícala para hacer cambios.")
     try:
         worksheet_data = parse_worksheet_script(payload.script_content)
         worksheet_json = WorksheetJson(**worksheet_data.to_dict())
