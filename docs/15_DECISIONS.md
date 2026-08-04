@@ -318,6 +318,66 @@ exhaustivo; **si falta un campo, no lo caza nadie**: la tarjeta miente en silenc
 
 ---
 
+## 🟢 ADR-19 — Campo privado `note` por actividad (solo calificación con IA)
+
+**Decisión.** Las actividades ganan un campo opcional `note` (texto libre) que el profesor escribe y
+que **solo consume la IA al calificar**; el alumno nunca lo ve (ni en pantalla ni en papel). Forma
+parte de la solicitud #4 del paquete de cambios UX.
+
+**Motivo.** Hay respuestas abiertas (imagen, textbox, speaking) donde el criterio de logro no se lee
+del texto: el profesor puede escribir una pista privada (p. ej. "debe mencionar el color rojo") sin
+que el alumno la vea.
+
+**Alternativa descartada.** Compartir el campo con instrucciones públicas, o meterlo a nivel de hoja:
+público filtra contenido y a nivel de hoja pierde granularidad. Se eligió por actividad y privado.
+
+**Consecuencia.** Sigue la regla 20 (cadena del campo: parser.py, domain.py, models.py, types.ts,
+api.ts) y la regla 21 (si el DSL lo enseña, sincronizar 07_DSL, `_WORKSHEET_SYSTEM`,
+GENERATION_PROMPT). Implementación delegada: `docs/plans/PLAN-cambio-4-campo-note.md`.
+
+## 🟢 ADR-20 — Actividades con imagen: empezar por MC con imagen y matching imagen-texto
+
+**Decisión.** La ampliación de actividades con imagen (solicitud #5) empieza con **dos** tipos:
+opción múltiple con imagen y matching imagen-texto. El carácter visual queda en el DSL; **no hay un
+"modo imagen" opuesto al renderer**.
+
+**Motivo.** Cubren los dos casos más usados en clase con uno de opción cerrada y uno de arrastre, sin
+ampliar el alcance a todo lo que se pueda imaginar de golpe.
+
+**Alternativa descartada.** Una super-actividad genérica de imagen que absorbería todos los tipos.
+**Consecuencia.** Cada tipo recorre la cadena completa (reglas 17 y 20) y el DSL se sincroniza
+(regla 21). El renderer de impresión los traduce a papel (decidido en ADR-21). Diseño primero:
+`docs/plans/PLAN-cambio-5-actividades-imagen.md` (REVIEW antes de implementar).
+
+## 🟢 ADR-21 — El renderer de impresión traduce a papel, sin DSL de imagen
+
+**Decisión.** La impresión no inventa un DSL paralelo ni modos visuales: `WorksheetPrint` ya omite
+`speaking` y `listening*`; cada tipo que sí imprime se **traduce a papel** con lo que ya sabe. El modo
+"físico" de la IA (solicitud #12) restringe la generación al conjunto imprimible existente.
+
+**Motivo.** Reutilizar la fuente de verdad de impresión ya consolidada en vez de bifurcar el parser.
+
+**Consecuencia.** La lista de "imprimibles" usada por `WorksheetPrint` pasa a ser la referencia para
+el filtro del modo físico. Implementación: `docs/plans/PLAN-cambio-12-modo-fisico.md`.
+
+## 🟢 ADR-22 — Evaluaciones guardadas en tarjetas con mini vista previa y edición aislada
+
+**Decisión.** La sección «Evaluaciones guardadas» (solicitud #6) se muestra como tarjetas con mini
+vista previa de la hoja y menú «⋮» (ver respuestas, copiar enlace, duplicar, archivar/borrar). Clic en
+la tarjeta abre el editor de ESA hoja en pantalla aislada (solo la hoja, con botón de volver); no se
+crea copia.
+
+**Motivo.** El profesor entiende mejor de un vistazo la biblioteca de evaluaciones y edita cada hoja
+sin el ruido del dashboard.
+
+**Alternativa descartada.** Seguir en lista de filas; o una miniatura que reprodujera audio/interacción
+(se descarta: carga cara y permite responder). La miniatura es estática y sin audio.
+
+**Consecuencia.** El modo aislado reutiliza el estado de edición de App.tsx. Implementación:
+`docs/plans/PLAN-cambio-6-tarjetas-evaluaciones.md`.
+
+---
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

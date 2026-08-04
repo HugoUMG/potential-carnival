@@ -1,6 +1,26 @@
 # 13 — Roadmap y pendientes
 
-Estado a **2026-08-01**, rama `feat/student-ux`.
+Estado a **2026-08-03**, rama `feat/student-ux`.
+
+---
+
+## Cambios de UX pedidos por el usuario (en curso)
+
+Paquete de 12 cambios sobre la rama `feat/student-ux`.
+
+**Hecho y commiteado:**
+| Cambio | Commits |
+|--------|---------|
+| #2 Nueva evaluación siempre en blanco · #7 Visual por defecto + banner · #11 aterrizar en Evaluaciones guardadas · #9 botón vocabulario en header · #8 toggle tema en `/w/:id` · #10 sin guiones largos en la UI | `714707c` |
+| #1 duplicar actividad + arrastrar/soltar imagen en el constructor visual · #3 plantillas rápidas en modo script | `a93f951` |
+
+**Pendiente (prompts de Claude listos en `docs/plans/`):**
+| Cambio | Prompt | Dominio |
+|--------|--------|---------|
+| #4 campo privado `note` para la IA | [PLAN-cambio-4-campo-note.md](plans/PLAN-cambio-4-campo-note.md) | DSL + BD + IA |
+| #5 actividades con imagen (MC con imagen + matching imagen-texto) | [PLAN-cambio-5-actividades-imagen.md](plans/PLAN-cambio-5-actividades-imagen.md) — REVIEW primero | DSL + IA + renderer |
+| #6 evaluaciones como tarjetas (mini vista previa + ⋮ + edición aislada) | [PLAN-cambio-6-tarjetas-evaluaciones.md](plans/PLAN-cambio-6-tarjetas-evaluaciones.md) | Frontend |
+| #12 modo físico/imprimible en la generación con IA | [PLAN-cambio-12-modo-fisico.md](plans/PLAN-cambio-12-modo-fisico.md) | IA + API + renderer |
 
 ---
 
