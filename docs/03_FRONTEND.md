@@ -46,7 +46,7 @@ Seguimiento (antes eran diez botones seguidos).
 | `WorksheetRenderer.tsx` | Pinta una hoja al alumno (bloques, tema, `gradeStatus`) → [08](08_RENDERER.md). Exporta además `WorksheetThumb`, la miniatura estática de las tarjetas del profesor |
 | `activityRegistry.tsx` | Un componente por tipo de actividad → [08](08_RENDERER.md) |
 | `WorksheetEditor.tsx` | Editor del profesor en tres modos (script / visual / IA) |
-| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 21 tipos. El selector de imagen es `ImageField` (URL + Subir + Biblioteca + arrastrar y soltar) y lo comparten `imagequestion`, `imagechoice` (una por opción) e `imagematching` (una por fila): "Subir" llama a `subirImagen()`, "Biblioteca" abre `ImagePickerModal` |
+| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 21 tipos. El picker de tipos (`TYPE_META` en `VisualWorksheetBuilder.tsx:37`) pinta cada opción como una tarjeta con borde y tinte de su color de acento (`bg-X/10 border-X/30`), tanto en el picker como en las tarjetas del lienzo. El selector de imagen es `ImageField` (URL + Subir + Biblioteca + arrastrar y soltar) y lo comparten `imagequestion`, `imagechoice` (una por opción) e `imagematching` (una por fila): "Subir" llama a `subirImagen()`, "Biblioteca" abre `ImagePickerModal` |
 | `ImagePicker.tsx` | `MyImagesGrid` (biblioteca personal: subir/copiar/borrar, y selector si recibe `onSelect`), `FreeImagePicker` (buscador simple de la gratuita para el modal) e `ImagePickerModal` (las dos en pestañas Gratuita/Mía) |
 | `WorksheetPrint.tsx` | Vista de papel + `window.print()` → PDF |
 | `VocabularyViewer.tsx` / `VocabularyPrint.tsx` | Listas de vocabulario |
