@@ -13,7 +13,7 @@ import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 function answerText(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '—';
+  if (value === null || value === undefined || value === '') return '-';
   if (Array.isArray(value)) return value.join(', ');
   if (typeof value === 'object') return Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k} → ${v}`).join('\n');
   return String(value);

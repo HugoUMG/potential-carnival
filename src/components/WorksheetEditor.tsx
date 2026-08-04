@@ -336,8 +336,9 @@ export function WorksheetEditor({
   onScriptChange, onMaxAttemptsChange, onAiGradingChange, onAiToleranceChange, onSaveScript,
   savedWorksheet, onPreviewSaved, onAiGenerated,
 }: WorksheetEditorProps) {
-  const [mode, setMode] = useState<EditorMode>('script');
+  const [mode, setMode] = useState<EditorMode>('visual');
   const [skippedWarning, setSkippedWarning] = useState<number | null>(null);
+  const [guideDismissed, setGuideDismissed] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
@@ -434,9 +435,9 @@ export function WorksheetEditor({
   };
 
   const tabs: { id: EditorMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'script',  label: 'Script',      icon: <Code2 size={15} /> },
     { id: 'visual',  label: 'Visual',      icon: <LayoutTemplate size={15} /> },
     { id: 'ai',      label: 'Generar con IA', icon: <Sparkles size={15} /> },
+    { id: 'script',  label: 'Script',      icon: <Code2 size={15} /> },
   ];
 
   const savedPanel = savedWorksheet ? (
@@ -470,6 +471,20 @@ export function WorksheetEditor({
         </div>
 
         {savedPanel}
+
+        {mode === 'visual' && !guideDismissed && (
+          <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <p className="leading-relaxed">
+              <strong className="text-slate-800">Estás en el modo visual:</strong> construye la hoja agregando actividades.
+              ¿No sabes por dónde empezar? Genera una{' '}
+              <button type="button" className="font-bold text-spike underline hover:text-spike-dark" onClick={() => setMode('ai')}>
+                plantilla rápida con IA
+              </button>{' '}
+              y luego vuelve a Visual para retocarla. El modo <strong>Script</strong> queda para usuarios avanzados.
+            </p>
+            <button type="button" className="shrink-0 text-slate-400 hover:text-slate-600" onClick={() => setGuideDismissed(true)} aria-label="Ocultar guía">✕</button>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-3">
           {mode === 'visual' && <AskAiEdit getScript={() => visualScriptRef.current?.() ?? scriptDraft} onApply={(s) => { onScriptChange(s); setMode('script'); }} />}

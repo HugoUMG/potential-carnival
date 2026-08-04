@@ -1,6 +1,6 @@
 /**
  * Reproductor de audio TTS para actividades de listening.
- * Descarga el audio como blob antes de reproducir — evita problemas de streaming.
+ * Descarga el audio como blob antes de reproducir · evita problemas de streaming.
  * Incluye control de velocidad (útil para aprendizaje de idiomas).
  *
  * Exporta dos componentes:
@@ -220,7 +220,7 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
           <option value={1.25}>1.25×</option>
         </select>
 
-        {/* Selector de voz — solo si no se forzó una voz específica ni es conversación (voces por línea) */}
+        {/* Selector de voz · solo si no se forzó una voz específica ni es conversación (voces por línea) */}
         {!voice && !conversation && (
           <div className="flex shrink-0 overflow-hidden rounded-lg border border-rex-light text-xs font-semibold">
             <button
@@ -271,7 +271,7 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
   );
 }
 
-// ── Botón compacto TTS (para vocabulario) — carga perezosa ───────────────────
+// ── Botón compacto TTS (para vocabulario) · carga perezosa ───────────────────
 //
 // NO precarga en el montaje. Descarga el audio solo cuando el usuario hace clic
 // por primera vez, luego lo cachea en un ref para que el siguiente clic sea
@@ -286,7 +286,7 @@ export function TtsButton({ text, voice }: TtsButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [playing, setPlaying] = useState(false);
-  // Cache del blob URL — persiste entre renders mientras el componente vive
+  // Cache del blob URL · persiste entre renders mientras el componente vive
   const cachedUrl = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -336,7 +336,7 @@ export function TtsButton({ text, voice }: TtsButtonProps) {
         type="button"
         onClick={() => void handleClick()}
         disabled={loading}
-        title={error ? 'Error — clic para reintentar' : playing ? 'Detener' : 'Reproducir'}
+        title={error ? 'Error · clic para reintentar' : playing ? 'Detener' : 'Reproducir'}
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition
           ${error
             ? 'bg-red-100 text-red-500 hover:bg-red-200'

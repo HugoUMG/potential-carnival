@@ -74,8 +74,8 @@ export function SiteLayout() {
                 <Link to="/registro" className="site-btn site-btn-ghost !px-4 !py-2 text-sm max-sm:!hidden">
                   <UserPlus size={16} /> Crear cuenta
                 </Link>
-                <Link to="/vocab" className="site-btn site-btn-ghost !px-4 !py-2 text-sm max-sm:!hidden">
-                  <BookText size={16} /> Conoce nuestro vocabulario gratuito
+                <Link to="/vocab" className="site-btn site-btn-ghost !px-4 !py-2 text-sm max-sm:!hidden" title="Diccionario y vocabulario ilustrado">
+                  <BookText size={16} /> Vocabulario
                 </Link>
                 <Link to="/login" className="site-btn site-btn-primary !px-5 !py-2 text-sm">
                   <LogIn size={16} /> Entrar
@@ -98,7 +98,7 @@ export function SiteLayout() {
           <Link to="/vocab" className="transition hover:text-site-fg/80">Vocabulario</Link>
           <Link to="/login" className="transition hover:text-site-fg/80">Entrar</Link>
         </div>
-        <p className="mt-4">MyDinoEnglish — hojas de trabajo de inglés, interactivas y calificadas.</p>
+        <p className="mt-4">MyDinoEnglish · hojas de trabajo de inglés, interactivas y calificadas.</p>
       </footer>
     </div>
   );

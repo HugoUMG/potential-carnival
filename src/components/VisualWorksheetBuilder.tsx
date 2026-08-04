@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 /**
  * Constructor visual de hojas de trabajo.
- * Alternativa al editor de script DSL — misma funcionalidad, interfaz drag-and-form.
+ * Alternativa al editor de script DSL · misma funcionalidad, interfaz drag-and-form.
  * Tipos soportados: todos los tipos del sistema excepto speaking.
  *
  * Exporta `worksheetToVisualState` además de los componentes: vive aquí porque es el inverso de
@@ -299,7 +299,7 @@ function FillBlankEditor({ act, onChange }: { act: VisualActivity; onChange: (a:
       <label className="block">
         <FieldLabel>Texto (usa _____ para cada espacio en blanco)</FieldLabel>
         <TextArea value={act.text} onChange={(v) => onChange({ ...act, text: v })} />
-        {blanks > 1 && <p className="mt-1 text-xs text-slate-400">{blanks} espacios — separa las respuestas con coma. Ej: <em>was, weren't</em></p>}
+        {blanks > 1 && <p className="mt-1 text-xs text-slate-400">{blanks} espacios · separa las respuestas con coma. Ej: <em>was, weren't</em></p>}
       </label>
       <label className="block">
         <FieldLabel>Respuesta(s) correcta(s)</FieldLabel>
@@ -409,7 +409,7 @@ function ListeningFillBlankEditor({ act, onChange }: { act: VisualActivity; onCh
       <label className="block">
         <FieldLabel>Texto con espacios (usa _____ para cada blank)</FieldLabel>
         <TextArea value={act.text} onChange={(v) => onChange({ ...act, text: v })} />
-        {blanks > 1 && <p className="mt-1 text-xs text-slate-400">{blanks} espacios — separa respuestas con coma.</p>}
+        {blanks > 1 && <p className="mt-1 text-xs text-slate-400">{blanks} espacios · separa respuestas con coma.</p>}
       </label>
       <label className="block">
         <FieldLabel>Respuesta(s) correcta(s)</FieldLabel>
@@ -521,7 +521,7 @@ function ContentEditor({ act, onChange }: { act: VisualActivity; onChange: (a: V
           placeholder={act.sandbox ? '<!DOCTYPE html>\n<html>...<style>...</style>...<script>...</script></html>' : '<h1 style="color:#0EA5E9">Título</h1>\n<p>Repaso corto con <b>negrita</b> y colores.</p>'}
           onChange={(e) => onChange({ ...act, html: e.target.value })}
         />
-        <p className="mt-1 text-xs text-slate-400">Solo lectura para el alumno — no se califica.{act.sandbox ? ' El iframe está aislado: sus scripts no pueden tocar la app.' : ' Se sanea automáticamente (se bloquean scripts).'}</p>
+        <p className="mt-1 text-xs text-slate-400">Solo lectura para el alumno · no se califica.{act.sandbox ? ' El iframe está aislado: sus scripts no pueden tocar la app.' : ' Se sanea automáticamente (se bloquean scripts).'}</p>
       </label>
 
       <div>
@@ -540,7 +540,7 @@ function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: 
   return (
     <div className="grid gap-4">
       <div>
-        <FieldLabel>Diálogo (turnos con voz alternada — se fusionan en un solo audio)</FieldLabel>
+        <FieldLabel>Diálogo (turnos con voz alternada · se fusionan en un solo audio)</FieldLabel>
         <div className="mt-2 grid gap-2">
           <p className="text-xs text-slate-400">El texto es solo audio (no lo ve el alumno). Alterna ♂ / ♀ por turno.</p>
           {act.lines.map((line) => (
@@ -572,7 +572,7 @@ function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: 
         <TextInput value={act.question} onChange={(v) => onChange({ ...act, question: v })} placeholder="What did she ask?" />
       </label>
       <label className="block">
-        <FieldLabel>Respuesta correcta (opcional — vacío = lo califica la IA/profesor)</FieldLabel>
+        <FieldLabel>Respuesta correcta (opcional · vacío = lo califica la IA/profesor)</FieldLabel>
         <TextInput value={act.answer} onChange={(v) => onChange({ ...act, answer: v })} placeholder="at school" />
       </label>
     </div>
@@ -657,7 +657,7 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
         {uploadError && <p className="mt-1 text-xs font-semibold text-rose-600">{uploadError}</p>}
         {act.imageUrl && (
           // key: sin ella React reutiliza el nodo y el display:none de una URL rota
-          // se queda pegado — la imagen recién subida no se vería.
+          // se queda pegado · la imagen recién subida no se vería.
           <img key={act.imageUrl} src={act.imageUrl} alt="preview" className="mt-2 block max-h-40 w-auto max-w-full rounded-xl border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         )}
       </div>
@@ -718,7 +718,7 @@ function DragDropEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
       <label className="block">
         <FieldLabel>Texto (usa _____ para cada hueco)</FieldLabel>
         <TextArea value={act.text} onChange={(v) => onChange({ ...act, text: v })} />
-        <p className="mt-1 text-xs text-slate-400">{blanks} hueco{blanks !== 1 ? 's' : ''} — separa las respuestas con coma, en orden.</p>
+        <p className="mt-1 text-xs text-slate-400">{blanks} hueco{blanks !== 1 ? 's' : ''} · separa las respuestas con coma, en orden.</p>
       </label>
       <label className="block">
         <FieldLabel>Respuestas correctas (en orden, separadas por coma)</FieldLabel>
@@ -789,7 +789,7 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
     <div className="grid gap-4">
       {act.type !== 'content' && (
         <label className="block">
-          <FieldLabel>Instrucciones (opcional) — pistas o información extra para el alumno</FieldLabel>
+          <FieldLabel>Instrucciones (opcional) · pistas o información extra para el alumno</FieldLabel>
           <TextInput value={act.instructions} onChange={(v) => onChange({ ...act, instructions: v })} placeholder="Ej: Usa la forma correcta del verbo en presente simple." />
         </label>
       )}

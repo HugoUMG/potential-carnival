@@ -95,7 +95,7 @@ function statusBadge(status: DetalleRespuesta['status']) {
 }
 
 function answerText(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '—';
+  if (value === null || value === undefined || value === '') return '-';
   if (Array.isArray(value)) return value.join(', ');
   if (typeof value === 'object') return Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k} → ${v}`).join('\n');
   return String(value);
@@ -169,6 +169,24 @@ const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', '
 type StudentTab = 'activas' | 'calificadas' | 'vocabulario' | 'perfil';
 const STUDENT_TABS: StudentTab[] = ['activas', 'calificadas', 'vocabulario', 'perfil'];
 
+// Hoja en blanco para "Nueva evaluación": sin actividades ni bloques ni script. Complementa a
+// startNewWorksheet() cuando se entra a 'crear' desde el menú (evita los residuos del borrador anterior).
+const BLANK_WORKSHEET: Worksheet = {
+  id: '',
+  title: '',
+  description: '',
+  status: 'draft',
+  archived: false,
+  scriptContent: '',
+  createdBy: '',
+  createdAt: '',
+  activities: [],
+  blocks: [],
+  maxAttempts: null,
+  aiGrading: true,
+  aiTolerance: 50,
+};
+
 export default function App() {
   const navigate = useNavigate();
   // Cada opción del portal es su propia URL: se comparte, se marca y el botón "atrás"
@@ -176,7 +194,7 @@ export default function App() {
   const { section } = useParams<{ section?: string }>();
   const [user, setUser] = useState<UsuarioSesion | null>(() => getCurrentSession());
   const portalBase = user?.role === 'admin' ? '/admin' : user?.role === 'student' ? '/student' : '/teacher';
-  const adminMenu: TeacherMenu = TEACHER_SECTIONS.includes(section as TeacherMenu) ? (section as TeacherMenu) : 'crear';
+  const adminMenu: TeacherMenu = TEACHER_SECTIONS.includes(section as TeacherMenu) ? (section as TeacherMenu) : 'evaluaciones';
   const studentTab: StudentTab = STUDENT_TABS.includes(section as StudentTab) ? (section as StudentTab) : 'activas';
   const setAdminMenu = (menu: TeacherMenu) => navigate(`${portalBase}/${menu}`);
   const setStudentTab = (tab: StudentTab) => navigate(`${portalBase}/${tab}`);
@@ -330,7 +348,7 @@ export default function App() {
           new Notification('Nueva respuesta recibida 📋', { body, icon: '/favicon.ico' });
         }
         prevNotifCount.current = count;
-      } catch { /* silent — no interrumpir la UI */ }
+      } catch { /* silent · no interrumpir la UI */ }
     }
 
     void poll();
@@ -349,7 +367,7 @@ export default function App() {
       try {
         setFeed(await getTeacherActivityFeed());
         await loadResponseCounts();
-      } catch { /* silencioso — no interrumpe la UI */ }
+      } catch { /* silencioso · no interrumpe la UI */ }
     }
     void pollFeed();
     const id = setInterval(() => void pollFeed(), 30_000);
@@ -669,17 +687,25 @@ export default function App() {
     }
   }
 
+  /** Reinicia el editor a una hoja NUEVA en blanco. `editingWorksheetId` y `activeWorksheet`
+   *  se limpian para que ni el script ni el constructor visual arrastren residuos de otra hoja. */
+  function startNewWorksheet(navigate = true) {
+    setEditingWorksheetId(null);
+    setActiveWorksheet(BLANK_WORKSHEET);
+    setSelectedActivityId('');
+    setScriptDraft('');
+    setMaxAttemptsDraft('unlimited');
+    setAiGradingDraft(true);
+    setAiToleranceDraft(50);
+    setMessage('');
+    setSavedWorksheet(null);
+    if (navigate) setAdminMenu('crear');
+  }
+
   function handleSelectMenu(menu: TeacherMenu) {
-    // Ir a "Crear" desde el menú (dejando una edición) empieza una hoja NUEVA en blanco.
-    if (menu === 'crear' && editingWorksheetId) {
-      setEditingWorksheetId(null);
-      setScriptDraft('');
-      setMaxAttemptsDraft('unlimited');
-      setAiGradingDraft(true);
-      setAiToleranceDraft(50);
-      setMessage('');
-      setSavedWorksheet(null);
-    }
+    // Ir a "Crear" desde el menú (dejando una edición) empieza una hoja NUEVA en blanco,
+    // siempre: sin actividades, sin bloques y sin script heredado.
+    if (menu === 'crear') startNewWorksheet(/* navega */ false);
     if (menu === 'revision' && user) {
       localStorage.setItem(`teacher_notif_since_${user.id}`, new Date().toISOString());
       setNotificationCount(0);
@@ -1045,7 +1071,7 @@ export default function App() {
                     <div className="mt-5">
                       {activeWorksheet.status !== 'published' && (
                         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 font-semibold">
-                          Esta hoja fue deshabilitada por tu profesor — ya no puedes volver a responderla.
+                          Esta hoja fue deshabilitada por tu profesor · ya no puedes volver a responderla.
                         </div>
                       )}
                       <ResponseDetails response={resp} />
@@ -1448,7 +1474,7 @@ export default function App() {
                 <h2 className="text-2xl font-bold">Tus hojas de trabajo</h2>
                 <p className="mt-1 max-w-2xl text-sm text-slate-500">Todo lo que has creado. Desde aquí habilitas una hoja para que se pueda responder, la asignas a un aula o copias su enlace directo, y en “Más” la editas, duplicas, imprimes o archivas.</p>
               </div>
-              <button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={() => { setEditingWorksheetId(null); setScriptDraft(''); setMaxAttemptsDraft('unlimited'); setAiGradingDraft(true); setAiToleranceDraft(50); setMessage(''); setSavedWorksheet(null); setAdminMenu('crear'); }}>Nueva evaluación</button>
+              <button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={() => startNewWorksheet()}>Nueva evaluación</button>
             </div>
             {/* Search */}
             <div className="mt-4 relative">
@@ -1492,7 +1518,7 @@ export default function App() {
                         <button
                           className="rounded-2xl border border-rex/30 px-4 py-2 font-semibold text-rex-deep"
                           title="Copia un enlace directo: el alumno entra sin login ni menú, resuelve y envía"
-                          onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/w/${worksheet.id}`); setMessage('Enlace directo copiado. Compártelo con los alumnos — entran sin login y sus respuestas llegan a tus respuestas.'); }}
+                          onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/w/${worksheet.id}`); setMessage('Enlace directo copiado. Compártelo con los alumnos · entran sin login y sus respuestas llegan a tus respuestas.'); }}
                         ><Link2 className="mr-1 inline" size={16} /> Copiar enlace</button>
                       )}
                       <button className="rounded-2xl border border-slate-200 px-4 py-2 font-semibold" onClick={() => loadWorksheetResponses(worksheet)}>Ver respuestas</button>
@@ -1776,7 +1802,7 @@ export default function App() {
                     >
                       {isNew && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white">!</span>}
                       {r.student_name}
-                      <span className={`rounded-full px-1.5 text-xs font-bold ${active ? 'bg-white/20' : isNew ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'}`}>{r.score ?? '—'}</span>
+                      <span className={`rounded-full px-1.5 text-xs font-bold ${active ? 'bg-white/20' : isNew ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-500'}`}>{r.score ?? '-'}</span>
                     </button>
                   );
                 })}
@@ -1797,7 +1823,7 @@ export default function App() {
                   {(activeWorksheet.infoFields?.length ?? 0) > 0 && (() => {
                     const infoAnswers = activeWorksheet.infoFields!.map((label, i) => ({
                       label,
-                      value: String((response.answers_json as Record<string, unknown>)?.[`_info_${i}`] ?? '—'),
+                      value: String((response.answers_json as Record<string, unknown>)?.[`_info_${i}`] ?? '-'),
                     }));
                     return (
                       <div className="mt-3 flex flex-wrap gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -1922,7 +1948,7 @@ export default function App() {
                                 <p className="text-xs text-slate-500">Enviada: {new Date(response.submitted_at).toLocaleString()}</p>
                               </div>
                               <div className="flex items-center gap-3 text-sm">
-                                <span className="font-bold text-rex-deep">{response.score ?? '—'}%</span>
+                                <span className="font-bold text-rex-deep">{response.score ?? '-'}%</span>
                                 <span className="font-bold text-emerald-700">✓ {response.correct_count}</span>
                                 {response.pending_count > 0 && <span className="font-bold text-amber-600">⏳ {response.pending_count}</span>}
                                 <ChevronRight size={16} className={`transition-transform ${expandedResponseId === response.id ? 'rotate-90' : ''}`} />
@@ -1963,7 +1989,7 @@ export default function App() {
                         const inTime = new Date(s.logged_in_at);
                         const outTime = s.logged_out_at ? new Date(s.logged_out_at) : null;
                         const durMs = outTime ? outTime.getTime() - inTime.getTime() : null;
-                        const durLabel = durMs === null ? '—' : durMs < 60000 ? `${Math.round(durMs / 1000)}s` : durMs < 3600000 ? `${Math.round(durMs / 60000)}min` : `${(durMs / 3600000).toFixed(1)}h`;
+                        const durLabel = durMs === null ? '-' : durMs < 60000 ? `${Math.round(durMs / 1000)}s` : durMs < 3600000 ? `${Math.round(durMs / 60000)}min` : `${(durMs / 3600000).toFixed(1)}h`;
                         return (
                           <tr key={s.id} className="border-b last:border-0">
                             <td className="py-2 pr-3">{inTime.toLocaleString()}</td>
@@ -2055,7 +2081,7 @@ export default function App() {
                 <button className="rounded-2xl border px-4 py-2 font-semibold" onClick={() => setPracticeWorksheet(null)}>Cerrar</button>
               </div>
             </div>
-            <p className="mb-4 rounded-xl bg-spike/10 px-4 py-2 text-sm text-spike-dark">Estás resolviendo la hoja como un alumno para verificar las respuestas. <b>Nada se guarda</b> — es solo para revisar tu clave de respuestas.</p>
+            <p className="mb-4 rounded-xl bg-spike/10 px-4 py-2 text-sm text-spike-dark">Estás resolviendo la hoja como un alumno para verificar las respuestas. <b>Nada se guarda</b> · es solo para revisar tu clave de respuestas.</p>
             {practiceResult && (() => {
               const incorrect = practiceResult.details.filter((d) => d.status === 'incorrect').length;
               return (

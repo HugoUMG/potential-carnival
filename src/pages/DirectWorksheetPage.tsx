@@ -1,11 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Send, RotateCcw } from 'lucide-react';
+import { Moon, RotateCcw, Send, Sun } from 'lucide-react';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { LoadingScreen, LoadingOverlay } from '../components/LoadingScreen';
 import { SubmitConfirmModal, missingNameLabel, type SubmitPrompt } from '../components/SubmitConfirmModal';
 import { getPublicWorksheet, submitDirectResponse, type DetalleRespuesta } from '../services/api';
+import { toggleTheme, useTheme } from '../utils/theme';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
+
+/** Botón flotante de tema claro/oscuro: quien abre la hoja por enlace puede cambiar el tema
+   *  sin salir de la página (el atributo data-theme del <html> pinta toda la hoja). */
+function ThemeFab() {
+  const theme = useTheme();
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      className="fixed right-4 top-4 z-50 grid h-10 w-10 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:border-slate-300 hover:text-slate-900"
+    >
+      {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+    </button>
+  );
+}
 
 /** El nombre lo pide la propia hoja (campo info {}): usa el primer `_info_*` con valor; si no hay, "Sin nombre". */
 function nameFromAnswers(answers: StudentAnswers): string {
@@ -30,7 +48,7 @@ function gradeStatusFrom(details: DetalleRespuesta[]): Record<string, 'correct' 
   return m;
 }
 function answerText(v: unknown): string {
-  if (v === null || v === undefined || v === '') return '—';
+  if (v === null || v === undefined || v === '') return '-';
   if (Array.isArray(v)) return v.join(', ');
   if (typeof v === 'object') return Object.entries(v as Record<string, unknown>).map(([k, val]) => `${k} → ${val}`).join(', ');
   return String(v);
@@ -116,6 +134,7 @@ export function DirectWorksheetPage() {
   if (error && !worksheet) {
     return (
       <main className="grid min-h-screen place-items-center bg-cream p-6 text-center">
+        <ThemeFab />
         <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
           <p className="text-4xl">🔒</p>
           <h1 className="mt-3 text-lg font-bold text-slate-900">Hoja no disponible</h1>
@@ -131,6 +150,7 @@ export function DirectWorksheetPage() {
   if (result) {
     return (
       <main className="min-h-screen bg-cream py-8 text-slate-900">
+        <ThemeFab />
         <div className="mx-auto max-w-4xl px-4">
           <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-lg font-bold">
@@ -173,6 +193,7 @@ export function DirectWorksheetPage() {
   if (!canAttempt) {
     return (
       <main className="grid min-h-screen place-items-center bg-cream p-6 text-center">
+        <ThemeFab />
         <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
           <h1 className="text-xl font-bold text-slate-900">Ya completaste tus intentos</h1>
           <p className="mt-2 text-sm text-slate-500">Esta hoja permite {maxAttempts} intento(s) por dispositivo.</p>
@@ -183,6 +204,7 @@ export function DirectWorksheetPage() {
 
   return (
     <main className="min-h-screen bg-cream py-8 text-slate-900">
+      <ThemeFab />
       {submitting && <LoadingOverlay message="Calificando tus respuestas…" />}
       <div className="mx-auto max-w-4xl px-4">
         <p className="mb-4 rounded-2xl bg-rex-light px-4 py-2 text-center text-sm font-semibold text-rex-deep">

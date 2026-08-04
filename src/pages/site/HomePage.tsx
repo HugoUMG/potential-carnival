@@ -14,7 +14,7 @@ const PILLARS = [
   {
     icon: LayoutGrid,
     title: '19 tipos de actividad',
-    text: 'Gramática, lectura, escucha fina, producción oral y escritura abierta — todo en una hoja.',
+    text: 'Gramática, lectura, escucha fina, producción oral y escritura abierta · todo en una hoja.',
   },
   {
     icon: ClipboardCheck,
@@ -53,7 +53,7 @@ export function HomePage() {
 
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-site-fg/70">
             MyDinoEnglish es un constructor de hojas de trabajo de inglés. El profesor arma la
-            actividad —con IA, arrastrando bloques o escribiendo el DSL—, la comparte con un enlace y
+            actividad (con IA, arrastrando bloques o escribiendo el DSL), la comparte con un enlace y
             recibe las respuestas ya calificadas. El alumno solo abre el enlace y responde.
           </p>
 

@@ -237,7 +237,7 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); const p = readPayload(e); if (p && typeof p.from === 'number') apply(Object.assign([...placed], { [p.from]: '' })); }}
         >
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Banco de palabras — toca para colocar o arrastra a un hueco</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Banco de palabras · toca para colocar o arrastra a un hueco</p>
           <div className="flex flex-wrap gap-2">
             {available.map(({ word, key }) => (
               <button
@@ -714,7 +714,7 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
                 <span
                   key={idx}
                   className={`rounded-md px-2 py-0.5 text-sm font-semibold ${w.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700 line-through decoration-red-400'}`}
-                  title={w.ok ? 'Bien pronunciada' : 'No coincidió — repite esta palabra'}
+                  title={w.ok ? 'Bien pronunciada' : 'No coincidió · repite esta palabra'}
                 >
                   {w.word}
                 </span>
