@@ -18,11 +18,17 @@ public/mascot/rex-logo.png (logo del menu, cabecera de impresion y favicon): es 
 aparte, no una pose, y no tiene version SVG.
 
 Derivados en public/mascot/ (SVG, ~150 kB cada uno) y donde se usan:
-  rex-hero.svg      pulgar arriba      -> Login e inicio (imagen grande)
+  rex-hero.svg      dino de pie sonriendo -> Login, registro e inicio (imagen grande)
   rex-wave.svg      saludando          -> Navbars (alumno, profesor, lector, /vocab)
   rex-thinking.svg  pensativo          -> Pantallas de carga y confirmacion de envio
   rex-happy.svg     saltando           -> Tarjeta de resultado al aprobar (>=70)
   rex-sad.svg       sentado triste     -> Tarjeta de resultado al no aprobar
+
+rex-hero.svg es un caso aparte: no viene del trazado vectorial de mas abajo, sino de un
+PNG generado por IA (recortado a fondo transparente, sin sombra, guardado aqui como
+"rex-hero-cutout.png") incrustado como base64 dentro de un <image> del propio SVG. Se
+incrusta en vez de referenciarse como archivo aparte porque un SVG cargado via <img src>
+(como hace RexMascot) no puede resolver referencias externas a otro archivo raster.
 
 Como se regeneran:
 
