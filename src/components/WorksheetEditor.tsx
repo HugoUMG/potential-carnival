@@ -50,6 +50,153 @@ const PRESETS: { label: string; icon: string; patch: Partial<BuilderState> }[] =
   { label: 'Reading Assessment', icon: '📖', patch: { objective: 'Evaluación', duration: '30', activities: ['reading', 'multiplechoice'] } },
 ];
 
+// Plantillas listas para el modo Script: un clic reemplaza el editor con un WorksheetScript válido.
+// Procura dar variedad: sin bloques, con bloques, y con los tipos más usados.
+const SCRIPT_TEMPLATES: { label: string; icon: string; desc: string; script: string }[] = [
+  {
+    label: 'Warm-up',
+    icon: '🔥',
+    desc: 'Vocabulario + true/false + fillblank. Nivel A1, sin bloques.',
+    script: `worksheet {
+title: "Daily Routine Warm-up"
+
+description: "Short activities to activate vocabulary about daily routines."
+
+multiplechoice {
+  question: "What do you do in the morning?"
+  options:
+  - I eat breakfast.
+  - I go to bed.
+  - I play the piano.
+  answer: "I eat breakfast."
+}
+
+truefalse {
+  statements:
+  - We sleep at night. | true
+  - We eat breakfast in the evening. | false
+  - We brush our teeth in the morning. | true
+}
+
+fillblank {
+  text: "I _____ up at seven o'clock."
+  answer: "wake"
+}
+}`,
+  },
+  {
+    label: 'Past Simple',
+    icon: '✏️',
+    desc: 'Gramática con bloques: opción múltiple, drag & drop y escritura. Nivel A2.',
+    script: `worksheet {
+title: "Past Simple Practice"
+
+description: "Practice regular and irregular past forms."
+
+block {
+  title: "Part 1: Choose"
+  instructions: "Choose the correct past form."
+
+  multiplechoice {
+    question: "She _____ to school yesterday."
+    options:
+    - walked
+    - walk
+    - walking
+    answer: "walked"
+  }
+
+  dragdrop {
+    text: "Yesterday I _____ a film and _____ dinner."
+    answer: ["watched", "cooked"]
+    bank:
+    - watched
+    - watch
+    - cooked
+    - cook
+  }
+}
+
+block {
+  title: "Part 2: Writing"
+  instructions: "Write in complete sentences."
+
+  textbox {
+    prompt: "Write 3 sentences about what you did last weekend."
+  }
+}
+}`,
+  },
+  {
+    label: 'Listening Club',
+    icon: '🎧',
+    desc: 'Escuchar y ordenar + opción múltiple por audio. Nivel A2.',
+    script: `worksheet {
+title: "Listen and Rebuild"
+
+description: "Listening practice: rebuild the sentence, then answer a question."
+
+listeningorder {
+  audio_text: "She has never been to Paris."
+  voice: female
+  answer:
+  - She
+  - has
+  - never
+  - been
+  - to
+  - Paris
+}
+
+listeningmultiplechoice {
+  audio_text: "He goes to work by bus every day."
+  question: "How does he go to work?"
+  options:
+  - By bus.
+  - By car.
+  - On foot.
+  answer: "By bus."
+}
+}`,
+  },
+  {
+    label: 'Reading + Writing',
+    icon: '📖',
+    desc: 'Lectura con bloques y escritura guiada. Nivel B1.',
+    script: `worksheet {
+title: "My Town"
+
+description: "Read about a town, then answer and write about yours."
+
+block {
+  title: "Read and Answer"
+  instructions: "Read the text and answer the questions."
+
+  reading {
+    title: "Newton is a quiet town"
+    content:
+    """
+    Newton is a small town in the north. There is a park, a library and one supermarket.
+    People are friendly, and the streets are quiet. Many residents work in the city nearby.
+    """
+    questions:
+    - Is Newton a big city?
+    - Where do many residents work?
+  }
+}
+
+block {
+  title: "Write about your town"
+  instructions: "Use the text as a model."
+
+  textbox {
+    prompt: "Write 4 sentences describing your town or neighbourhood."
+  }
+}
+}`,
+  },
+];
+
 /** Compone un prompt en español a partir de las selecciones. */
 function composePrompt(s: BuilderState): string {
   const empty = !s.level && !s.topic.trim() && !s.objective && !s.focus && !s.age && !s.duration && !s.difficulty && s.activities.length === 0;
@@ -555,6 +702,28 @@ export function WorksheetEditor({
             {promptCopied ? <Check size={16} /> : <ClipboardCopy size={16} />}
             {promptCopied ? 'Copiado ✓' : 'Copiar documentación/prompt'}
           </button>
+        </div>
+
+        {/* ── Plantillas listas para empezar ── */}
+        <div className="mt-4 rounded-2xl border border-slate-200 p-4">
+          <p className="text-sm font-semibold text-slate-700">Plantillas rápidas</p>
+          <p className="mt-0.5 text-xs text-slate-500">Un clic pone un WorksheetScript completo en el editor; luego lo adaptas o lo pasas a Visual.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {SCRIPT_TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-rex hover:bg-rex-light"
+                onClick={() => { if (scriptDraft.trim() && !window.confirm('Esto reemplazará el script actual del editor. ¿Continuar?')) return; onScriptChange(t.script); }}
+              >
+                <span className="text-lg leading-none">{t.icon}</span>
+                <span>
+                  <span className="block text-sm font-semibold text-slate-800">{t.label}</span>
+                  <span className="block text-xs text-slate-500">{t.desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {aiSuccess && (

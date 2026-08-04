@@ -12,7 +12,7 @@ import { useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { SandboxedHtml } from './SandboxedHtml';
 import {
-  AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2, Eye,
+  AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2, Copy, Eye,
   GripVertical, Library, List, Loader2, Pencil, PlusCircle, Save, Trash2, ToggleLeft, Upload,
   Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText,
 } from 'lucide-react';
@@ -66,6 +66,17 @@ const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
 // ── Importar hoja existente al estado visual ──────────────────────────────────
 
 const SUPPORTED_VISUAL = new Set(VISUAL_TYPES as string[]);
+
+/** Clona una actividad para "duplicar". Los objetos anidados que llevan id (statements, pairs,
+ *  lines) se regeneran para no chocar como keys de React; readingQuestions es de solo strings. */
+function cloneActivity(act: VisualActivity): VisualActivity {
+  const copy = JSON.parse(JSON.stringify(act)) as VisualActivity;
+  copy.id = crypto.randomUUID();
+  copy.statements = copy.statements.map((s) => ({ ...s, id: crypto.randomUUID() }));
+  copy.pairs = copy.pairs.map((p) => ({ ...p, id: crypto.randomUUID() }));
+  copy.lines = copy.lines.map((l) => ({ ...l, id: crypto.randomUUID() }));
+  return copy;
+}
 
 function activityToVisual(act: WorksheetActivity): VisualActivity | null {
   if (!SUPPORTED_VISUAL.has(act.type)) return null;
@@ -603,6 +614,7 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   async function upload(file: File | undefined) {
     if (!file) return;
@@ -622,7 +634,12 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
   return (
     <div className="grid gap-4">
       {/* No es <label>: envuelve el botón de subir, y un click en él abriría el input de texto. */}
-      <div className="block">
+      <div
+        className={`block rounded-2xl px-3 py-3 transition ${dragOver ? 'ring-2 ring-violet-500 bg-violet-50' : '-mx-3'}`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void upload(f); }}
+      >
         <FieldLabel>URL de la imagen</FieldLabel>
         <div className="flex gap-2">
           <div className="flex-1">
@@ -654,6 +671,9 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
             <Library size={15} /> Biblioteca
           </button>
         </div>
+        {!act.imageUrl && (
+          <p className="mt-2 text-xs text-slate-400">También puedes <strong>arrastrar y soltar</strong> una imagen aquí.</p>
+        )}
         {uploadError && <p className="mt-1 text-xs font-semibold text-rose-600">{uploadError}</p>}
         {act.imageUrl && (
           // key: sin ella React reutiliza el nodo y el display:none de una URL rota
@@ -812,10 +832,10 @@ function StudentPreview({ act }: { act: VisualActivity }) {
   );
 }
 
-function ActivityCard({ act, index, total, expanded, onToggle, onUpdate, onRemove, onMove, onDragStartHandle, onDragOverCard, onDropCard, onDragEndCard, over }: {
+function ActivityCard({ act, index, total, expanded, onToggle, onUpdate, onRemove, onDuplicate, onMove, onDragStartHandle, onDragOverCard, onDropCard, onDragEndCard, over }: {
   act: VisualActivity; index: number; total: number;
   expanded: boolean; onToggle: () => void;
-  onUpdate: (a: VisualActivity) => void; onRemove: () => void; onMove: (dir: -1 | 1) => void;
+  onUpdate: (a: VisualActivity) => void; onRemove: () => void; onDuplicate: () => void; onMove: (dir: -1 | 1) => void;
   onDragStartHandle: () => void; onDragOverCard: (e: React.DragEvent) => void; onDropCard: () => void; onDragEndCard: () => void; over: boolean;
 }) {
   const meta = TYPE_META[act.type];
@@ -844,6 +864,7 @@ function ActivityCard({ act, index, total, expanded, onToggle, onUpdate, onRemov
           <button type="button" onClick={onToggle} title={expanded ? 'Cerrar y ver como el alumno' : 'Editar'} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white">
             {expanded ? <Eye size={14} /> : <Pencil size={14} />}
           </button>
+          <button type="button" onClick={onDuplicate} title="Duplicar actividad" className="rounded-lg p-1.5 text-slate-400 transition hover:bg-white"><Copy size={14} /></button>
           <button type="button" onClick={onRemove} className="rounded-lg p-1.5 text-red-400 transition hover:bg-red-50"><Trash2 size={14} /></button>
         </div>
       </div>
@@ -882,6 +903,13 @@ function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActiv
     onUpdate({ ...block, activities: block.activities.map((a) => (a.id === id ? act : a)) });
   const removeActivity = (id: string) =>
     onUpdate({ ...block, activities: block.activities.filter((a) => a.id !== id) });
+  const duplicateActivity = (id: string) => {
+    const idx = block.activities.findIndex((a) => a.id === id);
+    if (idx < 0) return;
+    const arr = [...block.activities];
+    arr.splice(idx + 1, 0, cloneActivity(arr[idx]));
+    onUpdate({ ...block, activities: arr });
+  };
   const moveActivity = (index: number, dir: -1 | 1) => {
     const arr = [...block.activities];
     const target = index + dir;
@@ -933,6 +961,7 @@ function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActiv
             onToggle={() => onOpenActivity(openActivityId === act.id ? null : act.id)}
             onUpdate={(a) => updateActivity(act.id, a)}
             onRemove={() => removeActivity(act.id)}
+            onDuplicate={() => duplicateActivity(act.id)}
             onMove={(dir) => moveActivity(i, dir)}
             onDragStartHandle={() => setDragIdx(i)}
             onDragOverCard={(e) => { e.preventDefault(); if (overIdx !== i) setOverIdx(i); }}
