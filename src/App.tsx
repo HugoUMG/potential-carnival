@@ -12,6 +12,7 @@ import { VocabularyManager, VocabularyViewer } from './components/VocabularyView
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
 import { RichText } from './components/RichText';
 import RexMascot from './components/RexMascot';
+import { moodForScore } from './utils/scoreMood';
 import { TeacherDashboard, type TeacherMenu } from './components/TeacherDashboard';
 import { sampleWorksheet } from './data/sampleWorksheet';
 import {
@@ -1061,8 +1062,13 @@ export default function App() {
                 if (!resp) return <p className="text-sm text-slate-500">Selecciona una evaluación para ver tu resultado.</p>;
                 return (
                   <>
-                    <h2 className="text-xl font-bold">{activeWorksheet.title}</h2>
-                    <p className="mt-1 text-sm text-slate-500">Entregado: {new Date(resp.submitted_at).toLocaleString()}</p>
+                    <div className="flex items-center gap-4">
+                      <RexMascot mood={moodForScore(resp.score)} className="h-16 w-16 shrink-0 drop-shadow-md" />
+                      <div>
+                        <h2 className="text-xl font-bold">{activeWorksheet.title}</h2>
+                        <p className="mt-1 text-sm text-slate-500">Entregado: {new Date(resp.submitted_at).toLocaleString()}</p>
+                      </div>
+                    </div>
                     <div className="mt-3 flex gap-4 text-sm font-semibold">
                       <span className="rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700">Aciertos: {resp.correct_count}</span>
                       <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">Fallos: {resp.details.filter((d) => d.status === 'incorrect').length}</span>
@@ -1839,7 +1845,10 @@ export default function App() {
                 return (
                 <article key={response.id} className="rounded-2xl border p-4">
                   <div className="flex items-start justify-between gap-3"><h3 className="font-bold">{response.student_name}</h3><button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeResponse(response)}>Eliminar respuesta</button></div>
-                  <p className="text-sm text-slate-500">Fecha: {new Date(response.submitted_at).toLocaleString()} · Puntuación: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <RexMascot mood={moodForScore(response.score)} className="h-12 w-12 shrink-0" />
+                    <p className="text-sm text-slate-500">Fecha: {new Date(response.submitted_at).toLocaleString()} · Puntuación: {response.score ?? 'pendiente'} · Aciertos: {response.correct_count} · Pendientes: {response.pending_count}</p>
+                  </div>
                   {/* Campos de identificación (_info_*) */}
                   {(activeWorksheet.infoFields?.length ?? 0) > 0 && (() => {
                     const infoAnswers = activeWorksheet.infoFields!.map((label, i) => ({
@@ -1964,9 +1973,12 @@ export default function App() {
                               onClick={() => setExpandedResponseId(expandedResponseId === response.id ? null : response.id)}
                               className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
                             >
-                              <div>
-                                <h4 className="font-bold">{response.worksheet_title}</h4>
-                                <p className="text-xs text-slate-500">Enviada: {new Date(response.submitted_at).toLocaleString()}</p>
+                              <div className="flex items-center gap-3">
+                                <RexMascot mood={moodForScore(response.score)} className="h-10 w-10 shrink-0" />
+                                <div>
+                                  <h4 className="font-bold">{response.worksheet_title}</h4>
+                                  <p className="text-xs text-slate-500">Enviada: {new Date(response.submitted_at).toLocaleString()}</p>
+                                </div>
                               </div>
                               <div className="flex items-center gap-3 text-sm">
                                 <span className="font-bold text-rex-deep">{response.score ?? '-'}%</span>

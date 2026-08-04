@@ -106,6 +106,7 @@ Semana 2 — Connectors,however,sin embargo,connector,,,,
 | `sfx.ts` | Blips de clic sintetizados con ZzFX (sin archivos de audio) |
 | `dslSerializer.ts` | Estado del constructor visual → DSL (`serializeToScript`) y → actividad del renderer (`toWorksheetActivity`) |
 | `generationPrompt.ts` | `GENERATION_PROMPT`: el prompt que el profesor copia para otra IA |
+| `scoreMood.ts` | `moodForScore(score)`: qué `RexMood` mostrar según la nota (ver [08_RENDERER](08_RENDERER.md#feedback-al-alumno)) |
 | `voicePreference.ts` | Preferencia global de voz TTS |
 
 ## Cliente HTTP
