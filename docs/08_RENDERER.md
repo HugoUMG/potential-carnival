@@ -73,7 +73,9 @@ Un solo hueco → el valor enviado es `string`; varios → `string[]`.
 
 **`matching`** — se une con **líneas**: se arrastra desde el punto o se toca uno de cada lado, y cada
 par toma un color. La columna derecha se baraja con `shuffledByHash` (determinístico por
-`activity.id`), pero la clave sigue siendo posicional (`left[i] ↔ right[i]`).
+`activity.id`), pero la clave sigue siendo posicional (`left[i] ↔ right[i]`). En `imagematching`
+ambas columnas tienen **celdas de la misma altura** (`min-h-[6.5rem]` = el alto de la miniatura
+`h-20`), así la palabra crece hasta igualar el tamaño de su imagen y las filas quedan alineadas.
 
 **`multiplechoice` / `multiselect` / `dragdrop`** — la app **baraja las opciones al mostrarlas**, así
 que la posición en el DSL no delata nada.
@@ -156,6 +158,9 @@ No tienen renderer propio: **reutilizan el de su tipo de texto** (`MultipleChoic
 Cuando una opción o una fila tiene imagen, se muestra **solo la imagen**; el texto viaja como `alt`.
 Es deliberado: el texto es la clave de respuestas y enseñarlo resolvería el ejercicio («¿cuál es la
 manzana?»). En papel, `.wp-img-opt` la pinta como miniatura de 64 px dentro de la opción o de la fila.
+En papel las filas de `matching` tienen `.wp-match-row { min-height: 72px; display: flex; … }`: la
+columna de palabras crece hasta la altura de la miniatura del lado de las imágenes, así ambas columnas
+quedan a la misma altura.
 
 ## Feedback al alumno
 
