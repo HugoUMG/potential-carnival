@@ -1505,9 +1505,12 @@ export default function App() {
                 const newCount = responses - (responseSeen[worksheet.id] ?? 0);
                 return (
                   <article key={worksheet.id} className="group relative flex flex-col rounded-2xl border border-slate-100 bg-white transition hover:border-rex/40 hover:shadow-lg">
+                    {/* Placeholder en flujo normal (h-40) para no mover el resto de la tarjeta;
+                        el botón real flota encima y crece hacia abajo solo en hover. */}
+                    <div className="relative h-40 w-full shrink-0">
                     <button
                       type="button"
-                      className="relative block h-40 w-full overflow-hidden rounded-t-2xl border-b border-slate-100 bg-white text-left"
+                      className="absolute inset-x-0 top-0 z-10 block h-40 w-full overflow-hidden rounded-t-2xl border-b border-slate-100 bg-white text-left transition-[height,box-shadow] duration-500 ease-out group-hover:h-80 group-hover:rounded-b-2xl group-hover:shadow-2xl"
                       title="Abrir el editor de esta evaluación"
                       onClick={() => startEditWorksheet(worksheet, true)}
                     >
@@ -1519,6 +1522,7 @@ export default function App() {
                         <span className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-black text-white" title={`${newCount} respuesta${newCount !== 1 ? 's' : ''} nueva${newCount !== 1 ? 's' : ''} sin revisar`}>{newCount === 1 ? '!' : newCount}</span>
                       )}
                     </button>
+                    </div>
 
                     <div className="flex flex-1 flex-col p-4">
                       <div className="flex flex-wrap items-center gap-2">
