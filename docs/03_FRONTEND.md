@@ -116,8 +116,9 @@ de edición que ya vivía en `App.tsx` (`editingWorksheetId`, `activeWorksheet`,
 que **no se crea una copia**: se edita la misma hoja y guardar sigue pasando por `updateWorksheet`.
 Cualquier navegación por el menú apaga `isolatedEdit`.
 
-Una hoja **con respuestas** no se puede editar: al abrirla, `startEditWorksheet` vuelve al listado con
-el aviso de siempre (duplícala) en vez de entrar al editor aislado.
+Una hoja **con respuestas** también se puede editar: `startEditWorksheet` entra al editor aislado
+igual que una sin respuestas. Las respuestas ya entregadas conservan la clave con la que se
+calificaron; solo la revisión de las nuevas se rige por la hoja editada.
 
 ## Guardar una hoja: siempre la MISMA hoja
 
@@ -177,8 +178,7 @@ Tailwind que la pantalla ya usa** (`.bg-white`, `.text-slate-500`, `.bg-rex-ligh
 ## Funciones destacadas del portal
 
 - **Editar en el sitio:** "Editar" abre la MISMA hoja en el editor y "Guardar cambios" la actualiza
-  (`PUT /worksheets/{id}`, no crea copia). Bloqueado con 409 y botón deshabilitado si ya tiene
-  respuestas.
+  (`PUT /worksheets/{id}`, no crea copia). Se puede editar aunque ya tenga respuestas.
 - **Modo práctica:** abre la hoja interactiva para que el profesor la resuelva y verifique su clave.
   "Revisar respuestas" llama a `POST /worksheets/{id}/practice`, que califica **sin guardar nada**
   (dry-run, solo automático, sin IA) y devuelve resumen + resaltado inline (`gradeStatus`).

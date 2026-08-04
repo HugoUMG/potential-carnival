@@ -496,7 +496,7 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
                   disabled={readonly}
                   onPointerDown={(e) => onCardPointerDown('l', i, e)}
                   style={{ borderColor: color, background: connected ? `${colorForLeft(i)}14` : undefined, touchAction: 'none', cursor: readonly ? 'default' : 'grab' }}
-                  className={`flex items-center justify-between gap-2 rounded-xl border-2 bg-white px-3 py-3 text-left transition ${active ? 'ring-2 ring-slate-400' : ''}`}
+                  className={`flex items-center justify-between gap-2 rounded-xl border-2 bg-white px-3 py-3 text-left transition ${leftImages ? 'min-h-[6.5rem]' : ''} ${active ? 'ring-2 ring-slate-400' : ''}`}
                 >
                   {leftImages?.[i]
                     ? <img src={leftImages[i]} alt={li} className="pointer-events-none block h-20 w-auto max-w-full rounded-lg object-contain" />
@@ -527,7 +527,7 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
                   disabled={readonly}
                   onPointerDown={(e) => onCardPointerDown('r', j, e)}
                   style={{ borderColor: color, background: connected ? `${color}14` : undefined, touchAction: 'none', cursor: readonly ? 'default' : 'grab' }}
-                  className={`flex items-center gap-2 rounded-xl border-2 bg-white px-3 py-3 text-left transition ${activeLeft != null && !connected ? 'ring-1 ring-slate-300' : ''}`}
+                  className={`flex items-center gap-2 rounded-xl border-2 bg-white px-3 py-3 text-left transition ${leftImages ? 'min-h-[6.5rem]' : ''} ${activeLeft != null && !connected ? 'ring-1 ring-slate-300' : ''}`}
                 >
                   <span
                     ref={(el) => { rightDots.current[j] = el; }}

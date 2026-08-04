@@ -315,15 +315,6 @@ class WorksheetRepository:
             connection.execute(f"UPDATE worksheets SET archived = {placeholder} WHERE id = {placeholder}", (self._bool_param(False), worksheet_id))
         return self.get_worksheet(worksheet_id)
 
-    def count_responses(self, worksheet_id: str) -> int:
-        placeholder = self._placeholder
-        with get_connection() as connection:
-            row = connection.execute(
-                f"SELECT COUNT(*) AS total FROM worksheet_responses WHERE worksheet_id = {placeholder}",
-                (worksheet_id,),
-            ).fetchone()
-        return int(dict(row)["total"]) if row else 0
-
     def update_worksheet_content(self, worksheet_id: str, worksheet: Worksheet) -> Worksheet | None:
         """Reemplaza el contenido editable de la hoja (no toca created_by/created_at/published/archived)."""
         placeholder = self._placeholder
