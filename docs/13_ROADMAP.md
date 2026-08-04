@@ -1,6 +1,6 @@
 # 13 — Roadmap y pendientes
 
-Estado a **2026-08-03**, rama `feat/student-ux`.
+Estado a **2026-08-04**, rama `feat/student-ux`.
 
 ---
 
@@ -8,19 +8,37 @@ Estado a **2026-08-03**, rama `feat/student-ux`.
 
 Paquete de 12 cambios sobre la rama `feat/student-ux`.
 
-**Hecho y commiteado:**
-| Cambio | Commits |
-|--------|---------|
-| #2 Nueva evaluación siempre en blanco · #7 Visual por defecto + banner · #11 aterrizar en Evaluaciones guardadas · #9 botón vocabulario en header · #8 toggle tema en `/w/:id` · #10 sin guiones largos en la UI | `714707c` |
-| #1 duplicar actividad + arrastrar/soltar imagen en el constructor visual · #3 plantillas rápidas en modo script | `a93f951` |
+**Estado de los 12 cambios:**
 
-**Pendiente (prompts de Claude listos en `docs/plans/`):**
-| Cambio | Prompt | Dominio |
-|--------|--------|---------|
-| #4 campo privado `note` para la IA | [PLAN-cambio-4-campo-note.md](plans/PLAN-cambio-4-campo-note.md) | DSL + BD + IA |
-| #5 actividades con imagen (MC con imagen + matching imagen-texto) | [PLAN-cambio-5-actividades-imagen.md](plans/PLAN-cambio-5-actividades-imagen.md) — REVIEW primero | DSL + IA + renderer |
-| #6 evaluaciones como tarjetas (mini vista previa + ⋮ + edición aislada) | [PLAN-cambio-6-tarjetas-evaluaciones.md](plans/PLAN-cambio-6-tarjetas-evaluaciones.md) | Frontend |
-| #12 modo físico/imprimible en la generación con IA | [PLAN-cambio-12-modo-fisico.md](plans/PLAN-cambio-12-modo-fisico.md) | IA + API + renderer |
+| # | Cambio | Estado | Dónde |
+|---|--------|--------|-------|
+| 1 | Duplicar actividad + arrastrar/soltar imagen en el constructor visual | ✅ | `a93f951` |
+| 2 | Nueva evaluación siempre en blanco | ✅ | `714707c` |
+| 3 | Plantillas rápidas de un clic en modo Script | ✅ | `a93f951` |
+| 4 | Campo privado `note` para la IA | ✅ | ADR-19 · [plan](plans/PLAN-cambio-4-campo-note.md) |
+| 5 | Actividades con imagen: `imagechoice` + `imagematching` | ✅ | ADR-20 · [REVIEW + plan](plans/PLAN-cambio-5-actividades-imagen.md) |
+| 6 | Evaluaciones como tarjetas (miniatura + ⋮ + edición aislada) | ✅ | ADR-22 · [plan](plans/PLAN-cambio-6-tarjetas-evaluaciones.md) |
+| 7 | Modo Visual por defecto + banner guía | ✅ | `714707c` |
+| 8 | Toggle claro/oscuro en `/w/:id` | ✅ | `714707c` |
+| 9 | Botón «Vocabulario» en el header | ✅ | `714707c` |
+| 10 | Sin guiones largos en la interfaz | ✅ | `714707c` |
+| 11 | Aterrizar en «Evaluaciones guardadas» | ✅ | `714707c` |
+| 12 | Modo físico/imprimible en la generación con IA | ✅ | ADR-21 · [plan](plans/PLAN-cambio-12-modo-fisico.md) |
+
+Los cambios 4, 5, 6 y 12 se implementaron juntos el **2026-08-03** (sin commitear todavía): el `note`
+privado, los dos tipos de actividad con imagen (que suben el total a **21 tipos**), las tarjetas con
+mini vista previa y editor aislado, y el modo físico de la IA. Verificado con `pytest` (59), `lint` y
+`build` limpios, más el round-trip real constructor visual → DSL → parser.
+
+**Lo que quedó fuera a propósito:**
+
+- La `note` se serializa en **una sola línea** (el saneado del script busca la línea `note:`). Una
+  nota multilínea `"""…"""` escrita a mano dejaría el cuerpo suelto en el script del alumno; el día
+  que haga falta, parsear en vez de recortar por regex.
+- `strip_non_printable` no reindenta ni borra el `block {}` que quede vacío (el renderer y la
+  impresión ya ignoran un bloque sin actividades).
+- La miniatura de las tarjetas **omite** las actividades de audio/habla en vez de dibujarlas mudas:
+  se ven las dos primeras imprimibles y un «+N actividades más».
 
 ---
 

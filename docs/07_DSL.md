@@ -137,9 +137,35 @@ Lo que guarda la base de datos en `worksheets.json_content`:
 | `id` | string (UUID v4) | Todas |
 | `type` | string | Todas |
 | `instructions` | string \| null | Todas (opcional) |
+| `note` | string \| null | Todas (opcional) — **privado: solo lo lee la IA al calificar** |
 | *campos específicos* | ver cada tipo | según tipo |
 
 > **Nota:** El parser omite los campos `null` en el JSON final (`to_dict()` filtra los `None`).
+
+#### `note` — nota privada para la IA calificadora
+
+Texto libre que escribe **el profesor** para explicarle a la IA qué debe considerar correcto en esa
+actividad. Es el criterio de corrección, no una instrucción para el alumno:
+
+```
+imagequestion {
+  image: "https://res.cloudinary.com/…/car.png"
+  prompt: "What do you see in the picture?"
+  note: "En la foto hay un carro rojo aparcado: debe mencionar el color."
+}
+```
+
+- **El alumno nunca la recibe.** El backend la borra del `json_content` *y* del `script_content`
+  antes de responder en `/public/worksheets*` y en `/students/{id}/worksheets` (`_without_notes`).
+  Tampoco aparece en el renderer ni en la impresión.
+- Se envía a la IA calificadora como `teacher_note` junto a la respuesta del alumno; el prompt le
+  prohíbe citarla en el comentario.
+- Es especialmente útil en `imagequestion`: la IA **no ve la imagen**, así que la `note` es la única
+  descripción de la que dispone.
+- Va en **una sola línea** (el saneado del script busca la línea `note:`). Vale para cualquier tipo;
+  en `content` no tiene efecto porque no se califica.
+- La IA generadora **no** escribe `note`: `_WORKSHEET_SYSTEM` y `GENERATION_PROMPT` se lo prohíben
+  explícitamente. Es un campo del profesor.
 
 ---
 
@@ -173,7 +199,7 @@ worksheet {
 | Bloques anidados: `keyword { }` | Con llaves de apertura y cierre |
 | Salto de línea: `\n` literal | Se convierte a salto real en el frontend |
 | **Un campo por línea** | El parser lee línea por línea. Dos campos en la misma línea → el primero se traga el resto |
-| Actividades aceptadas | Los **19** tipos de `SUPPORTED_BLOCKS` (ver §4). Un tipo desconocido se descarta en silencio |
+| Actividades aceptadas | Los **21** tipos de `SUPPORTED_BLOCKS` (ver §4). Un tipo desconocido se descarta en silencio |
 | **Idioma del contenido: inglés** | Todo lo que el alumno lee/responde (oraciones, preguntas, opciones, `audio_text`) debe estar en inglés. `title`/`description`/`instructions` sí pueden ir en español |
 
 ### ⚠️ Regla de oro: UN CAMPO POR LÍNEA
@@ -906,6 +932,115 @@ Ver la **Biblioteca de Imágenes** en el panel del profesor para copiar URLs lis
 #### Cómo se renderiza
 
 La imagen se muestra en un `<img>` con `object-cover h-56 w-full rounded-2xl`. Debajo aparece un `<textarea>` para la respuesta.
+
+---
+
+### 4.6b imagechoice
+
+**Descripción:** Opción múltiple con imagen. Admite una imagen de enunciado, una imagen por opción, o
+las dos. Es un `multiplechoice` en todo lo demás.
+
+**Cuándo usar:** Vocabulario visual («¿cuál es la manzana?»), comprensión de una escena con opciones
+de texto, discriminación de objetos.
+
+**Calificación:** Automática y **idéntica a `multiplechoice`** — la clave es el **texto** de la opción.
+
+---
+
+#### Campos DSL
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `question` | string | Sí | La pregunta |
+| `options` | lista | Sí (≥2) | Las opciones **en texto**: esto es la clave de respuestas |
+| `answer` | string | Sí | Debe coincidir **exacto** con una de `options` |
+| `image` | string (URL) | No | Imagen del enunciado, encima de las opciones |
+| `option_images` | lista (URL) | No | Una URL **por opción, paralela a `options`** por índice |
+| `instructions` / `note` | string | No | Instrucción extra / nota privada para la IA |
+
+- `option_images` **no puede ser más larga que `options`** (el parser lo rechaza). Más corta sí: esas
+  opciones se pintan como texto.
+- Una entrada vacía (`- ""`) deja esa opción concreta en texto.
+- **La opción que tiene imagen se muestra SOLO como imagen**; su texto viaja como `alt`. Si se
+  mostrara, «¿cuál es la manzana?» se respondería leyendo.
+
+---
+
+#### Ejemplos DSL
+
+**Elegir entre imágenes:**
+```
+imagechoice {
+  question: "Which one is the apple?"
+  options:
+  - apple
+  - banana
+  option_images:
+  - https://res.cloudinary.com/.../apple.png
+  - https://res.cloudinary.com/.../banana.png
+  answer: "apple"
+}
+```
+
+**Una escena + opciones de texto:**
+```
+imagechoice {
+  image: "https://res.cloudinary.com/.../park.png"
+  question: "Where are the children playing?"
+  options:
+  - in the park
+  - at school
+  - at home
+  answer: "in the park"
+}
+```
+
+**En papel:** el enunciado, la imagen de enunciado si la hay, y las opciones como `A) B) C)` con la
+miniatura dentro de cada opción.
+
+---
+
+### 4.6c imagematching
+
+**Descripción:** Emparejar cada **imagen** con su palabra. Misma mecánica que `matching` (se une
+arrastrando o tocando un elemento de cada lado); solo cambia lo que se pinta a la izquierda.
+
+**Cuándo usar:** Vocabulario visual tipo flashcards, objetos/animales/acciones con su nombre.
+
+**Calificación:** Automática **par a par, igual que `matching`**, y con el mismo rescate por IA
+(la clave por índice no siempre es la única combinación válida).
+
+---
+
+#### Campos DSL
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `left_images` | lista (URL) | Sí (≥2) | Una imagen por fila |
+| `right` | lista | Sí | La palabra que corresponde a `left_images[i]`, mismo orden y misma cantidad |
+| `left` | lista | No | Etiqueta de cada fila. **Si falta, se numeran `Image 1`, `Image 2`…** |
+| `instructions` / `note` | string | No | Instrucción extra / nota privada para la IA |
+
+`left` no se le muestra al alumno: es la clave con la que el profesor lee la corrección
+(`Image 1 → dog`). Existe para que la pantalla de revisión no enseñe una URL de 90 caracteres.
+
+---
+
+#### Ejemplo DSL
+
+```
+imagematching {
+  left_images:
+  - https://res.cloudinary.com/.../dog.png
+  - https://res.cloudinary.com/.../cat.png
+  right:
+  - dog
+  - cat
+}
+```
+
+**En papel:** la misma tabla de dos columnas de `matching` — a la izquierda `1.` + línea + miniatura;
+a la derecha `A) B) C)` con las palabras barajadas.
 
 ---
 
@@ -2467,7 +2602,7 @@ El mismo formato se enseña en **cuatro** sitios. Si se agrega o cambia un tipo,
 > se crean resúmenes paralelos del DSL.**
 
 La lista canónica de tipos vive en `SUPPORTED_BLOCKS` (`parser.py`). El test
-`test_every_documented_type_parses` (`backend/tests/test_parser.py`) escribe una hoja con los 19
+`test_every_documented_type_parses` (`backend/tests/test_parser.py`) escribe una hoja con los 21
 tipos usando exactamente la sintaxis documentada y comprueba que parsea: si la documentación empieza
 a enseñar algo que no funciona, ese test falla.
 
@@ -2475,7 +2610,7 @@ a enseñar algo que no funciona, ese test falla.
 
 ## 13. Grupos por habilidad (taxonomía pedagógica)
 
-Los 19 tipos se agrupan por objetivo. Esta taxonomía existe en **dos** lugares del código que deben
+Los 21 tipos se agrupan por objetivo. Esta taxonomía existe en **dos** lugares del código que deben
 mantenerse en sincronía: `ACTIVITY_GROUPS` en `WorksheetEditor.tsx` (chips del AiPanel) y la sección
 "PEDAGOGICAL GROUPS" de `_WORKSHEET_SYSTEM` en `ai.py`. Úsala también al armar hojas a mano — un
 `block {}` por grupo funciona bien.
@@ -2488,6 +2623,7 @@ mantenerse en sincronía: `ACTIVITY_GROUPS` en `WorksheetEditor.tsx` (chips del 
 | 🎼 Escucha fina (dictado y orden) | listeningfillblank, listeningorder, listeningmatching |
 | 🗣️ Producción oral | speaking, conversation |
 | ✍️ Escritura abierta | textbox, imagequestion |
+| 🖼️ Con imágenes (URLs del profesor) | imagequestion, imagechoice, imagematching |
 
 ### Voz por actividad (`voice`)
 
@@ -2560,4 +2696,4 @@ Un alumno no debe poder acertar "por el patrón" sin saber.
 
 ---
 
-*Última actualización: 2026-08-01 (movido a `docs/07_DSL.md`; 19 tipos, validación del parser, rescate IA de matching)*
+*Última actualización: 2026-08-03 (21 tipos: `imagechoice` e `imagematching`; campo privado `note`)*

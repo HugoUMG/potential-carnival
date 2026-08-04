@@ -16,7 +16,7 @@ Crear una evaluación de inglés con audio, imágenes y autocorrección normalme
 herramienta de pago o mucho trabajo manual. Aquí el profesor escribe (o pide a la IA) un texto en un
 DSL propio y obtiene una hoja interactiva con:
 
-- **19 tipos de actividad** (gramática, lectura, escucha, habla, escritura abierta).
+- **21 tipos de actividad** (gramática, lectura, escucha, habla, escritura abierta).
 - **Audio sintetizado** por TTS: no hay que grabar ni subir archivos.
 - **Calificación automática** de lo cerrado + **calificación por IA** de lo abierto, con comentario
   en español para el alumno.
@@ -24,7 +24,7 @@ DSL propio y obtiene una hoja interactiva con:
 
 ## Estado actual
 
-En producción, con datos reales, desplegado en Render + Aiven. Funcionan los 19 tipos de actividad,
+En producción, con datos reales, desplegado en Render + Aiven. Funcionan los 21 tipos de actividad,
 el sistema de aulas, la calificación IA, el modo invitado, el enlace directo, la impresión en papel
 y el portal de vocabulario.
 

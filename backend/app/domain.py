@@ -11,6 +11,7 @@ class ActivityData:
     options: list[str] | None = None
     answer: str | list[str] | None = None
     instructions: str | None = None
+    note: str | None = None  # nota privada del profesor: solo la lee la IA al calificar
     prompt: str | None = None
     left: list[str] | None = None
     right: list[str] | None = None
@@ -18,6 +19,8 @@ class ActivityData:
     content: str | None = None
     questions: list[str] | None = None
     image: str | None = None
+    option_images: list[str] | None = None  # imagechoice: URL por opción, paralelo a `options`
+    left_images: list[str] | None = None  # imagematching: URL por fila, paralelo a `left`
     audio_text: str | None = None
     voice: str | None = None  # 'male' | 'female' | nombre de voz edge-tts; solo listening
     target: str | None = None

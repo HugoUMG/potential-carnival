@@ -331,9 +331,19 @@ que el alumno la vea.
 **Alternativa descartada.** Compartir el campo con instrucciones públicas, o meterlo a nivel de hoja:
 público filtra contenido y a nivel de hoja pierde granularidad. Se eligió por actividad y privado.
 
-**Consecuencia.** Sigue la regla 20 (cadena del campo: parser.py, domain.py, models.py, types.ts,
-api.ts) y la regla 21 (si el DSL lo enseña, sincronizar 07_DSL, `_WORKSHEET_SYSTEM`,
-GENERATION_PROMPT). Implementación delegada: `docs/plans/PLAN-cambio-4-campo-note.md`.
+**Consecuencia (implementado, 2026-08-03).** Recorre la cadena completa de la regla 20 y los tres
+sitios del DSL de la regla 21. Dos decisiones concretas que se tomaron al implementarlo:
+
+- **La `note` NO viaja en los `AnswerDetail`.** Esos se le devuelven al alumno con la corrección, así
+  que la nota llega a `ai_grade_activities` por un parámetro aparte (`notes = {activity_id: note}`,
+  lo arma `_activity_notes` en `main.py`). Meterla en el detalle habría sido una línea menos y una
+  fuga garantizada.
+- **Se limpia también el `script_content`, no solo el `json_content`.** `_without_notes` borra la
+  línea `note:` del script en los cuatro endpoints que entregan una hoja al alumno; en
+  `/students/{id}/worksheets` solo cuando quien pregunta es un `student` (el profesor edita desde ese
+  mismo listado). Si se limpiara solo el json, el texto seguiría viajando en el script.
+
+No hay migración: es un campo dentro de `json_content`. Plan: `docs/plans/PLAN-cambio-4-campo-note.md`.
 
 ## 🟢 ADR-20 — Actividades con imagen: empezar por MC con imagen y matching imagen-texto
 
@@ -345,9 +355,26 @@ opción múltiple con imagen y matching imagen-texto. El carácter visual queda 
 ampliar el alcance a todo lo que se pueda imaginar de golpe.
 
 **Alternativa descartada.** Una super-actividad genérica de imagen que absorbería todos los tipos.
+
+**Nombres y forma (REVIEW resuelto, 2026-08-03): `imagechoice` e `imagematching`.** La regla que
+salió del REVIEW y que hay que respetar al tocarlos: **la imagen es un campo paralelo, nunca el valor
+de la clave.**
+
+- `imagechoice`: `options` (texto = la clave) + `option_images` paralelo por índice, más un `image`
+  opcional de enunciado. Se califica con la rama de `multiplechoice`, **sin una línea nueva**.
+- `imagematching`: `left_images` + `right`, con `left` autogenerado (`Image 1`, `Image 2`…) si el
+  profesor no lo escribe. Se califica con la rama de `matching` y entra en `_AI_RESCUABLE` por
+  herencia (su clave por índice tampoco es la única combinación válida).
+
+Poner las URLs dentro de `options`/`left` habría costado menos código y habría llenado de URLs de 90
+caracteres la pantalla de revisión del profesor y el resumen de la IA. Cuando una opción o una fila
+tiene imagen se muestra **solo la imagen** (el texto va como `alt`): enseñar el texto resolvería el
+ejercicio.
+
 **Consecuencia.** Cada tipo recorre la cadena completa (reglas 17 y 20) y el DSL se sincroniza
-(regla 21). El renderer de impresión los traduce a papel (decidido en ADR-21). Diseño primero:
-`docs/plans/PLAN-cambio-5-actividades-imagen.md` (REVIEW antes de implementar).
+(regla 21): son 21 tipos, no 19. El renderer de impresión los traduce a papel (ADR-21) reusando el
+layout de `multiplechoice` y de `matching` con miniaturas. Ninguno tiene renderer propio. Diseño
+completo con las alternativas descartadas: `docs/plans/PLAN-cambio-5-actividades-imagen.md`.
 
 ## 🟢 ADR-21 — El renderer de impresión traduce a papel, sin DSL de imagen
 
@@ -357,8 +384,16 @@ ampliar el alcance a todo lo que se pueda imaginar de golpe.
 
 **Motivo.** Reutilizar la fuente de verdad de impresión ya consolidada en vez de bifurcar el parser.
 
-**Consecuencia.** La lista de "imprimibles" usada por `WorksheetPrint` pasa a ser la referencia para
-el filtro del modo físico. Implementación: `docs/plans/PLAN-cambio-12-modo-fisico.md`.
+**Consecuencia (implementado, 2026-08-03).** La lista vive ahora como `PRINTABLE_TYPES` /
+`NON_PRINTABLE_TYPES` en `parser.py` y es la misma que descarta `isPrintable()` en
+`WorksheetPrint.tsx`; un test comprueba que entre las dos cubren `SUPPORTED_BLOCKS` sin solaparse.
+
+El modo físico es **prompt + filtro**, no solo prompt: `_PRINTABLE_MODE` se lo pide al modelo y
+`strip_non_printable` borra lo que haya colado igualmente. Solo con el prompt saldría, de vez en
+cuando, una hoja para imprimir con un `listening` dentro — en papel, una actividad que el alumno no
+puede resolver. El filtro trabaja sobre el **script** y no sobre el json, porque `script_content` es
+lo que se vuelve a parsear en cada guardado: filtrar solo el json haría reaparecer el audio al primer
+guardado. Plan: `docs/plans/PLAN-cambio-12-modo-fisico.md`.
 
 ## 🟢 ADR-22 — Evaluaciones guardadas en tarjetas con mini vista previa y edición aislada
 
@@ -373,7 +408,16 @@ sin el ruido del dashboard.
 **Alternativa descartada.** Seguir en lista de filas; o una miniatura que reprodujera audio/interacción
 (se descarta: carga cara y permite responder). La miniatura es estática y sin audio.
 
-**Consecuencia.** El modo aislado reutiliza el estado de edición de App.tsx. Implementación:
+**Consecuencia (implementado, 2026-08-03).** El modo aislado es una **sub-vista de `crear`, no una
+ruta nueva**: un booleano `isolatedEdit` en `App.tsx` que oculta `TeacherDashboard` y quita la columna
+del menú. Se eligió así porque el editor ya vivía ahí con todo su estado (`editingWorksheetId`,
+`activeWorksheet`, `scriptDraft`); una ruta nueva habría obligado a levantar ese estado o a duplicarlo,
+y a tocar `TEACHER_SECTIONS` y `GROUPS` (regla 24) para una pantalla que no es una sección del portal.
+
+La miniatura es `WorksheetThumb`, exportada desde `WorksheetRenderer.tsx`: el renderer del alumno en
+`readonly` con `scale`, **filtrando** los tipos que montarían audio (`listening*`, `conversation`),
+micrófono (`speaking`) o un iframe (`content` con `sandbox`). Sin ese filtro, nueve tarjetas en
+pantalla dispararían decenas de peticiones al TTS por una imagen de 160 px. Plan:
 `docs/plans/PLAN-cambio-6-tarjetas-evaluaciones.md`.
 
 ---

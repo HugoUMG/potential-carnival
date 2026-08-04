@@ -84,6 +84,16 @@ POST   /worksheets/{id}/duplicate             — Copia nueva
 DELETE /worksheets/{id}
 ```
 
+`POST /worksheets/ai-generate` acepta un campo opcional **`printable`** (`bool`, por defecto
+`false`): el **modo físico**. Con `true`, el system prompt prohíbe las actividades de audio/habla y
+`strip_non_printable` borra del script las que el modelo haya colado igualmente. El resto del
+contrato no cambia y las llamadas que no manden el campo se comportan como siempre — ver
+[06_AI](06_AI.md#modo-físico--imprimible).
+
+```json
+{ "prompt": "Past simple, A2, 8 actividades", "created_by": "…", "printable": true }
+```
+
 ## Aulas
 
 ```
@@ -226,3 +236,9 @@ GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
 > devuelven `json_content` **completo**, con la clave de respuestas. Es el pendiente mayor: ver el
 > [plan por fases](plans/PLAN-fuga-de-respuestas.md). Los endpoints del profesor **sí** deben seguir
 > devolviendo todo (vista previa, modo práctica, impresión y editor lo necesitan).
+
+> Esos **mismos cuatro endpoints** sí filtran ya el campo privado `note` (ADR-19): `_without_notes`
+> lo borra del `json_content` y del `script_content` antes de responder. En
+> `/students/{id}/worksheets` el filtro se aplica **solo si quien pregunta tiene rol `student`** —
+> el profesor consulta ese listado para editar y necesita sus notas. Cuando se implemente la fase 1
+> del plan de fuga de respuestas, el saneado de la clave debe pasar por el mismo sitio.

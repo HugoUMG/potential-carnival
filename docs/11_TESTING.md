@@ -18,11 +18,8 @@ Los tres, más `python -m compileall backend/app backend/tests`, son la verifica
 un commit grande. No hay CI que los ejecute: el único workflow de GitHub Actions es el respaldo
 semanal de la base.
 
-> **Estado real a 2026-08-03:** `pytest` pasa (41 tests). `npm run lint` **no** está limpio: reporta
-> 18 errores y 6 avisos heredados (`no-explicit-any` en `VisualWorksheetBuilder.tsx` y
-> `WorksheetEditor.tsx`, una variable sin usar en `activityRegistry.tsx`, un bloque vacío en
-> `GuestPage.tsx`, dependencias de `useEffect`). La regla al trabajar es **no añadir errores nuevos**;
-> dejarlo en cero es una tarea aparte ([13_ROADMAP](13_ROADMAP.md)).
+> **Estado real a 2026-08-03:** `pytest` pasa (60 tests). `npm run lint` y `npm run build` están
+> limpios. La regla al trabajar es **no añadir errores nuevos**; dejarlo en cero ya está hecho.
 
 ## Qué hay cubierto
 
@@ -39,6 +36,12 @@ red que hay.
 | `test_security.py` | Que el hash no guarde texto plano y verifique; round-trip del JWT |
 | `test_dotenv.py` | El parser de `.env`: UTF-8, la línea añadida en UTF-16 por PowerShell, que el entorno existente gane, y que la ausencia del archivo no sea error |
 | `test_teacher_images.py` | El aislamiento de la biblioteca personal: un profesor no ve ni puede borrar la imagen de otro (`delete_teacher_image` filtra por `teacher_id` en el SQL) |
+| `test_note_privada.py` | El campo privado `note` (ADR-19): que se persiste, que **no viaja** al alumno ni en el json ni en el script (`_without_notes`), que el profesor la conserva, que llega a la IA como `teacher_note` sin colarse en el detalle, y que el alumno autenticado no la recibe en `GET /worksheets/{id}` |
+| `test_actividades_imagen.py` | `imagechoice` e `imagematching` (ADR-20): la clave sigue siendo texto y las URLs van paralelas, se califican con las ramas de `multiplechoice`/`matching`, validaciones de `option_images`/`left_images`, y el **round-trip** con el DSL que emite el constructor visual |
+| `test_modo_fisico.py` | Modo físico (ADR-21): las listas `PRINTABLE_TYPES`/`NON_PRINTABLE_TYPES` cubren todo sin solaparse, `strip_non_printable` deja solo lo imprimible, no descuadra prefixos (`listening` vs `listeningfillblank`), y `_PRINTABLE_MODE` solo aparece cuando se pide `printable` |
+
+> `test_every_documented_type_parses` (en `test_parser.py`) ahora cubre los **21 tipos**
+> (incluye `imagechoice` e `imagematching`) usando la sintaxis que enseña `docs/07_DSL.md`.
 
 Además, un check de TypeScript que se corre a mano:
 
@@ -51,7 +54,7 @@ backslash antes que la comilla).
 
 ## El test que más protege
 
-`test_every_documented_type_parses` escribe una hoja con **los 19 tipos** usando exactamente la
+`test_every_documented_type_parses` escribe una hoja con **los 21 tipos** usando exactamente la
 sintaxis que enseña [07_DSL](07_DSL.md) y comprueba que parsea. Si la documentación empieza a enseñar
 algo que no funciona, ese test falla.
 
@@ -73,6 +76,7 @@ algo que no funciona, ese test falla.
 |-----------|-----------------|
 | `parser.py` (tipo o validación nueva) | Un caso en `test_parser.py`, y el tipo en `test_every_documented_type_parses` |
 | El prompt de calificación | Un `assert` en `test_grade_prompt.py` sobre la regla concreta |
+| Un campo privado que no debe ver el alumno | Un caso en `test_note_privada.py` (json + script + cada endpoint que entregue la hoja) |
 | Permisos o propiedad de recursos | `test_student_isolation.py` |
 | Auth | `test_security.py` / `test_google_auth.py` |
 | Biblioteca de imágenes personal (permisos por dueño) | `test_teacher_images.py` |

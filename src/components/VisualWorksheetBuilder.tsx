@@ -31,7 +31,7 @@ const VISUAL_TYPES: VisualActivityType[] = [
   'fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse',
   'listening', 'listeningfillblank', 'listeningmultiplechoice',
   'listeningmatching', 'listeningtruefalse', 'listeningorder', 'conversation',
-  'reading', 'readingtruefalse', 'imagequestion', 'speaking', 'content',
+  'reading', 'readingtruefalse', 'imagequestion', 'imagechoice', 'imagematching', 'speaking', 'content',
 ];
 
 const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
@@ -52,6 +52,8 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
   reading:                { label: 'Reading',                  icon: <BookOpen size={14} />,     color: 'text-lime-700',    bg: 'bg-lime-50 border-lime-200' },
   readingtruefalse:       { label: 'Reading + True/False',     icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
   imagequestion:          { label: 'Image Question',           icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
+  imagechoice:            { label: 'Imagen + Opción múltiple', icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
+  imagematching:          { label: 'Imagen + Matching',        icon: <Image size={14} />,        color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
   speaking:               { label: 'Speaking (mic)',           icon: <Mic size={14} />,          color: 'text-red-700',     bg: 'bg-red-50 border-red-200' },
   content:                { label: 'Contenido / Repaso',       icon: <FileText size={14} />,     color: 'text-slate-700',   bg: 'bg-slate-50 border-slate-200' },
 };
@@ -60,7 +62,8 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
 const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
   { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse'] },
   { label: 'Listening', types: ['listening', 'listeningfillblank', 'listeningmultiplechoice', 'listeningmatching', 'listeningtruefalse', 'listeningorder', 'conversation'] },
-  { label: 'Otras', types: ['reading', 'readingtruefalse', 'imagequestion', 'speaking', 'content'] },
+  { label: 'Imagen', types: ['imagequestion', 'imagechoice', 'imagematching'] },
+  { label: 'Otras', types: ['reading', 'readingtruefalse', 'speaking', 'content'] },
 ];
 
 // ── Importar hoja existente al estado visual ──────────────────────────────────
@@ -85,11 +88,12 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     id: act.id,
     type: act.type as VisualActivityType,
     instructions: act.instructions ?? '',
+    note: act.note ?? '',
     text: '', answer: '', bank: [], question: '', options: [], correctOption: '', correctOptions: [],
     left: [], right: [], prompt: '', target: '', statements: [],
     audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [], lines: [], html: '', sandbox: false,
     readingTitle: '', readingContent: '', readingQuestions: [],
-    imageUrl: '',
+    imageUrl: '', optionImages: [], leftImages: [],
   };
 
   if (act.type === 'fillblank') {
@@ -157,6 +161,18 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
   }
   if (act.type === 'imagequestion') {
     return { ...base, imageUrl: act.image ?? '', prompt: act.prompt ?? '' };
+  }
+  if (act.type === 'imagechoice') {
+    const options = [...(act.options ?? [])];
+    return {
+      ...base, imageUrl: act.image ?? '', question: act.question ?? '', options,
+      optionImages: options.map((_, i) => act.option_images?.[i] ?? ''),
+      correctOption: Array.isArray(act.answer) ? (act.answer[0] ?? '') : (act.answer ?? ''),
+    };
+  }
+  if (act.type === 'imagematching') {
+    const left = [...(act.left ?? [])];
+    return { ...base, left, leftImages: left.map((_, i) => act.left_images?.[i] ?? ''), right: [...(act.right ?? [])] };
   }
   if (act.type === 'speaking') {
     const sp = act as SpeakingActivity;
@@ -609,7 +625,11 @@ function ReadingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: V
   );
 }
 
-function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+/** Selector de imagen reutilizable: URL a mano + subir + biblioteca + arrastrar y soltar.
+ *  Lo usan imagequestion, imagechoice (una por opción) e imagematching (una por fila). */
+function ImageField({ value, onChange, label = 'URL de la imagen', compact = false }: {
+  value: string; onChange: (url: string) => void; label?: string; compact?: boolean;
+}) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -622,7 +642,7 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
     setUploadError(null);
     try {
       const { url } = await subirImagen(file);
-      onChange({ ...act, imageUrl: url });
+      onChange(url);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'No se pudo subir la imagen.');
     } finally {
@@ -632,62 +652,141 @@ function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange:
   }
 
   return (
-    <div className="grid gap-4">
-      {/* No es <label>: envuelve el botón de subir, y un click en él abriría el input de texto. */}
-      <div
-        className={`block rounded-2xl px-3 py-3 transition ${dragOver ? 'ring-2 ring-violet-500 bg-violet-50' : '-mx-3'}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void upload(f); }}
-      >
-        <FieldLabel>URL de la imagen</FieldLabel>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <TextInput value={act.imageUrl} onChange={(v) => onChange({ ...act, imageUrl: v })} placeholder="https://..." />
-          </div>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => void upload(e.target.files?.[0])}
-          />
-          <button
-            type="button"
-            className="mt-1 flex shrink-0 items-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
-            onClick={() => fileInput.current?.click()}
-            disabled={uploading}
-            title="Subir una imagen desde tu computadora"
-          >
-            {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-            {uploading ? 'Subiendo…' : 'Subir'}
-          </button>
-          <button
-            type="button"
-            className="mt-1 flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-            onClick={() => setPickerOpen(true)}
-            title="Elegir una imagen ya subida o de la biblioteca gratuita"
-          >
-            <Library size={15} /> Biblioteca
-          </button>
+    // No es <label>: envuelve el botón de subir, y un click en él abriría el input de texto.
+    <div
+      className={`block rounded-2xl px-3 py-3 transition ${dragOver ? 'ring-2 ring-violet-500 bg-violet-50' : '-mx-3'}`}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) void upload(f); }}
+    >
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <TextInput value={value} onChange={onChange} placeholder="https://..." />
         </div>
-        {!act.imageUrl && (
-          <p className="mt-2 text-xs text-slate-400">También puedes <strong>arrastrar y soltar</strong> una imagen aquí.</p>
-        )}
-        {uploadError && <p className="mt-1 text-xs font-semibold text-rose-600">{uploadError}</p>}
-        {act.imageUrl && (
-          // key: sin ella React reutiliza el nodo y el display:none de una URL rota
-          // se queda pegado · la imagen recién subida no se vería.
-          <img key={act.imageUrl} src={act.imageUrl} alt="preview" className="mt-2 block max-h-40 w-auto max-w-full rounded-xl border border-slate-200" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-        )}
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => void upload(e.target.files?.[0])}
+        />
+        <button
+          type="button"
+          className="mt-1 flex shrink-0 items-center gap-2 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+          onClick={() => fileInput.current?.click()}
+          disabled={uploading}
+          title="Subir una imagen desde tu computadora"
+        >
+          {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+          {uploading ? 'Subiendo…' : 'Subir'}
+        </button>
+        <button
+          type="button"
+          className="mt-1 flex shrink-0 items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+          onClick={() => setPickerOpen(true)}
+          title="Elegir una imagen ya subida o de la biblioteca gratuita"
+        >
+          <Library size={15} /> Biblioteca
+        </button>
       </div>
+      {!value && !compact && (
+        <p className="mt-2 text-xs text-slate-400">También puedes <strong>arrastrar y soltar</strong> una imagen aquí.</p>
+      )}
+      {uploadError && <p className="mt-1 text-xs font-semibold text-rose-600">{uploadError}</p>}
+      {value && (
+        // key: sin ella React reutiliza el nodo y el display:none de una URL rota
+        // se queda pegado · la imagen recién subida no se vería.
+        <img key={value} src={value} alt="preview" className={`mt-2 block w-auto max-w-full rounded-xl border border-slate-200 ${compact ? 'max-h-24' : 'max-h-40'}`} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+      )}
+      {pickerOpen && (
+        <ImagePickerModal onSelect={onChange} onClose={() => setPickerOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+function ImageQuestionEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  return (
+    <div className="grid gap-4">
+      <ImageField value={act.imageUrl} onChange={(imageUrl) => onChange({ ...act, imageUrl })} />
       <label className="block">
         <FieldLabel>Pregunta / Prompt</FieldLabel>
         <TextArea value={act.prompt} onChange={(v) => onChange({ ...act, prompt: v })} placeholder="Describe what you see in the image." />
       </label>
-      {pickerOpen && (
-        <ImagePickerModal onSelect={(url) => onChange({ ...act, imageUrl: url })} onClose={() => setPickerOpen(false)} />
-      )}
+    </div>
+  );
+}
+
+/** Opción múltiple con imagen: imagen de enunciado opcional + una imagen opcional por opción.
+ *  La opción con imagen se le muestra al alumno SOLO como imagen (el texto es la clave). */
+function ImageChoiceEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  const setOption = (i: number, text: string) => {
+    const options = [...act.options];
+    const was = act.correctOption === options[i];
+    options[i] = text;
+    onChange({ ...act, options, correctOption: was ? text : act.correctOption });
+  };
+  const setOptionImage = (i: number, url: string) => {
+    const optionImages = act.options.map((_, j) => (j === i ? url : (act.optionImages[j] ?? '')));
+    onChange({ ...act, optionImages });
+  };
+  return (
+    <div className="grid gap-4">
+      <ImageField value={act.imageUrl} onChange={(imageUrl) => onChange({ ...act, imageUrl })} label="Imagen del enunciado (opcional)" />
+      <label className="block"><FieldLabel>Pregunta</FieldLabel><TextInput value={act.question} onChange={(v) => onChange({ ...act, question: v })} placeholder="Which one is the apple?" /></label>
+      <div>
+        <FieldLabel>Opciones</FieldLabel>
+        <p className="mb-2 text-xs text-slate-400">Marca la correcta. Si le pones imagen a una opción, el alumno verá <strong>solo la imagen</strong>; el texto es la clave de respuesta.</p>
+        <div className="grid gap-3">
+          {act.options.map((opt, i) => (
+            <div key={i} className="rounded-2xl border border-slate-200 p-3">
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => onChange({ ...act, correctOption: opt })}
+                  className={`h-4 w-4 shrink-0 rounded-full border-2 transition ${act.correctOption === opt && opt.trim() ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'}`} />
+                <input className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
+                  value={opt} onChange={(e) => setOption(i, e.target.value)} placeholder="Texto de la opción (clave)" />
+                <button type="button" className="rounded-xl border border-red-100 p-2 text-red-400 transition hover:bg-red-50"
+                  onClick={() => onChange({ ...act, options: act.options.filter((_, j) => j !== i), optionImages: act.optionImages.filter((_, j) => j !== i) })}><Trash2 size={14} /></button>
+              </div>
+              <ImageField compact value={act.optionImages[i] ?? ''} onChange={(url) => setOptionImage(i, url)} label="Imagen de esta opción (opcional)" />
+            </div>
+          ))}
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex"
+            onClick={() => onChange({ ...act, options: [...act.options, ''], optionImages: [...act.optionImages, ''] })}><PlusCircle size={14} /> Agregar opción</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Emparejar imagen con palabra. Cada fila es (imagen, palabra correcta); `left` es solo la
+ *  etiqueta con la que la clave se lee en la pantalla de revisión del profesor. */
+function ImageMatchingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  const rows = act.leftImages.map((url, i) => ({ url, word: act.right[i] ?? '', label: act.left[i] ?? `Image ${i + 1}` }));
+  const save = (next: { url: string; word: string; label: string }[]) => onChange({
+    ...act,
+    leftImages: next.map((r) => r.url),
+    right: next.map((r) => r.word),
+    left: next.map((_, i) => `Image ${i + 1}`),
+  });
+  return (
+    <div className="grid gap-3">
+      <p className="text-xs text-slate-400">El alumno une cada imagen con su palabra arrastrando, igual que en Matching.</p>
+      {rows.map((row, i) => (
+        <div key={i} className="rounded-2xl border border-slate-200 p-3">
+          <div className="mb-1 flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">{i + 1}.</span>
+            <input className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
+              value={row.word} onChange={(e) => save(rows.map((r, j) => (j === i ? { ...r, word: e.target.value } : r)))} placeholder="Palabra que le corresponde" />
+            <button type="button" className="rounded-xl border border-red-100 p-2 text-red-400 transition hover:bg-red-50"
+              onClick={() => save(rows.filter((_, j) => j !== i))}><Trash2 size={14} /></button>
+          </div>
+          <ImageField compact value={row.url} onChange={(url) => save(rows.map((r, j) => (j === i ? { ...r, url } : r)))} label="Imagen de esta fila" />
+        </div>
+      ))}
+      <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex"
+        onClick={() => save([...rows, { url: '', word: '', label: `Image ${rows.length + 1}` }])}><PlusCircle size={14} /> Agregar pareja</button>
     </div>
   );
 }
@@ -797,6 +896,8 @@ function TypeEditor({ act, onChange }: { act: VisualActivity; onChange: (a: Visu
     case 'reading':                return <ReadingEditor act={act} onChange={onChange} />;
     case 'readingtruefalse':       return <ReadingTrueFalseEditor act={act} onChange={onChange} />;
     case 'imagequestion':          return <ImageQuestionEditor act={act} onChange={onChange} />;
+    case 'imagechoice':            return <ImageChoiceEditor act={act} onChange={onChange} />;
+    case 'imagematching':          return <ImageMatchingEditor act={act} onChange={onChange} />;
     case 'speaking':               return <SpeakingEditor act={act} onChange={onChange} />;
     default:                       return null;
   }
@@ -804,7 +905,8 @@ function TypeEditor({ act, onChange }: { act: VisualActivity; onChange: (a: Visu
 
 function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
   // Instrucciones por actividad (guía/pistas): todas las soportan en el DSL. `content` no las
-  // muestra al alumno, así que ahí se omite.
+  // muestra al alumno, así que ahí se omite. La nota privada tampoco tiene sentido en `content`:
+  // no se califica.
   return (
     <div className="grid gap-4">
       {act.type !== 'content' && (
@@ -814,6 +916,13 @@ function ActivityEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
         </label>
       )}
       <TypeEditor act={act} onChange={onChange} />
+      {act.type !== 'content' && (
+        <label className="block rounded-2xl border border-dashed border-violet-200 bg-violet-50/50 px-3 py-2">
+          <FieldLabel>Nota privada para la IA (opcional) · el alumno NO la ve</FieldLabel>
+          <TextInput value={act.note ?? ''} onChange={(v) => onChange({ ...act, note: v })} placeholder="Ej: en la foto hay un carro rojo, debe mencionar el color." />
+          <p className="mt-1 text-xs text-slate-400">Criterio de corrección para respuestas abiertas. No se imprime ni se envía al alumno.</p>
+        </label>
+      )}
     </div>
   );
 }

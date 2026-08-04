@@ -69,17 +69,23 @@ function PrintActivity({ activity, n }: { activity: WorksheetActivity; n: number
       );
 
     case 'multiplechoice':
-    case 'multiselect': {
+    case 'multiselect':
+    case 'imagechoice': {
       const multi = a.type === 'multiselect';
       const options = shuffledByHash(a.options, a.id);
+      // imagechoice en papel: la imagen del enunciado arriba y la miniatura dentro de su opción.
+      const imageOf = (opt: string) => (a.type === 'imagechoice' ? a.option_images?.[a.options.indexOf(opt)] : undefined);
       return head(
         <div>
           <p>{num} <RichText text={a.question} /> {multi && <em className="wp-hint">(varias)</em>}</p>
+          {a.type === 'imagechoice' && a.image && <img src={a.image} alt="" className="wp-img" />}
           <div className="wp-opts">
             {options.map((opt, i) => (
               <div key={i} className="wp-opt">
                 <span className="wp-mark">{multi ? '☐' : `${String.fromCharCode(65 + i)})`}</span>
-                <span><RichText text={opt} /></span>
+                {imageOf(opt)
+                  ? <img src={imageOf(opt)} alt={opt} className="wp-img wp-img-opt" />
+                  : <span><RichText text={opt} /></span>}
               </div>
             ))}
           </div>
@@ -118,18 +124,24 @@ function PrintActivity({ activity, n }: { activity: WorksheetActivity; n: number
         </div>,
       );
 
-    case 'matching': {
+    case 'matching':
+    case 'imagematching': {
       const right = [...a.right]
         .map((t) => ({ t, k: hash(`${a.id}:${t}`) }))
         .sort((x, y) => x.k - y.k)
         .map((x) => x.t);
+      // imagematching en papel: la misma tabla de dos columnas, con la miniatura en vez del texto.
+      const leftImages = a.type === 'imagematching' ? a.left_images : undefined;
       return head(
         <div>
           <p>{num} <span className="wp-hint">Escribe la letra correcta en cada línea.</span></p>
           <div className="wp-match">
             <div>
               {a.left.map((l, i) => (
-                <div key={i} className="wp-match-row">{i + 1}. <span className="wp-blank wp-blank-sm" /> {l}</div>
+                <div key={i} className="wp-match-row">
+                  {i + 1}. <span className="wp-blank wp-blank-sm" />{' '}
+                  {leftImages?.[i] ? <img src={leftImages[i]} alt={l} className="wp-img wp-img-opt" /> : l}
+                </div>
               ))}
             </div>
             <div>

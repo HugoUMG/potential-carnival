@@ -72,6 +72,50 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index, statu
   );
 }
 
+/** Lo que NO entra en la miniatura de una tarjeta: audio (cada `listening*`/`conversation` monta un
+ *  AudioPlayer que pediría su MP3 al TTS), micrófono (`speaking`) y `content` en sandbox (un iframe
+ *  con scripts propios). Con varias tarjetas en pantalla eso son decenas de peticiones por nada. */
+function isThumbSafe(activity: WorksheetActivity): boolean {
+  if (activity.type.startsWith('listening') || activity.type === 'speaking' || activity.type === 'conversation') return false;
+  return !(activity.type === 'content' && activity.sandbox);
+}
+
+/** Mini vista previa ESTÁTICA de una hoja, para las tarjetas de «Evaluaciones guardadas».
+ *
+ *  Usa el renderer del alumno (ADR-18: ver y diseñar se parecen porque son lo mismo) en `readonly`,
+ *  sin interacción (`pointer-events-none`) y encogido con `scale`. No es un mini-DSL ni una
+ *  imitación: si un tipo cambia de aspecto, la miniatura cambia sola.
+ *
+ *  ponytail: `scale` sobre el renderer completo en vez de una vista propia. Cuesta pintar dos
+ *  actividades de más en el DOM; a cambio no hay un segundo renderer que se desincronice. */
+export function WorksheetThumb({ worksheet, limit = 2 }: { worksheet: Worksheet; limit?: number }) {
+  const visible = worksheet.activities.filter(isThumbSafe).slice(0, limit);
+  const hidden = worksheet.activities.length - visible.length;
+
+  if (!visible.length) {
+    return (
+      <div className="grid h-full place-items-center bg-slate-50 px-4 text-center">
+        <p className="text-xs font-semibold text-slate-400">
+          {worksheet.activities.length ? 'Vista previa no disponible (audio o habla)' : 'Hoja sin actividades'}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pointer-events-none h-full select-none bg-white" aria-hidden>
+      <div className="w-[250%] origin-top-left scale-[0.4] p-3">
+        <div className="grid gap-3">
+          {visible.map((activity, index) => (
+            <ActivityCard key={activity.id} activity={activity} readonly onAnswerChange={() => undefined} index={index} />
+          ))}
+          {hidden > 0 && <p className="text-lg font-semibold text-slate-400">+{hidden} actividad{hidden !== 1 ? 'es' : ''} más</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange, gradeStatus }: WorksheetRendererProps) {
   const completedCount = worksheet.activities.filter((activity) => Boolean(answers[activity.id])).length;
   const progress = worksheet.activities.length === 0 ? 0 : Math.round((completedCount / worksheet.activities.length) * 100);

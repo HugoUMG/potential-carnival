@@ -38,6 +38,8 @@ const ACTIVITY_GROUPS: { label: string; icon: string; types: string[] }[] = [
   { label: 'Escucha fina', icon: '🎼', types: ['listeningfillblank', 'listeningorder', 'listeningmatching'] },
   { label: 'Producción oral', icon: '🗣️', types: ['speaking', 'conversation'] },
   { label: 'Escritura abierta', icon: '✍️', types: ['textbox', 'imagequestion'] },
+  // Las tres necesitan URLs que pega el profesor: la IA nunca las inventa.
+  { label: 'Con imágenes', icon: '🖼️', types: ['imagequestion', 'imagechoice', 'imagematching'] },
 ];
 const PRESETS: { label: string; icon: string; patch: Partial<BuilderState> }[] = [
   { label: 'Warm-up', icon: '🔥', patch: { objective: 'Introducción', duration: '10', difficulty: 'Fácil', activities: ['multiplechoice', 'truefalse'] } },
@@ -297,12 +299,14 @@ export function AskAiEdit({ getScript, onApply }: { getScript: () => string; onA
 
 // ── Panel de generación con IA ────────────────────────────────────────────────
 
-function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
+function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, printable, setPrintable }: {
   aiPrompt: string;
   setAiPrompt: (v: string) => void;
   isGenerating: boolean;
   aiError: string;
   onGenerate: () => void;
+  printable: boolean;
+  setPrintable: (v: boolean) => void;
 }) {
   const [b, setB] = useState<BuilderState>(EMPTY_BUILDER);
   // Cualquier cambio en los chips recompone el prompt (se puede afinar a mano en el textarea).
@@ -374,6 +378,18 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
           {ACTIVITIES.map(([l, v]) => <Chip key={v} active={b.activities.includes(v)} onClick={() => toggleActivity(v)}>{b.activities.includes(v) ? '✓ ' : ''}{l}</Chip>)}
         </ChipGroup>
       </div>
+
+      {/* Modo físico: no es un chip del prompt, es una restricción real que aplica el backend. */}
+      <button type="button" onClick={() => setPrintable(!printable)}
+        className={`mt-5 flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${printable ? 'border-spike bg-spike/10' : 'border-slate-200 hover:bg-slate-50'}`}>
+        <span className={`grid h-6 w-11 shrink-0 items-center rounded-full px-0.5 transition ${printable ? 'bg-spike' : 'bg-slate-300'}`}>
+          <span className={`h-5 w-5 rounded-full bg-white shadow transition ${printable ? 'translate-x-5' : ''}`} />
+        </span>
+        <span>
+          <span className="block text-sm font-semibold text-slate-800">🖨️ Modo físico (imprimible)</span>
+          <span className="block text-xs text-slate-500">La hoja se genera solo con actividades que se resuelven en papel: sin audio ni micrófono.</span>
+        </span>
+      </button>
 
       <label className="mt-6 block">
         <span className="text-sm font-semibold text-slate-700">📝 Prompt generado <span className="font-normal text-slate-400">(puedes ajustarlo a mano)</span></span>
@@ -490,6 +506,7 @@ export function WorksheetEditor({
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiSuccess, setAiSuccess] = useState('');
+  const [printable, setPrintable] = useState(false); // modo físico: apagado por defecto
   const [promptCopied, setPromptCopied] = useState(false);
   const scriptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const visualScriptRef = useRef<(() => string) | null>(null); // script serializado actual del builder visual
@@ -567,12 +584,14 @@ export function WorksheetEditor({
     setAiError('');
     setAiSuccess('');
     try {
-      const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId);
+      const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId, printable);
       onScriptChange(generated.scriptContent ?? '');
       // `/worksheets/ai-generate` YA guardó la hoja. Hay que atar el editor a ella o el primer
       // "guardar" crearía una segunda: la generada quedaría huérfana en la lista.
       onAiGenerated?.(generated);
-      setAiSuccess('✓ Hoja generada y guardada. Revísala y guarda de nuevo si la cambias.');
+      setAiSuccess(printable
+        ? '✓ Hoja imprimible generada y guardada. Revísala y guarda de nuevo si la cambias.'
+        : '✓ Hoja generada y guardada. Revísala y guarda de nuevo si la cambias.');
       setMode('script');
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Error al generar con IA. Intenta de nuevo.');
@@ -651,7 +670,7 @@ export function WorksheetEditor({
         )}
 
         {mode === 'ai' && <AiPanel aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} isGenerating={isGenerating}
-          aiError={aiError} onGenerate={() => void handleGenerate()} />}
+          aiError={aiError} onGenerate={() => void handleGenerate()} printable={printable} setPrintable={setPrintable} />}
       </div>
     );
   }

@@ -43,10 +43,10 @@ Seguimiento (antes eran diez botones seguidos).
 | Componente | Qué hace |
 |-----------|----------|
 | `App.tsx` | Los tres portales autenticados, incluida la revisión de respuestas del profesor |
-| `WorksheetRenderer.tsx` | Pinta una hoja al alumno (bloques, tema, `gradeStatus`) → [08](08_RENDERER.md) |
+| `WorksheetRenderer.tsx` | Pinta una hoja al alumno (bloques, tema, `gradeStatus`) → [08](08_RENDERER.md). Exporta además `WorksheetThumb`, la miniatura estática de las tarjetas del profesor |
 | `activityRegistry.tsx` | Un componente por tipo de actividad → [08](08_RENDERER.md) |
 | `WorksheetEditor.tsx` | Editor del profesor en tres modos (script / visual / IA) |
-| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 19 tipos. En `imagequestion`, "Subir" llama a `subirImagen()` y rellena el campo con la URL; "Biblioteca" abre `ImagePickerModal` |
+| `VisualWorksheetBuilder.tsx` | Constructor drag-and-drop; soporta los 21 tipos. El selector de imagen es `ImageField` (URL + Subir + Biblioteca + arrastrar y soltar) y lo comparten `imagequestion`, `imagechoice` (una por opción) e `imagematching` (una por fila): "Subir" llama a `subirImagen()`, "Biblioteca" abre `ImagePickerModal` |
 | `ImagePicker.tsx` | `MyImagesGrid` (biblioteca personal: subir/copiar/borrar, y selector si recibe `onSelect`), `FreeImagePicker` (buscador simple de la gratuita para el modal) e `ImagePickerModal` (las dos en pestañas Gratuita/Mía) |
 | `WorksheetPrint.tsx` | Vista de papel + `window.print()` → PDF |
 | `VocabularyViewer.tsx` / `VocabularyPrint.tsx` | Listas de vocabulario |
@@ -88,8 +88,36 @@ El único estado compartido fuera de React son `localStorage` (JWT, tema, `dw_co
 directo, `guest_token`) y el atributo `data-theme`.
 
 Estados con nombre que conviene conocer en `App.tsx`:
-`editingWorksheetId` (editar en el sitio), `savedWorksheet` (aviso "Guardada"), `practiceWorksheet` /
-`practiceAnswers` / `practiceResult` (modo práctica), `activeWorksheet`, `submitResult`.
+`editingWorksheetId` (editar en el sitio), `isolatedEdit` (editor aislado), `savedWorksheet` (aviso
+"Guardada"), `practiceWorksheet` / `practiceAnswers` / `practiceResult` (modo práctica),
+`activeWorksheet`, `submitResult`.
+
+## «Evaluaciones guardadas»: tarjetas + editor aislado (ADR-22)
+
+La sección es una **rejilla de tarjetas**, no una lista de filas. Cada tarjeta lleva:
+
+- **Mini vista previa estática** (`WorksheetThumb`, exportado desde `WorksheetRenderer.tsx`).
+- Estado (Habilitada / Borrador), nº de actividades, respuestas, intentos y aulas.
+- Las dos acciones de uso diario a la vista (Habilitar/Deshabilitar, Asignar a aula) y el resto en el
+  menú **⋮** (`<details class="row-menu row-menu-up">`, sin estado de React): ver respuestas, copiar
+  enlace, duplicar, vista previa, modo práctica, imprimir, archivar y borrar. `row-menu-up` despliega
+  hacia arriba porque el menú vive al fondo de la tarjeta.
+
+**La miniatura no carga nada.** `WorksheetThumb` filtra los tipos que montarían un `AudioPlayer`
+(`listening*`, `conversation`), el que pide micrófono (`speaking`) y el `content` con `sandbox`
+(un iframe con scripts propios): con nueve tarjetas en pantalla eso serían decenas de peticiones al
+TTS por una imagen de 160 px. Lo que queda se pinta con el renderer del alumno en `readonly`, dentro
+de un `pointer-events-none` y encogido con `scale`. No hay un segundo renderer que se desincronice.
+
+**Clic en la miniatura → editor aislado** (`startEditWorksheet(worksheet, /* isolated */ true)`).
+Es una **sub-vista de `crear`, no una ruta nueva**: `isolatedEdit` oculta `TeacherDashboard`, quita la
+columna del menú de la rejilla y añade una barra «Volver a Evaluaciones». Reutiliza tal cual el estado
+de edición que ya vivía en `App.tsx` (`editingWorksheetId`, `activeWorksheet`, `scriptDraft`…), así
+que **no se crea una copia**: se edita la misma hoja y guardar sigue pasando por `updateWorksheet`.
+Cualquier navegación por el menú apaga `isolatedEdit`.
+
+Una hoja **con respuestas** no se puede editar: al abrirla, `startEditWorksheet` vuelve al listado con
+el aviso de siempre (duplícala) en vez de entrar al editor aislado.
 
 ## Guardar una hoja: siempre la MISMA hoja
 
