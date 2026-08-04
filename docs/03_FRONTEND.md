@@ -62,6 +62,41 @@ Seguimiento (antes eran diez botones seguidos).
 | `ProtectedRoute.tsx` | Guarda de rutas por rol |
 | `RexMascot.tsx` | Mascota del rebrand |
 
+## Vocabulario: formato CSV (`parseCsv` en `VocabularyViewer.tsx`)
+
+Una lista de vocabulario se crea pegando texto CSV en el textarea de `VocabularyManager`
+(`src/components/VocabularyViewer.tsx:255`). El parser es propio (no usa una librería CSV) y acepta
+comas dentro de un campo solo si va entre comillas dobles (`splitCsvLine`).
+
+**Columnas, en este orden exacto:**
+
+```
+block,english,spanish,type,v_past,v_participle,v_ing,v_3rd   ← con agrupador (opcional)
+english,spanish,type,v_past,v_participle,v_ing,v_3rd          ← sin agrupador
+```
+
+- `english` y `spanish` son **obligatorias**: una fila sin alguna de las dos se descarta en silencio.
+- `type` debe ser uno de: `verb, noun, adjective, adverb, connector, linking word, preposition,
+  phrase, other`. Si no coincide (o va vacío), la fila cae al formato sin `block` y la primera columna
+  se toma como `english` — por eso `type` siempre debe ir presente y en minúsculas si se usa `block`.
+- `v_past, v_participle, v_ing, v_3rd` solo aplican a `type: verb` (conjugaciones); se dejan vacías en
+  el resto de filas.
+- `block` agrupa palabras dentro de **una misma lista** y se pinta como sub-encabezado (`groupByBlock`,
+  `VocabularyViewer.tsx:81`). Es la forma correcta de meter **varias semanas o unidades en una sola
+  lista**: un pegado de CSV = una lista con un título (ej. "Vocabulario cuarta unidad"), y cada valor
+  distinto de `block` (ej. "Semana 4 — Wild Animals") aparece como su propia sección dentro de esa
+  lista, en el orden en que aparecen las filas.
+- La primera fila se salta automáticamente como encabezado si empieza con `block` o `english`
+  (case-insensitive); si no, se trata como dato.
+
+Ejemplo mínimo válido (una lista, dos semanas):
+
+```csv
+block,english,spanish,type,v_past,v_participle,v_ing,v_3rd
+Semana 1 — Verbs,go,ir,verb,went,gone,going,goes
+Semana 2 — Connectors,however,sin embargo,connector,,,,
+```
+
 ## Utilidades (`src/utils/`)
 
 | Archivo | Qué hace |
@@ -103,11 +138,21 @@ La sección es una **rejilla de tarjetas**, no una lista de filas. Cada tarjeta 
   enlace, duplicar, vista previa, modo práctica, imprimir, archivar y borrar. `row-menu-up` despliega
   hacia arriba porque el menú vive al fondo de la tarjeta.
 
-**La miniatura no carga nada.** `WorksheetThumb` filtra los tipos que montarían un `AudioPlayer`
-(`listening*`, `conversation`), el que pide micrófono (`speaking`) y el `content` con `sandbox`
-(un iframe con scripts propios): con nueve tarjetas en pantalla eso serían decenas de peticiones al
-TTS por una imagen de 160 px. Lo que queda se pinta con el renderer del alumno en `readonly`, dentro
-de un `pointer-events-none` y encogido con `scale`. No hay un segundo renderer que se desincronice.
+**La miniatura no carga nada, pero siempre muestra algo.** `WorksheetThumb` no monta un
+`AudioPlayer` para los tipos que lo pedirían (`listening*`, `conversation`), el que pide micrófono
+(`speaking`) ni el `content` con `sandbox` (un iframe con scripts propios): con nueve tarjetas en
+pantalla eso serían decenas de peticiones al TTS por una imagen de 160 px. Esos tipos se pintan como
+`ThumbPlaceholderCard` (icono + nombre del tipo) en vez de desaparecer de la miniatura — antes, una
+hoja compuesta solo de esos tipos mostraba "Vista previa no disponible". El resto se pinta con el
+renderer del alumno en `readonly`, dentro de un `pointer-events-none` y encogido con `scale`. No hay
+un segundo renderer que se desincronice.
+
+**Hover: la imagen crece y desliza, no la tarjeta.** El botón de la miniatura vive `absolute` sobre
+un contenedor `relative h-40` que reserva el hueco en la rejilla, así crecer en hover no empuja el
+resto de la tarjeta ni de la fila. En `group-hover` el botón pasa de `h-40` a `h-80`
+(`transition-[height] duration-500`) y el contenido interno de `WorksheetThumb` se desliza hacia
+arriba muy despacio (`group-hover:-translate-y-1/3 duration-[8000ms]`), dejando ver más actividades
+sin necesidad de abrir el editor.
 
 **Clic en la miniatura → editor aislado** (`startEditWorksheet(worksheet, /* isolated */ true)`).
 Es una **sub-vista de `crear`, no una ruta nueva**: `isolatedEdit` oculta `TeacherDashboard`, quita la
