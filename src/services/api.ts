@@ -39,7 +39,10 @@ interface BackendActivity {
   content?: string | null;
   questions?: string[] | null;
   image?: string | null;
+  option_images?: string[] | null;
+  left_images?: string[] | null;
   instructions?: string | null;
+  note?: string | null;
   audio_text?: string | null;
   voice?: string | null;
   target?: string | null;
@@ -281,6 +284,7 @@ export async function borrarMiImagen(id: string): Promise<void> {
 function withInstructions<T extends WorksheetActivity>(activity: T, source: BackendActivity): T {
   let out = activity;
   if (source.instructions) out = { ...out, instructions: source.instructions };
+  if (source.note) out = { ...out, note: source.note }; // nota privada; el alumno nunca la recibe
   if (source.voice) out = { ...out, voice: source.voice }; // voz por actividad (listening)
   return out;
 }
@@ -305,6 +309,10 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'reading', title: activity.title ?? '', content: activity.content ?? '', questions: activity.questions ?? [] }, activity);
     case 'imagequestion':
       return withInstructions({ id: activity.id, type: 'imagequestion', image: activity.image ?? '', prompt: activity.prompt ?? '' }, activity);
+    case 'imagechoice':
+      return withInstructions({ id: activity.id, type: 'imagechoice', image: activity.image ?? undefined, question: activity.question ?? '', options: activity.options ?? [], option_images: activity.option_images ?? undefined, answer: activity.answer ?? '' }, activity);
+    case 'imagematching':
+      return withInstructions({ id: activity.id, type: 'imagematching', left: activity.left ?? [], left_images: activity.left_images ?? [], right: activity.right ?? [] }, activity);
     case 'listening':
       return withInstructions({ id: activity.id, type: 'listening', text: activity.text ?? '', question: activity.question ?? '', answer: String(activity.answer ?? '') }, activity);
     case 'listeningfillblank':
@@ -713,13 +721,15 @@ export async function aiEditWorksheet(scriptContent: string, instruction: string
   return request<{ script: string; provider: string }>('/worksheets/ai-edit', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, instruction }) });
 }
 
-export async function generateWorksheetWithAI(prompt: string, createdBy: string): Promise<Worksheet> {
+/** `printable` = modo físico: la hoja se va a imprimir, así que el backend restringe la generación
+ *  a los tipos que pasan a papel (sin listening* ni speaking ni conversation). */
+export async function generateWorksheetWithAI(prompt: string, createdBy: string, printable = false): Promise<Worksheet> {
   // El endpoint devuelve la hoja en el formato del backend (script_content, json_content…), igual
   // que crear o actualizar. Antes se devolvía tal cual diciendo que era un `Worksheet`, así que
   // quien la usaba tenía que ir a buscar `script_content` con un cast a `any`.
   const worksheet = await request<BackendWorksheet>('/worksheets/ai-generate', {
     method: 'POST',
-    body: JSON.stringify({ prompt, created_by: createdBy }),
+    body: JSON.stringify({ prompt, created_by: createdBy, printable }),
   });
   return normalizeWorksheet(worksheet);
 }

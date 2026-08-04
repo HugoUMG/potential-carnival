@@ -30,7 +30,8 @@ def test_matching_can_be_rescued_by_the_ai() -> None:
     # Regresión: matching de pronombre + frase verbal donde las 4 combinaciones del alumno eran
     # inglés correcto, pero la clave (mismo índice) las marcó todas mal y la IA no podía tocarlas.
     assert "matching" in _AI_RESCUABLE
+    assert "imagematching" in _AI_RESCUABLE  # mismo modelo de respuesta, mismo riesgo de clave única
     prompt = _grade_system(50)
-    assert '"matching": each item is ONE pair' in prompt
+    assert '"matching" / "imagematching": each item is ONE pair' in prompt
     # …y ya no se lista entre los tipos de clic que la IA tiene prohibido rescatar.
     assert "truefalse, matching" not in prompt

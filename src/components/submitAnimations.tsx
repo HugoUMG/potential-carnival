@@ -125,7 +125,7 @@ function Caption({ text }: { text: string }) {
   );
 }
 
-/** Tarjeta blanca final con puntuación y botones — igual para todas las animaciones.
+/** Tarjeta blanca final con puntuación y botones · igual para todas las animaciones.
  *  RexLearn asoma sobre la tarjeta y reacciona al resultado (feliz si aprobó, triste si no). */
 function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitle, onSeeAnswers, onClose }: SceneProps & { ok: boolean; emoji: string; title: string }) {
   return (
@@ -137,7 +137,7 @@ function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitl
       <h2 className="text-2xl font-extrabold text-ink">{emoji} {title}</h2>
       <p className="mt-1 text-sm text-slate-500">{worksheetTitle}</p>
       <div className={`mt-4 rounded-2xl px-6 py-4 ${ok ? 'bg-rex-light' : 'bg-rose-50'}`}>
-        <p className={`text-4xl font-black ${ok ? 'text-rex-deep' : 'text-rose-700'}`}>{score !== null ? score : '—'}</p>
+        <p className={`text-4xl font-black ${ok ? 'text-rex-deep' : 'text-rose-700'}`}>{score !== null ? score : '-'}</p>
         <p className="text-sm font-semibold text-slate-500">Puntuación</p>
       </div>
       <div className="mt-3 flex justify-center gap-3 text-sm font-semibold">

@@ -1,7 +1,7 @@
 // Prompt/documentación lista para pegar en cualquier IA (ChatGPT, Claude, DeepSeek, etc.)
 // y que genere un WorksheetScript válido para esta plataforma.
 //
-// Debe cubrir LOS MISMOS 19 tipos y las mismas reglas que `_WORKSHEET_SYSTEM` en backend/app/ai.py:
+// Debe cubrir LOS MISMOS 21 tipos y las mismas reglas que `_WORKSHEET_SYSTEM` en backend/app/ai.py:
 // si se agrega o cambia un tipo, hay que tocar los dos (y docs/07_DSL.md).
 export const GENERATION_PROMPT = `Eres un generador de hojas de trabajo de inglés. Devuelve ÚNICAMENTE un "WorksheetScript"
 válido en el formato DSL descrito abajo. Sin markdown, sin explicaciones, sin \`\`\`. El resultado
@@ -63,13 +63,17 @@ Hay dos formas válidas, nunca mezcladas:
 === LO QUE LA PLATAFORMA NO PUEDE HACER (no lo inventes) ===
 - No hay archivos de audio ni URLs de audio: todo listening se genera con texto a voz (TTS) desde el
   texto que escribas. NUNCA uses un campo "audio:".
-- No puedes aportar imágenes: "imagequestion" necesita una URL real que pegue el profesor.
+- No puedes aportar imágenes: "imagequestion", "imagechoice" e "imagematching" necesitan URLs
+  reales que pegue el profesor.
 - No hay dibujo, ni entrada numérica, ni tablas que rellene el alumno, ni temporizador, ni puntaje
   por pregunta: todas las actividades valen lo mismo.
 - "content" nunca se califica.
-- Solo existen los 19 tipos de abajo. Un nombre de tipo desconocido se DESCARTA en silencio.
+- Solo existen los 21 tipos de abajo. Un nombre de tipo desconocido se DESCARTA en silencio.
+- Cualquier actividad admite además "note": una línea PRIVADA que solo lee la IA al calificar y
+  que el alumno nunca ve (ej. note: "en la foto hay un carro rojo; debe mencionar el color").
+  La escribe EL PROFESOR: no inventes notes al generar una hoja.
 
-=== LOS 19 TIPOS ===
+=== LOS 21 TIPOS ===
 
 # fillblank — completar espacios. El marcador es _____ (exactamente 5 guiones bajos).
 # Límites: entrada de texto libre, corrección por coincidencia. 1–3 palabras por hueco.
@@ -282,6 +286,35 @@ speaking {
 imagequestion {
   image: "https://..."
   prompt: "Look at the picture. What are the people doing? Use Present Continuous."
+}
+
+# imagechoice — opción múltiple con imagen (una imagen de enunciado, o una imagen por opción).
+# Límites: la clave es el TEXTO de la opción y debe coincidir EXACTA con una de "options", igual que
+#          en multiplechoice. "option_images" es PARALELA a "options" por índice; la opción que
+#          tiene imagen se le muestra al alumno SOLO como imagen (su texto es la clave).
+#          SOLO si tienes URLs reales, nunca las inventes.
+imagechoice {
+  question: "Which one is the apple?"
+  options:
+  - apple
+  - banana
+  option_images:
+  - https://...
+  - https://...
+  answer: "apple"
+}
+
+# imagematching — emparejar cada imagen con su palabra (se une con líneas, como matching).
+# Límites: "left_images" y "right" deben tener el MISMO número de entradas y el mismo orden.
+#          "left" es opcional: sin él las filas se numeran Image 1, Image 2…
+#          SOLO si tienes URLs reales, nunca las inventes.
+imagematching {
+  left_images:
+  - https://...
+  - https://...
+  right:
+  - dog
+  - cat
 }
 
 # Voz por actividad (opcional, solo en tipos listening*): voice: male | female

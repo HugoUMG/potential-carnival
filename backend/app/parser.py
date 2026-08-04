@@ -15,6 +15,8 @@ SUPPORTED_BLOCKS = {
     "speaking",
     "reading",
     "imagequestion",
+    "imagechoice",
+    "imagematching",
     "listening",
     "listeningfillblank",
     "listeningmultiplechoice",
@@ -26,6 +28,12 @@ SUPPORTED_BLOCKS = {
     "truefalse",
     "readingtruefalse",
 }
+
+
+# Tipos que NO pasan a papel: necesitan audio o micrófono. Es la misma lista que descarta
+# `isPrintable()` en src/components/WorksheetPrint.tsx — si una cambia, la otra también.
+NON_PRINTABLE_TYPES = {b for b in SUPPORTED_BLOCKS if b.startswith("listening")} | {"speaking", "conversation"}
+PRINTABLE_TYPES = SUPPORTED_BLOCKS - NON_PRINTABLE_TYPES
 
 
 class WorksheetScriptError(ValueError):
@@ -141,6 +149,31 @@ def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
         blocks.append((activity_type, source[body_start:end]))
         cursor = end + 1
     return blocks
+
+
+def strip_non_printable(script: str) -> str:
+    """Quita del script las actividades que no pasan a papel (modo físico de la IA).
+
+    Se hace sobre el SCRIPT y no sobre el JSON a propósito: `script_content` es lo que se vuelve a
+    parsear cada vez que el profesor guarda. Si solo se filtrara el json, las actividades de audio
+    reaparecerían al primer guardado.
+
+    ponytail: recorte por texto reusando el contador de llaves del parser; no se reindenta ni se
+    limpia el `block {}` que quede vacío (el renderer y la impresión ya ignoran un bloque sin
+    actividades). Si algún día hay que reescribir el script, tocaría serializar desde WorksheetData.
+    """
+    out = script
+    for activity_type in sorted(NON_PRINTABLE_TYPES):
+        while True:
+            match = re.search(rf"^[ \t]*{activity_type}\s*{{", out, re.MULTILINE)
+            if not match:
+                break
+            end = _matching_brace(out, match.end())
+            if end == -1:
+                break  # bloque sin cerrar: lo reporta el parser con su propio mensaje
+            tail = out[end + 1:]
+            out = out[:match.start()] + (tail[1:] if tail.startswith("\n") else tail)
+    return out
 
 
 def _key_pattern(key: str) -> str:
@@ -326,7 +359,14 @@ def _normalize_voice(raw: str | None) -> str | None:
 
 
 def parse_activity(activity_type: str, body: str) -> ActivityData:
-    common = {"id": str(uuid4()), "type": activity_type, "instructions": _get_scalar(body, "instructions")}
+    # `note`: nota privada del profesor. La lee SOLO la IA al calificar; nunca llega al alumno
+    # (se elimina del payload público en main.py). Vale para cualquier tipo, como `instructions`.
+    common = {
+        "id": str(uuid4()),
+        "type": activity_type,
+        "instructions": _get_scalar(body, "instructions"),
+        "note": _get_scalar(body, "note"),
+    }
     if activity_type.startswith("listening"):
         common["voice"] = _normalize_voice(_get_scalar(body, "voice"))
     if activity_type == "fillblank":
@@ -355,6 +395,24 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         return ActivityData(**common, title=_get_scalar(body, "title"), content=_get_scalar(body, "content"), questions=_get_list(body, "questions"))
     if activity_type == "imagequestion":
         return ActivityData(**common, image=_get_scalar(body, "image"), prompt=_get_scalar(body, "prompt"))
+    if activity_type == "imagechoice":
+        # Opción múltiple con imagen. `options` sigue siendo la clave (texto legible);
+        # `option_images` es una lista PARALELA por índice que decide qué se pinta.
+        return ActivityData(
+            **common,
+            image=_get_scalar(body, "image"),
+            question=_get_scalar(body, "question"),
+            options=_get_list(body, "options"),
+            option_images=_get_list(body, "option_images") or None,
+            answer=_get_answer(body),
+        )
+    if activity_type == "imagematching":
+        # Emparejar imagen con palabra: mismo modelo de respuesta que `matching`.
+        # `left` es opcional; sin él se numeran las imágenes para que la clave del profesor se lea
+        # ("Image 1" → "dog") en vez de mostrar una URL de 90 caracteres en la revisión.
+        left_images = _get_list(body, "left_images")
+        left = _get_list(body, "left") or [f"Image {i + 1}" for i in range(len(left_images))]
+        return ActivityData(**common, left=left, left_images=left_images or None, right=_get_list(body, "right"))
     if activity_type == "listening":
         return ActivityData(**common, text=_get_scalar(body, "text"), question=_get_scalar(body, "question"), answer=_get_answer(body))
     if activity_type == "listeningfillblank":
@@ -433,7 +491,7 @@ def _activity_problem(a: ActivityData) -> str | None:
         missing = [w for w in answers if w.strip().lower() not in bank]
         if missing:
             return f"'bank' no contiene {missing}; el alumno no puede colocar esa palabra"
-    elif t in {"multiplechoice", "listeningmultiplechoice"}:
+    elif t in {"multiplechoice", "listeningmultiplechoice", "imagechoice"}:
         if t == "listeningmultiplechoice" and not a.audio_text:
             return "falta 'audio_text'"
         if not a.question:
@@ -444,6 +502,9 @@ def _activity_problem(a: ActivityData) -> str | None:
             return "falta 'answer'"
         if answers[0].strip().lower() not in options:
             return f"'answer' ({answers[0]}) no coincide con ninguna opción: nadie puede acertar"
+        if t == "imagechoice" and len(a.option_images or []) > len(options):
+            # Al revés sí vale: una lista más corta deja esas opciones como texto.
+            return f"'option_images' trae {len(a.option_images or [])} imágenes para {len(options)} opciones"
     elif t == "multiselect":
         if not a.question:
             return "falta 'question'"
@@ -454,12 +515,15 @@ def _activity_problem(a: ActivityData) -> str | None:
         missing = [x for x in answers if x.strip().lower() not in options]
         if missing:
             return f"'answer' incluye {missing}, que no está en 'options'"
-    elif t == "matching":
+    elif t in {"matching", "imagematching"}:
         left, right = a.left or [], a.right or []
+        lado = "'left_images'" if t == "imagematching" else "'left'"
+        if t == "imagematching" and len(a.left_images or []) < 2:
+            return "necesita al menos 2 URLs en 'left_images'"
         if len(left) < 2:
-            return "necesita al menos 2 elementos en 'left'"
+            return f"necesita al menos 2 elementos en {lado}"
         if len(left) != len(right):
-            return f"'left' ({len(left)}) y 'right' ({len(right)}) deben tener el mismo número de elementos"
+            return f"{lado} ({len(left)}) y 'right' ({len(right)}) deben tener el mismo número de elementos"
     elif t in {"truefalse", "readingtruefalse", "listeningtruefalse"}:
         if not a.statements:
             return "necesita 'statements' con el formato '- Enunciado. | true'"

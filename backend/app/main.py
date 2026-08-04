@@ -2,6 +2,7 @@ from typing import Any
 import asyncio
 import hashlib
 import os
+import re
 import time
 
 import httpx
@@ -52,7 +53,7 @@ from .models import (
     WorksheetResponseCreate,
     PracticeGrade,
 )
-from .parser import WorksheetScriptError, parse_worksheet_script
+from .parser import WorksheetScriptError, parse_worksheet_script, strip_non_printable
 from .repository import repository
 from .security import create_access_token, decode_access_token, get_access_token_expire_minutes, hash_password
 from .settings import get_allowed_origins
@@ -519,7 +520,11 @@ def update_worksheet(worksheet_id: str, payload: WorksheetUpdate, current_user: 
 
 @app.post("/worksheets/ai-generate", response_model=Worksheet)
 def ai_generate(payload: AiGenerateRequest, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Worksheet:
-    script, _provider = generate_worksheet_script(payload.prompt)
+    script, _provider = generate_worksheet_script(payload.prompt, printable=payload.printable)
+    if payload.printable:
+        # Prompt + filtro: el prompt es barato, pero el modelo cuela un listening de vez en cuando
+        # y en papel eso es una actividad que el alumno no puede resolver.
+        script = strip_non_printable(script)
     return create_worksheet(WorksheetCreate(script_content=script, created_by=current_user.id), current_user)
 
 
@@ -586,6 +591,10 @@ def list_student_worksheets(student_id: str, current_user: PublicUser = Depends(
             worksheet.attempts_remaining = None
         else:
             worksheet.attempts_remaining = max(0, worksheet.max_attempts - used)
+    # El alumno nunca recibe las `note` privadas del profesor (ADR-19). El staff sí las necesita
+    # para editar la hoja desde este mismo listado.
+    if current_user.role == UserRole.student:
+        return [_without_notes(w) for w in all_worksheets]
     return all_worksheets
 
 
@@ -676,6 +685,9 @@ def get_worksheet(worksheet_id: str, current_user: PublicUser = Depends(get_curr
         raise HTTPException(status_code=403, detail="Esta hoja de trabajo no está disponible")
     if current_user.role == UserRole.teacher and worksheet.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="No puedes consultar esta evaluación")
+    # Un alumno autenticado puede pedir una hoja por id: no debe llevarse las `note` privadas (ADR-19).
+    if current_user.role == UserRole.student:
+        return _without_notes(worksheet)
     return worksheet
 
 
@@ -757,7 +769,7 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
 
     details = _build_answer_details(worksheet, payload.answers_json)
     if worksheet.ai_grading:
-        details = ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance)
+        details = ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance, _activity_notes(worksheet))
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,
@@ -900,13 +912,13 @@ def public_classrooms() -> list[dict]:
 def public_classroom_worksheets(classroom_id: str) -> list[Worksheet]:
     """Hojas publicadas de un aula específica. Sin autenticación."""
     worksheets = repository.list_classroom_worksheets(classroom_id)
-    return [w for w in worksheets if w.published and not w.archived]
+    return [_without_notes(w) for w in worksheets if w.published and not w.archived]
 
 
 @app.get("/public/worksheets", response_model=list[Worksheet])
 def public_worksheets() -> list[Worksheet]:
     """Todas las hojas publicadas y no archivadas, sin autenticación."""
-    return repository.list_worksheets(published=True, archived=False)
+    return [_without_notes(w) for w in repository.list_worksheets(published=True, archived=False)]
 
 
 @app.get("/public/worksheets/{worksheet_id}", response_model=Worksheet)
@@ -916,7 +928,7 @@ def public_worksheet(worksheet_id: str) -> Worksheet:
     worksheet = repository.get_worksheet(worksheet_id)
     if not worksheet or worksheet.archived or not worksheet.published:
         raise HTTPException(status_code=404, detail="Hoja de trabajo no disponible")
-    return worksheet
+    return _without_notes(worksheet)
 
 
 @app.post("/public/responses", response_model=WorksheetResponse)
@@ -945,7 +957,7 @@ def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
 
     details = _build_answer_details(worksheet, payload.answers_json)
     if worksheet.ai_grading:
-        details = ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance)
+        details = ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance, _activity_notes(worksheet))
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,
@@ -1190,6 +1202,31 @@ def _resolve_correct_answers(answer: Any) -> list[str]:
     return [_norm_answer(s)]
 
 
+_NOTE_LINE = re.compile(r"^[ \t]*note[ \t]*:.*$\n?", re.MULTILINE)
+
+
+def _without_notes(worksheet: Worksheet) -> Worksheet:
+    """Copia de la hoja sin las `note` privadas del profesor. El alumno nunca las ve: son la
+    pista que la IA usa al calificar, no contenido de la hoja (ADR-19).
+
+    Se limpian los dos sitios donde viaja el texto: el json y el script_content.
+    ponytail: en el script se borra la LÍNEA `note:`; una nota multilínea (\"\"\"…\"\"\") no la
+    escribe el constructor visual, y si alguien la escribe a mano solo dejaría el cuerpo suelto
+    en un campo que el alumno no lee. Si eso llega a pasar, parsear en vez de regexear.
+    """
+    clean = worksheet.model_copy(deep=True)
+    for activity in clean.json_content.iter_activities():
+        activity.note = None
+    clean.script_content = _NOTE_LINE.sub("", clean.script_content)
+    return clean
+
+
+def _activity_notes(worksheet: Worksheet) -> dict[str, str]:
+    """{activity_id: note} para la IA calificadora. Va por separado de los AnswerDetail porque
+    esos SÍ se le devuelven al alumno con la respuesta corregida."""
+    return {a.id: a.note for a in worksheet.json_content.iter_activities() if a.note}
+
+
 def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list[AnswerDetail]:
     details: list[AnswerDetail] = []
     for activity in worksheet.json_content.iter_activities():
@@ -1231,7 +1268,9 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             is_correct = len(student_answers) >= len(correct_answers) and all(_norm_answer(student_answers[index]) == correct for index, correct in enumerate(correct_answers))
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue
-        if activity.type in {"multiplechoice", "listening"} and activity.answer:
+        # `imagechoice` se califica como un multiplechoice: la clave es el TEXTO de la opción, las
+        # imágenes solo deciden qué se pinta (ADR-20).
+        if activity.type in {"multiplechoice", "listening", "imagechoice"} and activity.answer:
             is_correct = str(student_answer or "").strip().lower() == str(activity.answer).strip().lower()
             # `listening` es texto libre: el exacto casi siempre falla y la IA lo re-juzga con el contexto.
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect", context=context))
@@ -1244,7 +1283,9 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             is_correct = bool(correct_set) and selected_set == correct_set
             details.append(AnswerDetail(activity_id=activity.id, activity_type=activity.type, prompt=prompt, student_answer=student_answer, correct_answer=activity.answer, status="correct" if is_correct else "incorrect"))
             continue
-        if activity.type == "matching" and activity.left and activity.right:
+        # `imagematching` comparte el modelo de respuesta de `matching` ({izquierda: derecha elegida});
+        # `left_images` solo cambia lo que ve el alumno (ADR-20).
+        if activity.type in {"matching", "imagematching"} and activity.left and activity.right:
             selected_matches = student_answer if isinstance(student_answer, dict) else {}
             for index, left_item in enumerate(activity.left):
                 correct_match = activity.right[index] if index < len(activity.right) else None

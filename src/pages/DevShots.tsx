@@ -9,7 +9,7 @@ import type { Worksheet } from '../types';
  */
 
 const SCRIPT = `worksheet {
-  title: "Past Simple — Unit 3"
+  title: "Past Simple · Unit 3"
   description: "Regular and irregular verbs. Level A2."
 
   block {
@@ -51,7 +51,7 @@ const ACTIVITIES: Worksheet['activities'] = [
 
 const WORKSHEET: Worksheet = {
   id: 'shot-001',
-  title: 'Past Simple — Unit 3',
+  title: 'Past Simple · Unit 3',
   description: 'Regular and irregular verbs. Level A2.',
   status: 'draft',
   archived: false,

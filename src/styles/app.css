@@ -351,6 +351,8 @@ select {
 .wp-match { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 22px; margin-top: 3px; }
 .wp-match-row { padding: 1px 0; }
 .wp-img { max-height: 190px; max-width: 100%; margin: 5px 0; border: 1px solid #EDF3DE; }
+/* Miniatura dentro de una opción o de una fila de matching: cabe varias por línea. */
+.wp-img-opt { max-height: 64px; width: auto; vertical-align: middle; margin: 2px 0; }
 .wp-empty { margin-top: 18px; font-style: italic; color: #6b7280; }
 .wp-blank { display: inline-block; min-width: 92px; border-bottom: 1px solid #84B84C; vertical-align: baseline; }
 .wp-blank-sm { min-width: 26px; }
@@ -512,6 +514,8 @@ textarea:focus, select:focus {
   box-shadow: 0 26px 50px -24px rgb(var(--rex-deep) / 0.6);
 }
 .row-menu-panel button { width: 100%; text-align: left; }
+/* En una tarjeta el menú vive abajo del todo: se despliega hacia arriba para no salirse. */
+.row-menu-up > .row-menu-panel { top: auto; bottom: calc(100% + 6px); }
 
 @media print {
   body { background: #fff !important; }

@@ -82,6 +82,10 @@ teacher_images (id, teacher_id → users, public_id, url, created_at)
 
 ### Convenciones
 
+- **Un campo nuevo de actividad NO es una columna nueva.** Todo lo que describe una actividad
+  (incluidas `instructions` y la `note` privada del profesor, ADR-19) vive dentro del `json_content`
+  de la hoja. No hay migración que hacer: una hoja vieja simplemente no trae el campo y el parser lo
+  deja en `None`.
 - **Ids: UUID v4** generados en Python, columna `TEXT`. Nunca autoincremento — así se pueden
   compartir por URL (`/w/:worksheetId`) sin ser adivinables, que es lo que sostiene el enlace directo.
 - **JSON: `JSONB` en Postgres, `TEXT` en SQLite.** `repository._decode_json` normaliza la lectura.

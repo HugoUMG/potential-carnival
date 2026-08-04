@@ -191,11 +191,11 @@ def test_validation_allows_reading_without_questions():
     assert parse_worksheet_script(script).activities[0].questions == []
 
 
-# Una hoja con LOS 19 tipos escrita exactamente como la documentan los tres sitios que la enseñan:
+# Una hoja con LOS 21 tipos escrita exactamente como la documentan los tres sitios que la enseñan:
 # `_WORKSHEET_SYSTEM` (ai.py), `GENERATION_PROMPT` (src/utils/generationPrompt.ts) y docs/07_DSL.md.
 # Si esto deja de parsear, la documentación está enseñando una sintaxis que no funciona.
 ALL_TYPES = '''worksheet {
-  title: "Referencia de los 19 tipos"
+  title: "Referencia de los 21 tipos"
   description: "Una actividad de cada tipo."
   theme {
     primary_color: "#7C3AED"
@@ -276,6 +276,24 @@ ALL_TYPES = '''worksheet {
     imagequestion {
       image: "https://example.com/a.png"
       prompt: "What are the people doing?"
+    }
+    imagechoice {
+      question: "Which one is the apple?"
+      options:
+      - apple
+      - banana
+      option_images:
+      - https://example.com/apple.png
+      - https://example.com/banana.png
+      answer: "apple"
+    }
+    imagematching {
+      left_images:
+      - https://example.com/dog.png
+      - https://example.com/cat.png
+      right:
+      - dog
+      - cat
     }
     speaking {
       prompt: "Read the sentence aloud."

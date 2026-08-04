@@ -31,7 +31,7 @@ function WordRow({ item }: { item: VocabularyItem }) {
     <div className="wp-vrow">
       <p>
         <span className="wp-vword">{item.english}</span>
-        <span className="wp-ves"> — {item.spanish}</span>
+        <span className="wp-ves"> · {item.spanish}</span>
         <span className="wp-vtype">{item.type}</span>
       </p>
       {isVerb(item) && (
@@ -39,7 +39,7 @@ function WordRow({ item }: { item: VocabularyItem }) {
           {VERB_FORMS.map((f) => (
             <span key={f.label} className="wp-vform">
               <span className="wp-vform-l">{f.label}</span>
-              {item[f.key] || '—'}
+              {item[f.key] || '-'}
             </span>
           ))}
         </div>

@@ -38,6 +38,8 @@ const ACTIVITY_GROUPS: { label: string; icon: string; types: string[] }[] = [
   { label: 'Escucha fina', icon: '🎼', types: ['listeningfillblank', 'listeningorder', 'listeningmatching'] },
   { label: 'Producción oral', icon: '🗣️', types: ['speaking', 'conversation'] },
   { label: 'Escritura abierta', icon: '✍️', types: ['textbox', 'imagequestion'] },
+  // Las tres necesitan URLs que pega el profesor: la IA nunca las inventa.
+  { label: 'Con imágenes', icon: '🖼️', types: ['imagequestion', 'imagechoice', 'imagematching'] },
 ];
 const PRESETS: { label: string; icon: string; patch: Partial<BuilderState> }[] = [
   { label: 'Warm-up', icon: '🔥', patch: { objective: 'Introducción', duration: '10', difficulty: 'Fácil', activities: ['multiplechoice', 'truefalse'] } },
@@ -48,6 +50,153 @@ const PRESETS: { label: string; icon: string; patch: Partial<BuilderState> }[] =
   { label: 'Speaking Club', icon: '🗣️', patch: { objective: 'Práctica', duration: '30', age: 'Adolescentes', activities: ['speaking', 'conversation', 'listening'] } },
   { label: 'Listening Exam', icon: '🎧', patch: { objective: 'Evaluación', duration: '30', activities: ['listening', 'listeningorder', 'conversation'] } },
   { label: 'Reading Assessment', icon: '📖', patch: { objective: 'Evaluación', duration: '30', activities: ['reading', 'multiplechoice'] } },
+];
+
+// Plantillas listas para el modo Script: un clic reemplaza el editor con un WorksheetScript válido.
+// Procura dar variedad: sin bloques, con bloques, y con los tipos más usados.
+const SCRIPT_TEMPLATES: { label: string; icon: string; desc: string; script: string }[] = [
+  {
+    label: 'Warm-up',
+    icon: '🔥',
+    desc: 'Vocabulario + true/false + fillblank. Nivel A1, sin bloques.',
+    script: `worksheet {
+title: "Daily Routine Warm-up"
+
+description: "Short activities to activate vocabulary about daily routines."
+
+multiplechoice {
+  question: "What do you do in the morning?"
+  options:
+  - I eat breakfast.
+  - I go to bed.
+  - I play the piano.
+  answer: "I eat breakfast."
+}
+
+truefalse {
+  statements:
+  - We sleep at night. | true
+  - We eat breakfast in the evening. | false
+  - We brush our teeth in the morning. | true
+}
+
+fillblank {
+  text: "I _____ up at seven o'clock."
+  answer: "wake"
+}
+}`,
+  },
+  {
+    label: 'Past Simple',
+    icon: '✏️',
+    desc: 'Gramática con bloques: opción múltiple, drag & drop y escritura. Nivel A2.',
+    script: `worksheet {
+title: "Past Simple Practice"
+
+description: "Practice regular and irregular past forms."
+
+block {
+  title: "Part 1: Choose"
+  instructions: "Choose the correct past form."
+
+  multiplechoice {
+    question: "She _____ to school yesterday."
+    options:
+    - walked
+    - walk
+    - walking
+    answer: "walked"
+  }
+
+  dragdrop {
+    text: "Yesterday I _____ a film and _____ dinner."
+    answer: ["watched", "cooked"]
+    bank:
+    - watched
+    - watch
+    - cooked
+    - cook
+  }
+}
+
+block {
+  title: "Part 2: Writing"
+  instructions: "Write in complete sentences."
+
+  textbox {
+    prompt: "Write 3 sentences about what you did last weekend."
+  }
+}
+}`,
+  },
+  {
+    label: 'Listening Club',
+    icon: '🎧',
+    desc: 'Escuchar y ordenar + opción múltiple por audio. Nivel A2.',
+    script: `worksheet {
+title: "Listen and Rebuild"
+
+description: "Listening practice: rebuild the sentence, then answer a question."
+
+listeningorder {
+  audio_text: "She has never been to Paris."
+  voice: female
+  answer:
+  - She
+  - has
+  - never
+  - been
+  - to
+  - Paris
+}
+
+listeningmultiplechoice {
+  audio_text: "He goes to work by bus every day."
+  question: "How does he go to work?"
+  options:
+  - By bus.
+  - By car.
+  - On foot.
+  answer: "By bus."
+}
+}`,
+  },
+  {
+    label: 'Reading + Writing',
+    icon: '📖',
+    desc: 'Lectura con bloques y escritura guiada. Nivel B1.',
+    script: `worksheet {
+title: "My Town"
+
+description: "Read about a town, then answer and write about yours."
+
+block {
+  title: "Read and Answer"
+  instructions: "Read the text and answer the questions."
+
+  reading {
+    title: "Newton is a quiet town"
+    content:
+    """
+    Newton is a small town in the north. There is a park, a library and one supermarket.
+    People are friendly, and the streets are quiet. Many residents work in the city nearby.
+    """
+    questions:
+    - Is Newton a big city?
+    - Where do many residents work?
+  }
+}
+
+block {
+  title: "Write about your town"
+  instructions: "Use the text as a model."
+
+  textbox {
+    prompt: "Write 4 sentences describing your town or neighbourhood."
+  }
+}
+}`,
+  },
 ];
 
 /** Compone un prompt en español a partir de las selecciones. */
@@ -150,12 +299,14 @@ export function AskAiEdit({ getScript, onApply }: { getScript: () => string; onA
 
 // ── Panel de generación con IA ────────────────────────────────────────────────
 
-function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
+function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, printable, setPrintable }: {
   aiPrompt: string;
   setAiPrompt: (v: string) => void;
   isGenerating: boolean;
   aiError: string;
   onGenerate: () => void;
+  printable: boolean;
+  setPrintable: (v: boolean) => void;
 }) {
   const [b, setB] = useState<BuilderState>(EMPTY_BUILDER);
   // Cualquier cambio en los chips recompone el prompt (se puede afinar a mano en el textarea).
@@ -227,6 +378,18 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate }: {
           {ACTIVITIES.map(([l, v]) => <Chip key={v} active={b.activities.includes(v)} onClick={() => toggleActivity(v)}>{b.activities.includes(v) ? '✓ ' : ''}{l}</Chip>)}
         </ChipGroup>
       </div>
+
+      {/* Modo físico: no es un chip del prompt, es una restricción real que aplica el backend. */}
+      <button type="button" onClick={() => setPrintable(!printable)}
+        className={`mt-5 flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${printable ? 'border-spike bg-spike/10' : 'border-slate-200 hover:bg-slate-50'}`}>
+        <span className={`grid h-6 w-11 shrink-0 items-center rounded-full px-0.5 transition ${printable ? 'bg-spike' : 'bg-slate-300'}`}>
+          <span className={`h-5 w-5 rounded-full bg-white shadow transition ${printable ? 'translate-x-5' : ''}`} />
+        </span>
+        <span>
+          <span className="block text-sm font-semibold text-slate-800">🖨️ Modo físico (imprimible)</span>
+          <span className="block text-xs text-slate-500">La hoja se genera solo con actividades que se resuelven en papel: sin audio ni micrófono.</span>
+        </span>
+      </button>
 
       <label className="mt-6 block">
         <span className="text-sm font-semibold text-slate-700">📝 Prompt generado <span className="font-normal text-slate-400">(puedes ajustarlo a mano)</span></span>
@@ -336,12 +499,14 @@ export function WorksheetEditor({
   onScriptChange, onMaxAttemptsChange, onAiGradingChange, onAiToleranceChange, onSaveScript,
   savedWorksheet, onPreviewSaved, onAiGenerated,
 }: WorksheetEditorProps) {
-  const [mode, setMode] = useState<EditorMode>('script');
+  const [mode, setMode] = useState<EditorMode>('visual');
   const [skippedWarning, setSkippedWarning] = useState<number | null>(null);
+  const [guideDismissed, setGuideDismissed] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiError, setAiError] = useState('');
   const [aiSuccess, setAiSuccess] = useState('');
+  const [printable, setPrintable] = useState(false); // modo físico: apagado por defecto
   const [promptCopied, setPromptCopied] = useState(false);
   const scriptTextareaRef = useRef<HTMLTextAreaElement>(null);
   const visualScriptRef = useRef<(() => string) | null>(null); // script serializado actual del builder visual
@@ -419,12 +584,14 @@ export function WorksheetEditor({
     setAiError('');
     setAiSuccess('');
     try {
-      const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId);
+      const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId, printable);
       onScriptChange(generated.scriptContent ?? '');
       // `/worksheets/ai-generate` YA guardó la hoja. Hay que atar el editor a ella o el primer
       // "guardar" crearía una segunda: la generada quedaría huérfana en la lista.
       onAiGenerated?.(generated);
-      setAiSuccess('✓ Hoja generada y guardada. Revísala y guarda de nuevo si la cambias.');
+      setAiSuccess(printable
+        ? '✓ Hoja imprimible generada y guardada. Revísala y guarda de nuevo si la cambias.'
+        : '✓ Hoja generada y guardada. Revísala y guarda de nuevo si la cambias.');
       setMode('script');
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Error al generar con IA. Intenta de nuevo.');
@@ -434,9 +601,9 @@ export function WorksheetEditor({
   };
 
   const tabs: { id: EditorMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'script',  label: 'Script',      icon: <Code2 size={15} /> },
     { id: 'visual',  label: 'Visual',      icon: <LayoutTemplate size={15} /> },
     { id: 'ai',      label: 'Generar con IA', icon: <Sparkles size={15} /> },
+    { id: 'script',  label: 'Script',      icon: <Code2 size={15} /> },
   ];
 
   const savedPanel = savedWorksheet ? (
@@ -471,6 +638,20 @@ export function WorksheetEditor({
 
         {savedPanel}
 
+        {mode === 'visual' && !guideDismissed && (
+          <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <p className="leading-relaxed">
+              <strong className="text-slate-800">Estás en el modo visual:</strong> construye la hoja agregando actividades.
+              ¿No sabes por dónde empezar? Genera una{' '}
+              <button type="button" className="font-bold text-spike underline hover:text-spike-dark" onClick={() => setMode('ai')}>
+                plantilla rápida con IA
+              </button>{' '}
+              y luego vuelve a Visual para retocarla. El modo <strong>Script</strong> queda para usuarios avanzados.
+            </p>
+            <button type="button" className="shrink-0 text-slate-400 hover:text-slate-600" onClick={() => setGuideDismissed(true)} aria-label="Ocultar guía">✕</button>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-3">
           {mode === 'visual' && <AskAiEdit getScript={() => visualScriptRef.current?.() ?? scriptDraft} onApply={(s) => { onScriptChange(s); setMode('script'); }} />}
           <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
@@ -489,7 +670,7 @@ export function WorksheetEditor({
         )}
 
         {mode === 'ai' && <AiPanel aiPrompt={aiPrompt} setAiPrompt={setAiPrompt} isGenerating={isGenerating}
-          aiError={aiError} onGenerate={() => void handleGenerate()} />}
+          aiError={aiError} onGenerate={() => void handleGenerate()} printable={printable} setPrintable={setPrintable} />}
       </div>
     );
   }
@@ -540,6 +721,28 @@ export function WorksheetEditor({
             {promptCopied ? <Check size={16} /> : <ClipboardCopy size={16} />}
             {promptCopied ? 'Copiado ✓' : 'Copiar documentación/prompt'}
           </button>
+        </div>
+
+        {/* ── Plantillas listas para empezar ── */}
+        <div className="mt-4 rounded-2xl border border-slate-200 p-4">
+          <p className="text-sm font-semibold text-slate-700">Plantillas rápidas</p>
+          <p className="mt-0.5 text-xs text-slate-500">Un clic pone un WorksheetScript completo en el editor; luego lo adaptas o lo pasas a Visual.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {SCRIPT_TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-rex hover:bg-rex-light"
+                onClick={() => { if (scriptDraft.trim() && !window.confirm('Esto reemplazará el script actual del editor. ¿Continuar?')) return; onScriptChange(t.script); }}
+              >
+                <span className="text-lg leading-none">{t.icon}</span>
+                <span>
+                  <span className="block text-sm font-semibold text-slate-800">{t.label}</span>
+                  <span className="block text-xs text-slate-500">{t.desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {aiSuccess && (

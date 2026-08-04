@@ -7,6 +7,8 @@ import type {
   ActivityDefinition,
   ActivityRendererProps,
   FillBlankActivity,
+  ImageChoiceActivity,
+  ImageMatchingActivity,
   ImageQuestionActivity,
   ListeningFillBlankActivity,
   ListeningMatchingActivity,
@@ -104,25 +106,42 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
   );
 }
 
-function MultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultipleChoiceActivity>) {
+function MultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultipleChoiceActivity | ImageChoiceActivity>) {
   const options = useMemo(() => shuffledByHash(activity.options, activity.id), [activity.id, activity.options]);
+  // `imagechoice`: la imagen de cada opción va en una lista PARALELA a `options`, así que se busca
+  // por el índice ORIGINAL (las opciones se barajan en pantalla).
+  const imageOf = (option: string): string | undefined => {
+    if (activity.type !== 'imagechoice') return undefined;
+    return activity.option_images?.[activity.options.indexOf(option)] || undefined;
+  };
+  const promptImage = activity.type === 'imagechoice' ? activity.image : undefined;
   return (
     <fieldset>
       <legend className="text-base font-medium text-slate-800"><RichText text={activity.question} /></legend>
       <ActivityInstructions instructions={activity.instructions} />
+      {promptImage && (
+        <img className="mx-auto mt-3 block max-h-72 w-auto max-w-full rounded-2xl" src={promptImage} alt="" />
+      )}
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {options.map((option) => (
-          <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-rex">
-            <input
-              disabled={readonly}
-              name={activity.id}
-              type="radio"
-              checked={value === option}
-              onChange={() => { playSfx('select'); onChange(activity.id, option); }}
-            />
-            <span className="text-sm text-slate-700">{option}</span>
-          </label>
-        ))}
+        {options.map((option) => {
+          const image = imageOf(option);
+          return (
+            <label key={option} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-rex">
+              <input
+                disabled={readonly}
+                name={activity.id}
+                type="radio"
+                checked={value === option}
+                onChange={() => { playSfx('select'); onChange(activity.id, option); }}
+              />
+              {/* Con imagen se muestra SOLO la imagen: el texto es la clave y leerlo resolvería
+                  el ejercicio. Viaja como `alt` para que un lector de pantalla lo anuncie. */}
+              {image
+                ? <img src={image} alt={option} className="mx-auto block h-28 w-auto max-w-full rounded-lg object-contain" />
+                : <span className="text-sm text-slate-700">{option}</span>}
+            </label>
+          );
+        })}
       </div>
     </fieldset>
   );
@@ -237,7 +256,7 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); const p = readPayload(e); if (p && typeof p.from === 'number') apply(Object.assign([...placed], { [p.from]: '' })); }}
         >
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Banco de palabras — toca para colocar o arrastra a un hueco</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Banco de palabras · toca para colocar o arrastra a un hueco</p>
           <div className="flex flex-wrap gap-2">
             {available.map(({ word, key }) => (
               <button
@@ -288,7 +307,7 @@ function shuffledByHash<T>(items: T[], seed: string): T[] {
   return [...items].sort((a, b) => hashString(`${seed}:${String(a)}`) - hashString(`${seed}:${String(b)}`));
 }
 
-function getShuffledMatches(activity: MatchingActivity): string[] {
+function getShuffledMatches(activity: MatchingActivity | ImageMatchingActivity): string[] {
   const shuffled = [...activity.right].sort((first, second) => hashString(`${activity.id}:${first}`) - hashString(`${activity.id}:${second}`));
   const keptOriginalOrder = shuffled.every((rightItem, index) => rightItem === activity.right[index]);
   return keptOriginalOrder && shuffled.length > 1 ? [...shuffled.slice(1), shuffled[0]] : shuffled;
@@ -299,9 +318,12 @@ const MATCH_COLORS = ['#2563eb', '#16a34a', '#db2777', '#f59e0b', '#7c3aed', '#0
 
 /** Matching por líneas: se ven ambas columnas y se unen arrastrando (o tocando uno de cada lado).
  *  Mantiene el mismo modelo de respuesta { textoIzquierdo: valorDerechoElegido } que la versión anterior. */
-function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MatchingActivity>) {
+function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MatchingActivity | ImageMatchingActivity>) {
   const selections: Record<string, string> = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
   const leftItems = activity.left;
+  // `imagematching`: misma mecánica de unir con líneas; solo cambia lo que se pinta en la casilla
+  // izquierda. `left` sigue siendo la clave (y el `alt`), como decidió el ADR-20.
+  const leftImages = activity.type === 'imagematching' ? activity.left_images : undefined;
   const rightItems = useMemo(() => getShuffledMatches(activity), [activity]);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -476,7 +498,9 @@ function MatchingRenderer({ activity, value, readonly, onChange }: ActivityRende
                   style={{ borderColor: color, background: connected ? `${colorForLeft(i)}14` : undefined, touchAction: 'none', cursor: readonly ? 'default' : 'grab' }}
                   className={`flex items-center justify-between gap-2 rounded-xl border-2 bg-white px-3 py-3 text-left transition ${active ? 'ring-2 ring-slate-400' : ''}`}
                 >
-                  <span className="pointer-events-none text-sm font-semibold text-slate-800">{li}</span>
+                  {leftImages?.[i]
+                    ? <img src={leftImages[i]} alt={li} className="pointer-events-none block h-20 w-auto max-w-full rounded-lg object-contain" />
+                    : <span className="pointer-events-none text-sm font-semibold text-slate-800">{li}</span>}
                   <span
                     ref={(el) => { leftDots.current[i] = el; }}
                     className="pointer-events-none grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 bg-white"
@@ -714,7 +738,7 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
                 <span
                   key={idx}
                   className={`rounded-md px-2 py-0.5 text-sm font-semibold ${w.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700 line-through decoration-red-400'}`}
-                  title={w.ok ? 'Bien pronunciada' : 'No coincidió — repite esta palabra'}
+                  title={w.ok ? 'Bien pronunciada' : 'No coincidió · repite esta palabra'}
                 >
                   {w.word}
                 </span>
@@ -1080,6 +1104,22 @@ export const activityRegistry = {
     create: () => ({ id: nextId('imagequestion'), type: 'imagequestion', image: 'https://placehold.co/900x500', prompt: 'Describe what you see.' }),
     Renderer: ImageQuestionRenderer,
   },
+  imagechoice: {
+    type: 'imagechoice',
+    label: 'Image + Multiple choice',
+    description: 'Choose one option; the options can be pictures.',
+    icon: '🖼️✅',
+    create: () => ({ id: nextId('imagechoice'), type: 'imagechoice', question: 'Which one is the apple?', options: ['apple', 'banana'], option_images: ['https://placehold.co/400x300?text=apple', 'https://placehold.co/400x300?text=banana'], answer: 'apple' }),
+    Renderer: MultipleChoiceRenderer,
+  } satisfies ActivityDefinition<ImageChoiceActivity>,
+  imagematching: {
+    type: 'imagematching',
+    label: 'Image + Matching',
+    description: 'Match each picture with its word.',
+    icon: '🖼️🔗',
+    create: () => ({ id: nextId('imagematching'), type: 'imagematching', left: ['Image 1', 'Image 2'], left_images: ['https://placehold.co/400x300?text=dog', 'https://placehold.co/400x300?text=cat'], right: ['dog', 'cat'] }),
+    Renderer: MatchingRenderer,
+  } satisfies ActivityDefinition<ImageMatchingActivity>,
   listeningfillblank: {
     type: 'listeningfillblank',
     label: 'Listening + Fill blank',

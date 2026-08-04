@@ -125,6 +125,11 @@ return <span className={`whitespace-pre-line ${className}`}>{processed}</span>;
 Instrucciones de mecánica en **español** ("Escribe la palabra que falta", "Elige…"); el inglés se
 reserva para el contenido que se evalúa.
 
+**El campo `note` no se pinta en ningún sitio.** Ni `WorksheetRenderer`, ni `activityRegistry`, ni
+`WorksheetPrint` lo leen: es la nota privada del profesor para la IA calificadora (ADR-19) y el
+backend ya la borra del payload del alumno. Si algún día un renderer necesitara mostrarla, sería un
+cambio de decisión, no un detalle de maquetado.
+
 ## Imágenes (`imagequestion`)
 
 La imagen **nunca se recorta**: en un `imagequestion` el alumno responde sobre lo que ve, así que
@@ -141,6 +146,17 @@ un encuadre forzado puede dejar fuera justo el detalle que hay que describir.
 Las imágenes subidas llegan con `f_auto,q_auto,c_limit,w_1200` en la URL → [05](05_API.md).
 `c_limit` solo reduce: una foto pequeña se queda a su tamaño en vez de estirarse.
 
+### `imagechoice` e `imagematching`
+
+No tienen renderer propio: **reutilizan el de su tipo de texto** (`MultipleChoiceRenderer` y
+`MatchingRenderer`, que aceptan los dos tipos en su unión de props). La imagen se busca por el
+**índice original** de la opción o de la fila, no por el orden en pantalla — `options` se baraja con
+`shuffledByHash`.
+
+Cuando una opción o una fila tiene imagen, se muestra **solo la imagen**; el texto viaja como `alt`.
+Es deliberado: el texto es la clave de respuestas y enseñarlo resolvería el ejercicio («¿cuál es la
+manzana?»). En papel, `.wp-img-opt` la pinta como miniatura de 64 px dentro de la opción o de la fila.
+
 ## Feedback al alumno
 
 - **Sonidos de clic** (`utils/sfx.ts`, ZzFX sintetizado, sin archivos): al elegir opción, multiselect,
@@ -156,7 +172,10 @@ Botón "Imprimir PDF" en el portal del profesor (lista de evaluaciones y barra d
 papel compacta con `createPortal(document.body)` + impresión nativa (`window.print()` → Guardar como
 PDF); en `@media print` se oculta `#root`.
 
-**Omite `listening*` y `speaking`** (no pasan a papel) y deja líneas y casillas para escribir.
+**Omite `listening*`, `speaking` y `conversation`** (no pasan a papel) y deja líneas y casillas para
+escribir. Esa lista es `isPrintable()` en `WorksheetPrint.tsx`, y es la **misma fuente de verdad** que
+usa el modo físico de la generación con IA (`PRINTABLE_TYPES` en `parser.py`) — ver
+[06_AI](06_AI.md#modo-físico--imprimible).
 
 ## Añadir un tipo de actividad nuevo
 

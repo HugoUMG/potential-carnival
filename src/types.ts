@@ -9,6 +9,8 @@ export type ActivityType =
   | 'matching'
   | 'reading'
   | 'imagequestion'
+  | 'imagechoice'
+  | 'imagematching'
   | 'listening'
   | 'listeningfillblank'
   | 'listeningmultiplechoice'
@@ -27,6 +29,9 @@ export interface BaseActivity {
   prompt?: string;
   answer?: string | string[];
   instructions?: string;
+  /** Nota privada del profesor: solo la lee la IA al calificar. El backend la borra del payload
+   *  del alumno, así que en el portal del alumno este campo siempre llega vacío. */
+  note?: string;
   voice?: string; // 'male' | 'female' | nombre de voz edge-tts; solo listening
 }
 
@@ -86,6 +91,22 @@ export interface ImageQuestionActivity extends BaseActivity {
   type: 'imagequestion';
   image: string;
   prompt: string;
+}
+
+export interface ImageChoiceActivity extends BaseActivity {
+  type: 'imagechoice';
+  image?: string;           // imagen del enunciado (opcional)
+  question: string;
+  options: string[];        // la clave sigue siendo el TEXTO, como en multiplechoice
+  option_images?: string[]; // URL por opción, PARALELA a options; una entrada vacía deja texto
+  answer: string | string[];
+}
+
+export interface ImageMatchingActivity extends BaseActivity {
+  type: 'imagematching';
+  left: string[];           // etiqueta de cada fila (clave legible); el alumno ve la imagen
+  left_images: string[];    // URL por fila, PARALELA a left
+  right: string[];          // pareja correcta de left[i], igual que en matching
 }
 
 export interface ListeningFillBlankActivity extends BaseActivity {
@@ -163,6 +184,8 @@ export type WorksheetActivity =
   | MatchingActivity
   | ReadingActivity
   | ImageQuestionActivity
+  | ImageChoiceActivity
+  | ImageMatchingActivity
   | ListeningActivity
   | ListeningFillBlankActivity
   | ListeningMultipleChoiceActivity

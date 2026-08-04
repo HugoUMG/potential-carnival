@@ -9,7 +9,7 @@ qué es y dónde vive.
 opcional y una lista de actividades (planas o agrupadas en bloques). Fila en `worksheets`, con su
 texto original en `script_content` y su versión parseada en `json_content`.
 
-**Activity / Actividad** — Un ejercicio dentro de una hoja. Hay **19 tipos**
+**Activity / Actividad** — Un ejercicio dentro de una hoja. Hay **21 tipos**
 (`SUPPORTED_BLOCKS` en `parser.py`). Cada uno tiene su sintaxis DSL, su renderer y su forma de
 calificarse.
 

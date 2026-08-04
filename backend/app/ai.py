@@ -66,7 +66,7 @@ Use block {} when grouping activities by skill or topic makes sense.
 
 === ACTIVITY TYPES ===
 ALLOWED: fillblank, multiplechoice, multiselect, dragdrop, matching, truefalse, textbox, reading,
-         readingtruefalse, imagequestion, content,
+         readingtruefalse, imagequestion, imagechoice, imagematching, content,
          listening, listeningmultiplechoice, listeningfillblank, listeningmatching, listeningtruefalse,
          listeningorder, speaking, conversation
 
@@ -78,6 +78,7 @@ When the user asks for a skill area (or you choose activities yourself), prefer 
 - Fine listening (dictation & order): listeningfillblank, listeningorder, listeningmatching
 - Oral production: speaking, conversation
 - Open writing: textbox, imagequestion
+- With pictures (teacher supplies the URLs): imagequestion, imagechoice, imagematching
 A block {} per group works well (e.g. "Part 2: Listening").
 
 === GENERAL DSL RULES ===
@@ -92,6 +93,9 @@ rest of the line and the others are LOST (the sheet is rejected or the activity 
           }
 - block {} groups activities with a shared title and instructions
 - Each activity can have an optional "instructions" field for per-activity guidance
+- Each activity can also have an optional "note" field: a PRIVATE line only the AI grader reads,
+  written BY THE TEACHER (e.g. note: "the photo shows a red car; they must say the colour").
+  NEVER write a `note` yourself — you do not know what the teacher wants graded. Leave it out.
 - Use \\n for line breaks inside strings
 - Quotes INSIDE a string: use typographic “ ” — \\" stays literal and the student sees a backslash
 - fillblank blank marker: _____ (exactly 5 underscores)
@@ -118,7 +122,7 @@ NEVER use a field called "audio:" — it does not exist.
   than `matching`/`listeningmatching`, no timers, no per-question points or weights.
 - Every activity is worth the same. `content` is never graded.
 - The student cannot re-listen after submitting, so audio must be short enough to hold in memory.
-- Only the 19 types below exist. An unknown type name is silently DISCARDED — the activity vanishes.
+- Only the 21 types below exist. An unknown type name is silently DISCARDED — the activity vanishes.
 
 === QUALITY RULES (this is what makes the sheet worth doing) ===
 1. NEVER give the answer away inside the activity. Not in the question, not in `instructions`, not
@@ -275,6 +279,36 @@ the image, so it judges the LANGUAGE, not whether the description is true — as
 imagequestion {
   image: "IMAGE_URL_HERE"
   prompt: "Look at the picture. What are the people doing? Use Present Continuous."
+}
+
+── imagechoice ────────────────────────────────────────────────
+Fields: question, options, answer; optional image (prompt picture) and option_images (one URL per
+option, PARALLEL to options by index)
+Limits: same as multiplechoice — `answer` must match one option EXACTLY. When an option has an
+image, the student sees ONLY that image (its text is the answer key), so write short option texts.
+ONLY use it if the teacher gave you real URLs. Never invent one.
+imagechoice {
+  question: "Which one is the apple?"
+  options:
+  - apple
+  - banana
+  option_images:
+  - IMAGE_URL_1
+  - IMAGE_URL_2
+  answer: "apple"
+}
+
+── imagematching ──────────────────────────────────────────────
+Fields: left_images (one URL per row), right (the matching word for each row, SAME order and count)
+Limits: same mechanics as matching (the student joins with lines). `left` is optional: leave it out
+and the rows are numbered Image 1, Image 2… ONLY use it if the teacher gave you real URLs.
+imagematching {
+  left_images:
+  - IMAGE_URL_1
+  - IMAGE_URL_2
+  right:
+  - dog
+  - cat
 }
 
 ── listening ──────────────────────────────────────────────────
@@ -466,6 +500,12 @@ auto-graded correct are not sent — never invent entries for them, and only ret
 - "context"        present when the answer depends on a reading passage, dialogue or audio. READ IT
                    FIRST and judge the answer AGAINST it. A "reading" question is answered from its
                    own context. Never mark something wrong for missing context that is right there.
+- "teacher_note"   a PRIVATE note the teacher wrote for you about this activity, which the student
+                   never saw (e.g. "the picture shows a red car: they must mention the colour").
+                   It is the grading criterion for this item: when present it OUTRANKS your own
+                   guess about what a good answer looks like. On an "imagequestion" it is the only
+                   description of the image you get — trust it. NEVER quote it or reveal it in the
+                   comment; the student must not learn it existed.
 
 ════ 2. HOW TO DECIDE ════
 Ask, in this order:
@@ -499,7 +539,7 @@ The same text means different things depending on "type". Judge accordingly:
   picture you cannot check. Judge only what is checkable: does it answer the prompt, is it English
   the level can be expected to produce, does it use the structure the prompt asked for? If it is a
   plausible description, it is correct.
-- "matching": each item is ONE pair — "prompt" is the LEFT item, "student_answer" the right item the
+- "matching" / "imagematching": each item is ONE pair — "prompt" is the LEFT item, "student_answer" the right item the
   student joined it to, "correct_answer" the one the key expects. THE KEY IS OFTEN NOT THE ONLY
   VALID PAIRING: with pronouns + verb phrases, "I / wasn't going to eat that cake" and
   "She / wasn't going to eat that cake" are both perfect English. Judge the PAIR THE STUDENT MADE on
@@ -523,7 +563,7 @@ measured, not a slip.
   typos. Re-judge them properly: if under the tolerance above the answer counts as right, set
   "correct" and leave "comment" EMPTY (no comment for a typo forgiven). Otherwise keep "incorrect"
   and explain.
-- matching with auto_status "incorrect": rejected for not being the key's pairing, which is wrong
+- matching / imagematching with auto_status "incorrect": rejected for not being the key's pairing, which is wrong
   whenever more than one pairing is valid (see 2b). Re-judge the pair; if it works, set "correct"
   and leave "comment" EMPTY. Otherwise keep "incorrect" and explain what does not fit.
 - Any other type with auto_status "incorrect" (multiplechoice, truefalse, order…): the student
@@ -590,7 +630,7 @@ wrong key structure the exercise is practising, or that is empty/unintelligible.
 # ponytail: la IA juzga cada par por separado; no comprueba que el conjunto siga siendo una
 # biyección. Si aparecen alumnos rescatados usando el mismo lado derecho dos veces, validar el
 # emparejamiento completo en una sola llamada.
-_AI_RESCUABLE = {"fillblank", "listeningfillblank", "listening", "conversation", "matching"}
+_AI_RESCUABLE = {"fillblank", "listeningfillblank", "listening", "conversation", "matching", "imagematching"}
 
 
 def _grade_system(tolerance: int) -> str:
@@ -697,9 +737,29 @@ def _clean_script(raw: str) -> str:
     return raw
 
 
-def generate_worksheet_script(prompt: str) -> tuple[str, str]:
-    """Devuelve (script, etiqueta_del_proveedor)."""
-    raw, provider = _ai_call(_WORKSHEET_SYSTEM, prompt)
+_PRINTABLE_MODE = """
+
+=== PHYSICAL / PRINTABLE MODE (the teacher turned it ON) ===
+This sheet will be PRINTED ON PAPER. There is no audio and no microphone on paper, so:
+- FORBIDDEN types: speaking, conversation, and every listening* type (listening,
+  listeningfillblank, listeningmultiplechoice, listeningmatching, listeningtruefalse,
+  listeningorder). If you write one it will be DELETED before saving and the sheet will end up
+  shorter than the teacher asked for.
+- Use only: fillblank, dragdrop, matching, truefalse, multiplechoice, multiselect, textbox,
+  reading, readingtruefalse, content, imagequestion, imagechoice, imagematching.
+- Prefer activities that are solved by hand with a pen: writing the word, circling a letter,
+  drawing a line between two columns, marking T/F."""
+
+
+def generate_worksheet_script(prompt: str, printable: bool = False) -> tuple[str, str]:
+    """Devuelve (script, etiqueta_del_proveedor).
+
+    `printable` (modo físico) se lo pide al modelo en el prompt. El FILTRO de verdad vive fuera,
+    en `parser.strip_non_printable`: pedirlo es barato pero el modelo desobedece de vez en cuando,
+    y una hoja para imprimir con un listening dentro sale con un hueco silencioso en el papel.
+    """
+    system = _WORKSHEET_SYSTEM + _PRINTABLE_MODE if printable else _WORKSHEET_SYSTEM
+    raw, provider = _ai_call(system, prompt)
     return _clean_script(raw), provider
 
 
@@ -718,10 +778,12 @@ def edit_worksheet_script(current_script: str, instruction: str) -> tuple[str, s
 
 
 # ── AI grading ─────────────────────────────────────────────────────────────────
-def ai_grade_activities(details: list[Any], worksheet_title: str, tolerance: int = 50) -> list[Any]:
+def ai_grade_activities(details: list[Any], worksheet_title: str, tolerance: int = 50, notes: dict[str, str] | None = None) -> list[Any]:
     """
     Grade all activity details using AI.
     `tolerance` (0–100) es la barra de tolerancia a errores de forma de la hoja.
+    `notes` es {activity_id: note}: la nota privada que el profesor escribió para guiar la
+    calificación (ADR-19). No viaja en los AnswerDetail porque esos sí se le devuelven al alumno.
     Returns the same list with updated status and teacher_comment fields.
     Silently returns unmodified details if AI call fails.
     """
@@ -747,6 +809,11 @@ def ai_grade_activities(details: list[Any], worksheet_title: str, tolerance: int
         # Contexto (texto de lectura / diálogo / audio) para juzgar bien respuestas que dependen de él.
         if getattr(d, "context", None):
             item["context"] = d.context
+        # Nota privada del profesor. Los detalles derivados llevan id "actividad:índice" (reading,
+        # matching, true/false): la nota es de la actividad entera, así que se busca por su raíz.
+        note = (notes or {}).get(str(d.activity_id).split(":", 1)[0])
+        if note:
+            item["teacher_note"] = note
         activities_payload.append(item)
 
     user_prompt = (

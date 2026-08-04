@@ -27,12 +27,14 @@ export type VisualActivityType =
   | 'fillblank' | 'multiplechoice' | 'multiselect' | 'dragdrop' | 'matching' | 'textbox' | 'truefalse'
   | 'listening' | 'listeningfillblank' | 'listeningmultiplechoice'
   | 'listeningmatching' | 'listeningtruefalse' | 'listeningorder' | 'conversation'
-  | 'reading' | 'readingtruefalse' | 'imagequestion' | 'speaking' | 'content';
+  | 'reading' | 'readingtruefalse' | 'imagequestion' | 'imagechoice' | 'imagematching' | 'speaking' | 'content';
 
 export interface VisualActivity {
   id: string;
   type: VisualActivityType;
   instructions: string;
+  /** Nota privada para la IA calificadora. El alumno nunca la ve (el backend la borra del payload). */
+  note: string;
   // fillblank / dragdrop / listeningfillblank
   text: string;
   answer: string;
@@ -68,8 +70,12 @@ export interface VisualActivity {
   readingTitle: string;
   readingContent: string;
   readingQuestions: string[];
-  // imagequestion
+  // imagequestion / imagechoice (imagen de enunciado)
   imageUrl: string;
+  // imagechoice: URL por opción, PARALELA a options ('' = esa opción va como texto)
+  optionImages: string[];
+  // imagematching: URL por fila, PARALELA a left
+  leftImages: string[];
 }
 
 export interface VisualBlock {
@@ -107,6 +113,10 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
 
   if (act.instructions.trim()) {
     lines.push(`${indent}  instructions: "${esc(act.instructions)}"`);
+  }
+  if (act.note?.trim()) {
+    // Una sola línea: el backend la borra del script del alumno buscando la línea `note:`.
+    lines.push(`${indent}  note: "${esc(act.note.replace(/\n/g, ' '))}"`);
   }
 
   if (act.type === 'fillblank') {
@@ -289,6 +299,36 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
     if (act.imageUrl.trim()) lines.push(`${indent}  image: "${esc(act.imageUrl)}"`);
     if (act.prompt.trim()) lines.push(`${indent}  prompt: "${esc(act.prompt)}"`);
 
+  } else if (act.type === 'imagechoice') {
+    if (act.imageUrl.trim()) lines.push(`${indent}  image: "${esc(act.imageUrl)}"`);
+    if (act.question.trim()) lines.push(`${indent}  question: "${esc(act.question)}"`);
+    const validOpts = act.options.filter((o) => o.trim());
+    if (validOpts.length > 0) {
+      lines.push(`${indent}  options:`);
+      validOpts.forEach((o) => lines.push(`${indent}  - ${o}`));
+    }
+    // Lista PARALELA a options: se recorta al último hueco con imagen y los huecos van como ""
+    // (el parser exige algo después del guion; "" se lee como cadena vacía = esa opción es texto).
+    const optImages = act.options.map((o, i) => (o.trim() ? (act.optionImages[i] ?? '') : '')).filter((_, i) => act.options[i]?.trim());
+    const lastImage = optImages.reduce((last, u, i) => (u.trim() ? i : last), -1);
+    if (lastImage >= 0) {
+      lines.push(`${indent}  option_images:`);
+      optImages.slice(0, lastImage + 1).forEach((u) => lines.push(`${indent}  - ${u.trim() ? u : '""'}`));
+    }
+    if (act.correctOption.trim()) lines.push(`${indent}  answer: "${esc(act.correctOption)}"`);
+
+  } else if (act.type === 'imagematching') {
+    const rows = act.leftImages.map((url, i) => ({ url, word: act.right[i] ?? '', label: act.left[i] ?? `Image ${i + 1}` }))
+      .filter((r) => r.url.trim() || r.word.trim());
+    if (rows.length > 0) {
+      lines.push(`${indent}  left_images:`);
+      rows.forEach((r) => lines.push(`${indent}  - ${r.url.trim() ? r.url : '""'}`));
+      lines.push(`${indent}  left:`);
+      rows.forEach((r) => lines.push(`${indent}  - ${r.label}`));
+      lines.push(`${indent}  right:`);
+      rows.forEach((r) => lines.push(`${indent}  - ${r.word}`));
+    }
+
   } else if (act.type === 'speaking') {
     if (act.prompt.trim()) lines.push(`${indent}  prompt: "${esc(act.prompt)}"`);
     if (act.target.trim()) lines.push(`${indent}  target: "${esc(act.target)}"`);
@@ -360,6 +400,7 @@ export function toWorksheetActivity(act: VisualActivity): WorksheetActivity {
   const base = {
     id: act.id,
     ...(act.instructions.trim() ? { instructions: act.instructions } : {}),
+    ...(act.note?.trim() ? { note: act.note } : {}),
     ...(act.voice.trim() ? { voice: act.voice } : {}),
   };
   const statements = act.statements.filter((s) => s.text.trim()).map((s) => ({ text: s.text, answer: s.answer }));
@@ -412,6 +453,18 @@ export function toWorksheetActivity(act: VisualActivity): WorksheetActivity {
       return { ...base, type: 'readingtruefalse', title: act.readingTitle, content: act.readingContent, statements };
     case 'imagequestion':
       return { ...base, type: 'imagequestion', image: act.imageUrl, prompt: act.prompt };
+    case 'imagechoice':
+      return {
+        ...base, type: 'imagechoice', image: act.imageUrl || undefined, question: act.question, options,
+        option_images: act.options.map((o, i) => (o.trim() ? (act.optionImages[i] ?? '') : '')).filter((_, i) => act.options[i]?.trim()),
+        answer: act.correctOption,
+      };
+    case 'imagematching': {
+      // Solo las filas que ya tienen algo; las tres listas se recortan a la vez para no descuadrar.
+      const rows = act.leftImages.map((url, i) => ({ url, word: act.right[i] ?? '', label: act.left[i] ?? `Image ${i + 1}` }))
+        .filter((r) => r.url.trim() || r.word.trim());
+      return { ...base, type: 'imagematching', left: rows.map((r) => r.label), left_images: rows.map((r) => r.url), right: rows.map((r) => r.word) };
+    }
     case 'speaking':
       return { ...base, type: 'speaking', prompt: act.prompt, target: act.target };
   }
@@ -419,6 +472,7 @@ export function toWorksheetActivity(act: VisualActivity): WorksheetActivity {
 
 const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   instructions: '',
+  note: '',
   text: '',
   answer: '',
   bank: [],
@@ -441,6 +495,8 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   readingContent: '',
   readingQuestions: [''],
   imageUrl: '',
+  optionImages: [],
+  leftImages: [],
 };
 
 export function emptyActivity(type: VisualActivityType): VisualActivity {
@@ -500,6 +556,10 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
       ]};
     case 'imagequestion':
       return { ...BASE_ACTIVITY, id, type, imageUrl: 'https://placehold.co/900x500', prompt: 'Describe what you see in the image.' };
+    case 'imagechoice':
+      return { ...BASE_ACTIVITY, id, type, question: 'Which one is the apple?', options: ['apple', 'banana', 'orange'], correctOption: 'apple', optionImages: ['', '', ''] };
+    case 'imagematching':
+      return { ...BASE_ACTIVITY, id, type, left: ['Image 1', 'Image 2'], leftImages: ['', ''], right: ['dog', 'cat'] };
     case 'speaking':
       return { ...BASE_ACTIVITY, id, type, prompt: 'Introduce yourself. Say your name and age.', target: '' };
     default:
