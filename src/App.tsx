@@ -1514,20 +1514,23 @@ export default function App() {
                     {/* Placeholder en flujo normal (h-40) para no mover el resto de la tarjeta;
                         el botón real flota encima y crece hacia abajo solo en hover. */}
                     <div className="relative h-40 w-full shrink-0">
-                    <button
-                      type="button"
-                      className="absolute inset-x-0 top-0 z-10 block h-40 w-full overflow-hidden rounded-t-2xl border-b border-slate-100 bg-white text-left transition-[height,box-shadow] duration-500 ease-out group-hover:h-80 group-hover:rounded-b-2xl group-hover:shadow-2xl"
-                      title="Abrir el editor de esta evaluación"
-                      onClick={() => startEditWorksheet(worksheet, true)}
-                    >
+                    {/* La vista previa contiene botones propios (TrueFalse, etc.), así que el
+                        disparador es un <button> hermano superpuesto, no el contenedor. */}
+                    <div className="absolute inset-x-0 top-0 z-10 h-40 overflow-hidden rounded-t-2xl border-b border-slate-100 bg-white text-left transition-[height,box-shadow] duration-500 ease-out group-hover:h-80 group-hover:rounded-b-2xl group-hover:shadow-2xl">
                       <WorksheetThumb worksheet={worksheet} />
-                      <span className="absolute inset-0 grid place-items-center bg-slate-900/0 opacity-0 transition group-hover:bg-slate-900/40 group-hover:opacity-100">
+                      <button
+                        type="button"
+                        className="absolute inset-0 z-20 grid w-full place-items-center bg-slate-900/0 opacity-0 transition group-hover:bg-slate-900/40 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:bg-slate-900/40"
+                        title="Abrir el editor de esta evaluación"
+                        aria-label={`Abrir el editor de ${worksheet.title}`}
+                        onClick={() => startEditWorksheet(worksheet, true)}
+                      >
                         <span className="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-rex-deep"><Pencil className="mr-1 inline" size={14} /> Editar</span>
-                      </span>
+                      </button>
                       {newCount > 0 && (
-                        <span className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-black text-white" title={`${newCount} respuesta${newCount !== 1 ? 's' : ''} nueva${newCount !== 1 ? 's' : ''} sin revisar`}>{newCount === 1 ? '!' : newCount}</span>
+                        <span className="absolute right-2 top-2 z-30 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-black text-white" title={`${newCount} respuesta${newCount !== 1 ? 's' : ''} nueva${newCount !== 1 ? 's' : ''} sin revisar`}>{newCount === 1 ? '!' : newCount}</span>
                       )}
-                    </button>
+                    </div>
                     </div>
 
                     <div className="flex flex-1 flex-col p-4">
