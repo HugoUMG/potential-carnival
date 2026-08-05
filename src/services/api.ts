@@ -723,14 +723,23 @@ export async function aiEditWorksheet(scriptContent: string, instruction: string
 
 /** `printable` = modo físico: la hoja se va a imprimir, así que el backend restringe la generación
  *  a los tipos que pasan a papel (sin listening* ni speaking ni conversation). La hoja generada se
- *  guarda con la autoevaluación IA (`aiGrading`) y la tolerancia (`aiTolerance`) elegidas. */
-export async function generateWorksheetWithAI(prompt: string, createdBy: string, printable = false, aiGrading = true, aiTolerance = 50): Promise<Worksheet> {
+ *  guarda con la autoevaluación IA (`aiGrading`) y la tolerancia (`aiTolerance`) elegidas.
+ *  `imageBank` = la biblioteca gratuita (id, name, description, url, tags, level): el backend la
+ *  inyecta en el prompt para que las actividades de imagen usen URLs reales del banco. */
+export async function generateWorksheetWithAI(
+  prompt: string,
+  createdBy: string,
+  printable = false,
+  aiGrading = true,
+  aiTolerance = 50,
+  imageBank?: { id: string; name: string; description: string; url: string; tags: string[]; level: string }[],
+): Promise<Worksheet> {
   // El endpoint devuelve la hoja en el formato del backend (script_content, json_content…), igual
   // que crear o actualizar. Antes se devolvía tal cual diciendo que era un `Worksheet`, así que
   // quien la usaba tenía que ir a buscar `script_content` con un cast a `any`.
   const worksheet = await request<BackendWorksheet>('/worksheets/ai-generate', {
     method: 'POST',
-    body: JSON.stringify({ prompt, created_by: createdBy, printable, ai_grading: aiGrading, ai_tolerance: aiTolerance }),
+    body: JSON.stringify({ prompt, created_by: createdBy, printable, ai_grading: aiGrading, ai_tolerance: aiTolerance, image_bank: imageBank }),
   });
   return normalizeWorksheet(worksheet);
 }

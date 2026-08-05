@@ -95,8 +95,13 @@ defecto 50): la hoja generada se guarda con esos valores (misma autoevaluación 
 desde el editor). El editor las manda desde los controles "Autoevaluación con IA" del panel de
 generación.
 
+Y **`image_bank`** (lista opcional de `{id, name, description, url, tags, level}`): la biblioteca
+gratuita del profesor. Se inyecta en el prompt para que las actividades de imagen generadas usen
+**solo URLs del banco** (con oraciones acordes a la `description` de cada imagen). Sin el campo, la IA
+no genera actividades de imagen — ver [06_AI](06_AI.md#banco-de-imágenes-image_bank).
+
 ```json
-{ "prompt": "Past simple, A2, 8 actividades", "created_by": "…", "printable": true, "ai_grading": true, "ai_tolerance": 30 }
+{ "prompt": "Past simple, A2, 8 actividades", "created_by": "…", "printable": true, "ai_grading": true, "ai_tolerance": 30, "image_bank": [ { "id": "dr-001", "name": "Morning Alarm Clock", "description": "An alarm clock rings on a bedside table", "url": "https://images.unsplash.com/…", "tags": ["morning", "alarm"], "level": "A1" } ] }
 ```
 
 ## Aulas

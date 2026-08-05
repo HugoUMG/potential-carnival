@@ -123,3 +123,22 @@ def test_el_modo_fisico_solo_cambia_el_prompt_cuando_se_pide(monkeypatch):
 
     assert "PHYSICAL / PRINTABLE MODE" not in vistos[0]  # por defecto apagado
     assert _PRINTABLE_MODE in vistos[1]
+
+
+def test_el_banco_de_imagenes_solo_entra_al_prompt_cuando_se_provee(monkeypatch):
+    vistos = []
+
+    def fake_call(system, user, prefer_fast=False):
+        vistos.append(system)
+        return 'worksheet {\n title: "x"\n textbox {\n  prompt: "Write."\n }\n}', "test"
+
+    monkeypatch.setattr("backend.app.ai._ai_call", fake_call)
+    generate_worksheet_script("una hoja")
+    generate_worksheet_script("una hoja", image_bank=[
+        {"id": "dr-001", "name": "Morning Alarm Clock", "description": "An alarm clock rings",
+         "url": "https://example.com/clock.jpg", "tags": ["morning", "alarm"], "level": "A1"},
+    ])
+
+    assert "IMAGE BANK" not in vistos[0]
+    assert "https://example.com/clock.jpg" in vistos[1]
+    assert "An alarm clock rings" in vistos[1]  # la descripción viaja para que las oraciones la respeten

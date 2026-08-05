@@ -5,6 +5,7 @@ import { emptyState } from '../utils/dslSerializer';
 import { generateWorksheetWithAI, aiEditWorksheet } from '../services/api';
 import { AiGradingControls } from './AiGradingControls';
 import { GENERATION_PROMPT } from '../utils/generationPrompt';
+import libraryData from '../data/image-library.json';
 import type { Worksheet, WorksheetActivity } from '../types';
 
 // ── Constructor de prompt para la IA (chips + presets) ────────────────────────
@@ -14,6 +15,24 @@ interface BuilderState {
   age: string; duration: string; difficulty: string; activities: string[];
 }
 const EMPTY_BUILDER: BuilderState = { level: '', topic: '', objective: '', focus: '', age: '', duration: '', difficulty: '', activities: [] };
+
+type BankImage = { id: string; name: string; description: string; url: string; tags: string[]; level: string };
+
+/** La biblioteca gratuita (`image-library.json`) en el formato `image_bank` que espera el backend:
+ *  se inyecta en el prompt de generación para que las actividades de imagen usen URLs reales. */
+function imageBankForAi(): BankImage[] {
+  const cats = libraryData.categories as { images: BankImage[] }[];
+  return cats.flatMap((c) =>
+    c.images.map((img) => ({
+      id: img.id,
+      name: img.name,
+      description: img.description ?? '',
+      url: img.url,
+      tags: img.tags ?? [],
+      level: img.level ?? '',
+    })),
+  );
+}
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const OBJECTIVES: [string, string][] = [['Repaso', 'repaso'], ['Introducción', 'introducción del tema'], ['Práctica', 'práctica'], ['Evaluación', 'evaluación'], ['Tarea', 'tarea para casa']];
@@ -577,7 +596,7 @@ export function WorksheetEditor({
     setAiError('');
     setAiSuccess('');
     try {
-      const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId, printable, aiGradingDraft, aiToleranceDraft);
+      const generated = await generateWorksheetWithAI(aiPrompt.trim(), userId, printable, aiGradingDraft, aiToleranceDraft, imageBankForAi());
       onScriptChange(generated.scriptContent ?? '');
       // `/worksheets/ai-generate` YA guardó la hoja. Hay que atar el editor a ella o el primer
       // "guardar" crearía una segunda: la generada quedaría huérfana en la lista.

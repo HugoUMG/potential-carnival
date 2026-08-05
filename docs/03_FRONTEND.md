@@ -251,7 +251,12 @@ Tailwind que la pantalla ya usa** (`.bg-white`, `.text-slate-500`, `.bg-rex-ligh
   "Mía" reutiliza `subirImagen()` + `registrarImagen()`; cada tile tiene copiar URL y borrar con
   confirmación. El mismo `MyImagesGrid` se reusa dentro de `ImagePickerModal` (botón "Biblioteca" del
   editor de `imagequestion`), donde además hace de selector: clic en la imagen la elige y cierra el
-  modal en vez de solo copiar.
+  modal en vez de solo copiar. El botón **"Verificar enlaces"** (pestaña Gratuita) comprueba con
+  `fetch` HEAD/GET cada URL de la biblioteca, reemplaza las rotas por la imagen sana más parecida
+  (misma categoría, más etiquetas en común — `repairLibrary` mueve el contenido de la candidata a la
+  entrada rota y elimina la candidata, sin duplicados) y deja el JSON reparado en memoria para
+  descargarlo con "Descargar JSON" y volverlo a poner en `src/data/image-library.json`. Las que no
+  tienen parecida quedan marcadas con "Imagen no disponible" (`brokenImages`).
 
 ## Convenciones
 

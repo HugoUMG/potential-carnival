@@ -75,6 +75,11 @@ de lo que manda el cliente.
 **`ai_tolerance`** — Barra 0–100 por hoja. Elige uno de tres bloques de reglas del prompt de
 calificación (estricta / equilibrada / permisiva). Nunca perdona el contenido evaluado.
 
+**`image_bank`** — La biblioteca gratuita de imágenes (`src/data/image-library.json`) aplanada a
+`[{id, name, description, url, tags, level}]`, que el editor manda en `POST /worksheets/ai-generate`.
+El backend la inyecta en el system prompt (`_image_bank_section`): las actividades de imagen
+generadas usan solo URLs del banco y redactan según la `description` de cada imagen.
+
 **`context`** — Lo que el alumno **escuchó o leyó**, que se le pasa a la IA para poder juzgar una
 respuesta abierta (diálogo, texto del audio, texto de lectura).
 

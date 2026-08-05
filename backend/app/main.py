@@ -517,7 +517,7 @@ def update_worksheet(worksheet_id: str, payload: WorksheetUpdate, current_user: 
 
 @app.post("/worksheets/ai-generate", response_model=Worksheet)
 def ai_generate(payload: AiGenerateRequest, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Worksheet:
-    script, _provider = generate_worksheet_script(payload.prompt, printable=payload.printable)
+    script, _provider = generate_worksheet_script(payload.prompt, printable=payload.printable, image_bank=payload.image_bank)
     if payload.printable:
         # Prompt + filtro: el prompt es barato, pero el modelo cuela un listening de vez en cuando
         # y en papel eso es una actividad que el alumno no puede resolver.
