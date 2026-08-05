@@ -405,18 +405,31 @@ class WorksheetRepository:
                 (log_id, guest_token, name, classroom_id, classroom_name, accessed_at),
             )
 
-    def list_guest_access_logs(self) -> list[dict]:
+    def list_guest_access_logs(self, owner_id: str | None = None) -> list[dict]:
+        """Accesos de invitado agrupados. `owner_id` los limita a las aulas de ese profesor.
+
+        El JOIN con `classrooms` es lo que hace de dueño: la tabla de logs no guarda profesor,
+        pero el aula sí. Al ser INNER JOIN, un `classroom_id` que no exista se cae del panel —
+        que es lo correcto: `/public/guest-sessions` no lleva auth y acepta cualquier cadena.
+        """
+        placeholder = self._placeholder
+        condicion = "" if owner_id is None else f"WHERE classrooms.created_by = {placeholder}"
+        parametros = () if owner_id is None else (owner_id,)
         with get_connection() as connection:
             rows = connection.execute(
-                """
-                SELECT guest_token, MAX(name) AS name, classroom_id,
-                       MAX(classroom_name) AS classroom_name,
-                       COUNT(*) AS visit_count, MAX(accessed_at) AS last_accessed_at
+                f"""
+                SELECT guest_access_logs.guest_token, MAX(guest_access_logs.name) AS name,
+                       guest_access_logs.classroom_id,
+                       MAX(guest_access_logs.classroom_name) AS classroom_name,
+                       COUNT(*) AS visit_count, MAX(guest_access_logs.accessed_at) AS last_accessed_at
                 FROM guest_access_logs
-                GROUP BY guest_token, classroom_id
+                JOIN classrooms ON classrooms.id = guest_access_logs.classroom_id
+                {condicion}
+                GROUP BY guest_access_logs.guest_token, guest_access_logs.classroom_id
                 ORDER BY last_accessed_at DESC
                 LIMIT 500
-                """
+                """,
+                parametros,
             ).fetchall()
         return [
             {

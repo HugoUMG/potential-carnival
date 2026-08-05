@@ -85,6 +85,34 @@ revisión y la impresión. Es una tarea propia, no un ajuste de prompt.
 
 Plan temático (mascota RexLearn) **solo** para el portal de alumno/invitado. En pausa.
 
+### Seguridad: lo que la revisión dejó abierto
+
+La revisión de agosto de 2026 cerró la escalada del `reader` y los topes de los públicos (ver
+[09_SECURITY](09_SECURITY.md)). Queda esto, por orden de gravedad:
+
+- **Aislamiento entre profesores incompleto.** `require_student_manager` existe y se usa bien en
+  borrar/editar alumnos, pero varias rutas comprueban solo el rol y no el dueño:
+  `/students/{id}/sessions` y todo lo que pasa por `require_student_owner_or_staff`
+  (`/students/{id}/responses`, `/worksheets`, `/classrooms`, `/vocabulary` — estas sí exigen conocer
+  el UUID del alumno). También `assign_student` valida el aula pero no el alumno, y las rutas de
+  readers/vocabulario no comprueban el dueño de la lista.
+  *(Los dos de invitados, `/teacher/guest-logs` y `/teacher/guest-detail`, ya están cerrados.)*
+- **`/public/worksheets` anula el modelo URL-capability.** Devuelve **todas** las hojas publicadas de
+  **todos** los profesores sin login. Que `/public/worksheets/{id}` sea un UUID no adivinable no
+  protege nada si un listado abierto los enumera — y arrastra la clave de respuestas del pendiente
+  mayor de arriba.
+- **`/public/readers-vocabulary` publica el `username` de todos los readers.** Es la mitad de una
+  credencial de acceso compartido, servida sin login.
+- **Sin protección de fuerza bruta en `/auth/login`.** `_rate_limit` ya existe y se puede reutilizar,
+  pero la clave debería ser el usuario, no la IP (un colegio comparte NAT).
+- **`logout` es cosmético.** `close_active_session` solo registra; `get_current_user` no consulta
+  sesiones, así que un JWT robado sigue válido las 8 h. Arreglarlo de verdad pide lista de revocación
+  o tokens cortos con refresh.
+- **`verify_password` compara en claro** si el hash no lleva prefijo (`security.py`). Es el camino de
+  migración de los hashes heredados; conviene ponerle fecha de caducidad y quitarlo.
+- **Bug menor, no de seguridad:** `db/schema.sql` no incluye `'reader'` en el `CHECK` de `role`
+  (`schema.postgres.sql` sí). Crear un reader en local con SQLite revienta con `IntegrityError`.
+
 ### Menores
 
 - **Bug:** puede faltar el tratamiento de `\n` en algún campo específico que no pase por `RichText`.

@@ -155,8 +155,8 @@ GET    /teacher/notifications                 — Respuestas recientes (últimas
 GET    /teacher/activity-feed?since=          — Historial completo (la campanita usa 7 días)
 GET    /teacher/worksheet-summary/{id}        — Resumen de desempeño redactado por la IA
 GET    /students/activity                     — Estado online/offline de los alumnos
-GET    /teacher/guest-logs                    — Accesos de invitados
-GET    /teacher/guest-detail                  — Detalle de un invitado
+GET    /teacher/guest-logs                    — Accesos de invitados (solo de las aulas propias)
+GET    /teacher/guest-detail?guest_token&classroom_id — Detalle de un invitado (403 si el aula es de otro)
 GET    /teacher/reader-logs                   — Accesos de lectores
 ```
 
@@ -218,6 +218,10 @@ GET    /tts/conversation?lines=…              — Diálogo con voces m/f alter
 `/tts/conversation` concatena frames MP3 en crudo; si hiciera falta una pausa marcada entre turnos,
 habría que intercalar un MP3 de silencio.
 
+**Topes** (los dos son públicos a la fuerza: el front los usa como `src` de un `<audio>`, que no
+manda cabeceras): `text` ≤ 2000 caracteres, `lines` ≤ 8000 → **422**. Más de **300 peticiones por
+minuto y por IP** → **429**.
+
 > ⚠️ La URL del TTS lleva el texto en claro, así que **filtra la respuesta de los listening**. Es un
 > caso particular del problema descrito en [el plan de fuga de respuestas](plans/PLAN-fuga-de-respuestas.md).
 > Pasarlo a POST **no** lo arregla (el cuerpo se ve igual en la pestaña de red).
@@ -232,7 +236,7 @@ GET    /public/worksheets/{id}                — Hoja publicada por id (enlace 
 POST   /public/guest-sessions                 — Registrar acceso de invitado
 POST   /public/responses                      — Enviar respuestas como invitado
 GET    /public/responses?guest_token=…        — Respuestas calificadas del invitado
-POST   /public/transcribe                     — Audio (speaking) → texto vía Groq Whisper
+POST   /public/transcribe                     — Audio (speaking) → texto vía Groq Whisper (máx 4 MB)
 GET    /public/vocabulary/{id}                — Lista de vocabulario por id (enlace /v/:vocabId)
 GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
 ```
@@ -242,6 +246,8 @@ GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
 - El límite de intentos del enlace directo es **por dispositivo** (`dw_count_{id}` en `localStorage`),
   coherente con el modelo suave de invitado: no hay identidad server-side.
 - **Todo lo que necesite funcionar sin login va en `/public/*`.**
+- `/public/transcribe` es el único público que cuesta **dinero** (cuota de Groq): 4 MB por petición
+  y **60 por minuto y por IP** → **429**. Ver [09_SECURITY](09_SECURITY.md#topes-en-los-endpoints-públicos).
 
 > ⚠️ Los cuatro endpoints que entregan una hoja al alumno (`/public/worksheets`,
 > `/public/worksheets/{id}`, `/public/classrooms/{id}/worksheets`, `/students/{id}/worksheets`)
