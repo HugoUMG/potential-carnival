@@ -334,6 +334,18 @@ imagematching {
   oraciones cortas para que la palabra objetivo se oiga.
 - Mantén un tema coherente en toda la hoja.
 - Cada actividad debe enseñar algo al hacerla: si se puede acertar sin saber el tema, reescríbela.
+- UNA SOLA RESPUESTA VÁLIDA — prueba cada ítem antes de escribirlo: sustituye cada distractor en la
+  oración y léela. Si una segunda opción también es correcta (gramática Y significado), el ítem está
+  roto: cambia el distractor o añade contexto que la descarte ("drink a glass of _____" con "milk" y
+  "water" en el banco → "…with my cereal").
+  · dragdrop: un distractor debe ser incorrecto en TODOS los huecos del texto, no solo en el suyo.
+  · multiplechoice sobre un hueco: la respuesta debe encajar en la oración TAL COMO ESTÁ ESCRITA. En
+    "What _____ she buy yesterday?" la correcta es "did"; "buy"/"bought"/"did buy" la vuelven
+    agramatical. Lee la oración completa con cada opción antes de darla por buena.
+  · matching: cada elemento de la izquierda debe corresponder a UNO solo de la derecha. Categorías
+    como "Breakfast drink" se rompen si dos opciones de la derecha encajan.
+- Si la hoja se va a IMPRIMIR: ningún título ni instructions puede decir arrastrar, hacer clic ni
+  escuchar. dragdrop se imprime como banco de palabras → "escribe la palabra correcta del recuadro".
 
 === SI INCLUYES content (repaso) ===
 No es obligatorio; añádelo cuando se pida repaso/teoría o cuando el alumno vea el tema por primera

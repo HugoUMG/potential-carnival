@@ -71,6 +71,8 @@ POST   /worksheets                            — Crear desde script DSL
 PUT    /worksheets/{id}                       — Editar en el sitio (no crea copia)
 POST   /worksheets/ai-generate                — Generar hoja con IA desde un prompt (LA GUARDA: devuelve la hoja creada, no un borrador)
 POST   /worksheets/ai-edit                    — Reescribir el script con una instrucción en lenguaje natural (NO guarda)
+POST   /worksheets/ai-review                  — La IA resuelve la hoja como alumno y devuelve {report (Markdown), provider} (NO guarda ni modifica)
+POST   /worksheets/audio-check                — Ida y vuelta TTS→Whisper de cada actividad audible: {items: [{type, text, heard, ok}]} (NO guarda)
 GET    /worksheets                            — Listar (filtros: created_by, published, archived)
 GET    /worksheets/{id}                       — Detalle (payload COMPLETO, con claves: es del profesor)
 GET    /worksheets/response-counts            — Conteo de respuestas por hoja (bulk)

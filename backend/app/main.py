@@ -11,11 +11,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import ai_grade_activities, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import initialize_database
 from .models import (
     AiGenerateRequest,
     AiEditRequest,
+    AiReviewRequest,
     AnswerDetail,
     AnswerReview,
     Classroom,
@@ -433,6 +434,83 @@ async def tts_conversation(
     return StreamingResponse(iter(chunks), media_type="audio/mpeg")
 
 
+@app.post("/worksheets/audio-check")
+async def audio_check(payload: AiReviewRequest, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Prueba el audio de la hoja: cada texto audible se sintetiza con edge-tts y se transcribe con
+    Whisper. Si Whisper no reconoce lo que la voz dijo, el alumno tampoco lo va a entender.
+
+    Es el único modo de verificar `listening*`, `conversation` y `speaking`: el revisor de texto lee
+    el guion, pero no oye cómo suena («seven o'clock» que se transcribe «7 o'clock», `Mr.`, `3rd`,
+    `$5.50`, siglas y homógrafos). NO guarda nada.
+    """
+    try:
+        worksheet = parse_worksheet_script(payload.script_content)
+    except WorksheetScriptError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # Una hoja sin `block {}` deja las actividades en `worksheet.activities`, no en `blocks`.
+    todas = list(worksheet.activities) + [a for b in worksheet.blocks for a in b.activities]
+    items = [(a.type, texto) for a in todas if (texto := _audible_text(a))]
+    if not items:
+        return {"items": [], "detail": "La hoja no tiene actividades con audio ni de habla."}
+
+    results: list[dict[str, Any]] = []
+    for tipo, texto in items:
+        try:
+            mp3 = await _synthesize(texto, "en-US-JennyNeural" if tipo == "conversation" else "en-US-GuyNeural")
+            heard = (await asyncio.to_thread(ai_transcribe, mp3, "check.mp3", "audio/mpeg")).strip()
+        except Exception as exc:  # una actividad que falle no tumba el informe entero
+            results.append({"type": tipo, "text": texto, "heard": "", "ok": False, "error": str(exc)[:120]})
+            continue
+        results.append({"type": tipo, "text": texto, "heard": heard, "ok": _same_words(texto, heard)})
+    return {"items": results}
+
+
+# ── Prueba de audio (ida y vuelta TTS → Whisper) ───────────────────────────────
+_AUDIBLE_TYPES = {"listening", "listeningmultiplechoice", "listeningfillblank", "listeningtruefalse",
+                  "listeningorder", "listeningmatching", "conversation", "speaking"}
+
+
+def _audible_text(activity: Any) -> str:
+    """Lo que la voz va a decir en esta actividad ("" si no suena nada)."""
+    if activity.type not in _AUDIBLE_TYPES:
+        return ""
+    if activity.type == "speaking":
+        return (activity.target or "").strip()
+    if activity.type == "conversation":
+        return " ".join((line.get("text") or "").strip() for line in (activity.lines or [])).strip()
+    if activity.type == "listeningmatching":
+        return " ".join((pair.get("audio_text") or "").strip() for pair in (activity.pairs or [])).strip()
+    if activity.type == "listening":
+        return (activity.text or "").strip()
+    return (activity.audio_text or "").strip()
+
+
+async def _synthesize(text: str, voice: str) -> bytes:
+    import edge_tts
+    communicate = edge_tts.Communicate(text, voice)
+    chunks: list[bytes] = []
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            chunks.append(chunk["data"])
+    return b"".join(chunks)
+
+
+def _same_words(said: str, heard: str) -> bool:
+    """Compara ignorando puntuación y mayúsculas. Los números en cifra cuentan como iguales a su
+    palabra («seven» ≡ «7»): Whisper los escribe como quiere y no es un fallo del audio."""
+    return _spoken_words(said) == _spoken_words(heard)
+
+
+_NUM_WORDS = {"zero": "0", "one": "1", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6",
+              "seven": "7", "eight": "8", "nine": "9", "ten": "10", "eleven": "11", "twelve": "12"}
+
+
+def _spoken_words(text: str) -> list[str]:
+    words = re.sub(r"[^a-z0-9 ]", " ", text.lower()).split()
+    return [_NUM_WORDS.get(w, w) for w in words]
+
+
 @app.post("/teachers", response_model=PublicUser)
 def create_teacher(payload: TeacherCreate, _: PublicUser = Depends(require_admin)) -> PublicUser:
     try:
@@ -540,6 +618,19 @@ def ai_edit(payload: AiEditRequest, current_user: PublicUser = Depends(require_t
     except Exception as exc:
         raise HTTPException(status_code=503, detail="No se pudo contactar a la IA. Intenta de nuevo.") from exc
     return {"script": script, "provider": provider}
+
+
+@app.post("/worksheets/ai-review")
+def ai_review(payload: AiReviewRequest, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, str]:
+    """La IA resuelve la hoja como alumno y devuelve un informe en Markdown con los problemas.
+    Es OPCIONAL (botón "Revisar hoja") y no modifica ni guarda nada."""
+    if not payload.script_content.strip():
+        raise HTTPException(status_code=422, detail="No hay hoja que revisar")
+    try:
+        report, provider = review_worksheet_script(payload.script_content, printable=payload.printable)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="No se pudo contactar a la IA. Intenta de nuevo.") from exc
+    return {"report": report, "provider": provider}
 
 
 @app.get("/worksheets", response_model=list[Worksheet])

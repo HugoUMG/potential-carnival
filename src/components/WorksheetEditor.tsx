@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
-import { Code2, Eye, LayoutTemplate, Sparkles, Save, Loader2, Wand2, ClipboardCopy, Check } from 'lucide-react';
+import { Code2, Eye, LayoutTemplate, Sparkles, Save, Loader2, Wand2, ClipboardCopy, ClipboardCheck, Volume2, Check } from 'lucide-react';
 import { VisualWorksheetBuilder, worksheetToVisualState } from './VisualWorksheetBuilder';
 import { emptyState } from '../utils/dslSerializer';
-import { generateWorksheetWithAI, aiEditWorksheet } from '../services/api';
+import { generateWorksheetWithAI, aiEditWorksheet, aiReviewWorksheet, audioCheckWorksheet, type AudioCheckItem } from '../services/api';
 import { AiGradingControls } from './AiGradingControls';
 import { GENERATION_PROMPT } from '../utils/generationPrompt';
 import libraryData from '../data/image-library.json';
@@ -311,6 +311,109 @@ export function AskAiEdit({ getScript, onApply }: { getScript: () => string; onA
             {working ? 'Trabajando…' : 'Aplicar cambio con IA'}
           </button>
           <p className="text-xs text-slate-400">La IA modifica la hoja completa y reemplaza el script. Revísalo antes de guardar.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── "Revisar hoja": la IA la resuelve como alumno y reporta los problemas ─────
+export function AskAiReview({ getScript, printable = false }: { getScript: () => string; printable?: boolean }) {
+  const [report, setReport] = useState('');
+  const [provider, setProvider] = useState('');
+  const [working, setWorking] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function run() {
+    const script = getScript().trim();
+    if (working) return;
+    if (!script) { setErr('Primero escribe o crea una hoja.'); return; }
+    setWorking(true); setErr(''); setReport('');
+    try {
+      const res = await aiReviewWorksheet(script, printable);
+      setReport(res.report);
+      setProvider(res.provider);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo contactar a la IA.');
+    } finally { setWorking(false); }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => void run()} disabled={working}
+          title="La IA resuelve la hoja como si fuera el alumno y te dice qué no cuadra"
+          className="flex items-center gap-1.5 rounded-2xl border border-rex/40 bg-rex/10 px-3 py-2 text-sm font-semibold text-rex transition hover:bg-rex/15 disabled:opacity-50">
+          <ClipboardCheck size={15} /> Revisar hoja
+        </button>
+        {working && <span className="text-xs font-semibold text-rex animate-pulse">✦ Resolviendo la hoja…</span>}
+        {!working && provider && <span className="text-xs text-slate-400" title="IA que revisó">✦ {provider}</span>}
+      </div>
+      {err && <p className="text-xs text-red-500">{err}</p>}
+      {report && (
+        <div className="mt-1 grid gap-2 rounded-2xl border border-rex/30 bg-white p-3">
+          {/* ponytail: el informe es Markdown simple; se quitan los ** y se respetan saltos de línea
+              en vez de sumar una librería de Markdown por un panel. */}
+          <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{report.replace(/\*\*/g, '')}</p>
+          <button type="button" onClick={() => setReport('')} className="w-fit text-xs font-semibold text-slate-500 underline hover:text-slate-700">Cerrar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── "Probar el audio": TTS → Whisper por cada actividad audible ───────────────
+export function AskAudioCheck({ getScript }: { getScript: () => string }) {
+  const [items, setItems] = useState<AudioCheckItem[] | null>(null);
+  const [detail, setDetail] = useState('');
+  const [working, setWorking] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function run() {
+    const script = getScript().trim();
+    if (working) return;
+    if (!script) { setErr('Primero escribe o crea una hoja.'); return; }
+    setWorking(true); setErr(''); setItems(null);
+    try {
+      const res = await audioCheckWorksheet(script);
+      setItems(res.items);
+      setDetail(res.detail ?? '');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo probar el audio.');
+    } finally { setWorking(false); }
+  }
+
+  const fallan = items?.filter((i) => !i.ok) ?? [];
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => void run()} disabled={working}
+          title="Sintetiza cada audio y lo transcribe: lo que no se reconoce, el alumno tampoco lo entiende"
+          className="flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 disabled:opacity-50">
+          <Volume2 size={15} /> Probar el audio
+        </button>
+        {working && <span className="text-xs font-semibold text-slate-500 animate-pulse">✦ Escuchando la hoja…</span>}
+      </div>
+      {err && <p className="text-xs text-red-500">{err}</p>}
+      {items && (
+        <div className="mt-1 grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 text-sm">
+          {detail && <p className="text-slate-500">{detail}</p>}
+          {!detail && (
+            <p className="font-semibold text-slate-700">
+              {fallan.length === 0
+                ? `✓ Las ${items.length} actividades con audio se entienden bien.`
+                : `${fallan.length} de ${items.length} no se transcriben igual que el texto:`}
+            </p>
+          )}
+          {fallan.map((i, n) => (
+            <div key={n} className="rounded-xl bg-amber-50 px-3 py-2 text-xs">
+              <p className="font-semibold text-amber-800">{i.type}</p>
+              <p className="text-slate-600"><span className="font-semibold">dice:</span> {i.text}</p>
+              <p className="text-slate-600"><span className="font-semibold">se oye:</span> {i.error ? `⚠ ${i.error}` : i.heard}</p>
+            </div>
+          ))}
+          <button type="button" onClick={() => setItems(null)} className="w-fit text-xs font-semibold text-slate-500 underline hover:text-slate-700">Cerrar</button>
         </div>
       )}
     </div>
@@ -666,6 +769,8 @@ export function WorksheetEditor({
 
         <div className="flex flex-wrap items-center gap-3">
           {mode === 'visual' && <AskAiEdit getScript={() => visualScriptRef.current?.() ?? scriptDraft} onApply={(s) => { onScriptChange(s); setMode('script'); }} />}
+          {mode === 'visual' && <AskAiReview getScript={() => visualScriptRef.current?.() ?? scriptDraft} printable={printable} />}
+          {mode === 'visual' && !printable && <AskAudioCheck getScript={() => visualScriptRef.current?.() ?? scriptDraft} />}
           <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
         </div>
 
@@ -712,7 +817,11 @@ export function WorksheetEditor({
       {savedPanel}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <AskAiEdit getScript={() => scriptDraft} onApply={onScriptChange} />
+        <div className="flex flex-wrap items-center gap-3">
+          <AskAiEdit getScript={() => scriptDraft} onApply={onScriptChange} />
+          <AskAiReview getScript={() => scriptDraft} printable={printable} />
+          {!printable && <AskAudioCheck getScript={() => scriptDraft} />}
+        </div>
         <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
       </div>
 
