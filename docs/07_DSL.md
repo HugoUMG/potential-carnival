@@ -2655,6 +2655,15 @@ Leer **antes** de crear una hoja. Aplican al **contenido**, más allá de que el
 - **Sin pistas dentro de la pregunta:** el enunciado no debe contener la respuesta ni delatarla por
   concordancia obvia.
 - **Sin respuesta revelada en otra actividad.**
+- **Una sola respuesta válida — se comprueba sustituyendo:** mete cada distractor en la oración y
+  léela. Si una segunda opción también encaja (gramática *y* significado), el ítem está roto: cambia
+  el distractor o añade contexto que lo descarte. En `dragdrop` un distractor debe ser incorrecto en
+  **todos** los huecos del texto, no solo en el suyo; en `matching` cada elemento de la izquierda
+  debe corresponder a uno solo de la derecha (categorías como "Breakfast drink" se rompen si dos
+  opciones encajan); en un `multiplechoice` sobre un hueco, la respuesta debe encajar en la oración
+  **tal como está escrita** ("What _____ she buy yesterday?" → `did`, no `buy` ni `bought`).
+  Es el error más frecuente de la IA al generar: lo detecta el botón **Revisar hoja**
+  ([06_AI](06_AI.md)), pero sale más barato no cometerlo.
 
 ### Evitar patrones predecibles
 

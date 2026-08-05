@@ -721,6 +721,21 @@ export async function aiEditWorksheet(scriptContent: string, instruction: string
   return request<{ script: string; provider: string }>('/worksheets/ai-edit', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, instruction }) });
 }
 
+/** Pídele a la IA que RESUELVA la hoja como alumno y reporte los problemas (respuestas ambiguas,
+ *  `answer` equivocado, instrucciones confusas). Devuelve un informe en Markdown; no modifica nada.
+ *  `printable` = revísala como hoja impresa en papel. */
+export async function aiReviewWorksheet(scriptContent: string, printable = false): Promise<{ report: string; provider: string }> {
+  return request<{ report: string; provider: string }>('/worksheets/ai-review', { method: 'POST', body: JSON.stringify({ script_content: scriptContent, printable }) });
+}
+
+export interface AudioCheckItem { type: string; text: string; heard: string; ok: boolean; error?: string }
+
+/** Prueba el audio de la hoja: cada texto audible se sintetiza (TTS) y se transcribe (Whisper).
+ *  Lo que Whisper no reconoce, el alumno tampoco lo entiende. Tarda: una vuelta por actividad. */
+export async function audioCheckWorksheet(scriptContent: string): Promise<{ items: AudioCheckItem[]; detail?: string }> {
+  return request<{ items: AudioCheckItem[]; detail?: string }>('/worksheets/audio-check', { method: 'POST', body: JSON.stringify({ script_content: scriptContent }) });
+}
+
 /** `printable` = modo físico: la hoja se va a imprimir, así que el backend restringe la generación
  *  a los tipos que pasan a papel (sin listening* ni speaking ni conversation). La hoja generada se
  *  guarda con la autoevaluación IA (`aiGrading`) y la tolerancia (`aiTolerance`) elegidas.

@@ -167,6 +167,11 @@ class AiEditRequest(BaseModel):
     instruction: str
 
 
+class AiReviewRequest(BaseModel):
+    script_content: str
+    printable: bool = False
+
+
 class AnswerReview(BaseModel):
     activity_id: str
     status: Literal["correct", "incorrect"]

@@ -18,7 +18,7 @@ Los tres, más `python -m compileall backend/app backend/tests`, son la verifica
 un commit grande. No hay CI que los ejecute: el único workflow de GitHub Actions es el respaldo
 semanal de la base.
 
-> **Estado real a 2026-08-04:** `pytest` pasa (61 tests). `npm run lint` y `npm run build` están
+> **Estado real a 2026-08-04:** `pytest` pasa (71 tests). `npm run lint` y `npm run build` están
 > limpios. La regla al trabajar es **no añadir errores nuevos**; dejarlo en cero ya está hecho.
 
 ## Qué hay cubierto
@@ -38,6 +38,9 @@ red que hay.
 | `test_teacher_images.py` | El aislamiento de la biblioteca personal: un profesor no ve ni puede borrar la imagen de otro (`delete_teacher_image` filtra por `teacher_id` en el SQL) |
 | `test_note_privada.py` | El campo privado `note` (ADR-19): que se persiste, que **no viaja** al alumno ni en el json ni en el script (`_without_notes`), que el profesor la conserva, que llega a la IA como `teacher_note` sin colarse en el detalle, y que el alumno autenticado no la recibe en `GET /worksheets/{id}` |
 | `test_actividades_imagen.py` | `imagechoice` e `imagematching` (ADR-20): la clave sigue siendo texto y las URLs van paralelas, se califican con las ramas de `multiplechoice`/`matching`, validaciones de `option_images`/`left_images`, y el **round-trip** con el DSL que emite el constructor visual |
+| `test_respuesta_filtrada.py` | `_clean_script` borra los paréntesis con la respuesta del texto visible (`(answer: went)`, `(respuesta: B)`) sin tocar la línea `answer:` ni las pistas gramaticales `(go)` |
+| `test_prueba_audio.py` | Prueba de audio: `_audible_text` saca lo que suena de cada tipo (`listening`→`text`, resto→`audio_text`, `speaking`→`target`, `conversation`→turnos encadenados) y `_same_words` ignora puntuación y cifras (`seven` ≡ `7`) pero no cambios reales (`3rd` ≠ `third`) |
+| `test_revision_hoja.py` | `review_worksheet_script` manda el script completo y un system prompt de "resuélvela como alumno", y el modo físico cambia la instrucción (`IMPRIMIR`) |
 | `test_modo_fisico.py` | Modo físico (ADR-21): las listas `PRINTABLE_TYPES`/`NON_PRINTABLE_TYPES` cubren todo sin solaparse, `strip_non_printable` deja solo lo imprimible, no descuadra prefixos (`listening` vs `listeningfillblank`), y `_PRINTABLE_MODE` solo aparece cuando se pide `printable`. También el **banco de imágenes**: `_image_bank_section` entra al system prompt solo cuando se provee `image_bank`, y lleva URL y descripción para que las oraciones las respeten |
 
 > `test_every_documented_type_parses` (en `test_parser.py`) ahora cubre los **21 tipos**

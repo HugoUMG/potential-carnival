@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import threading
 import time
 from typing import Any
@@ -98,6 +99,10 @@ rest of the line and the others are LOST (the sheet is rejected or the activity 
   NEVER write a `note` yourself — you do not know what the teacher wants graded. Leave it out.
 - Use \\n for line breaks inside strings
 - Quotes INSIDE a string: use typographic “ ” — \\" stays literal and the student sees a backslash
+- NEVER leak the answer in the text the student reads. No "(answer: went)", no "(correct: B)",
+  no "(R: true)" inside `question`, `instructions`, `sentence`, statements or options. The answer
+  goes ONLY in the `answer` field. A parenthesis is allowed only as a grammar cue that the student
+  still has to conjugate, e.g. "She _____ (go) to school." — the bare infinitive, never the solution.
 - fillblank blank marker: _____ (exactly 5 underscores)
 - Multiple blanks: answer: ["word1", "word2"]  — one entry per blank, in order
 - truefalse / listeningtruefalse statements format (one per line, the | is REQUIRED — a statement
@@ -142,6 +147,16 @@ NEVER use a field called "audio:" — it does not exist.
 8. Keep one coherent topic/thread through the whole sheet.
 9. Each activity must teach something by doing it. If a student can answer it without knowing the
    topic, rewrite it.
+10. *** ONE VALID ANSWER — TEST EVERY ITEM BEFORE WRITING IT ***
+    Substitute each distractor into the sentence and read it. If a second option is also correct
+    (grammar AND meaning), the item is broken: change the distractor or add context that rules it
+    out ("drink a glass of _____" with `milk` and `water` in the bank → say "…with my cereal").
+    - `dragdrop`: a distractor must be wrong in EVERY blank of that text, not just in its own.
+    - `multiplechoice` on a gap: the key must fit the gap AS WRITTEN. If the question is
+      "What _____ she buy yesterday?" the key is "did" — options like "buy"/"bought"/"did buy"
+      make the sentence ungrammatical. Read the full sentence with each option before saving it.
+    - `matching`: each left item must match exactly one right item. Categories like
+      "Breakfast drink" break if two options on the right qualify.
 
 === USING `content` (theory/review) ===
 `content` is a read-only review box. It is NOT required — add it when the user asks for theory,
@@ -734,7 +749,26 @@ def _clean_script(raw: str) -> str:
     # Si el modelo olvidó el envoltorio, se agrega uno mínimo (evita "Falta el bloque worksheet").
     if not raw.startswith("worksheet"):
         raw = f"worksheet {{\n{raw}\n}}"
-    return raw
+    return _strip_leaked_answers(raw)
+
+
+# Paréntesis del tipo "(answer: went)", "(correcto: B)", "(R: true)" en el texto que LEE el alumno.
+# Se pide en el prompt, pero el modelo reincide, así que se borra a mano. No toca las pistas
+# gramaticales legítimas ("She _____ (go) to school.") porque exige la palabra clave + separador.
+_LEAKED_ANSWER = re.compile(
+    r"\s*[（(]\s*(?:answers?|ans|correct(?:\s+answer)?|solution|key|respuestas?|correct[oa]s?|soluci[óo]n|r)\s*[:=]\s*[^)）]*[)）]",
+    re.IGNORECASE,
+)
+
+
+def _strip_leaked_answers(script: str) -> str:
+    out = []
+    for line in script.splitlines():
+        # La línea `answer:` es donde la respuesta SÍ va; no se toca.
+        if not re.match(r"\s*answers?\s*:", line):
+            line = _LEAKED_ANSWER.sub("", line)
+        out.append(line)
+    return "\n".join(out)
 
 
 _PRINTABLE_MODE = """
@@ -748,7 +782,11 @@ This sheet will be PRINTED ON PAPER. There is no audio and no microphone on pape
 - Use only: fillblank, dragdrop, matching, truefalse, multiplechoice, multiselect, textbox,
   reading, readingtruefalse, content, imagequestion, imagechoice, imagematching.
 - Prefer activities that are solved by hand with a pen: writing the word, circling a letter,
-  drawing a line between two columns, marking T/F."""
+  drawing a line between two columns, marking T/F.
+- WORDING: no `title` or `instructions` may tell the student to drag, click, tap, listen or record
+  — on paper those mean nothing. `dragdrop` prints as a WORD BANK, so its instructions say "write
+  the correct word from the box in each blank" (never "drag"), and its block title must not be
+  "Drag and Drop". Use: escribe / completa / circula / une con una línea / marca."""
 
 
 def generate_worksheet_script(prompt: str, printable: bool = False, image_bank: list[dict] | None = None) -> tuple[str, str]:
@@ -813,6 +851,113 @@ def edit_worksheet_script(current_script: str, instruction: str) -> tuple[str, s
     )
     raw, provider = _ai_call(_WORKSHEET_SYSTEM, user)
     return _clean_script(raw), provider
+
+
+# ── Revisión de una hoja (opcional, la pide el profesor) ───────────────────────
+_REVIEW_SYSTEM = """Eres un ESTUDIANTE de inglés al que le acaban de dar esta hoja de trabajo.
+No conoces las respuestas: solo ves lo que está escrito. RESUÉLVELA de verdad, actividad por
+actividad, y anota dónde te trabaste. Después compara tus respuestas con el campo `answer` de cada
+actividad (ese campo el alumno NO lo ve, tú sí porque estás revisando).
+
+*** PROHIBIDO REPORTAR (la plataforma ya lo resuelve; si lo escribes, el informe no sirve) ***
+- Que "falta dónde responder", "falta una caja de texto", "falta un `textbox`" o "no se sabe cómo
+  responde el alumno". CADA tipo trae su propio campo de respuesta: cada pregunta de `reading` tiene
+  su caja de texto, `truefalse` sus botones, `multiplechoice` sus casillas, `dragdrop` sus fichas.
+  El script NO declara la interfaz y no tiene por qué hacerlo.
+- Que un tipo "está mal clasificado" o "debería ser otro tipo".
+- Cualquier comentario sobre diseño, espacio, líneas, columnas o maquetado.
+Si tu única observación es una de estas, di que la hoja está lista.
+
+Reporta SOLO problemas reales. Céntrate en:
+1. Actividades IMPOSIBLES de resolver: falta información, la respuesta no se deduce de lo que se ve,
+   la imagen o el audio no está o no aporta lo necesario.
+2. Respuestas AMBIGUAS: más de una opción es correcta, o la tuya es tan válida como la del `answer`.
+3. `answer` EQUIVOCADO o que no encaja con lo que se pregunta.
+4. Instrucciones confusas, ausentes o que no dicen QUÉ hacer (marcar, escribir, unir, circular).
+5. Respuestas FILTRADAS en el texto que lee el alumno.
+6. Nivel incoherente: vocabulario o gramática muy por encima o por debajo del resto de la hoja.
+
+Formato de salida (español, en Markdown, sin preámbulo):
+- Una línea `**Veredicto:** …` con una frase: lista para usar / con detalles menores / tiene errores.
+- Después una viñeta por problema: `- **[título de la actividad o su tipo]** — qué falla y cómo
+  arreglarlo en una frase.`
+- Si NO encuentras nada, escribe solo el veredicto y `- Sin problemas: resolví todas las
+  actividades y las respuestas coinciden.`
+No reescribas la hoja ni devuelvas el script. No felicites ni resumas el contenido."""
+
+_REVIEW_ON_SCREEN = """
+
+=== ESTA HOJA SE RESUELVE EN PANTALLA ===
+El alumno la hace en la plataforma, NO en papel. El audio existe: los tipos `listening*` y
+`conversation` se leen en voz alta con voz sintética (TTS) a partir del texto del script, así que son
+perfectamente resolubles: el `text` de `listening` y el `audio_text` de los demás NO se muestran en
+pantalla, solo suenan, así que el alumno escucha y no lee. `dragdrop` arrastra fichas, `matching` une con clics y las imágenes
+(`imagequestion`, `imagechoice`, `imagematching`) se muestran desde su URL. NO reportes nada de
+esto como problema: solo revisa el CONTENIDO.
+El DESORDEN también es automático: en `listeningorder` el alumno ve las palabras de `answer`
+barajadas como fichas (el campo `bank` es opcional), y las `options` y la columna derecha de
+`matching` se muestran mezcladas. Nunca digas que "falta la lista desordenada" ni que "el orden
+correcto está a la vista": el script guarda el orden correcto, el alumno no lo ve."""
+
+_REVIEW_ON_PAPER = """
+
+=== ESTA HOJA SE VA A IMPRIMIR ===
+La hace con lápiz sobre papel. Reporta lo que en papel no se puede hacer: actividades que dependen
+de audio (`listening*`, `conversation`) o de hablar (`speaking`), y cualquier "haz clic" o
+"escucha" en el texto.
+`dragdrop` SÍ funciona en papel y no debes reportarlo: su `bank` se imprime como banco de palabras
+y el alumno escribe la que toca en la línea.
+El MAQUETADO de la impresión es automático, NO lo reportes: cada `_____` se imprime como una línea
+para escribir, `textbox` se imprime con renglones, `matching` en dos columnas para unir y las
+opciones con su casilla. Nunca digas que "falta espacio para escribir" ni que "hay que añadir
+líneas o columnas": eso ya lo hace la plataforma. Reporta el CONTENIDO, no el diseño."""
+
+
+# Quejas de INTERFAZ que el prompt ya prohíbe pero que gemini-flash-lite sigue colando: "falta una
+# caja de texto para responder", "el tipo está mal clasificado". Son siempre falsas — cada tipo trae
+# su campo de respuesta — y desconfían al profesor de un informe que en lo demás acierta.
+_UI_COMPLAINT = re.compile(
+    r"(caja[s]? de texto|campo[s]? de respuesta|d[oó]nde responder|"
+    r"a[ñn]adir un `?textbox|mal clasificad|deber[íi]a ser (?:otro|de otro) tipo|"
+    r"mecanismo de (?:verificaci[oó]n|validaci[oó]n))",
+    re.IGNORECASE,
+)
+_VERDICT_OK = "**Veredicto:** lista para usar\n- Sin problemas: resolví todas las actividades y las respuestas coinciden."
+
+
+def _strip_ui_complaints(report: str) -> str:
+    """Borra del informe las viñetas que solo se quejan de la interfaz.
+
+    Una viñeta va de un `- ` hasta el siguiente: el modelo parte las frases largas en varias líneas.
+    Si al filtrar no queda ninguna, el veredicto se reescribe: dejar "tiene errores" sin errores
+    debajo es peor que no filtrar.
+    """
+    lines = report.splitlines()
+    head = [ln for ln in lines if not ln.lstrip().startswith("- ")]
+    bullets: list[list[str]] = []
+    for line in lines:
+        if line.lstrip().startswith("- "):
+            bullets.append([line])
+        elif bullets and line.strip() and not line.lstrip().startswith("**"):
+            bullets[-1].append(line)  # continuación de la viñeta anterior
+    kept = ["\n".join(b) for b in bullets if not _UI_COMPLAINT.search(" ".join(b))]
+    if not kept:
+        return _VERDICT_OK
+    verdict = next((ln for ln in head if "Veredicto" in ln), "**Veredicto:** con detalles menores")
+    return "\n".join([verdict, "", *kept])
+
+
+def review_worksheet_script(script: str, printable: bool = False) -> tuple[str, str]:
+    """Devuelve (informe_markdown, etiqueta_del_proveedor).
+
+    La IA resuelve la hoja como alumno para detectar lo que solo se ve al hacerla: respuestas
+    ambiguas, `answer` equivocado, instrucciones que no dicen qué hacer. Es OPCIONAL y no modifica
+    nada: es un informe que el profesor lee y decide.
+    """
+    system = _REVIEW_SYSTEM + (_REVIEW_ON_PAPER if printable else _REVIEW_ON_SCREEN)
+    user = f"Hoja de trabajo a revisar (WorksheetScript):\n\n{script}\n\nResuélvela y reporta los problemas."
+    report, provider = _ai_call(system, user)
+    return _strip_ui_complaints(report), provider
 
 
 # ── AI grading ─────────────────────────────────────────────────────────────────
