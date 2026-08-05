@@ -157,6 +157,9 @@ class AiGenerateRequest(BaseModel):
     printable: bool = False
     ai_grading: bool = True
     ai_tolerance: int = Field(default=50, ge=0, le=100)
+    # Biblioteca gratuita del profesor: [{id, name, description, url, tags, level}…]. Cuando se
+    # provee, las actividades de imagen generadas usan solo URLs del banco.
+    image_bank: list[dict] | None = None
 
 
 class AiEditRequest(BaseModel):

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Check, Copy, Download, ImageIcon, Search, X } from 'lucide-react';
+import { Check, Copy, Download, ImageIcon, Loader2, Search, X } from 'lucide-react';
 import libraryData from '../data/image-library.json';
 import { MyImagesGrid } from '../components/ImagePicker';
 
@@ -22,8 +22,79 @@ type Category = {
   images: ImageEntry[];
 };
 
-const categories = libraryData.categories as Category[];
 const ALL_ID = '__all__';
+
+/** Comprueba que la URL siga viva (HEAD; si el CDN rechaza HEAD, GET). Sin esto, una imagen que el
+ *  alumno ve como "no disponible" pasa el check porque el `<img>` no dispara `onError`. */
+async function urlIsAlive(url: string): Promise<boolean> {
+  try {
+    const head = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+    if (head.ok) return true;
+  } catch { /* el CDN puede no servir HEAD → probamos GET */ }
+  try {
+    const get = await fetch(url, { method: 'GET', cache: 'no-store' });
+    return get.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function mapWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<boolean>): Promise<boolean[]> {
+  const results = new Array<boolean>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = next++;
+      if (idx >= items.length) return;
+      results[idx] = await fn(items[idx]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+/** Reemplaza las entradas rotas por la imagen sana más parecida (misma categoría y etiquetas en
+ *  común); la entrada rota conserva su id y adopta el contenido de la candidata, y la candidata
+ *  deja de existir por separado (así no hay duplicados ni huecos). Devuelve el JSON reparado. */
+function repairLibrary(data: typeof libraryData, deadIds: Set<string>): { data: typeof libraryData; replaced: number; stillBroken: Set<string> } {
+  const cats = data.categories as Category[];
+  const stillBroken = new Set<string>();
+  let replaced = 0;
+
+  const find = (id: string): { cat: Category; img: ImageEntry } | null => {
+    for (const cat of cats) {
+      const img = cat.images.find((i) => i.id === id);
+      if (img) return { cat, img };
+    }
+    return null;
+  };
+
+  for (const deadId of deadIds) {
+    const broken = find(deadId);
+    if (!broken) continue;
+    let best: { cat: Category; img: ImageEntry } | null = null;
+    let bestScore = -1;
+    for (const cat of cats) {
+      for (const img of cat.images) {
+        if (img.id === deadId) continue;
+        let score = 0;
+        if (cat === broken.cat) score += 5;
+        score += img.tags.filter((t) => broken.img.tags.includes(t)).length * 2;
+        const words = new Set((broken.img.name + ' ' + broken.img.description).toLowerCase().split(/\W+/).filter(Boolean));
+        score += (img.name + ' ' + img.description).toLowerCase().split(/\W+/).filter((w) => words.has(w)).length;
+        if (score > bestScore) { bestScore = score; best = { cat, img }; }
+      }
+    }
+    if (best) {
+      Object.assign(broken.img, best.img, { id: broken.img.id });
+      best.cat.images = best.cat.images.filter((i) => i.id !== best.img.id);
+      replaced++;
+    } else {
+      stillBroken.add(deadId);
+    }
+  }
+  return { data, replaced, stillBroken };
+}
 
 export function ImageLibraryPage() {
   const [tab, setTab] = useState<'gratis' | 'mia'>('gratis');
@@ -32,13 +103,19 @@ export function ImageLibraryPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<ImageEntry | null>(null);
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  const [libData, setLibData] = useState<typeof libraryData>(libraryData);
+  const [checking, setChecking] = useState(false);
+  const [checkProgress, setCheckProgress] = useState<{ done: number; total: number } | null>(null);
+  const [repairSummary, setRepairSummary] = useState<string | null>(null);
+
+  const categories = libData.categories as Category[];
 
   const allImages: (ImageEntry & { categoryName: string; categoryColor: string })[] = useMemo(
     () =>
       categories.flatMap((cat) =>
         cat.images.map((img) => ({ ...img, categoryName: cat.name, categoryColor: cat.color })),
       ),
-    [],
+    [categories],
   );
 
   const filteredImages = useMemo(() => {
@@ -54,7 +131,7 @@ export function ImageLibraryPage() {
         img.description.toLowerCase().includes(q) ||
         img.tags.some((t) => t.toLowerCase().includes(q)),
     );
-  }, [selectedCategory, search, allImages]);
+  }, [selectedCategory, search, allImages, categories]);
 
   function copyUrl(img: { id: string; url: string }) {
     void navigator.clipboard.writeText(img.url).then(() => {
@@ -64,12 +141,50 @@ export function ImageLibraryPage() {
   }
 
   function downloadJson() {
-    const blob = new Blob([JSON.stringify(libraryData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(libData, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'image-library.json';
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+
+  /** Verifica los enlaces de TODA la biblioteca y reemplaza los rotos por la imagen sana más
+   *  parecida. El JSON resultante vive en memoria: se descarga con "Descargar JSON" y se vuelve a
+   *  poner en `src/data/image-library.json`. */
+  async function checkAndRepairLibrary() {
+    setChecking(true);
+    setRepairSummary(null);
+    setBrokenImages(new Set());
+    const all = libData.categories as Category[];
+    const flat = all.flatMap((cat) => cat.images.map((img) => ({ cat, img })));
+    setCheckProgress({ done: 0, total: flat.length });
+    let done = 0;
+    const alive = await mapWithConcurrency(flat, 6, async (entry) => {
+      const ok = await urlIsAlive(entry.img.url);
+      done++;
+      setCheckProgress({ done, total: flat.length });
+      return ok;
+    });
+    const deadIds = new Set(flat.filter((_, i) => !alive[i]).map((entry) => entry.img.id));
+    let replaced = 0;
+    let stillBroken: Set<string> = new Set();
+    if (deadIds.size > 0) {
+      const repaired = repairLibrary(JSON.parse(JSON.stringify(libData)) as typeof libraryData, deadIds);
+      setLibData(repaired.data);
+      replaced = repaired.replaced;
+      stillBroken = repaired.stillBroken;
+      setBrokenImages(stillBroken);
+    }
+    setCheckProgress(null);
+    setChecking(false);
+    setRepairSummary(
+      deadIds.size === 0
+        ? `✓ Los ${flat.length} enlaces están activos. La biblioteca no necesita reparación.`
+        : `Verificadas ${flat.length} imágenes · ${deadIds.size} rota(s) · ${replaced} reemplazada(s) con la más parecida`
+          + (stillBroken.size > 0 ? ` · ${stillBroken.size} sin parecida, quedaron marcadas` : '')
+          + '. Descarga el JSON reparado y sustitúyelo en src/data/image-library.json.',
+    );
   }
 
   function levelColor(level: string) {
@@ -99,14 +214,32 @@ export function ImageLibraryPage() {
         {tab === 'gratis' && (
           <div className="flex flex-wrap gap-2">
             <button
+              className="flex items-center gap-2 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-60"
+              onClick={() => void checkAndRepairLibrary()}
+              disabled={checking}
+              title="Revisa que todos los enlaces sigan activos y reemplaza los rotos por la imagen más parecida de la biblioteca"
+            >
+              {checking ? <><Loader2 size={15} className="animate-spin" /> Verificando…</> : <><Check size={15} /> Verificar enlaces</>}
+            </button>
+            <button
               className="flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               onClick={downloadJson}
+              title="Descargar el JSON actual (el reparado, si acabas de verificar)"
             >
               <Download size={15} /> Descargar JSON
             </button>
           </div>
         )}
       </div>
+
+      {checkProgress && (
+        <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 size={14} className="animate-spin" /> Verificando enlaces… {checkProgress.done}/{checkProgress.total}
+        </p>
+      )}
+      {repairSummary && (
+        <p className="mt-3 rounded-2xl bg-violet-50 px-4 py-3 text-sm text-violet-800">{repairSummary}</p>
+      )}
 
       {/* Sub-pestañas: la gratuita (JSON estático) y la personal (persistida en BD) */}
       <div className="mt-4 flex gap-2">
@@ -133,7 +266,7 @@ export function ImageLibraryPage() {
       ) : (
         <>
       <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <strong>¿Cómo usar?</strong> Haz clic en <strong>Copiar URL</strong> y pégala en el campo <code>image:</code> de tu actividad DSL. Si una imagen no carga, reemplaza la URL con otra de <a href="https://unsplash.com" target="_blank" rel="noreferrer" className="underline">unsplash.com</a>.
+        <strong>¿Cómo usar?</strong> Haz clic en <strong>Copiar URL</strong> y pégala en el campo <code>image:</code> de tu actividad DSL. Si una imagen no carga o su enlace murió, usa <strong>Verificar enlaces</strong>: revisa toda la biblioteca y reemplaza las rotas por la más parecida; luego descarga el JSON reparado y sustitúyelo en <code>src/data/image-library.json</code>.
       </p>
 
       {/* Search */}

@@ -751,16 +751,54 @@ This sheet will be PRINTED ON PAPER. There is no audio and no microphone on pape
   drawing a line between two columns, marking T/F."""
 
 
-def generate_worksheet_script(prompt: str, printable: bool = False) -> tuple[str, str]:
+def generate_worksheet_script(prompt: str, printable: bool = False, image_bank: list[dict] | None = None) -> tuple[str, str]:
     """Devuelve (script, etiqueta_del_proveedor).
 
     `printable` (modo físico) se lo pide al modelo en el prompt. El FILTRO de verdad vive fuera,
     en `parser.strip_non_printable`: pedirlo es barato pero el modelo desobedece de vez en cuando,
     y una hoja para imprimir con un listening dentro sale con un hueco silencioso en el papel.
+
+    `image_bank` es la biblioteca gratuita del profesor (id, name, description, url, tags, level):
+    cuando se provee, las actividades de imagen (`imagequestion`, `imagechoice`, `imagematching`)
+    DEBEN usar una URL del banco, eligiendo imágenes acordes al tema y redactando las oraciones
+    según la descripción de cada una.
     """
-    system = _WORKSHEET_SYSTEM + _PRINTABLE_MODE if printable else _WORKSHEET_SYSTEM
+    system = _WORKSHEET_SYSTEM
+    if printable:
+        system += _PRINTABLE_MODE
+    if image_bank:
+        system += _image_bank_section(image_bank)
     raw, provider = _ai_call(system, prompt)
     return _clean_script(raw), provider
+
+
+def _image_bank_section(image_bank: list[dict]) -> str:
+    """La biblioteca de imágenes del profesor, en sección del system prompt.
+
+    Los dos bloques del prompt (base y banco) se contradicen a propósito: la base dice "no puedes
+    aportar imágenes", y esta sección dice "cuando hay banco, úsalas". Es el mismo patrón que
+    `_PRINTABLE_MODE`, que sobreescribe el comportamiento por defecto.
+    """
+    lines = [
+        "\n=== IMAGE BANK (real images the teacher's library provides — USE THEM) ===",
+        "For image activities use ONLY a URL from this bank. Every URL is REAL and loads for the",
+        "student, so `imagequestion`, `imagechoice` and `imagematching` can (and should) be used.",
+        "Rules:",
+        "- Pick the images whose description/tags match the sheet topic. Never use the same image",
+        "  twice in one sheet.",
+        "- You only know each picture through its `description`: write the sentences, questions and",
+        "  options to match WHAT THE DESCRIPTION SAYS. Do not describe things the description does",
+        "  not mention.",
+        "- `name` is a short label, `description` says what is in the picture, `tags` are search",
+        "  words and `level` is the suggested language level of the image.",
+    ]
+    for img in image_bank:
+        tags = ", ".join(img.get("tags") or [])
+        lines.append(
+            f"- [{img.get('id', '?')}] {img.get('name', '?')} (level {img.get('level', '?')}): "
+            f"{img.get('description', '?')} — tags: {tags} — URL: {img.get('url', '')}"
+        )
+    return "\n".join(lines)
 
 
 def edit_worksheet_script(current_script: str, instruction: str) -> tuple[str, str]:
