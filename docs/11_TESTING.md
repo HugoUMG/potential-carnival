@@ -34,6 +34,7 @@ red que hay.
 | `test_student_isolation.py` | `users.created_by`: el backfill del arranque, que un profesor nuevo no vea alumnos heredados, que no pueda administrarlos por id, el seed demo, y que sin ningún profesor el alumno quede sin dueño |
 | `test_google_auth.py` | `/auth/google`: token válido, **503 sin `GOOGLE_CLIENT_ID` sin llamar a Google**, rechazo de claims inválidos (`aud`, `iss`, `email_verified`), 401 si Google rechaza |
 | `test_security.py` | Que el hash no guarde texto plano y verifique; round-trip del JWT |
+| `test_permisos_publicos.py` | Que un `reader` no pueda fijar la contraseña del admin ni editar a otro usuario (antes caía fuera de la cadena de `if` y llegaba al `UPDATE`); el aislamiento de invitados (cada profesor ve solo los de sus aulas, el detalle exige ser dueño del aula, un `classroom_id` inventado no aparece en ningún panel); y los topes de los públicos: `_rate_limit` corta con 429, cada IP tiene su cupo, y la IP se toma de la **derecha** del `X-Forwarded-For` (la izquierda es falsificable) |
 | `test_dotenv.py` | El parser de `.env`: UTF-8, la línea añadida en UTF-16 por PowerShell, que el entorno existente gane, y que la ausencia del archivo no sea error |
 | `test_teacher_images.py` | El aislamiento de la biblioteca personal: un profesor no ve ni puede borrar la imagen de otro (`delete_teacher_image` filtra por `teacher_id` en el SQL) |
 | `test_note_privada.py` | El campo privado `note` (ADR-19): que se persiste, que **no viaja** al alumno ni en el json ni en el script (`_without_notes`), que el profesor la conserva, que llega a la IA como `teacher_note` sin colarse en el detalle, y que el alumno autenticado no la recibe en `GET /worksheets/{id}` |
@@ -81,6 +82,8 @@ algo que no funciona, ese test falla.
 | El prompt de calificación | Un `assert` en `test_grade_prompt.py` sobre la regla concreta |
 | Un campo privado que no debe ver el alumno | Un caso en `test_note_privada.py` (json + script + cada endpoint que entregue la hoja) |
 | Permisos o propiedad de recursos | `test_student_isolation.py` |
+| Una ruta que ramifica por rol | `test_permisos_publicos.py`, con el rol que **no** debería pasar |
+| Un `/public/*` con tope de tamaño o de peticiones | `test_permisos_publicos.py` |
 | Auth | `test_security.py` / `test_google_auth.py` |
 | Biblioteca de imágenes personal (permisos por dueño) | `test_teacher_images.py` |
 | Frontend | No hay test: verificarlo en el navegador y dejar `npm run lint` y `npm run build` limpios |

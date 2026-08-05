@@ -6,7 +6,7 @@ import re
 import time
 
 import httpx
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
@@ -62,6 +62,42 @@ from .settings import get_allowed_origins
 app = FastAPI(title="API del constructor de hojas con IA", version="1.0.0")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 _response_locks: dict[tuple[str, str], float] = {}
+_rate_hits: dict[str, list[float]] = {}
+
+
+def _client_ip(request: Request) -> str:
+    """IP real del cliente detrás del proxy de Render.
+
+    Se toma la ENTRADA MÁS A LA DERECHA de X-Forwarded-For: es la que añade el proxy y el
+    cliente no puede falsificarla (lo que él mande queda a la izquierda). Sin esto, con
+    `request.client.host` todo el tráfico compartiría la IP del proxy y el límite de abajo
+    castigaría a todos los usuarios como si fueran uno.
+    """
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.rsplit(",", 1)[-1].strip()
+    return request.client.host if request.client else "desconocido"
+
+
+def _rate_limit(request: Request, limit: int, window: float = 60.0) -> None:
+    """Ventana deslizante por IP para los endpoints públicos que cuestan CPU o dinero.
+
+    ponytail: dict en memoria en vez de Redis o slowapi — el backend corre con un worker
+    (`render.yaml`) y esto solo tiene que frenar un script en bucle. Dos techos conocidos:
+    es POR PROCESO (con varios workers el límite real se multiplica por worker) y es POR IP
+    (un colegio entero tras un NAT comparte cupo, por eso los límites van holgados). Si hace
+    falta un límite exacto o por usuario, ahí sí: Redis.
+    """
+    now = time.monotonic()
+    ip = _client_ip(request)
+    hits = [t for t in _rate_hits.get(ip, ()) if now - t < window]
+    if len(hits) >= limit:
+        raise HTTPException(status_code=429, detail="Demasiadas peticiones. Espera un momento.")
+    hits.append(now)
+    _rate_hits[ip] = hits
+    if len(_rate_hits) > 5000:  # cota del dict: sin esto crece con cada IP vista y nunca baja
+        for stale in [k for k, v in _rate_hits.items() if not v or now - v[-1] > window]:
+            del _rate_hits[stale]
 
 app.add_middleware(
     CORSMiddleware,
@@ -223,13 +259,18 @@ def list_students(current_user: PublicUser = Depends(require_teacher_or_admin)) 
 
 @app.put("/users/{user_id}", response_model=PublicUser)
 def update_user(user_id: str, payload: UserUpdate, current_user: PublicUser = Depends(get_current_user)) -> PublicUser:
-    if current_user.role == UserRole.student and current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="No puedes editar otro usuario")
-    if current_user.role == UserRole.teacher:
+    # Lista blanca por rol, no cadena de `if`: antes el `reader` no entraba en ninguna rama y
+    # caía directo al update, pudiendo editar a cualquier usuario (incluido el admin).
+    if current_user.role in {UserRole.student, UserRole.reader}:
+        if current_user.id != user_id:
+            raise HTTPException(status_code=403, detail="No puedes editar otro usuario")
+    elif current_user.role == UserRole.teacher:
         target = repository.get_user(user_id)
         if not target or target.role != UserRole.student:
             raise HTTPException(status_code=403, detail="Los profesores solo pueden editar estudiantes")
         require_student_manager(user_id, current_user)
+    elif current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="No autorizado")
     try:
         user = repository.update_user(user_id, payload.name, payload.email, payload.username)
     except ValueError as exc:
@@ -247,6 +288,9 @@ def update_user_password(user_id: str, payload: PasswordUpdate, current_user: Pu
     # Los lectores no pueden cambiar contraseña bajo ninguna circunstancia
     if target.role == UserRole.reader:
         raise HTTPException(status_code=403, detail="La contraseña de un lector no puede modificarse")
+    # Lista blanca por rol, no cadena de `if`: antes el `reader` no entraba en ninguna rama y
+    # caía directo al update, pudiendo fijar la contraseña de CUALQUIER usuario, admin incluido.
+    # El `reader` es además la cuenta compartida, la credencial que más gente conoce.
     if current_user.role == UserRole.student:
         if current_user.id != user_id:
             raise HTTPException(status_code=403, detail="No puedes cambiar la contraseña de otro usuario")
@@ -256,6 +300,9 @@ def update_user_password(user_id: str, payload: PasswordUpdate, current_user: Pu
         if target.role != UserRole.student:
             raise HTTPException(status_code=403, detail="Los profesores solo pueden cambiar contraseñas de estudiantes")
         require_student_manager(user_id, current_user)
+    elif current_user.role != UserRole.admin:
+        # `reader` cae aquí: su propia contraseña ya la bloquea el guard de `target` de arriba.
+        raise HTTPException(status_code=403, detail="No autorizado")
     repository.update_password_hash(user_id, hash_password(payload.new_password))
 
 
@@ -388,7 +435,11 @@ def delete_my_image(image_id: str, current_user: PublicUser = Depends(require_te
 
 
 @app.get("/tts")
-async def tts(text: str = Query(min_length=1), voice: str = "en-US-GuyNeural") -> StreamingResponse:
+async def tts(request: Request, text: str = Query(min_length=1, max_length=2000), voice: str = "en-US-GuyNeural") -> StreamingResponse:
+    # Público a la fuerza: el front lo usa como `src` de un <audio>, que no manda cabeceras.
+    # El coste se acota por los dos lados — `max_length` limita lo que cuesta UNA petición
+    # (edge-tts sintetiza el mp3 entero en RAM antes de responder) y el rate limit, cuántas.
+    _rate_limit(request, limit=300)
     try:
         import edge_tts
         communicate = edge_tts.Communicate(text, voice)
@@ -403,10 +454,12 @@ async def tts(text: str = Query(min_length=1), voice: str = "en-US-GuyNeural") -
 
 @app.get("/tts/conversation")
 async def tts_conversation(
-    lines: str = Query(min_length=1),
+    request: Request,
+    lines: str = Query(min_length=1, max_length=8000),
     male: str = "en-US-GuyNeural",
     female: str = "en-US-JennyNeural",
 ) -> StreamingResponse:
+    _rate_limit(request, limit=300)
     # `lines`: una por renglón, formato `speaker|texto` (speaker que empieza con 'f' = femenina).
     # Se sintetiza cada turno con su voz y se concatenan los MP3 en una sola pista.
     # ponytail: concatenación cruda de frames MP3 (suena bien para habla). Si se necesita
@@ -1077,13 +1130,20 @@ def log_guest_session(payload: GuestSessionLog) -> None:
 
 
 @app.post("/public/transcribe")
-async def transcribe(file: UploadFile = File(...)) -> dict[str, str]:
-    """Transcribe el audio del micrófono (actividad speaking) con Groq Whisper. Público."""
+async def transcribe(request: Request, file: UploadFile = File(...)) -> dict[str, str]:
+    """Transcribe el audio del micrófono (actividad speaking) con Groq Whisper. Público.
+
+    Es el endpoint sin login que cuesta DINERO (cuota de Groq), así que se acota por los dos
+    lados: 4 MB por petición —de sobra para una respuesta hablada; 10 MB era diez veces lo que
+    hace falta— y un tope de peticiones por IP. El invitado no tiene cuenta contra la que
+    limitar, y no se le va a pedir una: el modo invitado existe para no pedirla.
+    """
+    _rate_limit(request, limit=60)
     audio = await file.read()
     if not audio:
         raise HTTPException(status_code=422, detail="Audio vacío")
-    if len(audio) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="El audio es demasiado largo (máx 10 MB)")
+    if len(audio) > 4 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="El audio es demasiado largo (máx 4 MB)")
     try:
         text = ai_transcribe(audio, file.filename or "speech.webm", file.content_type or "audio/webm")
     except Exception as exc:
@@ -1092,14 +1152,23 @@ async def transcribe(file: UploadFile = File(...)) -> dict[str, str]:
 
 
 @app.get("/teacher/guest-logs")
-def list_guest_logs(_: PublicUser = Depends(require_teacher_or_admin)) -> list[dict]:
-    """Historial de accesos de invitados para el panel del profesor."""
-    return repository.list_guest_access_logs()
+def list_guest_logs(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict]:
+    """Historial de accesos de invitados **de las aulas propias**. El admin los ve todos.
+
+    Antes devolvía los invitados de todos los profesores a cualquiera que tuviera rol de
+    profesor, sin necesidad de adivinar ningún id: era el agujero de aislamiento más ancho.
+    """
+    return repository.list_guest_access_logs(None if current_user.role == UserRole.admin else current_user.id)
 
 
 @app.get("/teacher/guest-detail")
-def guest_detail(guest_token: str, classroom_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
-    """Detalle de seguimiento de un invitado: respuestas (con título) y hojas pendientes del aula."""
+def guest_detail(guest_token: str, classroom_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Detalle de seguimiento de un invitado: respuestas (con título) y hojas pendientes del aula.
+
+    El aula tiene que ser propia: con solo el rol de profesor, un `guest_token` sacado del
+    listado abierto de antes daba las respuestas de un invitado de otro profesor.
+    """
+    require_classroom_manager(classroom_id, current_user)
     responses = repository.list_responses_by_guest_token(guest_token)
     classroom_worksheets = repository.list_classroom_worksheets(classroom_id)
     title_by_id = {w.id: w.title for w in classroom_worksheets}
@@ -1109,7 +1178,12 @@ def guest_detail(guest_token: str, classroom_id: str, _: PublicUser = Depends(re
     for r in responses:
         title = title_by_id.get(r.worksheet_id)
         if title is None:
+            # Hoja que ya no está en el aula (se desasignó después). Se conserva en el historial,
+            # pero solo si es de este profesor: el `guest_token` es del invitado, no del aula, y
+            # sin esto arrastraría respuestas de hojas ajenas.
             w = repository.get_worksheet(r.worksheet_id)
+            if w and current_user.role != UserRole.admin and w.created_by != current_user.id:
+                continue
             title = w.title if w else "(hoja eliminada)"
         data = r.model_dump(mode="json")
         data["worksheet_title"] = title
