@@ -420,6 +420,46 @@ micrófono (`speaking`) o un iframe (`content` con `sandbox`). Sin ese filtro, n
 pantalla dispararían decenas de peticiones al TTS por una imagen de 160 px. Plan:
 `docs/plans/PLAN-cambio-6-tarjetas-evaluaciones.md`.
 
+## 🟢 ADR-23 — Permisos por lista blanca de rol, y topes en los públicos sin dependencia nueva
+
+**Decisión.** Tres cosas que salieron de la revisión de seguridad de agosto de 2026:
+
+1. Una ruta que ramifica por rol **cierra con 403** para el rol no contemplado.
+2. Los `/public/*` que cuestan CPU o dinero se acotan **por tamaño de petición y por peticiones/IP**,
+   con un dict en memoria (`_rate_limit`), no con Redis ni `slowapi`.
+3. La IP se lee de la entrada **más a la derecha** del `X-Forwarded-For`.
+
+**Motivo.** (1) no es estilo: `PUT /users/{id}/password` ramificaba `if student … elif teacher …` y el
+rol `reader` no entraba en ninguna, así que caía al `UPDATE` y podía fijar la contraseña del admin.
+El fallo no fue una comprobación mal escrita sino una **ausente**, y una cadena sin cierre convierte
+"rol nuevo" en "permiso total" sin que nadie lo escriba. Con el 403 al final, el fallo por defecto es
+"no me deja".
+
+**Alternativas descartadas.**
+
+- *`slowapi` o Redis para el rate limit.* El backend corre con **un worker** (`render.yaml`) y esto
+  solo tiene que frenar un script en bucle; una dependencia nueva y un servicio más no compran nada
+  hoy. Cuando haya más de un worker o haga falta un límite exacto, el dict deja de servir — es el
+  disparador para cambiarlo, no el número de usuarios.
+- *Limitar por usuario en vez de por IP.* `/tts` se consume como `src` de un `<audio>`, que no manda
+  cabeceras, y `/public/transcribe` sostiene el modo invitado, que existe **para no pedir cuenta**.
+  No hay identidad que usar sin romper los dos casos de uso.
+- *Solo el tope de tamaño, sin límite de peticiones.* Cubre `/tts` (edge-tts sintetiza el MP3 entero
+  en RAM antes de responder, así que el tamaño es el coste), pero no `/public/transcribe`, donde cada
+  llamada gasta cuota de Groq y el daño es el **volumen**. Por eso van los dos topes, no uno.
+- *`request.client.host` para la IP.* Detrás del proxy de Render devuelve el proxy para todo el
+  mundo: el límite habría metido a todos los usuarios en un solo cupo y roto un aula entera en vez de
+  parar a nadie. Y la entrada **izquierda** del `X-Forwarded-For` la pone el cliente, así que tomarla
+  dejaría saltarse el límite con una cabecera. La derecha la añade el proxy.
+- *`--proxy-headers --forwarded-allow-ips=*` en uvicorn.* Habría dejado la IP en `request.client`,
+  pero con `*` uvicorn confía en toda la cadena y vuelve a la entrada izquierda, falsificable. Tres
+  líneas propias son más seguras que un flag que hay que razonar por versión de uvicorn.
+
+**Consecuencia.** Los números (2000/8000 caracteres, 4 MB, 300/60 por minuto) van **holgados a
+propósito**: un colegio entero tras un NAT comparte cupo. Están para frenar un bucle, no para medir
+consumo legítimo. Los dos techos conocidos —por proceso y por IP— están escritos en el docstring de
+`_rate_limit`, no solo aquí.
+
 ---
 
 ## Cómo añadir una decisión

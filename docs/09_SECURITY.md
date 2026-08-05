@@ -35,7 +35,7 @@ compartida — la credencial que más gente conoce.
 
 La forma correcta es que **el rol no contemplado termine en 403**, no en el cuerpo de la función:
 cada rama cubre un rol y la última es `elif current_user.role != UserRole.admin: raise 403`. Al
-añadir un rol nuevo, el fallo es entonces "no me deja" y no "puede con todo".
+añadir un rol nuevo, el fallo es entonces "no me deja" y no "puede con todo" ([ADR-23](15_DECISIONS.md)).
 
 Cubierto por `backend/tests/test_permisos_publicos.py`.
 

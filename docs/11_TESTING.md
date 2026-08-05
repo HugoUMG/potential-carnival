@@ -18,7 +18,7 @@ Los tres, más `python -m compileall backend/app backend/tests`, son la verifica
 un commit grande. No hay CI que los ejecute: el único workflow de GitHub Actions es el respaldo
 semanal de la base.
 
-> **Estado real a 2026-08-04:** `pytest` pasa (71 tests). `npm run lint` y `npm run build` están
+> **Estado real a 2026-08-04:** `pytest` pasa (79 tests). `npm run lint` y `npm run build` están
 > limpios. La regla al trabajar es **no añadir errores nuevos**; dejarlo en cero ya está hecho.
 
 ## Qué hay cubierto

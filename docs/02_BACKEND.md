@@ -84,6 +84,20 @@ Y comprobaciones de propiedad, que lanzan 403/404:
 **Todo endpoint nuevo lleva una de estas dependencias.** Las excepciones son las rutas `/public/*`,
 que existen a propósito sin JWT para el modo invitado y el enlace directo.
 
+Cuando una ruta **ramifica por rol** dentro del cuerpo (`PUT /users/{id}` y su `/password`), el rol no
+contemplado tiene que salir por **403 explícito**, no por el final de la función: con una cadena
+`if … elif …` sin cierre, un rol nuevo hereda permiso total en silencio. Pasó con `reader` (ADR-23).
+
+Y para los `/public/*` que gastan CPU o cuota de una API externa:
+
+| Función | Regla |
+|---------|-------|
+| `_rate_limit(request, limit, window=60)` | Ventana deslizante por IP; lanza **429** al pasarse |
+| `_client_ip(request)` | IP real: entrada más a la **derecha** del `X-Forwarded-For` |
+
+Detalle y números en [09_SECURITY](09_SECURITY.md#topes-en-los-endpoints-públicos); el porqué, en
+[ADR-23](15_DECISIONS.md).
+
 ## Calificación (en `main.py`)
 
 | Función | Qué hace |
