@@ -16,7 +16,9 @@ function hash(s: string): number {
 
 /** Mismo orden barajado que ve el alumno en pantalla (activityRegistry.shuffledByHash): determinista por (id, valor). */
 function shuffledByHash<T>(items: T[], seed: string): T[] {
-  return [...items].sort((a, b) => hash(`${seed}:${String(a)}`) - hash(`${seed}:${String(b)}`));
+  const shuffled = [...items].sort((a, b) => hash(`${seed}:${String(a)}`) - hash(`${seed}:${String(b)}`));
+  const unchanged = shuffled.every((item, index) => item === items[index]);
+  return unchanged && shuffled.length > 1 ? [...shuffled.slice(1), shuffled[0]] : shuffled;
 }
 
 /** Líneas en blanco para escribir la respuesta. */

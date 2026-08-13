@@ -304,7 +304,11 @@ function hashString(value: string): number {
  *  actividad. Evita que la IA deje siempre la 1ª opción como correcta. No afecta la calificación
  *  (MC/multiselect/dragdrop se califican por valor, no por posición). */
 function shuffledByHash<T>(items: T[], seed: string): T[] {
-  return [...items].sort((a, b) => hashString(`${seed}:${String(a)}`) - hashString(`${seed}:${String(b)}`));
+  const shuffled = [...items].sort((a, b) => hashString(`${seed}:${String(a)}`) - hashString(`${seed}:${String(b)}`));
+  // Con 3 opciones el hash devuelve el orden original 1 de cada 6 veces y parece que no baraja:
+  // se rota una posición para que nunca coincida con el orden del DSL. Mismo truco que en matching.
+  const unchanged = shuffled.every((item, index) => item === items[index]);
+  return unchanged && shuffled.length > 1 ? [...shuffled.slice(1), shuffled[0]] : shuffled;
 }
 
 function getShuffledMatches(activity: MatchingActivity | ImageMatchingActivity): string[] {
@@ -829,6 +833,7 @@ function ListeningMultipleChoiceRenderer({ activity, value, readonly, onChange }
 
 function ListeningMatchingRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<ListeningMatchingActivity>) {
   const selections = typeof value === 'object' && !Array.isArray(value) && value !== null ? (value as Record<string, string>) : {};
+  const options = useMemo(() => shuffledByHash(activity.options, activity.id), [activity.id, activity.options]);
   return (
     <div className="grid gap-4">
       <ActivityInstructions instructions={activity.instructions} />
@@ -845,7 +850,7 @@ function ListeningMatchingRenderer({ activity, value, readonly, onChange }: Acti
             onChange={(e) => { playSfx('select'); onChange(activity.id, { ...selections, [String(index)]: e.target.value }); }}
           >
             <option value="">Elige…</option>
-            {activity.options.map((opt) => (
+            {options.map((opt) => (
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
