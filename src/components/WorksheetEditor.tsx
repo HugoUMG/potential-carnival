@@ -880,7 +880,7 @@ export function WorksheetEditor({
           <span className="text-sm font-semibold text-slate-700">WorksheetScript</span>
           <textarea
             ref={scriptTextareaRef}
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none transition focus:border-rex focus:ring-4 focus:ring-rex-light resize-none overflow-hidden"
+            className="code-field mt-2 w-full rounded-2xl border border-slate-200 bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none transition focus:border-rex focus:ring-4 focus:ring-rex-light resize-none overflow-hidden"
             style={{ minHeight: '32rem' }}
             value={scriptDraft}
             onChange={(event) => onScriptChange(event.target.value)}

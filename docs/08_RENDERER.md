@@ -78,7 +78,11 @@ ambas columnas tienen **celdas de la misma altura** (`min-h-[6.5rem]` = el alto 
 `h-20`), así la palabra crece hasta igualar el tamaño de su imagen y las filas quedan alineadas.
 
 **`multiplechoice` / `multiselect` / `dragdrop`** — la app **baraja las opciones al mostrarlas**, así
-que la posición en el DSL no delata nada.
+que la posición en el DSL no delata nada. Lo mismo hace `listeningmatching` con su `options`.
+
+> `shuffledByHash` **rota una posición** cuando el hash devuelve el orden original tal cual (con 3
+> opciones pasa 1 de cada 6 veces y parece que no baraja). `WorksheetPrint` repite la misma regla
+> para que el papel coincida con la pantalla.
 
 **`listeningorder`** (`ListeningOrderRenderer`) — tap-to-place estilo Duolingo: fichas desordenadas
 que se tocan para armar la oración; tocar una ficha colocada la devuelve al banco.

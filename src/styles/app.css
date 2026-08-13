@@ -481,6 +481,15 @@ input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='
 textarea:focus, select:focus {
   background-color: rgb(255 255 255 / 0.95);
 }
+/* El editor de WorksheetScript es oscuro en los dos temas: las reglas de campo de
+   arriba no están en @layer, así que ganan a `bg-slate-950` de Tailwind y dejaban
+   texto claro sobre fondo claro en modo claro. */
+textarea.code-field, textarea.code-field:focus {
+  background-color: rgb(2 6 23);
+  color: rgb(241 245 249);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 
 .dashboard-action { background: rgb(255 255 255 / 0.5); backdrop-filter: blur(8px); border-color: rgb(255 255 255 / 0.7); }
 .dashboard-action:hover { background: rgb(237 243 222 / 0.85); }

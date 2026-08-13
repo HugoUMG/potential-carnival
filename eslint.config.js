@@ -5,7 +5,8 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   // `scripts/` son utilidades de Node (fetch, Buffer, process…), no código de la app.
-  { ignores: ['dist', 'scripts'] },
+  // `.claude/worktrees/` son copias del repo: lintarlas duplica cada error del árbol.
+  { ignores: ['dist', 'scripts', '.claude'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
