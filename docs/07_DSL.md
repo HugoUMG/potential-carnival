@@ -1853,13 +1853,14 @@ conversation {
 **Voces por hablante:** sin `male_voice`/`female_voice` cada hablante usa la voz curada de su género
 (`male` → `en-US-AndrewNeural`, `female` → `en-US-AriaNeural`). Un alias del género se traduce a la
 voz curada correspondiente (se puede cruzar a propósito, p. ej. `male_voice: female`); un nombre
-literal pasa tal cual y llega al SSML validado contra inyección (`_tts_voice`). Para diálogos entre
-niños usar las voces infantiles de edge-tts (`en-US-AnaNeural`, `en-US-MichelleNeural`,
-`en-GB-MaisieNeural`, `en-GB-LibbyNeural` para niñas; `en-US-RogerNeural` para niño — es el único
-que sirve el endpoint, y el backend le sube el tono para que suene más a niño; `en-GB-OliverNeural`
-está en el catálogo de Azure pero el endpoint de Edge no lo sirve y falla la síntesis). El
-constructor visual las ofrece en un selector por
-hablante; un nombre fuera de las 10 curadas se escribe a mano en el DSL.
+literal pasa tal cual y llega al SSML validado contra inyección (`_tts_voice`) y contra el listado
+real del endpoint de edge-tts (`_check_voice_exists`). Para diálogos entre niños las voces son
+**siempre Ana y Roger** — las únicas infantiles de la lista curada: `en-US-AnaNeural` (niña) y
+`en-US-RogerNeural` (niño, al que el backend le sube el tono +35Hz para que suene a niño). Otras
+voces infantiles del catálogo de Azure (`en-US-MichelleNeural`, `en-GB-MaisieNeural`,
+`en-GB-LibbyNeural`) solo se pueden usar por nombre literal en el DSL y el endpoint de Edge no
+sirve todas (p. ej. `en-GB-OliverNeural` falla la síntesis). El constructor visual ofrece las 8
+curadas en un selector por hablante; un nombre fuera de la lista se escribe a mano en el DSL.
 
 **Límite:** la concatenación es de frames MP3 crudos, sin silencio intermedio: los turnos suenan casi seguidos. 3–6 turnos cortos. Si hiciera falta pausa marcada, habría que intercalar un MP3 de silencio.
 

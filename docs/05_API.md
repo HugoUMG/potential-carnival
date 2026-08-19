@@ -216,12 +216,14 @@ GET    /tts/conversation?lines=…&male=…&female=…&rate=… — Diálogo con
 
 `voice`: cualquiera de las ~47 voces en inglés de edge-tts (`edge-tts --list-voices`). Por defecto
 `en-US-AndrewNeural`; `/tts/conversation` toma `male` y `female` por separado (`en-US-AndrewNeural` /
-`en-US-AriaNeural`). El selector del reproductor ofrece 10 curadas (6 adultas + 4 infantiles:
-Ana, Michelle, Maisie y Libby ♀ y Roger ♂ — `voicePreference.ts`). Roger es **el único niño** que
-sirve el endpoint de edge-tts (el catálogo de Azure tiene más, p. ej. `en-GB-OliverNeural`, pero el
-endpoint de Edge no los sirve y falla la síntesis), por eso el backend le sube el tono `+35Hz`
-(`_VOICE_PITCH`) para que suene más a niño. Un nombre literal que no esté en las 47 voces en inglés
-del endpoint se rechaza con un 400 y un mensaje claro (`_check_voice_exists`), en vez de un 500.
+`en-US-AriaNeural`). El selector del reproductor ofrece 8 curadas (6 adultas + las infantiles Ana ♀
+y Roger ♂ — `voicePreference.ts`). **Las únicas voces de niño de la plataforma son Ana y Roger**:
+en conversaciones y listening, un diálogo entre niños se hace con `en-US-AnaNeural` (niña) y
+`en-US-RogerNeural` (niño). Roger es el único niño que sirve el endpoint de edge-tts, por eso el
+backend le sube el tono `+35Hz` (`_VOICE_PITCH`) para que suene a niño. Otras infantiles del
+catálogo de Azure (Michelle, Maisie, Libby…) solo por nombre literal en el DSL, y el endpoint de
+Edge no sirve todas (p. ej. `en-GB-OliverNeural`). Un nombre literal que no esté en las 47 voces en
+inglés del endpoint se rechaza con un 400 y un mensaje claro (`_check_voice_exists`), en vez de un 500.
 Las voces de la conversación las pone el DSL (`male_voice`/`female_voice` en `conversation {}` o en
 el `lines:` de un bloque): el front las manda aquí ya resueltas a nombre edge-tts; si la actividad no
 las fija, el endpoint usa las curadas de cada género.
