@@ -490,6 +490,15 @@ def _pitch_for(voice: str) -> str | None:
     return _VOICE_PITCH.get(voice)
 
 
+def _tts_params(voice: str, rate: str) -> dict:
+    """Kwargs de `edge_tts.Communicate`. OJO: la librería hace `TypeError` si le pasas
+    `pitch=None` explícitamente (edge-tts 7.2.8), así que solo se manda `pitch` cuando existe."""
+    params: dict = {"rate": _tts_rate(rate)}
+    if pitch := _pitch_for(voice):
+        params["pitch"] = pitch
+    return params
+
+
 @app.get("/tts")
 async def tts(
     request: Request,
@@ -505,7 +514,7 @@ async def tts(
     try:
         _check_voice_exists(voice)
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice, rate=_tts_rate(rate), pitch=_pitch_for(voice))
+        communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))
         chunks: list[bytes] = []
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
@@ -546,7 +555,7 @@ async def tts_conversation(
             if not text:
                 continue
             voice = female if speaker.strip().lower().startswith("f") else male
-            communicate = edge_tts.Communicate(text, voice, rate=_tts_rate(rate), pitch=_pitch_for(voice))
+            communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     chunks.append(chunk["data"])
@@ -635,7 +644,7 @@ def _audible_text(activity: Any) -> str:
 async def _synthesize(text: str, voice: str) -> bytes:
     _check_voice_exists(voice)
     import edge_tts
-    communicate = edge_tts.Communicate(text, voice, rate=DEFAULT_TTS_RATE, pitch=_pitch_for(voice))
+    communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, DEFAULT_TTS_RATE))
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
@@ -662,7 +671,7 @@ async def _synthesize_lines(lines: list[dict], male_voice: str, female_voice: st
     for line in lines:
         speaker = (line.get("speaker") or "").strip().lower()
         voice = female_voice if speaker.startswith("f") else male_voice
-        communicate = edge_tts.Communicate((line.get("text") or "").strip(), voice, rate=DEFAULT_TTS_RATE, pitch=_pitch_for(voice))
+        communicate = edge_tts.Communicate((line.get("text") or "").strip(), voice, **_tts_params(voice, DEFAULT_TTS_RATE))
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 chunks.append(chunk["data"])
