@@ -119,8 +119,10 @@ versión saneada estática.** `content` queda fuera del chrome "Actividad N / In
 `AudioPlayer.tsx` construye la URL del TTS y reproduce el `audio/mpeg` en streaming:
 
 - Actividades `listening*` → `GET /tts?text=…&voice=…&rate=…`
-- `conversation` → prop `conversation` → `GET /tts/conversation?lines=…&rate=…` (voces m/f
-  alternadas, MP3 concatenado)
+- `conversation` → prop `conversation` → `GET /tts/conversation?lines=…&male=…&female=…&rate=…`
+  (voces m/f alternadas, MP3 concatenado). Las voces de cada hablante bajan del DSL
+  (`male_voice`/`female_voice` de la actividad o del bloque) resueltas por `resolveVoice`; sin ellas,
+  el endpoint usa las curadas de cada género.
 - `voice` (`male`/`female`) baja desde la actividad; el default es la preferencia global del usuario
   (`voicePreference.ts`, 6 voces US/UK/AU + una infantil).
 - El selector de velocidad (Muy lento / Lento / Normal) manda `rate` al servidor en vez de tocar el

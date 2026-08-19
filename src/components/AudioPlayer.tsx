@@ -15,18 +15,23 @@ import { RATES, VOICE_OPTIONS, getRate, getVoiceName, setRate, setVoiceName } fr
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-function buildTtsUrl(text: string, voice?: string, conversation?: string, rate?: string) {
+function buildTtsUrl(text: string, voice?: string, conversation?: string, rate?: string, maleVoice?: string, femaleVoice?: string) {
   const r = `&rate=${encodeURIComponent(rate ?? getRate())}`;
   // `conversation`: guion multi-voz (una línea `speaker|texto` por turno) → endpoint que
-  // sintetiza cada turno con su voz y concatena los MP3 en una sola pista.
-  if (conversation) return `${API_BASE}/tts/conversation?lines=${encodeURIComponent(conversation)}${r}`;
+  // sintetiza cada turno con su voz y concatena los MP3 en una sola pista. `male`/`female`
+  // son las voces de cada hablante; sin ellas el endpoint usa sus curadas (Andrew/Aria).
+  if (conversation) {
+    const mv = maleVoice ? `&male=${encodeURIComponent(maleVoice)}` : '';
+    const fv = femaleVoice ? `&female=${encodeURIComponent(femaleVoice)}` : '';
+    return `${API_BASE}/tts/conversation?lines=${encodeURIComponent(conversation)}${mv}${fv}${r}`;
+  }
   const v = voice ?? getVoiceName(); // usa preferencia global si no se especifica
   return `${API_BASE}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(v)}${r}`;
 }
 
 // ── Hook compartido: descarga blob y gestiona estado ─────────────────────────
 
-function useAudioBlob(text: string, voice?: string, conversation?: string, rate?: string) {
+function useAudioBlob(text: string, voice?: string, conversation?: string, rate?: string, maleVoice?: string, femaleVoice?: string) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -42,7 +47,7 @@ function useAudioBlob(text: string, voice?: string, conversation?: string, rate?
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(buildTtsUrl(text, voice, conversation, rate));
+      const res = await fetch(buildTtsUrl(text, voice, conversation, rate, maleVoice, femaleVoice));
       if (!res.ok) throw new Error(`TTS error ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -53,7 +58,7 @@ function useAudioBlob(text: string, voice?: string, conversation?: string, rate?
     } finally {
       setLoading(false);
     }
-  }, [text, voice, conversation, rate]);
+  }, [text, voice, conversation, rate, maleVoice, femaleVoice]);
 
   // Carga automática al montar y cuando cambia el texto
   useEffect(() => {
@@ -73,15 +78,17 @@ interface AudioPlayerProps {
   voice?: string;
   conversation?: string; // guion multi-voz; si está presente ignora text/voice y usa el endpoint de conversación
   rate?: string; // '±NN%' del DSL: velocidad de partida, el alumno puede seguir cambiándola
+  maleVoice?: string; // conversation: voz del hablante masculino (ya resuelta a nombre edge-tts)
+  femaleVoice?: string; // conversation: voz del hablante femenino
 }
 
-export function AudioPlayer({ text, voice, conversation, rate: dslRate }: AudioPlayerProps) {
+export function AudioPlayer({ text, voice, conversation, rate: dslRate, maleVoice, femaleVoice }: AudioPlayerProps) {
   const [voiceName, setPickedVoice] = useState(getVoiceName());
   // El `rate` del DSL manda hasta que el alumno toca el selector. Al revés que `voice` (que el
   // profesor sí fija en firme): poder bajar la velocidad es justo lo que necesita un principiante.
   const [pickedRate, setPickedRate] = useState<string | null>(null);
   const rate = pickedRate ?? dslRate ?? getRate();
-  const { blobUrl, loading, error, reload } = useAudioBlob(text, voice ?? voiceName, conversation, rate);
+  const { blobUrl, loading, error, reload } = useAudioBlob(text, voice ?? voiceName, conversation, rate, maleVoice, femaleVoice);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);

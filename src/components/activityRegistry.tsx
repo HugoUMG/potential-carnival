@@ -976,7 +976,12 @@ function ConversationRenderer({ activity, value, readonly, onChange }: ActivityR
         <span>🗣️ Conversación</span>
         <span className="text-slate-400">{activity.lines.length} turnos · dos voces</span>
       </div>
-      <AudioPlayer text="" conversation={script} />
+      <AudioPlayer
+        text=""
+        conversation={script}
+        maleVoice={resolveVoice(activity.male_voice)}
+        femaleVoice={resolveVoice(activity.female_voice)}
+      />
       <label className="block">
         <RichText className="text-base font-medium text-slate-800" text={activity.question} />
         <ActivityInstructions instructions={activity.instructions} />

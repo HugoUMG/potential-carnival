@@ -3,7 +3,14 @@
 La ida y vuelta real (edge-tts → Whisper) necesita red; aquí se prueba la lógica que la rodea.
 No toca la base de datos ni llama a ninguna IA (regla 34).
 """
-from backend.app.main import DEFAULT_TTS_RATE, _audible_text, _same_words, _tts_rate, _tts_voice
+from backend.app.main import (
+    DEFAULT_TTS_RATE,
+    _audible_text,
+    _resolve_conversation_voice,
+    _same_words,
+    _tts_rate,
+    _tts_voice,
+)
 from backend.app.parser import parse_worksheet_script
 
 SCRIPT = """worksheet {
@@ -66,3 +73,15 @@ def test_rate_y_voice_no_dejan_pasar_ssml():
     assert _tts_rate('-15%"/><break time="5s"/>') == DEFAULT_TTS_RATE
     assert _tts_voice("en-GB-SoniaNeural") == "en-GB-SoniaNeural"
     assert _tts_voice('x"/><voice name="en-US-AnaNeural') == "en-US-AndrewNeural"
+
+
+def test_voz_de_cada_hablante_se_resuelve_como_en_el_front():
+    # Sin voz fijada → la curada del género del hablante (igual que /tts/conversation por defecto).
+    assert _resolve_conversation_voice(None, "en-US-AndrewNeural") == "en-US-AndrewNeural"
+    assert _resolve_conversation_voice(None, "en-US-AriaNeural") == "en-US-AriaNeural"
+    # Alias del género → la voz curada de ese género (el profesor puede cruzarlos a propósito).
+    assert _resolve_conversation_voice("male", "en-US-AndrewNeural") == "en-US-AndrewNeural"
+    assert _resolve_conversation_voice("female", "en-US-AriaNeural") == "en-US-AriaNeural"
+    # Nombre literal de edge-tts (voz infantil, por ejemplo) → pasa tal cual.
+    assert _resolve_conversation_voice("en-US-AnaNeural", "en-US-AriaNeural") == "en-US-AnaNeural"
+    assert _resolve_conversation_voice("en-US-RogerNeural", "en-US-AndrewNeural") == "en-US-RogerNeural"

@@ -352,6 +352,7 @@ ALL_TYPES = '''worksheet {
       lines:
       - f: "Hi, are you new here?"
       - m: "Yes, I started today."
+      female_voice: en-US-AnaNeural
       question: "When did he start?"
       answer: "today"
     }
@@ -375,6 +376,10 @@ def test_every_documented_type_parses():
     listening_order = next(a for a in activities if a.type == "listeningorder")
     assert listening_order.voice == "female"
     assert listening_order.rate == "-35%"
+    # La voz de cada hablante de la conversación: literal edge-tts pasa tal cual.
+    conversation = next(a for a in activities if a.type == "conversation")
+    assert conversation.female_voice == "en-US-AnaNeural"
+    assert conversation.male_voice is None
 
 
 RATE_SCRIPT = """worksheet {
@@ -402,3 +407,70 @@ def test_rate_por_actividad():
     assert rate_of("-25%") == "-25%"        # porcentaje literal
     with pytest.raises(WorksheetScriptError):
         rate_of("slowly")
+
+
+CONVERSATION_VOICES_SCRIPT = """worksheet {
+  title: "Voces"
+  conversation {
+    lines:
+    - f: "Hi!"
+    - m: "Hello!"
+    male_voice: female
+    female_voice: en-GB-MaisieNeural
+    question: "Who speaks first?"
+    answer: "the girl"
+  }
+}"""
+
+BLOCK_VOICES_SCRIPT = """worksheet {
+  title: "Voces de bloque"
+  block {
+    title: "Compartida"
+    lines:
+    - f: "Good morning!"
+    - m: "Good morning!"
+    female_voice: en-US-AnaNeural
+    male_voice: male
+    fillblank {
+      text: "They say _____ in the morning."
+      answer: "good morning"
+    }
+  }
+}"""
+
+
+def test_voces_por_hablante_en_conversacion():
+    """`male_voice`/`female_voice` en la actividad: el alias del género se normaliza y el nombre
+    literal de edge-tts pasa tal cual."""
+    ws = parse_worksheet_script(CONVERSATION_VOICES_SCRIPT)
+
+    conv = ws.activities[0]
+    assert conv.male_voice == "female"          # el profesor puso el alias femenino a propósito
+    assert conv.female_voice == "en-GB-MaisieNeural"
+
+
+def test_voces_por_hablante_en_bloque_compartido():
+    """Lo mismo para el estímulo `lines:` de un bloque, sin robárselas a las actividades hijas."""
+    ws = parse_worksheet_script(BLOCK_VOICES_SCRIPT)
+
+    block = ws.blocks[0]
+    assert block.male_voice == "male"
+    assert block.female_voice == "en-US-AnaNeural"
+    # El `male_voice:` del bloque no se le roba a ninguna actividad hija.
+    assert block.activities[0].male_voice is None
+
+
+def test_conversacion_sin_voces_deja_none():
+    ws = parse_worksheet_script("""worksheet {
+  title: "Sin voces"
+  conversation {
+    lines:
+    - f: "Hi"
+    - m: "Hello"
+    question: "Who speaks first?"
+    answer: "the girl"
+  }
+}""")
+    conv = ws.activities[0]
+    assert conv.male_voice is None
+    assert conv.female_voice is None

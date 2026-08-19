@@ -45,7 +45,7 @@ Ver [13_ROADMAP](13_ROADMAP.md) para el resto.
 | Backend | Python + FastAPI (Pydantic v2) |
 | Base de datos | PostgreSQL en producción (Aiven) / SQLite en desarrollo |
 | Autenticación | JWT con roles + Google Identity Services |
-| TTS | `edge-tts` (6 voces curadas US/UK/AU + velocidad de síntesis; las ~47 en inglés valen en el DSL) |
+| TTS | `edge-tts` (6 voces curadas US/UK/AU incl. infantil + velocidad de síntesis; las ~47 en inglés valen en el DSL; las conversaciones eligen voz por hablante con `male_voice`/`female_voice`) |
 | IA | Google Gemini (`gemini-3.1-flash-lite`) con fallback a Groq (`llama-3.3-70b-versatile`) |
 | Transcripción | Groq Whisper |
 | Deploy | Render.com — Static Site (frontend) + Web Service (backend) |

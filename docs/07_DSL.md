@@ -1833,6 +1833,8 @@ listeningorder {
 | `lines` | list | Sí | Mínimo 2 turnos, formato `- f: "texto"` / `- m: "texto"` |
 | `question` | string | Sí | Pregunta sobre el diálogo |
 | `answer` | string | No | Con ella auto-califica; sin ella queda abierta |
+| `male_voice` | string | No | Voz del hablante masculino: alias `male` o nombre literal de edge-tts (ej. `en-US-RogerNeural`) |
+| `female_voice` | string | No | Voz del hablante femenino: alias `female` o nombre literal de edge-tts (ej. `en-US-AnaNeural`) |
 
 ```
 conversation {
@@ -1840,12 +1842,21 @@ conversation {
   - f: "Hi, are you new here?"
   - m: "Yes, I started today."
   - f: "Welcome! Where are you from?"
+  female_voice: en-US-AnaNeural
   question: "When did he start?"
   answer: "today"
 }
 ```
 
 `speaker` se normaliza: empieza por `f` → `female`, cualquier otra cosa → `male`.
+
+**Voces por hablante:** sin `male_voice`/`female_voice` cada hablante usa la voz curada de su género
+(`male` → `en-US-AndrewNeural`, `female` → `en-US-AriaNeural`). Un alias del género se traduce a la
+voz curada correspondiente (se puede cruzar a propósito, p. ej. `male_voice: female`); un nombre
+literal pasa tal cual y llega al SSML validado contra inyección (`_tts_voice`). Para diálogos entre
+niños usar las voces infantiles de edge-tts (`en-US-AnaNeural`, `en-US-MichelleNeural`,
+`en-US-RogerNeural`, `en-GB-MaisieNeural`…). El constructor visual las ofrece en un selector por
+hablante; un nombre fuera de las 6 curadas se escribe a mano en el DSL.
 
 **Límite:** la concatenación es de frames MP3 crudos, sin silencio intermedio: los turnos suenan casi seguidos. 3–6 turnos cortos. Si hiciera falta pausa marcada, habría que intercalar un MP3 de silencio.
 
@@ -1998,6 +2009,7 @@ Un `block {}` puede llevar **un** estímulo propio. Se pinta **una sola vez** ar
 | Campo del bloque | Qué es | Lo ve el alumno |
 |------------------|--------|-----------------|
 | `lines:` | Conversación a dos voces (`- f:` / `- m:`), fusionada en **una sola pista** | No: solo la oye |
+| `male_voice:` / `female_voice:` | Voz de cada hablante de `lines` (alias de género o nombre edge-tts; sin ellos, la curada de su género) | — |
 | `audio_text:` | Un audio TTS (con `voice: male` / `voice: female` opcional) | No: solo lo oye |
 | `rate:` | Velocidad del audio del bloque (`very slow` / `slow` / `normal`), vale con `lines` y con `audio_text` | — |
 | `text:` | Un texto de lectura | Sí |
@@ -2009,6 +2021,8 @@ block {
   lines:
   - f: "Hi! What is your name?"
   - m: "My name is Tom. I am seven."
+  female_voice: en-US-AnaNeural
+  male_voice: en-US-RogerNeural
 
   multiplechoice {
     question: "What is the boy's name?"
