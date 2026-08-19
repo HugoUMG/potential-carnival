@@ -1785,7 +1785,7 @@ Con `target` el alumno ve la oración, un botón 🔊 para escucharla y, tras gr
 
 ### 4.17 listeningorder
 
-**Descripción:** Estilo Duolingo. Audio TTS oculto + fichas desordenadas que el alumno toca para armar la oración en el renglón de respuesta. Tocar una ficha ya colocada la devuelve al banco.
+**Descripción:** Audio TTS oculto + fichas desordenadas que el alumno toca para armar la oración en el renglón de respuesta. Tocar una ficha ya colocada la devuelve al banco.
 
 **Calificación:** Automática por **orden exacto** (misma longitud y misma palabra en cada posición).
 

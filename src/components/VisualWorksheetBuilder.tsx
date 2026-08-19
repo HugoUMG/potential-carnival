@@ -300,6 +300,30 @@ function AudioField({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
+/** Voz y velocidad del audio de la actividad, igual que los campos `voice`/`rate` del DSL. */
+function AudioTtsControls({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  return (
+    <div className="grid gap-2 rounded-xl border border-rex-light bg-rex-light p-3">
+      <div className="flex flex-wrap gap-1">
+        {([['', 'Voz por defecto'], ['female', '♀ Femenina'], ['male', '♂ Masculina']] as const).map(([v, label]) => (
+          <button key={v} type="button" onClick={() => onChange({ ...act, voice: v })}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${act.voice === v ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {([['', 'Velocidad del alumno'], ['-35%', '🐢 Muy lento'], ['-15%', 'Lento'], ['+0%', 'Normal']] as const).map(([r, label]) => (
+          <button key={r} type="button" onClick={() => onChange({ ...act, rate: r })}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${act.rate === r ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StringListEditor({ items, onChange, placeholder, addLabel }: { items: string[]; onChange: (items: string[]) => void; placeholder?: string; addLabel: string }) {
   return (
     <div className="grid gap-2">
@@ -453,6 +477,7 @@ function ListeningEditor({ act, onChange }: { act: VisualActivity; onChange: (a:
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <label className="block">
         <FieldLabel>Pregunta para el estudiante</FieldLabel>
         <TextInput value={act.question} onChange={(v) => onChange({ ...act, question: v })} placeholder="What did you hear?" />
@@ -470,6 +495,7 @@ function ListeningFillBlankEditor({ act, onChange }: { act: VisualActivity; onCh
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <label className="block">
         <FieldLabel>Texto con espacios (usa _____ para cada blank)</FieldLabel>
         <TextArea value={act.text} onChange={(v) => onChange({ ...act, text: v })} />
@@ -487,6 +513,7 @@ function ListeningMultipleChoiceEditor({ act, onChange }: { act: VisualActivity;
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <MultipleChoiceEditor act={act} onChange={onChange} />
     </div>
   );
@@ -525,6 +552,7 @@ function ListeningMatchingEditor({ act, onChange }: { act: VisualActivity; onCha
         <FieldLabel>Opciones del dropdown (todas las respuestas posibles)</FieldLabel>
         <div className="mt-2"><StringListEditor items={act.options} onChange={(options) => onChange({ ...act, options })} placeholder="Opción..." addLabel="Agregar opción" /></div>
       </div>
+      <AudioTtsControls act={act} onChange={onChange} />
     </div>
   );
 }
@@ -533,6 +561,7 @@ function ListeningTrueFalseEditor({ act, onChange }: { act: VisualActivity; onCh
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <div>
         <FieldLabel>Enunciados</FieldLabel>
         <div className="mt-2">
@@ -547,6 +576,7 @@ function ListeningOrderEditor({ act, onChange }: { act: VisualActivity; onChange
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <label className="block">
         <FieldLabel>Oración correcta (palabras en orden, separadas por coma)</FieldLabel>
         <TextInput value={act.answer} onChange={(v) => onChange({ ...act, answer: v })} placeholder="She, has, never, been, to, Paris" />

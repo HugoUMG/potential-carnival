@@ -282,7 +282,7 @@ listeningmatching {
   - Question
 }
 
-# listeningorder — escuchar y armar la oración con fichas (estilo Duolingo).
+# listeningorder — escuchar y armar la oración con fichas que se tocan.
 # Límites: se corrige por ORDEN EXACTO, así que la oración debe tener UN solo orden válido
 #          (evita adverbios movibles). 5–9 fichas, una palabra por ficha.
 listeningorder {

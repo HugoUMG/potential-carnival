@@ -86,6 +86,9 @@ Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas
     históricas que dicen lo contrario están obsoletas.
 37. Documentación: cada dominio en **su** archivo de `docs/`. No volver a acumular todo en un solo
     documento.
+38. **El constructor visual debe poder hacer ~95% de lo que hace el script.** Si un tipo soporta un
+    campo en el DSL, su editor visual debe poder editarlo (pasó con `voice`/`rate` de las
+    `listening*`, que solo existían en script y en el bloque).
 
 ---
 

@@ -1164,7 +1164,7 @@ export const activityRegistry = {
   },
   listeningorder: {
     type: 'listeningorder',
-    label: 'Listening + Ordenar (Duolingo)',
+    label: 'Listening + Ordenar',
     description: 'Listen and drag the scrambled words into the correct order.',
     icon: '🎧🔀',
     create: () => ({ id: nextId('listeningorder'), type: 'listeningorder', audio_text: 'She has never been to Paris.', answer: ['She', 'has', 'never', 'been', 'to', 'Paris'], bank: ['Paris', 'She', 'to', 'has', 'been', 'never'] }),
