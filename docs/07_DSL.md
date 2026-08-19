@@ -1856,7 +1856,7 @@ voz curada correspondiente (se puede cruzar a propósito, p. ej. `male_voice: fe
 literal pasa tal cual y llega al SSML validado contra inyección (`_tts_voice`). Para diálogos entre
 niños usar las voces infantiles de edge-tts (`en-US-AnaNeural`, `en-US-MichelleNeural`,
 `en-US-RogerNeural`, `en-GB-MaisieNeural`…). El constructor visual las ofrece en un selector por
-hablante; un nombre fuera de las 6 curadas se escribe a mano en el DSL.
+hablante; un nombre fuera de las 10 curadas se escribe a mano en el DSL.
 
 **Límite:** la concatenación es de frames MP3 crudos, sin silencio intermedio: los turnos suenan casi seguidos. 3–6 turnos cortos. Si hiciera falta pausa marcada, habría que intercalar un MP3 de silencio.
 

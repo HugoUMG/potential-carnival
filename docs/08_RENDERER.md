@@ -124,7 +124,7 @@ versión saneada estática.** `content` queda fuera del chrome "Actividad N / In
   (`male_voice`/`female_voice` de la actividad o del bloque) resueltas por `resolveVoice`; sin ellas,
   el endpoint usa las curadas de cada género.
 - `voice` (`male`/`female`) baja desde la actividad; el default es la preferencia global del usuario
-  (`voicePreference.ts`, 6 voces US/UK/AU + una infantil).
+  (`voicePreference.ts`, 10 voces: adultas US/UK/AU + infantiles ♀/♂).
 - El selector de velocidad (Muy lento / Lento / Normal) manda `rate` al servidor en vez de tocar el
   `playbackRate` del audio: estirar la onda ya grabada le enseña al alumno una articulación que
   ningún hablante produce. El precio es que cambiar voz o velocidad **recarga** el MP3.

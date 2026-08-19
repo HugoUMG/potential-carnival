@@ -216,7 +216,8 @@ GET    /tts/conversation?lines=…&male=…&female=…&rate=… — Diálogo con
 
 `voice`: cualquiera de las ~47 voces en inglés de edge-tts (`edge-tts --list-voices`). Por defecto
 `en-US-AndrewNeural`; `/tts/conversation` toma `male` y `female` por separado (`en-US-AndrewNeural` /
-`en-US-AriaNeural`). El selector del reproductor ofrece 6 curadas (`voicePreference.ts`).
+`en-US-AriaNeural`). El selector del reproductor ofrece 10 curadas (6 adultas + 4 infantiles:
+Ana, Michelle, Maisie ♀ y Roger, Oliver ♂ — `voicePreference.ts`).
 Las voces de la conversación las pone el DSL (`male_voice`/`female_voice` en `conversation {}` o en
 el `lines:` de un bloque): el front las manda aquí ya resueltas a nombre edge-tts; si la actividad no
 las fija, el endpoint usa las curadas de cada género.
