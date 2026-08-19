@@ -42,6 +42,28 @@ mini vista previa y editor aislado, y el modo físico de la IA. Verificado con `
 
 ---
 
+## Cerrado: un audio o un texto con varias preguntas (agosto 2026)
+
+Un `block {}` puede llevar ahora **un** estímulo compartido (`lines`, `audio_text` o `text`) y
+todas sus actividades —de cualquier tipo— preguntan sobre él. Antes solo se podían hacer varias
+preguntas sobre un mismo texto con `reading` (preguntas abiertas) y sobre un mismo audio no se podía
+en absoluto: había que repetir el audio actividad por actividad. ADR-24 · [`07_DSL.md`](07_DSL.md)
+§5. Verificado con `pytest` (87), `lint` y `build` limpios.
+
+El panel del constructor visual trae vista previa: reusa el `BlockStimulus` del renderer del alumno,
+así que el profesor **oye** el audio antes de asignar la hoja.
+
+**Lo que quedó fuera a propósito:**
+
+- Esa vista previa es una **foto** de lo escrito al abrirla, no un espejo en vivo: `AudioPlayer`
+  vuelve a pedir el MP3 cada vez que cambia el texto, y en vivo sería una petición de TTS por tecla.
+  Para refrescarla, se cierra y se vuelve a abrir. Si algún día molesta, la salida es un debounce en
+  `useAudioBlob`, no quitar la foto.
+- Un bloque con audio se omite **entero** al imprimir. No hay modo intermedio del tipo "imprime las
+  preguntas con la transcripción del audio arriba"; si hace falta, es un flag del `WorksheetPrint`.
+
+---
+
 ## Pendiente mayor (con plan escrito)
 
 ### La hoja le entrega al alumno su propia clave de respuestas

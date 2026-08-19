@@ -36,6 +36,15 @@ const blocks = worksheet.blocks?.length
   : [{ title: null, instructions: null, activities: worksheet.activities }];
 ```
 
+**Estímulo compartido del bloque** (`BlockStimulus`) — si el bloque trae `text`, `audioText` o
+`lines`, se pinta **una vez** entre la cabecera del bloque y su primera actividad: el texto de
+lectura en un recuadro, o **un solo** `AudioPlayer` para todas las preguntas del bloque. Las
+actividades de dentro se pintan sin cambio alguno y se califican igual que siempre; lo único que
+sabe el backend es que a la IA hay que pasarle el estímulo del bloque como `context`
+(`_block_contexts` en `main.py`). Ver [`07_DSL.md`](07_DSL.md) §5.
+
+`WorksheetThumb` no lo pinta: montaría un `AudioPlayer` por miniatura y pediría el MP3 al TTS.
+
 **Tema por hoja** — los colores de `worksheet.theme` se aplican con estilos inline (no con clases).
 
 **Campos de identificación** — el `info {}` de la hoja se pinta arriba y se guarda como
@@ -109,11 +118,19 @@ versión saneada estática.** `content` queda fuera del chrome "Actividad N / In
 
 `AudioPlayer.tsx` construye la URL del TTS y reproduce el `audio/mpeg` en streaming:
 
-- Actividades `listening*` → `GET /tts?text=…&voice=…`
-- `conversation` → prop `conversation` → `GET /tts/conversation?lines=…` (voces m/f alternadas,
-  MP3 concatenado)
+- Actividades `listening*` → `GET /tts?text=…&voice=…&rate=…`
+- `conversation` → prop `conversation` → `GET /tts/conversation?lines=…&rate=…` (voces m/f
+  alternadas, MP3 concatenado)
 - `voice` (`male`/`female`) baja desde la actividad; el default es la preferencia global del usuario
-  (`voicePreference.ts`).
+  (`voicePreference.ts`, 6 voces US/UK/AU + una infantil).
+- El selector de velocidad (Muy lento / Lento / Normal) manda `rate` al servidor en vez de tocar el
+  `playbackRate` del audio: estirar la onda ya grabada le enseña al alumno una articulación que
+  ningún hablante produce. El precio es que cambiar voz o velocidad **recarga** el MP3.
+- `rate` puede venir del DSL (actividad o bloque). Es la velocidad **de partida**: en cuanto el
+  alumno toca el selector, manda su elección (`pickedRate ?? dslRate ?? preferencia`). Al revés que
+  `voice`, que sí oculta su selector cuando la actividad la fija.
+- Un `block {}` con `audioText`/`lines` monta **un** reproductor para todas sus actividades, con las
+  mismas dos URLs (`BlockStimulus`). Es lo que evita repetir el audio pregunta por pregunta.
 
 **`reading` y `readingtruefalse` NO llevan reproductor**: leerle el texto en voz alta al alumno
 convierte una evaluación de comprensión **lectora** en una **auditiva**. Para escucha están los

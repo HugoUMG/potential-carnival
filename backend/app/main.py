@@ -434,15 +434,38 @@ def delete_my_image(image_id: str, current_user: PublicUser = Depends(require_te
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
 
 
+# ── TTS ───────────────────────────────────────────────────────────────────────
+# `rate` hace que edge-tts RE-SINTETICE más lento (articulación y pausas limpias). No es el
+# playbackRate del navegador, que estira la onda y enseña una articulación que no existe.
+DEFAULT_TTS_RATE = "-15%"
+_RATE_RE = re.compile(r"^[+-]\d{1,2}%$")
+_VOICE_RE = re.compile(r"^[A-Za-z0-9-]{5,48}$")
+
+
+def _tts_rate(rate: str) -> str:
+    """`rate` y `voice` llegan del query string y viajan al SSML que edge-tts manda a Microsoft:
+    se validan, no se confía en ellos."""
+    return rate if _RATE_RE.match(rate) else DEFAULT_TTS_RATE
+
+
+def _tts_voice(voice: str, fallback: str = "en-US-AndrewNeural") -> str:
+    return voice if _VOICE_RE.match(voice) else fallback
+
+
 @app.get("/tts")
-async def tts(request: Request, text: str = Query(min_length=1, max_length=2000), voice: str = "en-US-GuyNeural") -> StreamingResponse:
+async def tts(
+    request: Request,
+    text: str = Query(min_length=1, max_length=2000),
+    voice: str = "en-US-AndrewNeural",
+    rate: str = DEFAULT_TTS_RATE,
+) -> StreamingResponse:
     # Público a la fuerza: el front lo usa como `src` de un <audio>, que no manda cabeceras.
     # El coste se acota por los dos lados — `max_length` limita lo que cuesta UNA petición
     # (edge-tts sintetiza el mp3 entero en RAM antes de responder) y el rate limit, cuántas.
     _rate_limit(request, limit=300)
     try:
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice)
+        communicate = edge_tts.Communicate(text, _tts_voice(voice), rate=_tts_rate(rate))
         chunks: list[bytes] = []
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
@@ -456,8 +479,9 @@ async def tts(request: Request, text: str = Query(min_length=1, max_length=2000)
 async def tts_conversation(
     request: Request,
     lines: str = Query(min_length=1, max_length=8000),
-    male: str = "en-US-GuyNeural",
-    female: str = "en-US-JennyNeural",
+    male: str = "en-US-AndrewNeural",
+    female: str = "en-US-AriaNeural",
+    rate: str = DEFAULT_TTS_RATE,
 ) -> StreamingResponse:
     _rate_limit(request, limit=300)
     # `lines`: una por renglón, formato `speaker|texto` (speaker que empieza con 'f' = femenina).
@@ -476,7 +500,7 @@ async def tts_conversation(
             if not text:
                 continue
             voice = female if speaker.strip().lower().startswith("f") else male
-            communicate = edge_tts.Communicate(text, voice)
+            communicate = edge_tts.Communicate(text, _tts_voice(voice), rate=_tts_rate(rate))
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     chunks.append(chunk["data"])
@@ -504,13 +528,19 @@ async def audio_check(payload: AiReviewRequest, current_user: PublicUser = Depen
     # Una hoja sin `block {}` deja las actividades en `worksheet.activities`, no en `blocks`.
     todas = list(worksheet.activities) + [a for b in worksheet.blocks for a in b.activities]
     items = [(a.type, texto) for a in todas if (texto := _audible_text(a))]
+    # El audio compartido de un `block {}` también suena: se prueba igual que el de una actividad.
+    items += [
+        ("conversation" if b.lines else "listening", texto)
+        for b in worksheet.blocks
+        if (texto := _block_audio_text(b))
+    ]
     if not items:
         return {"items": [], "detail": "La hoja no tiene actividades con audio ni de habla."}
 
     results: list[dict[str, Any]] = []
     for tipo, texto in items:
         try:
-            mp3 = await _synthesize(texto, "en-US-JennyNeural" if tipo == "conversation" else "en-US-GuyNeural")
+            mp3 = await _synthesize(texto, "en-US-AriaNeural" if tipo == "conversation" else "en-US-AndrewNeural")
             heard = (await asyncio.to_thread(ai_transcribe, mp3, "check.mp3", "audio/mpeg")).strip()
         except Exception as exc:  # una actividad que falle no tumba el informe entero
             results.append({"type": tipo, "text": texto, "heard": "", "ok": False, "error": str(exc)[:120]})
@@ -522,6 +552,13 @@ async def audio_check(payload: AiReviewRequest, current_user: PublicUser = Depen
 # ── Prueba de audio (ida y vuelta TTS → Whisper) ───────────────────────────────
 _AUDIBLE_TYPES = {"listening", "listeningmultiplechoice", "listeningfillblank", "listeningtruefalse",
                   "listeningorder", "listeningmatching", "conversation", "speaking"}
+
+
+def _block_audio_text(block: Any) -> str:
+    """Lo que dice el audio compartido de un bloque ("" si el bloque no lleva audio)."""
+    if getattr(block, "lines", None):
+        return " ".join((line.get("text") or "").strip() for line in block.lines).strip()
+    return (getattr(block, "audio_text", None) or "").strip()
 
 
 def _audible_text(activity: Any) -> str:
@@ -541,7 +578,7 @@ def _audible_text(activity: Any) -> str:
 
 async def _synthesize(text: str, voice: str) -> bytes:
     import edge_tts
-    communicate = edge_tts.Communicate(text, voice)
+    communicate = edge_tts.Communicate(text, voice, rate=DEFAULT_TTS_RATE)
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
@@ -1390,8 +1427,28 @@ def _activity_notes(worksheet: Worksheet) -> dict[str, str]:
     return {a.id: a.note for a in worksheet.json_content.iter_activities() if a.note}
 
 
+def _block_contexts(worksheet: Worksheet) -> dict[str, str]:
+    """{activity_id: estímulo del bloque al que pertenece}. Cuando el audio o el texto vive en el
+    `block {}` y no en la actividad, sin esto la IA calificaría una respuesta abierta sin saber
+    qué escuchó o leyó el alumno."""
+    contexts: dict[str, str] = {}
+    for block in worksheet.json_content.blocks or []:
+        if block.lines:
+            context = "Diálogo escuchado: " + " ".join(f"{ln.get('speaker', '')}: {ln.get('text', '')}" for ln in block.lines)
+        elif block.audio_text:
+            context = f"Audio escuchado: «{block.audio_text}»"
+        elif block.text:
+            context = f"Texto de lectura sobre el que se responde: «{block.text}»"
+        else:
+            continue
+        for activity in block.activities:
+            contexts[activity.id] = context
+    return contexts
+
+
 def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list[AnswerDetail]:
     details: list[AnswerDetail] = []
+    block_contexts = _block_contexts(worksheet)
     for activity in worksheet.json_content.iter_activities():
         if activity.type == "content":
             continue  # bloque informativo: no se responde ni califica (no entra al score)
@@ -1407,6 +1464,8 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
             context = f"Audio escuchado: «{activity.text}»"
         elif getattr(activity, "audio_text", None):
             context = f"Audio escuchado: «{activity.audio_text}»"
+        else:
+            context = block_contexts.get(activity.id)  # el estímulo lo pone el bloque
         if activity.type == "reading":
             # Un detalle POR PREGUNTA con el texto de lectura como contexto para la IA.
             # (Sin preguntas = texto de referencia: no se califica.)

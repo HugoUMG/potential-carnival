@@ -1795,6 +1795,7 @@ Con `target` el alumno ve la oración, un botón 🔊 para escucharla y, tras gr
 | `answer` | list | Sí | Las fichas en el orden correcto (mínimo 2) |
 | `bank` | list | No | Fichas desordenadas. Si falta, el front baraja `answer` |
 | `voice` | string | No | `male` / `female` |
+| `rate` | string | No | `very slow` / `slow` (por defecto) / `normal`, o un `±NN%` |
 
 ```
 listeningorder {
@@ -1947,13 +1948,21 @@ worksheet {
     {
       "title": "Part 2: Listening",
       "instructions": "Listen carefully and complete the activities.",
+      "lines": [
+        { "speaker": "female", "text": "Hi! What is your name?" },
+        { "speaker": "male", "text": "My name is Tom." }
+      ],
       "activities": [
-        { "id": "uuid", "type": "listeningfillblank", ... }
+        { "id": "uuid", "type": "multiplechoice", ... },
+        { "id": "uuid", "type": "truefalse", ... }
       ]
     }
   ]
 }
 ```
+
+Los campos del estímulo (`text`, `audio_text`, `lines`, `voice`) solo aparecen si el bloque los
+lleva. En el front se normalizan a `text` / `audioText` / `lines` / `voice` (`api.ts`).
 
 ### Comportamiento del frontend
 
@@ -1980,6 +1989,63 @@ Hay exactamente dos formas válidas, nunca mezcladas:
 
 Es el error clásico de la IA: dejaba el `content` de repaso fuera de los bloques y desaparecía sin
 avisar. La regla está marcada como CRITICAL en `_WORKSHEET_SYSTEM` (`ai.py`) y en `GENERATION_PROMPT`.
+
+### Estímulo compartido: un audio o un texto, varias preguntas
+
+Un `block {}` puede llevar **un** estímulo propio. Se pinta **una sola vez** arriba del bloque y
+**todas** sus actividades —de cualquier tipo— preguntan sobre él.
+
+| Campo del bloque | Qué es | Lo ve el alumno |
+|------------------|--------|-----------------|
+| `lines:` | Conversación a dos voces (`- f:` / `- m:`), fusionada en **una sola pista** | No: solo la oye |
+| `audio_text:` | Un audio TTS (con `voice: male` / `voice: female` opcional) | No: solo lo oye |
+| `rate:` | Velocidad del audio del bloque (`very slow` / `slow` / `normal`), vale con `lines` y con `audio_text` | — |
+| `text:` | Un texto de lectura | Sí |
+
+```
+block {
+  title: "Part 1: Listening"
+  instructions: "Listen to the conversation and answer the questions."
+  lines:
+  - f: "Hi! What is your name?"
+  - m: "My name is Tom. I am seven."
+
+  multiplechoice {
+    question: "What is the boy's name?"
+    options:
+    - Tom
+    - Sam
+    answer: "Tom"
+  }
+  truefalse {
+    statements:
+    - Tom is seven years old. | true
+    - The girl says her age. | false
+  }
+  textbox {
+    prompt: "Write one sentence about Tom."
+  }
+}
+```
+
+**Es la única forma de hacer varias preguntas sobre un mismo audio.** Los tipos `listening*` traen
+su pregunta pegada (una por actividad), así que sin esto había que repetir el audio en cada una.
+Dentro de un bloque con audio se usan los tipos **normales** (`multiplechoice`, `multiselect`,
+`truefalse`, `matching`, `dragdrop`, `fillblank`, `textbox`…), no los `listening*`: el audio ya lo
+pone el bloque. Con `text:` pasa lo mismo para comprensión lectora, y admite tipos que `reading`
+—que solo tiene preguntas abiertas— no permitía.
+
+**Reglas:**
+
+- Los tres campos van **antes de la primera actividad** del bloque. El parser solo lee los campos
+  del bloque hasta ahí (`_block_header`); si no, le robaría el `title:` a un `reading {}` hijo o el
+  `audio_text:` a un `listeningfillblank`.
+- `lines:` y `audio_text:` son **excluyentes** (un audio por bloque) → error si van los dos.
+- Un bloque con estímulo **necesita al menos una actividad** → error si está vacío.
+- **Calificación:** sin cambios. Cada actividad se califica como siempre; a la IA se le pasa el
+  estímulo del bloque como `context` para que sepa qué escuchó o leyó el alumno.
+- **En papel:** un bloque con `lines:`/`audio_text:` se omite **entero** (sus preguntas serían
+  sobre un audio que nadie va a oír). Un bloque con `text:` sí se imprime, con el texto arriba.
 
 ### Restricciones de bloques
 
@@ -2571,19 +2637,20 @@ worksheet {
 | truefalse | — | — | — | — | — | — | — | — | — | — | — | ✓ | — | |
 | imagequestion | — | — | — | — | ✓ | — | — | — | ✓ | — | — | — | — | |
 | speaking | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | `target` |
-| listening | ✓† | ✓ | — | ✓ | — | — | — | — | — | — | — | — | — | `voice` |
-| listeningfillblank | ✓* | — | — | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice` |
-| listeningmultiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice` |
-| listeningmatching | — | — | ✓ | — | — | — | — | — | — | — | ✓ | — | — | `voice` |
-| listeningtruefalse | — | — | — | — | — | — | — | — | — | ✓ | — | ✓ | — | `voice` |
-| listeningorder | — | — | — | ✓‡ | — | — | — | — | — | ✓ | — | — | — | `bank`, `voice` |
+| listening | ✓† | ✓ | — | ✓ | — | — | — | — | — | — | — | — | — | `voice`, `rate` |
+| listeningfillblank | ✓* | — | — | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice`, `rate` |
+| listeningmultiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice`, `rate` |
+| listeningmatching | — | — | ✓ | — | — | — | — | — | — | — | ✓ | — | — | `voice`, `rate` |
+| listeningtruefalse | — | — | — | — | — | — | — | — | — | ✓ | — | ✓ | — | `voice`, `rate` |
+| listeningorder | — | — | — | ✓‡ | — | — | — | — | — | ✓ | — | — | — | `bank`, `voice`, `rate` |
 | conversation | — | ✓ | — | opc. | — | — | — | — | — | — | — | — | — | `lines` |
 | content | — | — | — | — | — | — | — | — | — | — | — | — | opc. | `html`, `sandbox` |
 
 `*` = con marcadores `_____`  
 `†` = el `text` de `listening` es el audio TTS OCULTO (campo diferente al `text` de `fillblank`)  
 `‡` = `answer` es siempre una **lista**  
-Todos aceptan además `instructions` (opcional). `voice` (`male`/`female`) solo aplica a `listening*`.
+Todos aceptan además `instructions` (opcional). `voice` (`male`/`female`) y `rate`
+(`very slow`/`slow`/`normal`) solo aplican a `listening*`.
 
 ---
 
@@ -2629,10 +2696,30 @@ mantenerse en sincronía: `ACTIVITY_GROUPS` en `WorksheetEditor.tsx` (chips del 
 
 Cualquier tipo `listening*` acepta un campo opcional `voice: male` o `voice: female` (por defecto: la
 preferencia global del usuario, masculina). Se normaliza en el parser (`_normalize_voice`) y baja
-hasta `AudioPlayer`: `male` → `en-US-GuyNeural`, `female` → `en-US-JennyNeural`. Un valor desconocido
-se pasa tal cual como nombre de voz edge-tts. Solo aplica a listening (otros tipos lo ignoran).
+hasta `AudioPlayer`: `male` → `en-US-AndrewNeural`, `female` → `en-US-AriaNeural`. Un valor
+desconocido se pasa tal cual como nombre de voz edge-tts, así que las ~47 voces en inglés están
+disponibles escribiéndolas literalmente (`voice: en-GB-SoniaNeural`, `voice: en-AU-NatashaNeural`).
+Solo aplica a listening (otros tipos lo ignoran).
 
 Sirve para evitar el desajuste "voz masculina lee la oración pero la pregunta dice *she*".
+
+### Velocidad por actividad (`rate`)
+
+Cualquier tipo `listening*` —y cualquier `block {}` con `lines` o `audio_text`— acepta un campo
+opcional `rate`. Vocabulario **cerrado**: `very slow` (`-35%`), `slow` (`-15%`, el default de la
+plataforma), `normal` (`+0%`) o un porcentaje literal `±NN%`. También se aceptan las formas en
+español (`muy lento`, `lento`, `normal`). El parser lo normaliza a `±NN%` (`_normalize_rate`) y
+**cualquier otro valor es un error de script**, al revés que `voice`: un `voice` desconocido puede
+ser una de las ~47 voces de edge-tts, pero un `rate: slowly` solo puede ser una errata, y tragárselo
+en silencio dejaría al profesor creyendo que la hoja va lenta cuando no lo está.
+
+No es el `playbackRate` del navegador: edge-tts **regenera** el audio a esa velocidad, con
+articulación y pausas limpias, en vez de estirar una onda ya grabada.
+
+El `rate` del DSL es la velocidad **de partida**; el alumno puede seguir bajándola con el selector
+del reproductor. Es la diferencia con `voice`, que sí queda fijo: la voz es una decisión de
+contenido (que el género case con la pregunta), la velocidad es una ayuda que el alumno necesita
+poder darse a sí mismo.
 
 > Añadir `voice` obligó a tocar también el modelo Pydantic `Activity` (`models.py`) y
 > `normalizeActivity`/`withInstructions` (`api.ts`): sin eso el campo se descartaba al persistir o al

@@ -18,7 +18,7 @@ Los tres, más `python -m compileall backend/app backend/tests`, son la verifica
 un commit grande. No hay CI que los ejecute: el único workflow de GitHub Actions es el respaldo
 semanal de la base.
 
-> **Estado real a 2026-08-04:** `pytest` pasa (79 tests). `npm run lint` y `npm run build` están
+> **Estado real a 2026-08-18:** `pytest` pasa (87 tests). `npm run lint` y `npm run build` están
 > limpios. La regla al trabajar es **no añadir errores nuevos**; dejarlo en cero ya está hecho.
 
 ## Qué hay cubierto
@@ -42,6 +42,7 @@ red que hay.
 | `test_respuesta_filtrada.py` | `_clean_script` borra los paréntesis con la respuesta del texto visible (`(answer: went)`, `(respuesta: B)`) sin tocar la línea `answer:` ni las pistas gramaticales `(go)` |
 | `test_prueba_audio.py` | Prueba de audio: `_audible_text` saca lo que suena de cada tipo (`listening`→`text`, resto→`audio_text`, `speaking`→`target`, `conversation`→turnos encadenados) y `_same_words` ignora puntuación y cifras (`seven` ≡ `7`) pero no cambios reales (`3rd` ≠ `third`) |
 | `test_revision_hoja.py` | `review_worksheet_script` manda el script completo y un system prompt de "resuélvela como alumno", y el modo físico cambia la instrucción (`IMPRIMIR`) |
+| `test_bloque_estimulo.py` | El estímulo compartido de `block {}` (ADR-24): que `lines`/`audio_text`/`text` se leen del bloque, que **no** se los roba a una actividad hija (`_block_header`), que audio + conversación a la vez y que un estímulo sin actividades son errores, que en papel el bloque con audio se va entero y el de lectura se conserva, y que la IA recibe el estímulo del bloque como `context` |
 | `test_modo_fisico.py` | Modo físico (ADR-21): las listas `PRINTABLE_TYPES`/`NON_PRINTABLE_TYPES` cubren todo sin solaparse, `strip_non_printable` deja solo lo imprimible, no descuadra prefixos (`listening` vs `listeningfillblank`), y `_PRINTABLE_MODE` solo aparece cuando se pide `printable`. También el **banco de imágenes**: `_image_bank_section` entra al system prompt solo cuando se provee `image_bank`, y lleva URL y descripción para que las oraciones las respeten |
 
 > `test_every_documented_type_parses` (en `test_parser.py`) ahora cubre los **21 tipos**
@@ -78,6 +79,7 @@ algo que no funciona, ese test falla.
 
 | Si tocas… | Añade/actualiza |
 |-----------|-----------------|
+| Campos del `block {}` o su estímulo compartido | Un caso en `test_bloque_estimulo.py`, incluido el robo de campos a las actividades hijas |
 | `parser.py` (tipo o validación nueva) | Un caso en `test_parser.py`, y el tipo en `test_every_documented_type_parses` |
 | El prompt de calificación | Un `assert` en `test_grade_prompt.py` sobre la regla concreta |
 | Un campo privado que no debe ver el alumno | Un caso en `test_note_privada.py` (json + script + cada endpoint que entregue la hoja) |

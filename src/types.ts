@@ -33,6 +33,7 @@ export interface BaseActivity {
    *  del alumno, así que en el portal del alumno este campo siempre llega vacío. */
   note?: string;
   voice?: string; // 'male' | 'female' | nombre de voz edge-tts; solo listening
+  rate?: string; // velocidad de síntesis '±NN%' (ya normalizada por el parser); solo listening
 }
 
 export interface FillBlankActivity extends BaseActivity {
@@ -201,6 +202,14 @@ export type WorksheetActivity =
 export interface ActivityBlock {
   title?: string | null;
   instructions?: string | null;
+  /** Estímulo compartido: se muestra UNA vez arriba del bloque y todas sus actividades
+   *  (de cualquier tipo) responden sobre él. `text` es visible; `audioText`/`lines` son audio
+   *  TTS y quedan ocultos, igual que en las actividades listening. */
+  text?: string | null;
+  audioText?: string | null;
+  lines?: { speaker: 'male' | 'female'; text: string }[] | null;
+  voice?: string | null; // 'male' | 'female'; solo con audioText
+  rate?: string | null; // velocidad de síntesis '±NN%'; solo con audioText o lines
   activities: WorksheetActivity[];
 }
 

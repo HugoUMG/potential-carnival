@@ -108,7 +108,7 @@ dinero se acotan **por los dos lados**: cuánto cuesta *una* petición y cuánta
 
 | Endpoint | Por petición | Por IP y minuto |
 |----------|--------------|-----------------|
-| `GET /tts` | `text` ≤ 2000 caracteres | 300 |
+| `GET /tts` | `text` ≤ 2000 caracteres; `voice`/`rate` validados contra inyección de SSML | 300 |
 | `GET /tts/conversation` | `lines` ≤ 8000 caracteres | 300 |
 | `POST /public/transcribe` | 4 MB de audio | 60 |
 

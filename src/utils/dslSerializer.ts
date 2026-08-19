@@ -58,6 +58,7 @@ export interface VisualActivity {
   // listening* / listeningfillblank / listeningmultiplechoice / listeningtruefalse
   audioText: string;
   voice: string; // 'male' | 'female' | ''(preferencia global); solo listening
+  rate: string; // '±NN%' | ''(la que elija el alumno); solo listening
 
   // listeningmatching
   pairs: VisualPair[];
@@ -82,6 +83,12 @@ export interface VisualBlock {
   id: string;
   title: string;
   instructions: string;
+  // Estímulo compartido del bloque: un solo texto/audio arriba y N actividades debajo.
+  text: string; // lectura visible
+  audioText: string; // audio TTS oculto (excluyente con `lines`)
+  voice: '' | 'male' | 'female';
+  rate: string; // '±NN%' | ''(la que elija el alumno)
+  lines: VisualLine[]; // conversación a dos voces (excluyente con `audioText`)
   activities: VisualActivity[];
 }
 
@@ -334,9 +341,12 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
     if (act.target.trim()) lines.push(`${indent}  target: "${esc(act.target)}"`);
   }
 
-  // voz por actividad (solo listening): 'male'/'female' o nombre edge-tts literal
+  // voz y velocidad por actividad (solo listening): 'male'/'female' o nombre edge-tts literal
   if (act.type.startsWith('listening') && act.voice?.trim()) {
     lines.push(`${indent}  voice: ${act.voice.trim()}`);
+  }
+  if (act.type.startsWith('listening') && act.rate?.trim()) {
+    lines.push(`${indent}  rate: ${act.rate.trim()}`);
   }
 
   lines.push(`${indent}}`);
@@ -348,6 +358,21 @@ function serializeBlock(block: VisualBlock, indent: string): string[] {
   lines.push(`${indent}block {`);
   if (block.title.trim()) lines.push(`${indent}  title: "${esc(block.title)}"`);
   if (block.instructions.trim()) lines.push(`${indent}  instructions: "${esc(block.instructions)}"`);
+  // Estímulo compartido. Va ANTES de las actividades a propósito: el parser solo lee los campos
+  // del bloque hasta la primera actividad (`_block_header`), para no robarle el `title:` a un
+  // `reading {}` hijo ni el `audio_text:` a un `listening*`.
+  if (block.text.trim()) lines.push(`${indent}  text: "${esc(block.text.replace(/\n/g, '\\n'))}"`);
+  const blockLines = block.lines?.filter((l) => l.text.trim()) ?? [];
+  if (blockLines.length > 0) {
+    lines.push(`${indent}  lines:`);
+    blockLines.forEach((l) => lines.push(`${indent}  - ${l.speaker === 'female' ? 'f' : 'm'}: "${esc(l.text)}"`));
+  } else if (block.audioText.trim()) {
+    lines.push(`${indent}  audio_text: "${esc(block.audioText)}"`);
+    if (block.voice) lines.push(`${indent}  voice: ${block.voice}`);
+  }
+  if (block.rate && (blockLines.length > 0 || block.audioText.trim())) {
+    lines.push(`${indent}  rate: ${block.rate}`);
+  }
   for (const act of block.activities) {
     lines.push(...serializeActivity(act, `${indent}  `));
   }
@@ -402,6 +427,7 @@ export function toWorksheetActivity(act: VisualActivity): WorksheetActivity {
     ...(act.instructions.trim() ? { instructions: act.instructions } : {}),
     ...(act.note?.trim() ? { note: act.note } : {}),
     ...(act.voice.trim() ? { voice: act.voice } : {}),
+    ...(act.rate.trim() ? { rate: act.rate } : {}),
   };
   const statements = act.statements.filter((s) => s.text.trim()).map((s) => ({ text: s.text, answer: s.answer }));
   const options = act.options.filter((o) => o.trim());
@@ -487,6 +513,7 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   statements: [],
   audioText: '',
   voice: '',
+  rate: '',
   pairs: [],
   lines: [],
   html: '',
@@ -568,7 +595,7 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
 }
 
 export function emptyBlock(): VisualBlock {
-  return { id: crypto.randomUUID(), title: '', instructions: '', activities: [] };
+  return { id: crypto.randomUUID(), title: '', instructions: '', text: '', audioText: '', voice: '', rate: '', lines: [], activities: [] };
 }
 
 export function emptyState(): VisualState {

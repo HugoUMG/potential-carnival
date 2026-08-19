@@ -151,6 +151,25 @@ def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
     return blocks
 
 
+def _block_header(block_body: str) -> str:
+    """Trozo de un `block {}` ANTES de su primera actividad: donde viven sus campos propios
+    (`title`, `instructions`, `text`, `audio_text`, `lines`, `voice`, `rate`).
+
+    Sin este recorte `_get_scalar(block_body, "title")` encontraría el `title:` de un
+    `reading {}` hijo y el bloque se quedaría con el título de la actividad; con el estímulo
+    compartido sería peor: el `audio_text:` de un `listeningfillblank` hijo le montaría al
+    bloque un reproductor que el profesor nunca pidió."""
+    cursor = 0
+    while cursor < len(block_body):
+        match = re.search(r"\b([a-z]+)\s*{", block_body[cursor:])
+        if not match:
+            return block_body
+        if match.group(1) in SUPPORTED_BLOCKS:
+            return block_body[:cursor + match.start()]
+        cursor += match.end()
+    return block_body
+
+
 def strip_non_printable(script: str) -> str:
     """Quita del script las actividades que no pasan a papel (modo físico de la IA).
 
@@ -173,6 +192,25 @@ def strip_non_printable(script: str) -> str:
                 break  # bloque sin cerrar: lo reporta el parser con su propio mensaje
             tail = out[end + 1:]
             out = out[:match.start()] + (tail[1:] if tail.startswith("\n") else tail)
+    # Un `block {}` con audio compartido se va ENTERO: sus actividades sí son de tipos
+    # imprimibles, pero en papel serían preguntas sobre un audio que nadie va a oír.
+    cursor = 0
+    while True:
+        match = re.search(r"^[ \t]*block\s*{", out[cursor:], re.MULTILINE)
+        if not match:
+            break
+        start = cursor + match.start()
+        body_start = cursor + match.end()
+        end = _matching_brace(out, body_start)
+        if end == -1:
+            break
+        header = _block_header(out[body_start:end])
+        if _get_scalar(header, "audio_text") or _parse_conversation_lines(header):
+            tail = out[end + 1:]
+            out = out[:start] + (tail[1:] if tail.startswith("\n") else tail)
+            cursor = start
+        else:
+            cursor = end + 1
     return out
 
 
@@ -300,7 +338,7 @@ def _parse_pairs(body: str) -> list[dict]:
         stripped = line.strip()
         if not stripped:
             continue
-        if re.match(r"^(options|instructions|voice)\s*:", stripped):
+        if re.match(r"^(options|instructions|voice|rate)\s*:", stripped):
             break  # fin de la lista: empieza otro campo de la actividad
         if stripped.startswith("-"):
             chunks.append([stripped[1:].strip()])
@@ -358,6 +396,33 @@ def _normalize_voice(raw: str | None) -> str | None:
     return raw.strip()
 
 
+# Velocidad de síntesis: edge-tts REGENERA el audio más lento (articulación y pausas limpias), que
+# no es estirar la onda ya grabada. El vocabulario es cerrado a propósito — al revés que `voice`,
+# donde cualquier nombre desconocido puede ser una de las ~47 voces de edge-tts.
+_RATES = {
+    "very slow": "-35%", "very_slow": "-35%", "muy lento": "-35%", "muy despacio": "-35%",
+    "slow": "-15%", "lento": "-15%", "despacio": "-15%",
+    "normal": "+0%", "natural": "+0%",
+}
+
+
+def _normalize_rate(raw: str | None) -> str | None:
+    """Normaliza el campo `rate` a la forma `±NN%` que entiende edge-tts.
+    Un valor irreconocible es un error: si se ignorara en silencio, el profesor creería que la hoja
+    va lenta cuando no lo está."""
+    if not raw:
+        return None
+    v = " ".join(raw.strip().lower().split())
+    if v in _RATES:
+        return _RATES[v]
+    if re.match(r"^[+-]\d{1,2}%$", v):
+        return v
+    raise WorksheetScriptError(
+        f"`rate: {raw.strip()}` no es una velocidad válida. Usa `very slow`, `slow`, `normal` o "
+        "un porcentaje como `-25%`."
+    )
+
+
 def parse_activity(activity_type: str, body: str) -> ActivityData:
     # `note`: nota privada del profesor. La lee SOLO la IA al calificar; nunca llega al alumno
     # (se elimina del payload público en main.py). Vale para cualquier tipo, como `instructions`.
@@ -369,6 +434,7 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
     }
     if activity_type.startswith("listening"):
         common["voice"] = _normalize_voice(_get_scalar(body, "voice"))
+        common["rate"] = _normalize_rate(_get_scalar(body, "rate"))
     if activity_type == "fillblank":
         return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_answer(body))
     if activity_type == "dragdrop":
@@ -602,10 +668,28 @@ def parse_worksheet_script(script: str) -> WorksheetData:
     if block_bodies:
         blocks: list[BlockData] = []
         for block_body in block_bodies:
-            block_title = _get_scalar(block_body, "title")
-            block_instructions = _get_scalar(block_body, "instructions")
+            header = _block_header(block_body)
+            block_lines = _parse_conversation_lines(header)
+            block_audio_text = _get_scalar(header, "audio_text")
+            if block_audio_text and block_lines:
+                raise WorksheetScriptError(
+                    "Un bloque no puede tener 'audio_text' y 'lines' a la vez: son dos audios y solo se reproduce uno"
+                )
             block_activities = [parse_activity(t, b) for t, b in _find_activity_blocks(block_body)]
-            blocks.append(BlockData(title=block_title, instructions=block_instructions, activities=block_activities))
+            if (block_audio_text or block_lines or _get_scalar(header, "text")) and not block_activities:
+                raise WorksheetScriptError(
+                    "Un bloque con audio o texto compartido necesita al menos una actividad debajo"
+                )
+            blocks.append(BlockData(
+                title=_get_scalar(header, "title"),
+                instructions=_get_scalar(header, "instructions"),
+                text=_get_scalar(header, "text"),
+                audio_text=block_audio_text,
+                lines=block_lines or None,
+                voice=_get_scalar(header, "voice"),
+                rate=_normalize_rate(_get_scalar(header, "rate")),
+                activities=block_activities,
+            ))
         if not any(b.activities for b in blocks):
             raise WorksheetScriptError("Se requiere al menos una actividad")
         _validate([a for b in blocks for a in b.activities])

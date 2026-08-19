@@ -1,8 +1,9 @@
 import type React from 'react';
 import { Info } from 'lucide-react';
-import { activityRegistry } from './activityRegistry';
+import { activityRegistry, resolveVoice } from './activityRegistry';
+import { AudioPlayer } from './AudioPlayer';
 import { RichText } from './RichText';
-import type { StudentAnswers, StudentAnswer, Worksheet, WorksheetActivity } from '../types';
+import type { ActivityBlock, StudentAnswers, StudentAnswer, Worksheet, WorksheetActivity } from '../types';
 
 type GradeStatus = 'correct' | 'incorrect' | 'pending';
 
@@ -25,6 +26,40 @@ const GRADE_BADGE: Record<GradeStatus, { label: string; cls: string }> = {
   incorrect: { label: '✗ Incorrecto', cls: 'bg-red-100 text-red-700' },
   pending: { label: '… Abierta', cls: 'bg-amber-100 text-amber-700' },
 };
+
+/** Estímulo compartido de un `block {}`: UN texto de lectura o UN audio arriba del bloque, y
+ *  debajo todas sus actividades —de cualquier tipo— preguntando sobre él.
+ *
+ *  Es lo que evita la única alternativa que había antes: repetir el mismo audio en cada
+ *  actividad, que además de aburrido gastaba una petición de TTS por pregunta. */
+export function BlockStimulus({ block }: { block: ActivityBlock }) {
+  const script = block.lines?.length ? block.lines.map((l) => `${l.speaker}|${l.text}`).join('\n') : null;
+  if (!script && !block.audioText && !block.text) return null;
+  return (
+    <div className="grid gap-3 rounded-3xl border border-rex-light bg-white p-5 shadow-sm">
+      {block.text && (
+        <>
+          <p className="text-xs font-semibold uppercase tracking-wide text-rex">📖 Lee el texto</p>
+          <p className="rounded-xl bg-rex-light p-4 leading-7 text-slate-700"><RichText text={block.text} /></p>
+        </>
+      )}
+      {(script || block.audioText) && (
+        <>
+          <p className="text-xs font-semibold uppercase tracking-wide text-rex">
+            {script ? `🗣️ Escucha la conversación · ${block.lines!.length} turnos` : '🎧 Escucha el audio'}
+          </p>
+          {/* El texto del audio nunca se pinta: leerlo convertiría la escucha en lectura. */}
+          <AudioPlayer
+            text={script ? '' : block.audioText!}
+            voice={script ? undefined : resolveVoice(block.voice ?? undefined)}
+            rate={block.rate ?? undefined}
+            conversation={script ?? undefined}
+          />
+        </>
+      )}
+    </div>
+  );
+}
 
 function ActivityCard({ activity, answer, readonly, onAnswerChange, index, status }: {
   activity: WorksheetActivity;
@@ -200,6 +235,7 @@ export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange
                 {block.instructions && <p className="mt-2 text-sm italic leading-6 text-rex-deep"><Info className="mr-1 inline align-[-2px] text-rex" size={15} /><RichText text={block.instructions} /></p>}
               </div>
             )}
+            <BlockStimulus block={block} />
             {block.activities.map((activity, activityIndex) => (
               <ActivityCard
                 key={activity.id}

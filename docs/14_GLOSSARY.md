@@ -15,7 +15,12 @@ calificarse.
 
 **Block / Bloque** — Agrupación de actividades con título e instrucciones de sección
 (`block { }` en el DSL). **Excluyente**: si la hoja tiene al menos un bloque, las actividades fuera de
-bloques se ignoran.
+bloques se ignoran. Puede llevar además un **estímulo compartido**.
+
+**Estímulo compartido** — Un texto (`text`) o un audio (`audio_text` / `lines`) declarado en el
+**bloque** en vez de en la actividad. Se muestra una sola vez arriba y **todas** las actividades del
+bloque —de cualquier tipo— preguntan sobre él. Es la forma de hacer varias preguntas sobre un mismo
+audio (ADR-24); los campos del bloque se leen solo hasta su primera actividad (`_block_header`).
 
 **Classroom / Aula** — Grupo de alumnos al que se asignan hojas y listas de vocabulario. Puede ser
 pública (visible en el selector de invitado) o privada.

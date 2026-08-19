@@ -45,6 +45,7 @@ interface BackendActivity {
   note?: string | null;
   audio_text?: string | null;
   voice?: string | null;
+  rate?: string | null;
   target?: string | null;
   bank?: string[] | null;
   pairs?: { audio_text: string; match: string }[] | null;
@@ -57,6 +58,11 @@ interface BackendActivity {
 interface BackendActivityBlock {
   title?: string | null;
   instructions?: string | null;
+  text?: string | null;
+  audio_text?: string | null;
+  lines?: { speaker: string; text: string }[] | null;
+  voice?: string | null;
+  rate?: string | null;
   activities: BackendActivity[];
 }
 
@@ -286,6 +292,7 @@ function withInstructions<T extends WorksheetActivity>(activity: T, source: Back
   if (source.instructions) out = { ...out, instructions: source.instructions };
   if (source.note) out = { ...out, note: source.note }; // nota privada; el alumno nunca la recibe
   if (source.voice) out = { ...out, voice: source.voice }; // voz por actividad (listening)
+  if (source.rate) out = { ...out, rate: source.rate }; // velocidad por actividad (listening)
   return out;
 }
 
@@ -340,6 +347,11 @@ function normalizeBlocks(jsonContent: BackendWorksheet['json_content']): Activit
   return jsonContent.blocks?.map((block) => ({
     title: block.title ?? null,
     instructions: block.instructions ?? null,
+    text: block.text ?? null,
+    audioText: block.audio_text ?? null,
+    lines: block.lines?.map((l) => ({ speaker: l.speaker === 'female' ? 'female' as const : 'male' as const, text: l.text })) ?? null,
+    voice: block.voice ?? null,
+    rate: block.rate ?? null,
     activities: block.activities.map(normalizeActivity),
   }));
 }

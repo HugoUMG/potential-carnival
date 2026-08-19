@@ -84,6 +84,7 @@ class Activity(BaseModel):
     left_images: list[str] | None = None  # imagematching: URL por fila, paralelo a `left`
     audio_text: str | None = None
     voice: str | None = None  # 'male' | 'female' | nombre de voz edge-tts; solo listening
+    rate: str | None = None  # velocidad de síntesis '±NN%'; solo listening
     target: str | None = None
     bank: list[str] | None = None
     pairs: list[dict] | None = None
@@ -96,6 +97,12 @@ class Activity(BaseModel):
 class ActivityBlock(BaseModel):
     title: str | None = None
     instructions: str | None = None
+    # Estímulo compartido del bloque: un solo texto/audio arriba y N actividades debajo.
+    text: str | None = None  # lectura visible
+    audio_text: str | None = None  # audio TTS oculto
+    lines: list[dict] | None = None  # conversación a dos voces: [{speaker, text}]
+    voice: str | None = None  # 'male' | 'female'; solo con audio_text
+    rate: str | None = None  # velocidad de síntesis '±NN%'; solo con audio_text o lines
     activities: list[Activity] = Field(default_factory=list)
 
 

@@ -210,11 +210,20 @@ La biblioteca **gratuita** (`src/data/image-library.json`) es estática y no pas
 ## Audio (TTS)
 
 ```
-GET    /tts?text=…&voice=en-US-GuyNeural      — Sintetiza una oración → audio/mpeg en streaming
-GET    /tts/conversation?lines=…              — Diálogo con voces m/f alternadas, MP3 concatenado
+GET    /tts?text=…&voice=…&rate=…            — Sintetiza una oración → audio/mpeg en streaming
+GET    /tts/conversation?lines=…&rate=…       — Diálogo con voces m/f alternadas, MP3 concatenado
 ```
 
-`voice`: `en-US-GuyNeural` (masculina, por defecto) o `en-US-JennyNeural` (femenina).
+`voice`: cualquiera de las ~47 voces en inglés de edge-tts (`edge-tts --list-voices`). Por defecto
+`en-US-AndrewNeural`; `/tts/conversation` toma `male` y `female` por separado (`en-US-AndrewNeural` /
+`en-US-AriaNeural`). El selector del reproductor ofrece 6 curadas (`voicePreference.ts`).
+
+`rate`: velocidad de **síntesis**, formato `±NN%` (el DSL la escribe como `very slow`/`slow`/
+`normal` y el parser la normaliza a esta forma). Por defecto **`-15%`**: el alumno es principiante
+y edge-tts vuelve a generar el audio más lento con articulación y pausas limpias, que es distinto de
+estirar la onda con el `playbackRate` del navegador. `rate` y `voice` acaban dentro del SSML que
+edge-tts manda a Microsoft, así que se validan (`_tts_rate` / `_tts_voice`) y lo que no encaje cae al
+valor por defecto.
 `/tts/conversation` concatena frames MP3 en crudo; si hiciera falta una pausa marcada entre turnos,
 habría que intercalar un MP3 de silencio.
 
