@@ -103,8 +103,8 @@ def test_voice_que_edge_tts_no_sirve_se_rechaza_con_mensaje_claro():
 
 
 def test_roger_lleva_tono_subido_para_sonar_a_nino():
-    # Es el único niño del endpoint y suena a adulto joven: +15Hz compensa. Ana no lo necesita.
-    assert _pitch_for("en-US-RogerNeural") == "+15Hz"
+    # Es el único niño del endpoint y suena a adulto joven: +35Hz compensa. Ana no lo necesita.
+    assert _pitch_for("en-US-RogerNeural") == "+35Hz"
     assert _pitch_for("en-US-AnaNeural") is None
 
 
@@ -112,4 +112,4 @@ def test_tts_params_no_pasa_pitch_none():
     # edge-tts 7.2.8 hace TypeError si recibe pitch=None EXPLÍCITO ("pitch must be str"): solo se
     # manda el parámetro cuando hay pitch. Esto rompió TODO el audio del sistema un commit.
     assert _tts_params("en-US-AnaNeural", "-15%") == {"rate": "-15%"}
-    assert _tts_params("en-US-RogerNeural", "-15%") == {"rate": "-15%", "pitch": "+15Hz"}
+    assert _tts_params("en-US-RogerNeural", "-15%") == {"rate": "-15%", "pitch": "+35Hz"}

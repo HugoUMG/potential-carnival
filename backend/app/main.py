@@ -462,8 +462,8 @@ _EDGE_EN_VOICES = frozenset({
 })
 
 # Voz de niño en edge-tts solo hay una (`en-US-RogerNeural`) y suena más a adulto joven que a niño.
-# Subirle el tono lo acerca a una voz infantil (a Ana no le hace falta). Ajuste empírico: +15Hz.
-_VOICE_PITCH = {"en-US-RogerNeural": "+15Hz"}
+# Subirle el tono lo acerca a una voz infantil (a Ana no le hace falta). Ajuste empírico: +35Hz.
+_VOICE_PITCH = {"en-US-RogerNeural": "+35Hz"}
 
 
 def _tts_rate(rate: str) -> str:

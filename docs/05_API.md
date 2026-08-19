@@ -219,7 +219,7 @@ GET    /tts/conversation?lines=…&male=…&female=…&rate=… — Diálogo con
 `en-US-AriaNeural`). El selector del reproductor ofrece 10 curadas (6 adultas + 4 infantiles:
 Ana, Michelle, Maisie y Libby ♀ y Roger ♂ — `voicePreference.ts`). Roger es **el único niño** que
 sirve el endpoint de edge-tts (el catálogo de Azure tiene más, p. ej. `en-GB-OliverNeural`, pero el
-endpoint de Edge no los sirve y falla la síntesis), por eso el backend le sube el tono `+15Hz`
+endpoint de Edge no los sirve y falla la síntesis), por eso el backend le sube el tono `+35Hz`
 (`_VOICE_PITCH`) para que suene más a niño. Un nombre literal que no esté en las 47 voces en inglés
 del endpoint se rechaza con un 400 y un mensaje claro (`_check_voice_exists`), en vez de un 500.
 Las voces de la conversación las pone el DSL (`male_voice`/`female_voice` en `conversation {}` o en
