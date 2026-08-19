@@ -93,7 +93,7 @@ que la posición en el DSL no delata nada. Lo mismo hace `listeningmatching` con
 > opciones pasa 1 de cada 6 veces y parece que no baraja). `WorksheetPrint` repite la misma regla
 > para que el papel coincida con la pantalla.
 
-**`listeningorder`** (`ListeningOrderRenderer`) — tap-to-place estilo Duolingo: fichas desordenadas
+**`listeningorder`** (`ListeningOrderRenderer`) — tap-to-place: fichas desordenadas
 que se tocan para armar la oración; tocar una ficha colocada la devuelve al banco.
 
 **`speaking`** — graba con el micrófono y transcribe con `POST /public/transcribe` (Groq Whisper).
@@ -124,7 +124,8 @@ versión saneada estática.** `content` queda fuera del chrome "Actividad N / In
   (`male_voice`/`female_voice` de la actividad o del bloque) resueltas por `resolveVoice`; sin ellas,
   el endpoint usa las curadas de cada género.
 - `voice` (`male`/`female`) baja desde la actividad; el default es la preferencia global del usuario
-  (`voicePreference.ts`, 10 voces: adultas US/UK/AU + infantiles ♀/♂).
+  (`voicePreference.ts`, 8 voces: adultas US/UK/AU + infantiles Ana ♀ y Roger ♂ — las únicas
+  voces de niño de la plataforma).
 - El selector de velocidad (Muy lento / Lento / Normal) manda `rate` al servidor en vez de tocar el
   `playbackRate` del audio: estirar la onda ya grabada le enseña al alumno una articulación que
   ningún hablante produce. El precio es que cambiar voz o velocidad **recarga** el MP3.

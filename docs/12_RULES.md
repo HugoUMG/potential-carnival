@@ -69,19 +69,26 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
     true/false, no agrupar de forma que se pueda acertar sin saber.
 31. **El `content` de repaso no puede contener ninguna respuesta de los ejercicios.**
 32. Un campo del DSL **por línea**. Comillas internas tipográficas `“ ”`.
+33. **En conversaciones y listening, las únicas voces de niño son Ana y Roger**
+    (`en-US-AnaNeural` niña / `en-US-RogerNeural` niño). Otras infantiles del catálogo de Azure no se
+    ofrecen en los selectores; en el DSL solo por nombre literal, y el endpoint de Edge no sirve
+    todas (p. ej. `en-GB-OliverNeural` falla).
 
 Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas).
 
 ## Trabajo con agentes
 
-33. **Al pedir el usuario una hoja de trabajo: entregar solo el DSL en el chat**, sin crear un archivo
+34. **Al pedir el usuario una hoja de trabajo: entregar solo el DSL en el chat**, sin crear un archivo
     aparte.
-34. **Importar `backend.app` carga el `.env` real.** Si apunta a Aiven, cualquier escritura desde un
+35. **Importar `backend.app` carga el `.env` real.** Si apunta a Aiven, cualquier escritura desde un
     script o un test va a **producción**. Borrar `DATABASE_URL` del entorno no basta.
-35. **No borrar ni tratar como inexistente `speaking`**: está implementado en sus dos modos. Las notas
+36. **No borrar ni tratar como inexistente `speaking`**: está implementado en sus dos modos. Las notas
     históricas que dicen lo contrario están obsoletas.
-36. Documentación: cada dominio en **su** archivo de `docs/`. No volver a acumular todo en un solo
+37. Documentación: cada dominio en **su** archivo de `docs/`. No volver a acumular todo en un solo
     documento.
+38. **El constructor visual debe poder hacer ~95% de lo que hace el script.** Si un tipo soporta un
+    campo en el DSL, su editor visual debe poder editarlo (pasó con `voice`/`rate` de las
+    `listening*`, que solo existían en script y en el bloque).
 
 ---
 
@@ -98,3 +105,4 @@ Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas
 | Excepción de visibilidad para `created_by IS NULL` | Cualquiera que se registrara veía y podía borrar alumnos ajenos |
 | Añadir un campo solo en el parser | Se descartaba al persistir o al leer (pasó con `voice`) |
 | Poner el reproductor de audio en `reading` | Convertía comprensión lectora en auditiva |
+| Pasar `pitch=None` explícito a `edge_tts.Communicate` | `TypeError: pitch must be str` — cayó TODO el audio del sistema (edge-tts 7.2.8) |

@@ -248,8 +248,9 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 /** Selector de voz por hablante (conversaciones). '' = la voz curada de ese género; el resto son
- *  las 10 curadas del reproductor (Andrew, Aria, Ryan, Sonia, Natasha y las infantiles Ana,
- *  Michelle, Maisie y Libby ♀, y Roger ♂ — el único niño que sirve edge-tts). Un nombre
+ *  las 8 curadas del reproductor (Andrew, Aria, Ryan, Sonia, Natasha y las infantiles Ana ♀ y
+ *  Roger ♂ — las ÚNICAS voces de niño que se ofrecen; otras infantiles del catálogo de Azure
+ *  solo por nombre literal en el DSL). Un nombre
  *  literal fuera de la lista no aparece aquí: se escribe a mano en el DSL. */
 function VoiceSelect({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   return (
@@ -296,6 +297,30 @@ function AudioField({ value, onChange }: { value: string; onChange: (v: string) 
       <FieldLabel>🔊 Texto del audio (oculto al estudiante)</FieldLabel>
       <TextInput value={value} onChange={onChange} placeholder="Texto que leerá el TTS al estudiante..." />
     </label>
+  );
+}
+
+/** Voz y velocidad del audio de la actividad, igual que los campos `voice`/`rate` del DSL. */
+function AudioTtsControls({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  return (
+    <div className="grid gap-2 rounded-xl border border-rex-light bg-rex-light p-3">
+      <div className="flex flex-wrap gap-1">
+        {([['', 'Voz por defecto'], ['female', '♀ Femenina'], ['male', '♂ Masculina']] as const).map(([v, label]) => (
+          <button key={v} type="button" onClick={() => onChange({ ...act, voice: v })}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${act.voice === v ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {([['', 'Velocidad del alumno'], ['-35%', '🐢 Muy lento'], ['-15%', 'Lento'], ['+0%', 'Normal']] as const).map(([r, label]) => (
+          <button key={r} type="button" onClick={() => onChange({ ...act, rate: r })}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${act.rate === r ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -452,6 +477,7 @@ function ListeningEditor({ act, onChange }: { act: VisualActivity; onChange: (a:
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <label className="block">
         <FieldLabel>Pregunta para el estudiante</FieldLabel>
         <TextInput value={act.question} onChange={(v) => onChange({ ...act, question: v })} placeholder="What did you hear?" />
@@ -469,6 +495,7 @@ function ListeningFillBlankEditor({ act, onChange }: { act: VisualActivity; onCh
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <label className="block">
         <FieldLabel>Texto con espacios (usa _____ para cada blank)</FieldLabel>
         <TextArea value={act.text} onChange={(v) => onChange({ ...act, text: v })} />
@@ -486,6 +513,7 @@ function ListeningMultipleChoiceEditor({ act, onChange }: { act: VisualActivity;
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <MultipleChoiceEditor act={act} onChange={onChange} />
     </div>
   );
@@ -524,6 +552,7 @@ function ListeningMatchingEditor({ act, onChange }: { act: VisualActivity; onCha
         <FieldLabel>Opciones del dropdown (todas las respuestas posibles)</FieldLabel>
         <div className="mt-2"><StringListEditor items={act.options} onChange={(options) => onChange({ ...act, options })} placeholder="Opción..." addLabel="Agregar opción" /></div>
       </div>
+      <AudioTtsControls act={act} onChange={onChange} />
     </div>
   );
 }
@@ -532,6 +561,7 @@ function ListeningTrueFalseEditor({ act, onChange }: { act: VisualActivity; onCh
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <div>
         <FieldLabel>Enunciados</FieldLabel>
         <div className="mt-2">
@@ -546,6 +576,7 @@ function ListeningOrderEditor({ act, onChange }: { act: VisualActivity; onChange
   return (
     <div className="grid gap-4">
       <AudioField value={act.audioText} onChange={(v) => onChange({ ...act, audioText: v })} />
+      <AudioTtsControls act={act} onChange={onChange} />
       <label className="block">
         <FieldLabel>Oración correcta (palabras en orden, separadas por coma)</FieldLabel>
         <TextInput value={act.answer} onChange={(v) => onChange({ ...act, answer: v })} placeholder="She, has, never, been, to, Paris" />

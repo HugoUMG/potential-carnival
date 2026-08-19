@@ -54,7 +54,7 @@ const GROUPS: { icon: typeof Shapes; emoji: string; title: string; subtitle: str
     subtitle: 'Dictado y orden: aquí se entrena el oído palabra por palabra.',
     items: [
       { key: 'listeningfillblank', name: 'Dictado con huecos', text: 'Se escucha la oración y se escriben las palabras que faltan.', grading: 'auto' },
-      { key: 'listeningorder', name: 'Ordenar la oración', text: 'Estilo Duolingo: fichas desordenadas que se tocan para armar la frase.', grading: 'auto' },
+      { key: 'listeningorder', name: 'Ordenar la oración', text: 'Fichas desordenadas que se tocan para armar la frase que escuchas.', grading: 'auto' },
       { key: 'listeningmatching', name: 'Varios audios + categoría', text: 'Cada audio se clasifica con un desplegable (habilidad, consejo, permiso…).', grading: 'auto' },
     ],
   },

@@ -282,7 +282,7 @@ listeningmatching {
   - Question
 }
 
-# listeningorder — escuchar y armar la oración con fichas (estilo Duolingo).
+# listeningorder — escuchar y armar la oración con fichas que se tocan.
 # Límites: se corrige por ORDEN EXACTO, así que la oración debe tener UN solo orden válido
 #          (evita adverbios movibles). 5–9 fichas, una palabra por ficha.
 listeningorder {
@@ -300,9 +300,8 @@ listeningorder {
 # Límites: los turnos suenan casi seguidos: 3–6 turnos cortos alternando. "answer" corto (1–5
 #          palabras) o quítalo para dejarla abierta a la IA.
 # Voces por hablante (opcional): male_voice / female_voice con un alias 'male'/'female' o un nombre
-#          literal de edge-tts. Si el diálogo es entre NIÑOS usa voces infantiles:
-#          en-US-AnaNeural (niña) / en-US-MichelleNeural (niña) / en-US-RogerNeural (niño, el
-#          único niño que sirve edge-tts) / en-GB-MaisieNeural (niña UK) / en-GB-LibbyNeural (niña UK).
+#          literal de edge-tts. Si el diálogo es entre NIÑOS las voces son SIEMPRE Ana y Roger:
+#          en-US-AnaNeural (niña) y en-US-RogerNeural (niño). No uses otras infantiles.
 #          Sin ellos cada hablante usa la voz curada de su género.
 conversation {
   lines:
