@@ -59,6 +59,8 @@ export interface VisualActivity {
   audioText: string;
   voice: string; // 'male' | 'female' | ''(preferencia global); solo listening
   rate: string; // '±NN%' | ''(la que elija el alumno); solo listening
+  maleVoice: string; // conversación: voz del hablante masculino ('' = voz curada de su género)
+  femaleVoice: string; // conversación: voz del hablante femenino ('' = voz curada de su género)
 
   // listeningmatching
   pairs: VisualPair[];
@@ -89,6 +91,8 @@ export interface VisualBlock {
   voice: '' | 'male' | 'female';
   rate: string; // '±NN%' | ''(la que elija el alumno)
   lines: VisualLine[]; // conversación a dos voces (excluyente con `audioText`)
+  maleVoice: string; // conversación compartida: voz del hablante masculino
+  femaleVoice: string; // conversación compartida: voz del hablante femenino
   activities: VisualActivity[];
 }
 
@@ -267,6 +271,9 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
     }
     if (act.question.trim()) lines.push(`${indent}  question: "${esc(act.question)}"`);
     if (act.answer.trim()) lines.push(`${indent}  answer: "${esc(act.answer)}"`);
+    // Voces por hablante: alias 'male'/'female' o nombre edge-tts literal (sin comillas, como `voice`).
+    if (act.maleVoice.trim()) lines.push(`${indent}  male_voice: ${act.maleVoice.trim()}`);
+    if (act.femaleVoice.trim()) lines.push(`${indent}  female_voice: ${act.femaleVoice.trim()}`);
 
   } else if (act.type === 'content') {
     if (act.readingTitle.trim()) lines.push(`${indent}  title: "${esc(act.readingTitle)}"`);
@@ -366,6 +373,8 @@ function serializeBlock(block: VisualBlock, indent: string): string[] {
   if (blockLines.length > 0) {
     lines.push(`${indent}  lines:`);
     blockLines.forEach((l) => lines.push(`${indent}  - ${l.speaker === 'female' ? 'f' : 'm'}: "${esc(l.text)}"`));
+    if (block.maleVoice.trim()) lines.push(`${indent}  male_voice: ${block.maleVoice.trim()}`);
+    if (block.femaleVoice.trim()) lines.push(`${indent}  female_voice: ${block.femaleVoice.trim()}`);
   } else if (block.audioText.trim()) {
     lines.push(`${indent}  audio_text: "${esc(block.audioText)}"`);
     if (block.voice) lines.push(`${indent}  voice: ${block.voice}`);
@@ -470,6 +479,8 @@ export function toWorksheetActivity(act: VisualActivity): WorksheetActivity {
       return {
         ...base, type: 'conversation', question: act.question, answer: act.answer,
         lines: act.lines.filter((l) => l.text.trim()).map((l) => ({ speaker: l.speaker, text: l.text })),
+        ...(act.maleVoice.trim() ? { male_voice: act.maleVoice.trim() } : {}),
+        ...(act.femaleVoice.trim() ? { female_voice: act.femaleVoice.trim() } : {}),
       };
     case 'content':
       return { ...base, type: 'content', title: act.readingTitle, html: act.html, sandbox: act.sandbox };
@@ -514,6 +525,8 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   audioText: '',
   voice: '',
   rate: '',
+  maleVoice: '',
+  femaleVoice: '',
   pairs: [],
   lines: [],
   html: '',
@@ -595,7 +608,7 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
 }
 
 export function emptyBlock(): VisualBlock {
-  return { id: crypto.randomUUID(), title: '', instructions: '', text: '', audioText: '', voice: '', rate: '', lines: [], activities: [] };
+  return { id: crypto.randomUUID(), title: '', instructions: '', text: '', audioText: '', voice: '', rate: '', maleVoice: '', femaleVoice: '', lines: [], activities: [] };
 }
 
 export function emptyState(): VisualState {

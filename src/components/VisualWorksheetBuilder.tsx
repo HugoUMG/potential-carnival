@@ -17,6 +17,7 @@ import {
   Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText,
 } from 'lucide-react';
 import { subirImagen } from '../services/api';
+import { VOICE_OPTIONS } from '../utils/voicePreference';
 import { ImagePickerModal } from './ImagePicker';
 import { AiGradingControls } from './AiGradingControls';
 import { activityRegistry } from './activityRegistry';
@@ -94,6 +95,7 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     text: '', answer: '', bank: [], question: '', options: [], correctOption: '', correctOptions: [],
     left: [], right: [], prompt: '', target: '', statements: [],
     audioText: '', voice: (act as { voice?: string }).voice ?? '', rate: (act as { rate?: string }).rate ?? '',
+    maleVoice: (act as { male_voice?: string }).male_voice ?? '', femaleVoice: (act as { female_voice?: string }).female_voice ?? '',
     pairs: [], lines: [], html: '', sandbox: false,
     readingTitle: '', readingContent: '', readingQuestions: [],
     imageUrl: '', optionImages: [], leftImages: [],
@@ -150,7 +152,11 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
   }
   if (act.type === 'conversation') {
     const lines: VisualLine[] = (act.lines ?? []).map((l) => ({ id: crypto.randomUUID(), speaker: l.speaker === 'female' ? 'female' : 'male', text: l.text ?? '' }));
-    return { ...base, lines, question: act.question ?? '', answer: Array.isArray(act.answer) ? act.answer.join(', ') : (act.answer ?? '') };
+    return {
+      ...base, lines, question: act.question ?? '', answer: Array.isArray(act.answer) ? act.answer.join(', ') : (act.answer ?? ''),
+      maleVoice: (act as { male_voice?: string }).male_voice ?? '',
+      femaleVoice: (act as { female_voice?: string }).female_voice ?? '',
+    };
   }
   if (act.type === 'content') {
     return { ...base, readingTitle: act.title ?? '', html: act.html ?? '', sandbox: !!act.sandbox };
@@ -193,6 +199,8 @@ function blockToVisual(block: ActivityBlock): VisualBlock {
     audioText: block.audioText ?? '',
     voice: block.voice === 'male' || block.voice === 'female' ? block.voice : '',
     rate: block.rate ?? '',
+    maleVoice: block.male_voice ?? '',
+    femaleVoice: block.female_voice ?? '',
     lines: (block.lines ?? []).map((l) => ({ id: crypto.randomUUID(), speaker: l.speaker, text: l.text })),
     activities: block.activities.map(activityToVisual).filter((a): a is VisualActivity => a !== null),
   };
@@ -237,6 +245,25 @@ export function worksheetToVisualState(worksheet: Worksheet): { state: VisualSta
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{children}</span>;
+}
+
+/** Selector de voz por hablante (conversaciones). '' = la voz curada de ese género; el resto son
+ *  las 6 curadas del reproductor (Andrew, Aria, Ryan, Sonia, Natasha y Ana infantil). Un nombre
+ *  literal fuera de la lista no aparece aquí: se escribe a mano en el DSL. */
+function VoiceSelect({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  return (
+    <label className="flex items-center gap-2">
+      <span className="text-xs font-semibold text-slate-500">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-rex-deep outline-none focus:border-rex"
+      >
+        <option value="">Por defecto</option>
+        {VOICE_OPTIONS.map((v) => <option key={v.name} value={v.name}>{v.label}</option>)}
+      </select>
+    </label>
+  );
 }
 
 function TextInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
@@ -601,6 +628,10 @@ function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: 
             <PlusCircle size={14} /> Agregar turno
           </button>
         </div>
+      </div>
+      <div className="flex flex-wrap gap-4">
+        <VoiceSelect label="Voz de ♀" value={act.femaleVoice} onChange={(femaleVoice) => onChange({ ...act, femaleVoice })} />
+        <VoiceSelect label="Voz de ♂" value={act.maleVoice} onChange={(maleVoice) => onChange({ ...act, maleVoice })} />
       </div>
       <label className="block">
         <FieldLabel>Pregunta</FieldLabel>
@@ -1084,6 +1115,8 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
               audioText: block.audioText || null,
               voice: block.voice || null,
               rate: block.rate || null,
+              male_voice: block.maleVoice || null,
+              female_voice: block.femaleVoice || null,
               lines: block.lines.filter((l) => l.text.trim()).map((l) => ({ speaker: l.speaker, text: l.text })),
               activities: [],
             })}
@@ -1146,6 +1179,10 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
             onClick={() => onUpdate({ ...block, lines: [...block.lines, { id: crypto.randomUUID(), speaker: block.lines.length % 2 === 0 ? 'female' : 'male', text: '' }] })}>
             <PlusCircle size={14} /> Agregar turno
           </button>
+          <div className="flex flex-wrap gap-4">
+            <VoiceSelect label="Voz de ♀" value={block.femaleVoice} onChange={(femaleVoice) => onUpdate({ ...block, femaleVoice })} />
+            <VoiceSelect label="Voz de ♂" value={block.maleVoice} onChange={(maleVoice) => onUpdate({ ...block, maleVoice })} />
+          </div>
           <RateButtons />
         </div>
       )}

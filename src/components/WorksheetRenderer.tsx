@@ -54,6 +54,8 @@ export function BlockStimulus({ block }: { block: ActivityBlock }) {
             voice={script ? undefined : resolveVoice(block.voice ?? undefined)}
             rate={block.rate ?? undefined}
             conversation={script ?? undefined}
+            maleVoice={script ? resolveVoice(block.male_voice ?? undefined) : undefined}
+            femaleVoice={script ? resolveVoice(block.female_voice ?? undefined) : undefined}
           />
         </>
       )}

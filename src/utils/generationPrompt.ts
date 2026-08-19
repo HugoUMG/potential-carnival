@@ -299,11 +299,18 @@ listeningorder {
 # conversation — diálogo a dos voces (m = hombre, f = mujer) fusionado en un solo audio + pregunta.
 # Límites: los turnos suenan casi seguidos: 3–6 turnos cortos alternando. "answer" corto (1–5
 #          palabras) o quítalo para dejarla abierta a la IA.
+# Voces por hablante (opcional): male_voice / female_voice con un alias 'male'/'female' o un nombre
+#          literal de edge-tts. Si el diálogo es entre NIÑOS usa voces infantiles:
+#          en-US-AnaNeural (niña) / en-US-MichelleNeural (niña) / en-US-RogerNeural (niño)
+#          en-GB-MaisieNeural (niña UK) / en-GB-OliverNeural (niño UK).
+#          Sin ellos cada hablante usa la voz curada de su género.
 conversation {
   lines:
   - f: "Hi, are you new here?"
   - m: "Yes, I started today."
   - f: "Welcome! Where are you from?"
+  female_voice: en-US-AnaNeural
+  male_voice: en-US-RogerNeural
   question: "When did he start?"
   answer: "today"
 }

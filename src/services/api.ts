@@ -46,6 +46,8 @@ interface BackendActivity {
   audio_text?: string | null;
   voice?: string | null;
   rate?: string | null;
+  male_voice?: string | null;
+  female_voice?: string | null;
   target?: string | null;
   bank?: string[] | null;
   pairs?: { audio_text: string; match: string }[] | null;
@@ -63,6 +65,8 @@ interface BackendActivityBlock {
   lines?: { speaker: string; text: string }[] | null;
   voice?: string | null;
   rate?: string | null;
+  male_voice?: string | null;
+  female_voice?: string | null;
   activities: BackendActivity[];
 }
 
@@ -293,6 +297,8 @@ function withInstructions<T extends WorksheetActivity>(activity: T, source: Back
   if (source.note) out = { ...out, note: source.note }; // nota privada; el alumno nunca la recibe
   if (source.voice) out = { ...out, voice: source.voice }; // voz por actividad (listening)
   if (source.rate) out = { ...out, rate: source.rate }; // velocidad por actividad (listening)
+  if (source.male_voice) out = { ...out, male_voice: source.male_voice }; // voces por hablante (conversation)
+  if (source.female_voice) out = { ...out, female_voice: source.female_voice };
   return out;
 }
 
@@ -352,6 +358,8 @@ function normalizeBlocks(jsonContent: BackendWorksheet['json_content']): Activit
     lines: block.lines?.map((l) => ({ speaker: l.speaker === 'female' ? 'female' as const : 'male' as const, text: l.text })) ?? null,
     voice: block.voice ?? null,
     rate: block.rate ?? null,
+    male_voice: block.male_voice ?? null,
+    female_voice: block.female_voice ?? null,
     activities: block.activities.map(normalizeActivity),
   }));
 }

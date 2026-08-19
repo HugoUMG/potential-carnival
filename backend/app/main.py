@@ -527,20 +527,28 @@ async def audio_check(payload: AiReviewRequest, current_user: PublicUser = Depen
 
     # Una hoja sin `block {}` deja las actividades en `worksheet.activities`, no en `blocks`.
     todas = list(worksheet.activities) + [a for b in worksheet.blocks for a in b.activities]
-    items = [(a.type, texto) for a in todas if (texto := _audible_text(a))]
+    items: list[tuple[str, Any, str]] = []
+    for a in todas:
+        if texto := _audible_text(a):
+            items.append((a.type, a, texto))
     # El audio compartido de un `block {}` también suena: se prueba igual que el de una actividad.
-    items += [
-        ("conversation" if b.lines else "listening", texto)
-        for b in worksheet.blocks
-        if (texto := _block_audio_text(b))
-    ]
+    for b in worksheet.blocks:
+        if texto := _block_audio_text(b):
+            items.append(("conversation" if b.lines else "listening", b, texto))
     if not items:
         return {"items": [], "detail": "La hoja no tiene actividades con audio ni de habla."}
 
     results: list[dict[str, Any]] = []
-    for tipo, texto in items:
+    for tipo, fuente, texto in items:
         try:
-            mp3 = await _synthesize(texto, "en-US-AriaNeural" if tipo == "conversation" else "en-US-AndrewNeural")
+            if tipo == "conversation":
+                # Cada turno se sintetiza con la voz de SU hablante (igual que /tts/conversation):
+                # si el profesor no fijó `male_voice`/`female_voice`, la curada de su género.
+                male_v = _resolve_conversation_voice(getattr(fuente, "male_voice", None), "en-US-AndrewNeural")
+                female_v = _resolve_conversation_voice(getattr(fuente, "female_voice", None), "en-US-AriaNeural")
+                mp3 = await _synthesize_lines(fuente.lines, male_v, female_v)
+            else:
+                mp3 = await _synthesize(texto, "en-US-AndrewNeural")
             heard = (await asyncio.to_thread(ai_transcribe, mp3, "check.mp3", "audio/mpeg")).strip()
         except Exception as exc:  # una actividad que falle no tumba el informe entero
             results.append({"type": tipo, "text": texto, "heard": "", "ok": False, "error": str(exc)[:120]})
@@ -583,6 +591,30 @@ async def _synthesize(text: str, voice: str) -> bytes:
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
             chunks.append(chunk["data"])
+    return b"".join(chunks)
+
+
+def _resolve_conversation_voice(voice: str | None, gender_default: str) -> str:
+    """`male_voice`/`female_voice` del DSL → nombre de voz edge-tts, igual que `resolveVoice` en el
+    front: el alias 'male'/'female' se traduce a la voz curada de ese género; un nombre literal se
+    pasa tal cual; None → la voz curada del género del hablante."""
+    if not voice:
+        return gender_default
+    return {"male": "en-US-AndrewNeural", "female": "en-US-AriaNeural"}.get(voice, voice)
+
+
+async def _synthesize_lines(lines: list[dict], male_voice: str, female_voice: str) -> bytes:
+    """Sintetiza una conversación turno a turno —cada uno con la voz de su hablante— y concatena
+    los MP3 en una sola pista. Es lo mismo que hace GET /tts/conversation, sin pasar por red."""
+    import edge_tts
+    chunks: list[bytes] = []
+    for line in lines:
+        speaker = (line.get("speaker") or "").strip().lower()
+        voice = female_voice if speaker.startswith("f") else male_voice
+        communicate = edge_tts.Communicate((line.get("text") or "").strip(), voice, rate=DEFAULT_TTS_RATE)
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                chunks.append(chunk["data"])
     return b"".join(chunks)
 
 

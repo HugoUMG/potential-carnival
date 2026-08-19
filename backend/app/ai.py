@@ -72,6 +72,10 @@ the activities, and every activity inside the block — of ANY type — refers t
   audio_text: "…"   a single TTS audio (add `voice: male` or `voice: female` if you want)
   rate: …           optional speed for `lines`/`audio_text`: very slow | slow | normal
   text: "…"         a reading passage the student SEES
+  male_voice/female_voice: optional per-speaker voices for `lines`: 'male'/'female' alias or a
+    literal edge-tts voice name (e.g. en-US-AnaNeural, en-US-RogerNeural). Use a CHILD voice when
+    the dialogue is between children; without them each speaker gets the default voice of its
+    gender.
 These three fields go BEFORE the first activity of the block; `lines` and `audio_text` are mutually
 exclusive (one audio per block). The text of `lines`/`audio_text` is NEVER shown to the student.
 This is how you write several questions about the SAME audio or the SAME passage — use plain
@@ -481,6 +485,9 @@ listeningorder {
 ── conversation (two-voice dialogue + question) ───────────────
 Fields: lines (each "- m:" male or "- f:" female — TTS builds ONE audio), question, answer (optional:
 with answer it auto-grades; without it the AI/teacher grades the open response)
+Optional: male_voice / female_voice — one voice per speaker ('male'/'female' alias or a literal
+edge-tts voice name like en-US-AnaNeural or en-US-RogerNeural). Without them each speaker uses the
+default voice of its gender. Use child voices for dialogues between children.
 Limits: the turns play as ONE continuous audio with almost no pause, so keep it to 3–6 short turns
 and alternate speakers. The student types the answer, so a short `answer` (1–5 words) works best;
 omit `answer` for a genuinely open question. The question must be answerable from the dialogue.
@@ -489,6 +496,7 @@ conversation {
   - f: "Hi, are you new here?"
   - m: "Yes, I started today."
   - f: "Welcome! Where are you from?"
+  female_voice: en-US-AnaNeural
   question: "When did he start?"
   answer: "today"
 }

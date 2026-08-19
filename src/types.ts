@@ -34,6 +34,8 @@ export interface BaseActivity {
   note?: string;
   voice?: string; // 'male' | 'female' | nombre de voz edge-tts; solo listening
   rate?: string; // velocidad de síntesis '±NN%' (ya normalizada por el parser); solo listening
+  male_voice?: string; // conversation: voz del hablante masculino ('male' | nombre de voz edge-tts)
+  female_voice?: string; // conversation: voz del hablante femenino ('female' | nombre de voz edge-tts)
 }
 
 export interface FillBlankActivity extends BaseActivity {
@@ -210,6 +212,8 @@ export interface ActivityBlock {
   lines?: { speaker: 'male' | 'female'; text: string }[] | null;
   voice?: string | null; // 'male' | 'female'; solo con audioText
   rate?: string | null; // velocidad de síntesis '±NN%'; solo con audioText o lines
+  male_voice?: string | null; // conversación compartida: voz del hablante masculino; solo con lines
+  female_voice?: string | null; // conversación compartida: voz del hablante femenino; solo con lines
   activities: WorksheetActivity[];
 }
 

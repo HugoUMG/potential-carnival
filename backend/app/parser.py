@@ -153,7 +153,8 @@ def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
 
 def _block_header(block_body: str) -> str:
     """Trozo de un `block {}` ANTES de su primera actividad: donde viven sus campos propios
-    (`title`, `instructions`, `text`, `audio_text`, `lines`, `voice`, `rate`).
+    (`title`, `instructions`, `text`, `audio_text`, `lines`, `voice`, `rate`, `male_voice`,
+    `female_voice`).
 
     Sin este recorte `_get_scalar(block_body, "title")` encontraría el `title:` de un
     `reading {}` hijo y el bloque se quedaría con el título de la actividad; con el estímulo
@@ -500,7 +501,16 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
     if activity_type == "conversation":
         # Diálogo con voces alternadas (m/f) fusionadas en un audio + pregunta.
         # answer opcional: con answer se autocalifica; sin answer queda pendiente (IA/profesor).
-        return ActivityData(**common, lines=_parse_conversation_lines(body) or None, question=_get_scalar(body, "question"), answer=_get_answer(body))
+        # male_voice/female_voice: voz por hablante ('male'/'female' o nombre edge-tts literal);
+        # sin ellos cada hablante usa la voz curada de su género (Andrew / Aria).
+        return ActivityData(
+            **common,
+            lines=_parse_conversation_lines(body) or None,
+            question=_get_scalar(body, "question"),
+            answer=_get_answer(body),
+            male_voice=_normalize_voice(_get_scalar(body, "male_voice")),
+            female_voice=_normalize_voice(_get_scalar(body, "female_voice")),
+        )
     if activity_type == "content":
         # Bloque informativo: repaso del tema en HTML (se sanea en el front con DOMPurify).
         # Solo lectura: sin input, sin calificación. `html` admite string multilínea ("""...""").
@@ -688,6 +698,8 @@ def parse_worksheet_script(script: str) -> WorksheetData:
                 lines=block_lines or None,
                 voice=_get_scalar(header, "voice"),
                 rate=_normalize_rate(_get_scalar(header, "rate")),
+                male_voice=_normalize_voice(_get_scalar(header, "male_voice")),
+                female_voice=_normalize_voice(_get_scalar(header, "female_voice")),
                 activities=block_activities,
             ))
         if not any(b.activities for b in blocks):
