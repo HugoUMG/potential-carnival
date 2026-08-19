@@ -65,6 +65,7 @@ Un block {} puede llevar UN estímulo que comparten todas sus actividades. Se mu
 arriba del bloque y cualquier tipo de actividad de dentro pregunta sobre él:
   lines:          conversación a dos voces (- f: "…" / - m: "…") fusionada en UNA sola pista
   audio_text: ""  un audio TTS (opcional voice: male | female)
+  rate:           velocidad opcional de "lines"/"audio_text": very slow | slow | normal
   text: ""        un texto de lectura que el alumno SÍ ve
 Los tres van ANTES de la primera actividad del bloque; "lines" y "audio_text" son excluyentes
 (un audio por bloque). El texto de "lines"/"audio_text" nunca se le muestra al alumno.
@@ -354,6 +355,9 @@ imagematching {
 
 # Voz por actividad (opcional, solo en tipos listening*): voice: male | female
 # Úsala cuando la oración o la pregunta hablen de un género concreto.
+# Velocidad por actividad (opcional, solo listening*): rate: very slow | slow | normal
+# Por defecto va "slow". Usa "very slow" con principiantes o con números, fechas y palabras nuevas;
+# "normal" solo con grupos avanzados. Cualquier otro valor se rechaza.
 
 === CALIDAD (esto es lo que hace que la hoja valga la pena) ===
 - NUNCA reveles la respuesta dentro de la actividad: ni en la pregunta, ni en "instructions", ni en

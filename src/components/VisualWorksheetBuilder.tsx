@@ -93,7 +93,8 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     note: act.note ?? '',
     text: '', answer: '', bank: [], question: '', options: [], correctOption: '', correctOptions: [],
     left: [], right: [], prompt: '', target: '', statements: [],
-    audioText: '', voice: (act as { voice?: string }).voice ?? '', pairs: [], lines: [], html: '', sandbox: false,
+    audioText: '', voice: (act as { voice?: string }).voice ?? '', rate: (act as { rate?: string }).rate ?? '',
+    pairs: [], lines: [], html: '', sandbox: false,
     readingTitle: '', readingContent: '', readingQuestions: [],
     imageUrl: '', optionImages: [], leftImages: [],
   };
@@ -191,6 +192,7 @@ function blockToVisual(block: ActivityBlock): VisualBlock {
     text: block.text ?? '',
     audioText: block.audioText ?? '',
     voice: block.voice === 'male' || block.voice === 'female' ? block.voice : '',
+    rate: block.rate ?? '',
     lines: (block.lines ?? []).map((l) => ({ id: crypto.randomUUID(), speaker: l.speaker, text: l.text })),
     activities: block.activities.map(activityToVisual).filter((a): a is VisualActivity => a !== null),
   };
@@ -1024,6 +1026,7 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
       text: next === 'text' ? block.text : '',
       audioText: next === 'audio' ? block.audioText : '',
       voice: next === 'audio' ? block.voice : '',
+      rate: next === 'audio' || next === 'conversation' ? block.rate : '',
       lines: next === 'conversation'
         ? (block.lines.length ? block.lines : [
             { id: crypto.randomUUID(), speaker: 'female', text: '' },
@@ -1035,6 +1038,17 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
 
   const updateLine = (id: string, patch: Partial<VisualLine>) =>
     onUpdate({ ...block, lines: block.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) });
+
+  const RateButtons = () => (
+    <div className="flex flex-wrap gap-1">
+      {([['', 'Velocidad del alumno'], ['-35%', '🐢 Muy lento'], ['-15%', 'Lento'], ['+0%', 'Normal']] as const).map(([r, label]) => (
+        <button key={r} type="button" onClick={() => onUpdate({ ...block, rate: r })}
+          className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${block.rate === r ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 
   const OPTIONS: { value: typeof kind; label: string }[] = [
     { value: 'none', label: 'Ninguno' },
@@ -1069,6 +1083,7 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
               text: block.text || null,
               audioText: block.audioText || null,
               voice: block.voice || null,
+              rate: block.rate || null,
               lines: block.lines.filter((l) => l.text.trim()).map((l) => ({ speaker: l.speaker, text: l.text })),
               activities: [],
             })}
@@ -1105,6 +1120,7 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
               </button>
             ))}
           </div>
+          <RateButtons />
         </div>
       )}
       {kind === 'conversation' && (
@@ -1130,6 +1146,7 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
             onClick={() => onUpdate({ ...block, lines: [...block.lines, { id: crypto.randomUUID(), speaker: block.lines.length % 2 === 0 ? 'female' : 'male', text: '' }] })}>
             <PlusCircle size={14} /> Agregar turno
           </button>
+          <RateButtons />
         </div>
       )}
     </div>

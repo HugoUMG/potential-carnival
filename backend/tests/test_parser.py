@@ -339,6 +339,7 @@ ALL_TYPES = '''worksheet {
     listeningorder {
       audio_text: "She has never been to Paris."
       voice: female
+      rate: very slow
       answer:
       - She
       - has
@@ -370,5 +371,34 @@ def test_every_documented_type_parses():
     # El HTML con llaves de CSS no descuadra el conteo de bloques.
     content = next(a for a in activities if a.type == "content")
     assert "<style>b { color: red }</style>" in content.html
-    # La voz por actividad llega normalizada.
-    assert next(a for a in activities if a.type == "listeningorder").voice == "female"
+    # La voz y la velocidad por actividad llegan normalizadas.
+    listening_order = next(a for a in activities if a.type == "listeningorder")
+    assert listening_order.voice == "female"
+    assert listening_order.rate == "-35%"
+
+
+RATE_SCRIPT = """worksheet {
+  title: "T"
+  listening {
+    text: "The bus leaves at eight."
+    rate: RATE
+    question: "When?"
+    answer: "at eight"
+  }
+}"""
+
+
+def test_rate_por_actividad():
+    """`rate` sale del parser ya en la forma `±NN%` que entiende edge-tts, y un valor inventado
+    revienta en vez de colarse: si se ignorara, el profesor creería que la hoja va lenta."""
+    def rate_of(value):
+        # Sin `block {}` las actividades cuelgan de la hoja, no de un bloque.
+        return parse_worksheet_script(RATE_SCRIPT.replace("RATE", value)).activities[0].rate
+
+    assert rate_of("very slow") == "-35%"
+    assert rate_of("slow") == "-15%"
+    assert rate_of("normal") == "+0%"
+    assert rate_of("muy lento") == "-35%"   # el profesor escribe en español
+    assert rate_of("-25%") == "-25%"        # porcentaje literal
+    with pytest.raises(WorksheetScriptError):
+        rate_of("slowly")

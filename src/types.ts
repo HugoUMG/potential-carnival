@@ -33,6 +33,7 @@ export interface BaseActivity {
    *  del alumno, así que en el portal del alumno este campo siempre llega vacío. */
   note?: string;
   voice?: string; // 'male' | 'female' | nombre de voz edge-tts; solo listening
+  rate?: string; // velocidad de síntesis '±NN%' (ya normalizada por el parser); solo listening
 }
 
 export interface FillBlankActivity extends BaseActivity {
@@ -208,6 +209,7 @@ export interface ActivityBlock {
   audioText?: string | null;
   lines?: { speaker: 'male' | 'female'; text: string }[] | null;
   voice?: string | null; // 'male' | 'female'; solo con audioText
+  rate?: string | null; // velocidad de síntesis '±NN%'; solo con audioText o lines
   activities: WorksheetActivity[];
 }
 

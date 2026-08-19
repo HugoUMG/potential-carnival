@@ -58,6 +58,7 @@ export interface VisualActivity {
   // listening* / listeningfillblank / listeningmultiplechoice / listeningtruefalse
   audioText: string;
   voice: string; // 'male' | 'female' | ''(preferencia global); solo listening
+  rate: string; // '±NN%' | ''(la que elija el alumno); solo listening
 
   // listeningmatching
   pairs: VisualPair[];
@@ -86,6 +87,7 @@ export interface VisualBlock {
   text: string; // lectura visible
   audioText: string; // audio TTS oculto (excluyente con `lines`)
   voice: '' | 'male' | 'female';
+  rate: string; // '±NN%' | ''(la que elija el alumno)
   lines: VisualLine[]; // conversación a dos voces (excluyente con `audioText`)
   activities: VisualActivity[];
 }
@@ -339,9 +341,12 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
     if (act.target.trim()) lines.push(`${indent}  target: "${esc(act.target)}"`);
   }
 
-  // voz por actividad (solo listening): 'male'/'female' o nombre edge-tts literal
+  // voz y velocidad por actividad (solo listening): 'male'/'female' o nombre edge-tts literal
   if (act.type.startsWith('listening') && act.voice?.trim()) {
     lines.push(`${indent}  voice: ${act.voice.trim()}`);
+  }
+  if (act.type.startsWith('listening') && act.rate?.trim()) {
+    lines.push(`${indent}  rate: ${act.rate.trim()}`);
   }
 
   lines.push(`${indent}}`);
@@ -364,6 +369,9 @@ function serializeBlock(block: VisualBlock, indent: string): string[] {
   } else if (block.audioText.trim()) {
     lines.push(`${indent}  audio_text: "${esc(block.audioText)}"`);
     if (block.voice) lines.push(`${indent}  voice: ${block.voice}`);
+  }
+  if (block.rate && (blockLines.length > 0 || block.audioText.trim())) {
+    lines.push(`${indent}  rate: ${block.rate}`);
   }
   for (const act of block.activities) {
     lines.push(...serializeActivity(act, `${indent}  `));
@@ -419,6 +427,7 @@ export function toWorksheetActivity(act: VisualActivity): WorksheetActivity {
     ...(act.instructions.trim() ? { instructions: act.instructions } : {}),
     ...(act.note?.trim() ? { note: act.note } : {}),
     ...(act.voice.trim() ? { voice: act.voice } : {}),
+    ...(act.rate.trim() ? { rate: act.rate } : {}),
   };
   const statements = act.statements.filter((s) => s.text.trim()).map((s) => ({ text: s.text, answer: s.answer }));
   const options = act.options.filter((o) => o.trim());
@@ -504,6 +513,7 @@ const BASE_ACTIVITY: Omit<VisualActivity, 'id' | 'type'> = {
   statements: [],
   audioText: '',
   voice: '',
+  rate: '',
   pairs: [],
   lines: [],
   html: '',
@@ -585,7 +595,7 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
 }
 
 export function emptyBlock(): VisualBlock {
-  return { id: crypto.randomUUID(), title: '', instructions: '', text: '', audioText: '', voice: '', lines: [], activities: [] };
+  return { id: crypto.randomUUID(), title: '', instructions: '', text: '', audioText: '', voice: '', rate: '', lines: [], activities: [] };
 }
 
 export function emptyState(): VisualState {

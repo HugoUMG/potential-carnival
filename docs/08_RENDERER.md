@@ -118,11 +118,17 @@ versión saneada estática.** `content` queda fuera del chrome "Actividad N / In
 
 `AudioPlayer.tsx` construye la URL del TTS y reproduce el `audio/mpeg` en streaming:
 
-- Actividades `listening*` → `GET /tts?text=…&voice=…`
-- `conversation` → prop `conversation` → `GET /tts/conversation?lines=…` (voces m/f alternadas,
-  MP3 concatenado)
+- Actividades `listening*` → `GET /tts?text=…&voice=…&rate=…`
+- `conversation` → prop `conversation` → `GET /tts/conversation?lines=…&rate=…` (voces m/f
+  alternadas, MP3 concatenado)
 - `voice` (`male`/`female`) baja desde la actividad; el default es la preferencia global del usuario
-  (`voicePreference.ts`).
+  (`voicePreference.ts`, 6 voces US/UK/AU + una infantil).
+- El selector de velocidad (Muy lento / Lento / Normal) manda `rate` al servidor en vez de tocar el
+  `playbackRate` del audio: estirar la onda ya grabada le enseña al alumno una articulación que
+  ningún hablante produce. El precio es que cambiar voz o velocidad **recarga** el MP3.
+- `rate` puede venir del DSL (actividad o bloque). Es la velocidad **de partida**: en cuanto el
+  alumno toca el selector, manda su elección (`pickedRate ?? dslRate ?? preferencia`). Al revés que
+  `voice`, que sí oculta su selector cuando la actividad la fija.
 - Un `block {}` con `audioText`/`lines` monta **un** reproductor para todas sus actividades, con las
   mismas dos URLs (`BlockStimulus`). Es lo que evita repetir el audio pregunta por pregunta.
 

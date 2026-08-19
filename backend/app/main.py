@@ -434,15 +434,38 @@ def delete_my_image(image_id: str, current_user: PublicUser = Depends(require_te
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
 
 
+# ── TTS ───────────────────────────────────────────────────────────────────────
+# `rate` hace que edge-tts RE-SINTETICE más lento (articulación y pausas limpias). No es el
+# playbackRate del navegador, que estira la onda y enseña una articulación que no existe.
+DEFAULT_TTS_RATE = "-15%"
+_RATE_RE = re.compile(r"^[+-]\d{1,2}%$")
+_VOICE_RE = re.compile(r"^[A-Za-z0-9-]{5,48}$")
+
+
+def _tts_rate(rate: str) -> str:
+    """`rate` y `voice` llegan del query string y viajan al SSML que edge-tts manda a Microsoft:
+    se validan, no se confía en ellos."""
+    return rate if _RATE_RE.match(rate) else DEFAULT_TTS_RATE
+
+
+def _tts_voice(voice: str, fallback: str = "en-US-AndrewNeural") -> str:
+    return voice if _VOICE_RE.match(voice) else fallback
+
+
 @app.get("/tts")
-async def tts(request: Request, text: str = Query(min_length=1, max_length=2000), voice: str = "en-US-GuyNeural") -> StreamingResponse:
+async def tts(
+    request: Request,
+    text: str = Query(min_length=1, max_length=2000),
+    voice: str = "en-US-AndrewNeural",
+    rate: str = DEFAULT_TTS_RATE,
+) -> StreamingResponse:
     # Público a la fuerza: el front lo usa como `src` de un <audio>, que no manda cabeceras.
     # El coste se acota por los dos lados — `max_length` limita lo que cuesta UNA petición
     # (edge-tts sintetiza el mp3 entero en RAM antes de responder) y el rate limit, cuántas.
     _rate_limit(request, limit=300)
     try:
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice)
+        communicate = edge_tts.Communicate(text, _tts_voice(voice), rate=_tts_rate(rate))
         chunks: list[bytes] = []
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
@@ -456,8 +479,9 @@ async def tts(request: Request, text: str = Query(min_length=1, max_length=2000)
 async def tts_conversation(
     request: Request,
     lines: str = Query(min_length=1, max_length=8000),
-    male: str = "en-US-GuyNeural",
-    female: str = "en-US-JennyNeural",
+    male: str = "en-US-AndrewNeural",
+    female: str = "en-US-AriaNeural",
+    rate: str = DEFAULT_TTS_RATE,
 ) -> StreamingResponse:
     _rate_limit(request, limit=300)
     # `lines`: una por renglón, formato `speaker|texto` (speaker que empieza con 'f' = femenina).
@@ -476,7 +500,7 @@ async def tts_conversation(
             if not text:
                 continue
             voice = female if speaker.strip().lower().startswith("f") else male
-            communicate = edge_tts.Communicate(text, voice)
+            communicate = edge_tts.Communicate(text, _tts_voice(voice), rate=_tts_rate(rate))
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     chunks.append(chunk["data"])
@@ -516,7 +540,7 @@ async def audio_check(payload: AiReviewRequest, current_user: PublicUser = Depen
     results: list[dict[str, Any]] = []
     for tipo, texto in items:
         try:
-            mp3 = await _synthesize(texto, "en-US-JennyNeural" if tipo == "conversation" else "en-US-GuyNeural")
+            mp3 = await _synthesize(texto, "en-US-AriaNeural" if tipo == "conversation" else "en-US-AndrewNeural")
             heard = (await asyncio.to_thread(ai_transcribe, mp3, "check.mp3", "audio/mpeg")).strip()
         except Exception as exc:  # una actividad que falle no tumba el informe entero
             results.append({"type": tipo, "text": texto, "heard": "", "ok": False, "error": str(exc)[:120]})
@@ -554,7 +578,7 @@ def _audible_text(activity: Any) -> str:
 
 async def _synthesize(text: str, voice: str) -> bytes:
     import edge_tts
-    communicate = edge_tts.Communicate(text, voice)
+    communicate = edge_tts.Communicate(text, voice, rate=DEFAULT_TTS_RATE)
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":

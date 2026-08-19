@@ -23,6 +23,7 @@ class ActivityData:
     left_images: list[str] | None = None  # imagematching: URL por fila, paralelo a `left`
     audio_text: str | None = None
     voice: str | None = None  # 'male' | 'female' | nombre de voz edge-tts; solo listening
+    rate: str | None = None  # velocidad de síntesis '±NN%'; solo listening
     target: str | None = None
     bank: list[str] | None = None
     pairs: list[dict] | None = None
@@ -46,6 +47,7 @@ class BlockData:
     audio_text: str | None = None
     lines: list[dict] | None = None  # conversación a dos voces: [{speaker, text}]
     voice: str | None = None  # 'male' | 'female'; solo con audio_text
+    rate: str | None = None  # velocidad de síntesis '±NN%'; solo con audio_text o lines
     activities: list[ActivityData] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -54,7 +56,7 @@ class BlockData:
             "instructions": self.instructions,
             "activities": [a.to_dict() for a in self.activities],
         }
-        for key in ("text", "audio_text", "lines", "voice"):
+        for key in ("text", "audio_text", "lines", "voice", "rate"):
             value = getattr(self, key)
             if value:
                 d[key] = value

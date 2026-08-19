@@ -153,7 +153,7 @@ def _find_activity_blocks(source: str) -> list[tuple[str, str]]:
 
 def _block_header(block_body: str) -> str:
     """Trozo de un `block {}` ANTES de su primera actividad: donde viven sus campos propios
-    (`title`, `instructions`, `text`, `audio_text`, `lines`, `voice`).
+    (`title`, `instructions`, `text`, `audio_text`, `lines`, `voice`, `rate`).
 
     Sin este recorte `_get_scalar(block_body, "title")` encontraría el `title:` de un
     `reading {}` hijo y el bloque se quedaría con el título de la actividad; con el estímulo
@@ -338,7 +338,7 @@ def _parse_pairs(body: str) -> list[dict]:
         stripped = line.strip()
         if not stripped:
             continue
-        if re.match(r"^(options|instructions|voice)\s*:", stripped):
+        if re.match(r"^(options|instructions|voice|rate)\s*:", stripped):
             break  # fin de la lista: empieza otro campo de la actividad
         if stripped.startswith("-"):
             chunks.append([stripped[1:].strip()])
@@ -396,6 +396,33 @@ def _normalize_voice(raw: str | None) -> str | None:
     return raw.strip()
 
 
+# Velocidad de síntesis: edge-tts REGENERA el audio más lento (articulación y pausas limpias), que
+# no es estirar la onda ya grabada. El vocabulario es cerrado a propósito — al revés que `voice`,
+# donde cualquier nombre desconocido puede ser una de las ~47 voces de edge-tts.
+_RATES = {
+    "very slow": "-35%", "very_slow": "-35%", "muy lento": "-35%", "muy despacio": "-35%",
+    "slow": "-15%", "lento": "-15%", "despacio": "-15%",
+    "normal": "+0%", "natural": "+0%",
+}
+
+
+def _normalize_rate(raw: str | None) -> str | None:
+    """Normaliza el campo `rate` a la forma `±NN%` que entiende edge-tts.
+    Un valor irreconocible es un error: si se ignorara en silencio, el profesor creería que la hoja
+    va lenta cuando no lo está."""
+    if not raw:
+        return None
+    v = " ".join(raw.strip().lower().split())
+    if v in _RATES:
+        return _RATES[v]
+    if re.match(r"^[+-]\d{1,2}%$", v):
+        return v
+    raise WorksheetScriptError(
+        f"`rate: {raw.strip()}` no es una velocidad válida. Usa `very slow`, `slow`, `normal` o "
+        "un porcentaje como `-25%`."
+    )
+
+
 def parse_activity(activity_type: str, body: str) -> ActivityData:
     # `note`: nota privada del profesor. La lee SOLO la IA al calificar; nunca llega al alumno
     # (se elimina del payload público en main.py). Vale para cualquier tipo, como `instructions`.
@@ -407,6 +434,7 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
     }
     if activity_type.startswith("listening"):
         common["voice"] = _normalize_voice(_get_scalar(body, "voice"))
+        common["rate"] = _normalize_rate(_get_scalar(body, "rate"))
     if activity_type == "fillblank":
         return ActivityData(**common, text=_get_scalar(body, "text"), answer=_get_answer(body))
     if activity_type == "dragdrop":
@@ -659,6 +687,7 @@ def parse_worksheet_script(script: str) -> WorksheetData:
                 audio_text=block_audio_text,
                 lines=block_lines or None,
                 voice=_get_scalar(header, "voice"),
+                rate=_normalize_rate(_get_scalar(header, "rate")),
                 activities=block_activities,
             ))
         if not any(b.activities for b in blocks):

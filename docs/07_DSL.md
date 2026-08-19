@@ -1795,6 +1795,7 @@ Con `target` el alumno ve la oración, un botón 🔊 para escucharla y, tras gr
 | `answer` | list | Sí | Las fichas en el orden correcto (mínimo 2) |
 | `bank` | list | No | Fichas desordenadas. Si falta, el front baraja `answer` |
 | `voice` | string | No | `male` / `female` |
+| `rate` | string | No | `very slow` / `slow` (por defecto) / `normal`, o un `±NN%` |
 
 ```
 listeningorder {
@@ -1998,6 +1999,7 @@ Un `block {}` puede llevar **un** estímulo propio. Se pinta **una sola vez** ar
 |------------------|--------|-----------------|
 | `lines:` | Conversación a dos voces (`- f:` / `- m:`), fusionada en **una sola pista** | No: solo la oye |
 | `audio_text:` | Un audio TTS (con `voice: male` / `voice: female` opcional) | No: solo lo oye |
+| `rate:` | Velocidad del audio del bloque (`very slow` / `slow` / `normal`), vale con `lines` y con `audio_text` | — |
 | `text:` | Un texto de lectura | Sí |
 
 ```
@@ -2635,19 +2637,20 @@ worksheet {
 | truefalse | — | — | — | — | — | — | — | — | — | — | — | ✓ | — | |
 | imagequestion | — | — | — | — | ✓ | — | — | — | ✓ | — | — | — | — | |
 | speaking | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | `target` |
-| listening | ✓† | ✓ | — | ✓ | — | — | — | — | — | — | — | — | — | `voice` |
-| listeningfillblank | ✓* | — | — | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice` |
-| listeningmultiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice` |
-| listeningmatching | — | — | ✓ | — | — | — | — | — | — | — | ✓ | — | — | `voice` |
-| listeningtruefalse | — | — | — | — | — | — | — | — | — | ✓ | — | ✓ | — | `voice` |
-| listeningorder | — | — | — | ✓‡ | — | — | — | — | — | ✓ | — | — | — | `bank`, `voice` |
+| listening | ✓† | ✓ | — | ✓ | — | — | — | — | — | — | — | — | — | `voice`, `rate` |
+| listeningfillblank | ✓* | — | — | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice`, `rate` |
+| listeningmultiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | ✓ | — | — | — | `voice`, `rate` |
+| listeningmatching | — | — | ✓ | — | — | — | — | — | — | — | ✓ | — | — | `voice`, `rate` |
+| listeningtruefalse | — | — | — | — | — | — | — | — | — | ✓ | — | ✓ | — | `voice`, `rate` |
+| listeningorder | — | — | — | ✓‡ | — | — | — | — | — | ✓ | — | — | — | `bank`, `voice`, `rate` |
 | conversation | — | ✓ | — | opc. | — | — | — | — | — | — | — | — | — | `lines` |
 | content | — | — | — | — | — | — | — | — | — | — | — | — | opc. | `html`, `sandbox` |
 
 `*` = con marcadores `_____`  
 `†` = el `text` de `listening` es el audio TTS OCULTO (campo diferente al `text` de `fillblank`)  
 `‡` = `answer` es siempre una **lista**  
-Todos aceptan además `instructions` (opcional). `voice` (`male`/`female`) solo aplica a `listening*`.
+Todos aceptan además `instructions` (opcional). `voice` (`male`/`female`) y `rate`
+(`very slow`/`slow`/`normal`) solo aplican a `listening*`.
 
 ---
 
@@ -2693,10 +2696,30 @@ mantenerse en sincronía: `ACTIVITY_GROUPS` en `WorksheetEditor.tsx` (chips del 
 
 Cualquier tipo `listening*` acepta un campo opcional `voice: male` o `voice: female` (por defecto: la
 preferencia global del usuario, masculina). Se normaliza en el parser (`_normalize_voice`) y baja
-hasta `AudioPlayer`: `male` → `en-US-GuyNeural`, `female` → `en-US-JennyNeural`. Un valor desconocido
-se pasa tal cual como nombre de voz edge-tts. Solo aplica a listening (otros tipos lo ignoran).
+hasta `AudioPlayer`: `male` → `en-US-AndrewNeural`, `female` → `en-US-AriaNeural`. Un valor
+desconocido se pasa tal cual como nombre de voz edge-tts, así que las ~47 voces en inglés están
+disponibles escribiéndolas literalmente (`voice: en-GB-SoniaNeural`, `voice: en-AU-NatashaNeural`).
+Solo aplica a listening (otros tipos lo ignoran).
 
 Sirve para evitar el desajuste "voz masculina lee la oración pero la pregunta dice *she*".
+
+### Velocidad por actividad (`rate`)
+
+Cualquier tipo `listening*` —y cualquier `block {}` con `lines` o `audio_text`— acepta un campo
+opcional `rate`. Vocabulario **cerrado**: `very slow` (`-35%`), `slow` (`-15%`, el default de la
+plataforma), `normal` (`+0%`) o un porcentaje literal `±NN%`. También se aceptan las formas en
+español (`muy lento`, `lento`, `normal`). El parser lo normaliza a `±NN%` (`_normalize_rate`) y
+**cualquier otro valor es un error de script**, al revés que `voice`: un `voice` desconocido puede
+ser una de las ~47 voces de edge-tts, pero un `rate: slowly` solo puede ser una errata, y tragárselo
+en silencio dejaría al profesor creyendo que la hoja va lenta cuando no lo está.
+
+No es el `playbackRate` del navegador: edge-tts **regenera** el audio a esa velocidad, con
+articulación y pausas limpias, en vez de estirar una onda ya grabada.
+
+El `rate` del DSL es la velocidad **de partida**; el alumno puede seguir bajándola con el selector
+del reproductor. Es la diferencia con `voice`, que sí queda fijo: la voz es una decisión de
+contenido (que el género case con la pregunta), la velocidad es una ayuda que el alumno necesita
+poder darse a sí mismo.
 
 > Añadir `voice` obligó a tocar también el modelo Pydantic `Activity` (`models.py`) y
 > `normalizeActivity`/`withInstructions` (`api.ts`): sin eso el campo se descartaba al persistir o al

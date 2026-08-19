@@ -3,7 +3,7 @@
 La ida y vuelta real (edge-tts → Whisper) necesita red; aquí se prueba la lógica que la rodea.
 No toca la base de datos ni llama a ninguna IA (regla 34).
 """
-from backend.app.main import _audible_text, _same_words
+from backend.app.main import DEFAULT_TTS_RATE, _audible_text, _same_words, _tts_rate, _tts_voice
 from backend.app.parser import parse_worksheet_script
 
 SCRIPT = """worksheet {
@@ -55,3 +55,14 @@ def test_la_comparacion_ignora_puntuacion_y_cifras():
     assert _same_words("Yes, I started today.", "yes I started today")
     # Lo que sí importa: la voz dice otra cosa distinta de lo que está escrito.
     assert not _same_words("He paid for the 3rd ticket.", "He paid for the third ticket.")
+
+
+def test_rate_y_voice_no_dejan_pasar_ssml():
+    # `rate` y `voice` llegan del query string y acaban dentro del SSML que edge-tts manda a
+    # Microsoft: lo que no tenga la forma exacta cae al valor por defecto en vez de viajar.
+    assert _tts_rate("-35%") == "-35%"
+    assert _tts_rate("+0%") == "+0%"
+    assert _tts_rate("slow") == DEFAULT_TTS_RATE
+    assert _tts_rate('-15%"/><break time="5s"/>') == DEFAULT_TTS_RATE
+    assert _tts_voice("en-GB-SoniaNeural") == "en-GB-SoniaNeural"
+    assert _tts_voice('x"/><voice name="en-US-AnaNeural') == "en-US-AndrewNeural"

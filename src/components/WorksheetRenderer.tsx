@@ -52,6 +52,7 @@ export function BlockStimulus({ block }: { block: ActivityBlock }) {
           <AudioPlayer
             text={script ? '' : block.audioText!}
             voice={script ? undefined : resolveVoice(block.voice ?? undefined)}
+            rate={block.rate ?? undefined}
             conversation={script ?? undefined}
           />
         </>

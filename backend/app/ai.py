@@ -70,6 +70,7 @@ A block {} may carry ONE stimulus that all its activities ask about. It is rende
 the activities, and every activity inside the block — of ANY type — refers to it:
   lines:            a two-voice conversation (`- f: "…"` / `- m: "…"`), merged into ONE audio track
   audio_text: "…"   a single TTS audio (add `voice: male` or `voice: female` if you want)
+  rate: …           optional speed for `lines`/`audio_text`: very slow | slow | normal
   text: "…"         a reading passage the student SEES
 These three fields go BEFORE the first activity of the block; `lines` and `audio_text` are mutually
 exclusive (one audio per block). The text of `lines`/`audio_text` is NEVER shown to the student.
@@ -152,6 +153,9 @@ NEVER use a field called "audio:" — it does not exist.
 - All other listening types use field: audio_text  (hidden from student, read by TTS)
 - Any listening* type accepts optional `voice: male` or `voice: female`. Use it when the sentence or
   the question refers to a specific gender ("Why did SHE have to leave?" → voice: female).
+- Any listening* type also accepts optional `rate: very slow | slow | normal` (default: slow). Use
+  `very slow` for beginners or for a sentence packed with numbers, dates or unfamiliar words, and
+  `normal` only for advanced groups. Anything else is rejected.
 "listeningmatching" uses pair {} blocks — NEVER a plain list for pairs.
 
 === WHAT THIS PLATFORM CANNOT DO (do not invent it) ===

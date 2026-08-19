@@ -1,7 +1,8 @@
 /**
  * Reproductor de audio TTS para actividades de listening.
  * Descarga el audio como blob antes de reproducir · evita problemas de streaming.
- * Incluye control de velocidad (útil para aprendizaje de idiomas).
+ * La velocidad y la voz se piden al servidor (edge-tts re-sintetiza), no se deforma el blob:
+ * cambiar cualquiera de las dos recarga el audio.
  *
  * Exporta dos componentes:
  *  - AudioPlayer  → reproductor completo para actividades listening
@@ -10,21 +11,22 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Pause, Play, RefreshCw, Volume2, VolumeX } from 'lucide-react';
-import { getVoiceGender, getVoiceName, setVoiceGender, type VoiceGender } from '../utils/voicePreference';
+import { RATES, VOICE_OPTIONS, getRate, getVoiceName, setRate, setVoiceName } from '../utils/voicePreference';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
-function buildTtsUrl(text: string, voice?: string, conversation?: string) {
+function buildTtsUrl(text: string, voice?: string, conversation?: string, rate?: string) {
+  const r = `&rate=${encodeURIComponent(rate ?? getRate())}`;
   // `conversation`: guion multi-voz (una línea `speaker|texto` por turno) → endpoint que
   // sintetiza cada turno con su voz y concatena los MP3 en una sola pista.
-  if (conversation) return `${API_BASE}/tts/conversation?lines=${encodeURIComponent(conversation)}`;
+  if (conversation) return `${API_BASE}/tts/conversation?lines=${encodeURIComponent(conversation)}${r}`;
   const v = voice ?? getVoiceName(); // usa preferencia global si no se especifica
-  return `${API_BASE}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(v)}`;
+  return `${API_BASE}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(v)}${r}`;
 }
 
 // ── Hook compartido: descarga blob y gestiona estado ─────────────────────────
 
-function useAudioBlob(text: string, voice?: string, conversation?: string) {
+function useAudioBlob(text: string, voice?: string, conversation?: string, rate?: string) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -40,7 +42,7 @@ function useAudioBlob(text: string, voice?: string, conversation?: string) {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(buildTtsUrl(text, voice, conversation));
+      const res = await fetch(buildTtsUrl(text, voice, conversation, rate));
       if (!res.ok) throw new Error(`TTS error ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -51,7 +53,7 @@ function useAudioBlob(text: string, voice?: string, conversation?: string) {
     } finally {
       setLoading(false);
     }
-  }, [text, voice, conversation]);
+  }, [text, voice, conversation, rate]);
 
   // Carga automática al montar y cuando cambia el texto
   useEffect(() => {
@@ -70,28 +72,25 @@ interface AudioPlayerProps {
   text: string;
   voice?: string;
   conversation?: string; // guion multi-voz; si está presente ignora text/voice y usa el endpoint de conversación
+  rate?: string; // '±NN%' del DSL: velocidad de partida, el alumno puede seguir cambiándola
 }
 
-export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
-  const [gender, setGender] = useState<VoiceGender>(getVoiceGender());
-  const resolvedVoice = voice ?? (gender === 'female' ? 'en-US-JennyNeural' : 'en-US-GuyNeural');
-  const { blobUrl, loading, error, reload } = useAudioBlob(text, resolvedVoice, conversation);
+export function AudioPlayer({ text, voice, conversation, rate: dslRate }: AudioPlayerProps) {
+  const [voiceName, setPickedVoice] = useState(getVoiceName());
+  // El `rate` del DSL manda hasta que el alumno toca el selector. Al revés que `voice` (que el
+  // profesor sí fija en firme): poder bajar la velocidad es justo lo que necesita un principiante.
+  const [pickedRate, setPickedRate] = useState<string | null>(null);
+  const rate = pickedRate ?? dslRate ?? getRate();
+  const { blobUrl, loading, error, reload } = useAudioBlob(text, voice ?? voiceName, conversation, rate);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [speed, setSpeed] = useState(1);
 
-  const handleGenderChange = (g: VoiceGender) => {
-    setGender(g);
-    setVoiceGender(g);
-    void reload(); // recarga con la nueva voz
-  };
-
-  // Aplica velocidad al audio element cuando cambia
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = speed;
-  }, [speed]);
+  // Voz y velocidad son parte de la URL → cambiarlas dispara la recarga sola (dep de `load`).
+  const handleVoiceChange = (name: string) => { setPickedVoice(name); setVoiceName(name); };
+  const handleRateChange = (value: string) => { setPickedRate(value); setRate(value); };
+  const rateOptions = RATES.some((r) => r.value === rate) ? RATES : [...RATES, { value: rate, label: rate }];
 
   // Cuando el blob carga, precarga el elemento de audio
   useEffect(() => {
@@ -106,7 +105,6 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
     if (playing) {
       audio.pause();
     } else {
-      audio.playbackRate = speed;
       void audio.play();
     }
   };
@@ -207,39 +205,26 @@ export function AudioPlayer({ text, voice, conversation }: AudioPlayerProps) {
           {fmt(progress)}<span className="text-slate-300"> / </span>{fmt(duration)}
         </span>
 
-        {/* Velocidad */}
+        {/* Velocidad · la sintetiza el servidor, no deforma el audio */}
         <select
-          value={speed}
-          onChange={(e) => setSpeed(Number(e.target.value))}
+          value={rate}
+          onChange={(e) => handleRateChange(e.target.value)}
           className="shrink-0 rounded-lg border border-rex-light bg-white px-2 py-1 text-xs font-semibold text-rex-deep outline-none focus:border-rex"
-          title="Velocidad de reproducción"
+          title="Velocidad de la voz"
         >
-          <option value={0.5}>0.5×</option>
-          <option value={0.75}>0.75×</option>
-          <option value={1}>1×</option>
-          <option value={1.25}>1.25×</option>
+          {rateOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
 
         {/* Selector de voz · solo si no se forzó una voz específica ni es conversación (voces por línea) */}
         {!voice && !conversation && (
-          <div className="flex shrink-0 overflow-hidden rounded-lg border border-rex-light text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => handleGenderChange('male')}
-              title="Voz masculina (Guy)"
-              className={`px-2 py-1 transition ${gender === 'male' ? 'bg-rex text-white' : 'bg-white text-rex-deep hover:bg-rex-light'}`}
-            >
-              ♂
-            </button>
-            <button
-              type="button"
-              onClick={() => handleGenderChange('female')}
-              title="Voz femenina (Jenny)"
-              className={`px-2 py-1 transition ${gender === 'female' ? 'bg-rex text-white' : 'bg-white text-rex-deep hover:bg-rex-light'}`}
-            >
-              ♀
-            </button>
-          </div>
+          <select
+            value={voiceName}
+            onChange={(e) => handleVoiceChange(e.target.value)}
+            className="shrink-0 rounded-lg border border-rex-light bg-white px-2 py-1 text-xs font-semibold text-rex-deep outline-none focus:border-rex"
+            title="Voz"
+          >
+            {VOICE_OPTIONS.map((v) => <option key={v.name} value={v.name}>{v.label}</option>)}
+          </select>
         )}
 
         {/* Reintentar si hay error */}
