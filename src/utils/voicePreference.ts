@@ -12,7 +12,11 @@ export const VOICE_OPTIONS = [
   { name: 'en-GB-RyanNeural',    label: 'Ryan · Reino Unido ♂' },
   { name: 'en-GB-SoniaNeural',   label: 'Sonia · Reino Unido ♀' },
   { name: 'en-AU-NatashaNeural', label: 'Natasha · Australia ♀' },
-  { name: 'en-US-AnaNeural',     label: 'Ana · infantil ♀' },
+  { name: 'en-US-AnaNeural',     label: 'Ana · EE. UU. ♀ infantil' },
+  { name: 'en-US-MichelleNeural', label: 'Michelle · EE. UU. ♀ infantil' },
+  { name: 'en-US-RogerNeural',   label: 'Roger · EE. UU. ♂ infantil' },
+  { name: 'en-GB-MaisieNeural',  label: 'Maisie · Reino Unido ♀ infantil' },
+  { name: 'en-GB-OliverNeural',  label: 'Oliver · Reino Unido ♂ infantil' },
 ] as const;
 
 /** DSL `voice: male|female` → la voz más clara de cada género. */
