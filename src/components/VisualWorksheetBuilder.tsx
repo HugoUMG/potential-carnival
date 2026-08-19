@@ -20,6 +20,7 @@ import { subirImagen } from '../services/api';
 import { ImagePickerModal } from './ImagePicker';
 import { AiGradingControls } from './AiGradingControls';
 import { activityRegistry } from './activityRegistry';
+import { BlockStimulus } from './WorksheetRenderer';
 import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock, ActivityRendererProps } from '../types';
 import {
   serializeToScript, toWorksheetActivity, emptyActivity, emptyBlock, emptyState,
@@ -187,6 +188,10 @@ function blockToVisual(block: ActivityBlock): VisualBlock {
     id: crypto.randomUUID(),
     title: block.title ?? '',
     instructions: block.instructions ?? '',
+    text: block.text ?? '',
+    audioText: block.audioText ?? '',
+    voice: block.voice === 'male' || block.voice === 'female' ? block.voice : '',
+    lines: (block.lines ?? []).map((l) => ({ id: crypto.randomUUID(), speaker: l.speaker, text: l.text })),
     activities: block.activities.map(activityToVisual).filter((a): a is VisualActivity => a !== null),
   };
 }
@@ -215,7 +220,7 @@ export function worksheetToVisualState(worksheet: Worksheet): { state: VisualSta
       description: worksheet.description,
       theme,
       infoFields,
-      blocks: [{ id: crypto.randomUUID(), title: '', instructions: '', activities }],
+      blocks: [{ ...emptyBlock(), activities }],
     };
   } else {
     state = { ...emptyState(), theme, infoFields };
@@ -1000,6 +1005,137 @@ function ActivityCard({ act, index, total, expanded, onToggle, onUpdate, onRemov
 
 // ── Tarjeta de bloque ─────────────────────────────────────────────────────────
 
+/** Estímulo compartido del bloque: UN texto o UN audio arriba y todas las actividades del bloque
+ *  —de cualquier tipo— preguntando sobre él. Antes la única forma de hacer varias preguntas sobre
+ *  el mismo audio era repetirlo en cada actividad. */
+function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate: (b: VisualBlock) => void }) {
+  const kind: 'none' | 'text' | 'audio' | 'conversation' =
+    block.lines.length ? 'conversation' : block.audioText ? 'audio' : block.text ? 'text' : 'none';
+
+  // La vista previa es una FOTO de lo escrito al abrirla, no un espejo en vivo: `AudioPlayer`
+  // vuelve a pedir el MP3 cada vez que cambia el texto, y en vivo sería una petición de TTS por
+  // cada tecla. Para refrescarla se cierra y se vuelve a abrir.
+  const [preview, setPreview] = useState<ActivityBlock | null>(null);
+
+  const setKind = (next: typeof kind) => {
+    setPreview(null);
+    onUpdate({
+      ...block,
+      text: next === 'text' ? block.text : '',
+      audioText: next === 'audio' ? block.audioText : '',
+      voice: next === 'audio' ? block.voice : '',
+      lines: next === 'conversation'
+        ? (block.lines.length ? block.lines : [
+            { id: crypto.randomUUID(), speaker: 'female', text: '' },
+            { id: crypto.randomUUID(), speaker: 'male', text: '' },
+          ])
+        : [],
+    });
+  };
+
+  const updateLine = (id: string, patch: Partial<VisualLine>) =>
+    onUpdate({ ...block, lines: block.lines.map((l) => (l.id === id ? { ...l, ...patch } : l)) });
+
+  const OPTIONS: { value: typeof kind; label: string }[] = [
+    { value: 'none', label: 'Ninguno' },
+    { value: 'text', label: '📖 Texto' },
+    { value: 'audio', label: '🎧 Audio' },
+    { value: 'conversation', label: '🗣️ Conversación' },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <FieldLabel>Texto o audio compartido del bloque</FieldLabel>
+        <div className="ml-auto flex flex-wrap gap-1">
+          {OPTIONS.map((o) => (
+            <button key={o.value} type="button" onClick={() => setKind(o.value)}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${kind === o.value ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {kind === 'none' && (
+        <p className="mt-2 text-xs text-slate-400">
+          Sin estímulo compartido: cada actividad del bloque va por su cuenta. Elige uno para hacer
+          varias preguntas —de cualquier tipo— sobre un mismo texto o un mismo audio.
+        </p>
+      )}
+      {kind !== 'none' && (
+        <div className="mt-2">
+          <button type="button"
+            onClick={() => setPreview(preview ? null : {
+              text: block.text || null,
+              audioText: block.audioText || null,
+              voice: block.voice || null,
+              lines: block.lines.filter((l) => l.text.trim()).map((l) => ({ speaker: l.speaker, text: l.text })),
+              activities: [],
+            })}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-rex hover:text-rex">
+            <Eye size={14} /> {preview ? 'Ocultar vista previa' : 'Ver (y escuchar) como el alumno'}
+          </button>
+          {preview && (
+            <div className="mt-2">
+              {/* Sin `pointer-events-none` (a diferencia de `StudentPreview`): aquí la gracia es
+                  poder darle al play y oír cómo suena antes de asignar la hoja. */}
+              <BlockStimulus block={preview} />
+              <p className="mt-1 text-xs text-slate-400">
+                Es una foto de lo escrito al abrirla. Si cambias el texto, ciérrala y ábrela otra vez.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+      {kind === 'text' && (
+        <div className="mt-2">
+          <TextArea value={block.text} onChange={(text) => onUpdate({ ...block, text })} rows={5}
+            placeholder="Texto de lectura que verán arriba del bloque. Usa \\n para saltos de línea." />
+        </div>
+      )}
+      {kind === 'audio' && (
+        <div className="mt-2 grid gap-2">
+          <TextArea value={block.audioText} onChange={(audioText) => onUpdate({ ...block, audioText })} rows={3}
+            placeholder="Lo que dirá la voz. El alumno NO lo ve, solo lo escucha." />
+          <div className="flex gap-1">
+            {([['', 'Voz por defecto'], ['female', '♀ Femenina'], ['male', '♂ Masculina']] as const).map(([v, label]) => (
+              <button key={v} type="button" onClick={() => onUpdate({ ...block, voice: v })}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${block.voice === v ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {kind === 'conversation' && (
+        <div className="mt-2 grid gap-2">
+          <p className="text-xs text-slate-400">Los turnos se fusionan en un solo audio. El alumno no ve el texto.</p>
+          {block.lines.map((line) => (
+            <div key={line.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-white p-2">
+              <button type="button" title="Cambiar voz"
+                onClick={() => updateLine(line.id, { speaker: line.speaker === 'female' ? 'male' : 'female' })}
+                className={`shrink-0 rounded-xl px-3 py-2 text-sm font-bold text-white transition ${line.speaker === 'female' ? 'bg-pink-500' : 'bg-rex'}`}>
+                {line.speaker === 'female' ? '♀' : '♂'}
+              </button>
+              <input className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
+                value={line.text} placeholder="Lo que dice este turno..."
+                onChange={(e) => updateLine(line.id, { text: e.target.value })} />
+              <button type="button" className="rounded-xl border border-red-100 p-2 text-red-400 transition hover:bg-red-50"
+                onClick={() => onUpdate({ ...block, lines: block.lines.filter((l) => l.id !== line.id) })}>
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex"
+            onClick={() => onUpdate({ ...block, lines: [...block.lines, { id: crypto.randomUUID(), speaker: block.lines.length % 2 === 0 ? 'female' : 'male', text: '' }] })}>
+            <PlusCircle size={14} /> Agregar turno
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActivity, onUpdate, onRemove, onMoveBlock }: {
   block: VisualBlock; blockIndex: number; totalBlocks: number;
   openActivityId: string | null; onOpenActivity: (id: string | null) => void;
@@ -1060,6 +1196,7 @@ function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActiv
       </div>
 
       <div className="p-5 grid gap-3">
+        <BlockStimulusEditor block={block} onUpdate={onUpdate} />
         {block.activities.length === 0 && (
           <p className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">
             Este bloque está vacío. Agrega una actividad abajo.

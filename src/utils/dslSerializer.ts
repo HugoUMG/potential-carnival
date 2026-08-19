@@ -82,6 +82,11 @@ export interface VisualBlock {
   id: string;
   title: string;
   instructions: string;
+  // Estímulo compartido del bloque: un solo texto/audio arriba y N actividades debajo.
+  text: string; // lectura visible
+  audioText: string; // audio TTS oculto (excluyente con `lines`)
+  voice: '' | 'male' | 'female';
+  lines: VisualLine[]; // conversación a dos voces (excluyente con `audioText`)
   activities: VisualActivity[];
 }
 
@@ -348,6 +353,18 @@ function serializeBlock(block: VisualBlock, indent: string): string[] {
   lines.push(`${indent}block {`);
   if (block.title.trim()) lines.push(`${indent}  title: "${esc(block.title)}"`);
   if (block.instructions.trim()) lines.push(`${indent}  instructions: "${esc(block.instructions)}"`);
+  // Estímulo compartido. Va ANTES de las actividades a propósito: el parser solo lee los campos
+  // del bloque hasta la primera actividad (`_block_header`), para no robarle el `title:` a un
+  // `reading {}` hijo ni el `audio_text:` a un `listening*`.
+  if (block.text.trim()) lines.push(`${indent}  text: "${esc(block.text.replace(/\n/g, '\\n'))}"`);
+  const blockLines = block.lines?.filter((l) => l.text.trim()) ?? [];
+  if (blockLines.length > 0) {
+    lines.push(`${indent}  lines:`);
+    blockLines.forEach((l) => lines.push(`${indent}  - ${l.speaker === 'female' ? 'f' : 'm'}: "${esc(l.text)}"`));
+  } else if (block.audioText.trim()) {
+    lines.push(`${indent}  audio_text: "${esc(block.audioText)}"`);
+    if (block.voice) lines.push(`${indent}  voice: ${block.voice}`);
+  }
   for (const act of block.activities) {
     lines.push(...serializeActivity(act, `${indent}  `));
   }
@@ -568,7 +585,7 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
 }
 
 export function emptyBlock(): VisualBlock {
-  return { id: crypto.randomUUID(), title: '', instructions: '', activities: [] };
+  return { id: crypto.randomUUID(), title: '', instructions: '', text: '', audioText: '', voice: '', lines: [], activities: [] };
 }
 
 export function emptyState(): VisualState {

@@ -65,6 +65,41 @@ between the last `}` of a block and the closing `}` of worksheet.
 
 Use block {} when grouping activities by skill or topic makes sense.
 
+*** SHARED STIMULUS — ONE AUDIO OR ONE TEXT, MANY QUESTIONS ***
+A block {} may carry ONE stimulus that all its activities ask about. It is rendered once, above
+the activities, and every activity inside the block — of ANY type — refers to it:
+  lines:            a two-voice conversation (`- f: "…"` / `- m: "…"`), merged into ONE audio track
+  audio_text: "…"   a single TTS audio (add `voice: male` or `voice: female` if you want)
+  text: "…"         a reading passage the student SEES
+These three fields go BEFORE the first activity of the block; `lines` and `audio_text` are mutually
+exclusive (one audio per block). The text of `lines`/`audio_text` is NEVER shown to the student.
+This is how you write several questions about the SAME audio or the SAME passage — use plain
+question types inside (multiplechoice, multiselect, truefalse, matching, dragdrop, fillblank,
+textbox…), NOT the listening* types, because the audio already comes from the block.
+
+  block {
+    title: "Part 1: Listening"
+    instructions: "Listen to the conversation and answer the questions."
+    lines:
+    - f: "Hi! What is your name?"
+    - m: "My name is Tom. I am seven."
+    multiplechoice {
+      question: "What is the boy's name?"
+      options:
+      - Tom
+      - Sam
+      answer: "Tom"
+    }
+    truefalse {
+      statements:
+      - Tom is seven years old. | true
+      - The girl says her age. | false
+    }
+  }
+
+Same shape with `text:` for reading comprehension. Prefer this over repeating the same audio or
+the same passage in several activities. A block with a stimulus MUST have at least one activity.
+
 === ACTIVITY TYPES ===
 ALLOWED: fillblank, multiplechoice, multiselect, dragdrop, matching, truefalse, textbox, reading,
          readingtruefalse, imagequestion, imagechoice, imagematching, content,

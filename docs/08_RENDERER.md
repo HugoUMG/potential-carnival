@@ -36,6 +36,15 @@ const blocks = worksheet.blocks?.length
   : [{ title: null, instructions: null, activities: worksheet.activities }];
 ```
 
+**Estímulo compartido del bloque** (`BlockStimulus`) — si el bloque trae `text`, `audioText` o
+`lines`, se pinta **una vez** entre la cabecera del bloque y su primera actividad: el texto de
+lectura en un recuadro, o **un solo** `AudioPlayer` para todas las preguntas del bloque. Las
+actividades de dentro se pintan sin cambio alguno y se califican igual que siempre; lo único que
+sabe el backend es que a la IA hay que pasarle el estímulo del bloque como `context`
+(`_block_contexts` en `main.py`). Ver [`07_DSL.md`](07_DSL.md) §5.
+
+`WorksheetThumb` no lo pinta: montaría un `AudioPlayer` por miniatura y pediría el MP3 al TTS.
+
 **Tema por hoja** — los colores de `worksheet.theme` se aplican con estilos inline (no con clases).
 
 **Campos de identificación** — el `info {}` de la hoja se pinta arriba y se guarda como
@@ -114,6 +123,8 @@ versión saneada estática.** `content` queda fuera del chrome "Actividad N / In
   MP3 concatenado)
 - `voice` (`male`/`female`) baja desde la actividad; el default es la preferencia global del usuario
   (`voicePreference.ts`).
+- Un `block {}` con `audioText`/`lines` monta **un** reproductor para todas sus actividades, con las
+  mismas dos URLs (`BlockStimulus`). Es lo que evita repetir el audio pregunta por pregunta.
 
 **`reading` y `readingtruefalse` NO llevan reproductor**: leerle el texto en voz alta al alumno
 convierte una evaluación de comprensión **lectora** en una **auditiva**. Para escucha están los

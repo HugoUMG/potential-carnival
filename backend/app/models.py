@@ -96,6 +96,11 @@ class Activity(BaseModel):
 class ActivityBlock(BaseModel):
     title: str | None = None
     instructions: str | None = None
+    # Estímulo compartido del bloque: un solo texto/audio arriba y N actividades debajo.
+    text: str | None = None  # lectura visible
+    audio_text: str | None = None  # audio TTS oculto
+    lines: list[dict] | None = None  # conversación a dos voces: [{speaker, text}]
+    voice: str | None = None  # 'male' | 'female'; solo con audio_text
     activities: list[Activity] = Field(default_factory=list)
 
 

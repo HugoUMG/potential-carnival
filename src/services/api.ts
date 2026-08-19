@@ -57,6 +57,10 @@ interface BackendActivity {
 interface BackendActivityBlock {
   title?: string | null;
   instructions?: string | null;
+  text?: string | null;
+  audio_text?: string | null;
+  lines?: { speaker: string; text: string }[] | null;
+  voice?: string | null;
   activities: BackendActivity[];
 }
 
@@ -340,6 +344,10 @@ function normalizeBlocks(jsonContent: BackendWorksheet['json_content']): Activit
   return jsonContent.blocks?.map((block) => ({
     title: block.title ?? null,
     instructions: block.instructions ?? null,
+    text: block.text ?? null,
+    audioText: block.audio_text ?? null,
+    lines: block.lines?.map((l) => ({ speaker: l.speaker === 'female' ? 'female' as const : 'male' as const, text: l.text })) ?? null,
+    voice: block.voice ?? null,
     activities: block.activities.map(normalizeActivity),
   }));
 }

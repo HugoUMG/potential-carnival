@@ -39,14 +39,26 @@ class ActivityData:
 class BlockData:
     title: str | None = None
     instructions: str | None = None
+    # Estímulo compartido: se muestra UNA vez arriba del bloque y todas sus actividades
+    # (de cualquier tipo) responden sobre él. `text` es visible; `audio_text`/`lines` son
+    # audio TTS y quedan ocultos, igual que en las actividades listening.
+    text: str | None = None
+    audio_text: str | None = None
+    lines: list[dict] | None = None  # conversación a dos voces: [{speaker, text}]
+    voice: str | None = None  # 'male' | 'female'; solo con audio_text
     activities: list[ActivityData] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        d: dict[str, object] = {
             "title": self.title,
             "instructions": self.instructions,
             "activities": [a.to_dict() for a in self.activities],
         }
+        for key in ("text", "audio_text", "lines", "voice"):
+            value = getattr(self, key)
+            if value:
+                d[key] = value
+        return d
 
 
 @dataclass(slots=True)

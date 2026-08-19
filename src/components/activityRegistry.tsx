@@ -40,7 +40,7 @@ const inputClass = 'mt-3 w-full rounded-xl border border-slate-200 bg-white px-4
 
 /** DSL `voice` ('male'/'female' o nombre edge-tts literal) → nombre de voz para el TTS.
  *  undefined → deja que AudioPlayer use la preferencia global del usuario. */
-function resolveVoice(voice?: string): string | undefined {
+export function resolveVoice(voice?: string): string | undefined {
   if (!voice) return undefined;
   if (voice === 'male' || voice === 'female') return VOICES[voice];
   return voice;

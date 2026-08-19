@@ -201,6 +201,12 @@ Cada actividad plegada se pinta con el **renderer de verdad** (`activityRegistry
 dentro de un `pointer-events-none`), no con una imitación. Al hacer clic se abre el formulario de
 edición, y solo hay **una tarjeta abierta a la vez** en toda la hoja.
 
+El **estímulo compartido del bloque** (`BlockStimulusEditor`) sigue la misma idea: su vista previa es
+el `BlockStimulus` del renderer del alumno, así que el profesor oye el audio tal cual sonará. Con una
+diferencia deliberada: **no** va en `pointer-events-none` —la gracia es poder darle al play— y es una
+**foto** de lo escrito al abrirla, no un espejo en vivo. `AudioPlayer` vuelve a pedir el MP3 cada vez
+que cambia el texto: en vivo sería una petición de TTS por tecla.
+
 El puente es `toWorksheetActivity` (`dslSerializer.ts`), espejo exacto de `serializeActivity`: los dos
 traducen los campos planos del constructor a la forma real del tipo. Si tocas uno y no el otro, la
 tarjeta del profesor **miente** sobre lo que verá el alumno en vez de fallar. El `switch` exhaustivo

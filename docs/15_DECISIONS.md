@@ -462,6 +462,40 @@ consumo legítimo. Los dos techos conocidos —por proceso y por IP— están es
 
 ---
 
+## 🟢 ADR-24 — Un audio o un texto para varias preguntas: el estímulo va en el `block {}`, no en la actividad
+
+**Decisión.** Para hacer N preguntas sobre un mismo audio o un mismo texto, el estímulo (`lines`,
+`audio_text` o `text`) se declara en el **bloque**, y las actividades de dentro —de **cualquier**
+tipo— quedan como están. Ni un tipo de actividad nuevo, ni un array de preguntas dentro de los tipos
+existentes.
+
+**Motivo.** El contenedor ya existía: `block {}` agrupa actividades y el renderer ya lo pinta. Poner
+el estímulo ahí no toca **nada** de la calificación —cada actividad se sigue calificando con el
+código que ya tenía— y hace que funcione de golpe con los 21 tipos: opción múltiple, multiselect,
+matching, dragdrop, verdadero/falso, fillblank, textbox… Lo único que hubo que añadir en el backend
+fue pasarle a la IA el estímulo del bloque como `context` (`_block_contexts`).
+
+**Alternativas descartadas.**
+
+- *`questions: []` dentro de `conversation` y de cada `listening*`.* Era la petición literal, y es
+  el camino largo: hay que recorrer el tipo entero (parser → domain → models → grading → types.ts →
+  api.ts → renderer → serializador visual → docs) **por cada tipo**, y al final cada uno solo sabría
+  hacer sus propias preguntas — `conversation` daría preguntas abiertas, `listeningtruefalse` daría
+  verdadero/falso, y mezclar tipos de pregunta sobre un mismo audio seguiría sin poder hacerse.
+- *Un tipo nuevo `audioblock` / `readingblock` con actividades anidadas.* Es el `block {}` otra vez,
+  con otro nombre y con un renderer y una calificación que habría que escribir de cero.
+- *Repetir el mismo `lines:` en varias `conversation`.* Es lo que había. Funciona, pero regenera el
+  MP3 una vez por pregunta y el alumno oye el mismo diálogo tantas veces como preguntas haya.
+
+**Consecuencia.** Los campos del bloque se leen **solo hasta su primera actividad**
+(`_block_header`). Sin ese recorte, `_get_scalar` encontraba el `audio_text:` de un
+`listeningfillblank` hijo y le montaba al bloque un reproductor que nadie pidió — y de paso arregla
+el mismo robo, que ya existía en silencio, con el `title:` de un `reading {}`. En papel, un bloque
+con audio se omite **entero**: sus actividades son de tipos imprimibles, pero preguntan sobre algo
+que en una hoja no suena.
+
+---
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

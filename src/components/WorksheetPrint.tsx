@@ -212,8 +212,11 @@ export function WorksheetPrint({ worksheet, onClose }: { worksheet: Worksheet; o
     ? worksheet.blocks
     : [{ title: null, instructions: null, activities: worksheet.activities }];
 
-  // Filtra actividades no imprimibles y descarta bloques que queden vacíos.
+  // Filtra actividades no imprimibles y descarta bloques que queden vacíos. Un bloque con audio
+  // compartido se va entero: sus actividades sí son imprimibles, pero en papel serían preguntas
+  // sobre un audio que nadie va a oír (mismo criterio que `strip_non_printable` en parser.py).
   const blocks = rawBlocks
+    .filter((b) => !b.audioText && !b.lines?.length)
     .map((b) => ({ ...b, activities: b.activities.filter(isPrintable) }))
     .filter((b) => b.activities.length > 0);
 
@@ -258,6 +261,7 @@ export function WorksheetPrint({ worksheet, onClose }: { worksheet: Worksheet; o
           <section key={bi} className="wp-block">
             {block.title && <h2 className="wp-block-title">{block.title}</h2>}
             {block.instructions && <p className="wp-block-instr">{block.instructions}</p>}
+            {block.text && <p className="wp-reading"><RichText text={block.text} /></p>}
             <div className="wp-block-body">
               {block.activities.map((a) => {
                 if (a.type !== 'content') counter += 1; // content no consume número

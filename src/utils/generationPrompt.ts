@@ -60,6 +60,41 @@ Hay dos formas válidas, nunca mezcladas:
   (b) Al menos un block {} → TODAS las actividades van dentro de algún block, incluido el content
       de repaso. Si algo no encaja en una sección, dale su propio block.
 
+*** UN SOLO AUDIO O TEXTO PARA VARIAS PREGUNTAS (estímulo del bloque) ***
+Un block {} puede llevar UN estímulo que comparten todas sus actividades. Se muestra una sola vez
+arriba del bloque y cualquier tipo de actividad de dentro pregunta sobre él:
+  lines:          conversación a dos voces (- f: "…" / - m: "…") fusionada en UNA sola pista
+  audio_text: ""  un audio TTS (opcional voice: male | female)
+  text: ""        un texto de lectura que el alumno SÍ ve
+Los tres van ANTES de la primera actividad del bloque; "lines" y "audio_text" son excluyentes
+(un audio por bloque). El texto de "lines"/"audio_text" nunca se le muestra al alumno.
+Así se hacen varias preguntas sobre el MISMO audio o el MISMO texto: dentro usa tipos normales
+(multiplechoice, multiselect, truefalse, matching, dragdrop, fillblank, textbox…), NO los tipos
+listening*, porque el audio ya lo pone el bloque.
+
+  block {
+    title: "Part 1: Listening"
+    instructions: "Listen to the conversation and answer the questions."
+    lines:
+    - f: "Hi! What is your name?"
+    - m: "My name is Tom. I am seven."
+    multiplechoice {
+      question: "What is the boy's name?"
+      options:
+      - Tom
+      - Sam
+      answer: "Tom"
+    }
+    truefalse {
+      statements:
+      - Tom is seven years old. | true
+      - The girl says her age. | false
+    }
+  }
+
+Con "text:" es igual, para comprensión lectora. Prefiere esto antes que repetir el mismo audio o
+el mismo texto en varias actividades. Un bloque con estímulo necesita al menos una actividad.
+
 === LO QUE LA PLATAFORMA NO PUEDE HACER (no lo inventes) ===
 - No hay archivos de audio ni URLs de audio: todo listening se genera con texto a voz (TTS) desde el
   texto que escribas. NUNCA uses un campo "audio:".

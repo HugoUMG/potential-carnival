@@ -1947,13 +1947,21 @@ worksheet {
     {
       "title": "Part 2: Listening",
       "instructions": "Listen carefully and complete the activities.",
+      "lines": [
+        { "speaker": "female", "text": "Hi! What is your name?" },
+        { "speaker": "male", "text": "My name is Tom." }
+      ],
       "activities": [
-        { "id": "uuid", "type": "listeningfillblank", ... }
+        { "id": "uuid", "type": "multiplechoice", ... },
+        { "id": "uuid", "type": "truefalse", ... }
       ]
     }
   ]
 }
 ```
+
+Los campos del estímulo (`text`, `audio_text`, `lines`, `voice`) solo aparecen si el bloque los
+lleva. En el front se normalizan a `text` / `audioText` / `lines` / `voice` (`api.ts`).
 
 ### Comportamiento del frontend
 
@@ -1980,6 +1988,62 @@ Hay exactamente dos formas válidas, nunca mezcladas:
 
 Es el error clásico de la IA: dejaba el `content` de repaso fuera de los bloques y desaparecía sin
 avisar. La regla está marcada como CRITICAL en `_WORKSHEET_SYSTEM` (`ai.py`) y en `GENERATION_PROMPT`.
+
+### Estímulo compartido: un audio o un texto, varias preguntas
+
+Un `block {}` puede llevar **un** estímulo propio. Se pinta **una sola vez** arriba del bloque y
+**todas** sus actividades —de cualquier tipo— preguntan sobre él.
+
+| Campo del bloque | Qué es | Lo ve el alumno |
+|------------------|--------|-----------------|
+| `lines:` | Conversación a dos voces (`- f:` / `- m:`), fusionada en **una sola pista** | No: solo la oye |
+| `audio_text:` | Un audio TTS (con `voice: male` / `voice: female` opcional) | No: solo lo oye |
+| `text:` | Un texto de lectura | Sí |
+
+```
+block {
+  title: "Part 1: Listening"
+  instructions: "Listen to the conversation and answer the questions."
+  lines:
+  - f: "Hi! What is your name?"
+  - m: "My name is Tom. I am seven."
+
+  multiplechoice {
+    question: "What is the boy's name?"
+    options:
+    - Tom
+    - Sam
+    answer: "Tom"
+  }
+  truefalse {
+    statements:
+    - Tom is seven years old. | true
+    - The girl says her age. | false
+  }
+  textbox {
+    prompt: "Write one sentence about Tom."
+  }
+}
+```
+
+**Es la única forma de hacer varias preguntas sobre un mismo audio.** Los tipos `listening*` traen
+su pregunta pegada (una por actividad), así que sin esto había que repetir el audio en cada una.
+Dentro de un bloque con audio se usan los tipos **normales** (`multiplechoice`, `multiselect`,
+`truefalse`, `matching`, `dragdrop`, `fillblank`, `textbox`…), no los `listening*`: el audio ya lo
+pone el bloque. Con `text:` pasa lo mismo para comprensión lectora, y admite tipos que `reading`
+—que solo tiene preguntas abiertas— no permitía.
+
+**Reglas:**
+
+- Los tres campos van **antes de la primera actividad** del bloque. El parser solo lee los campos
+  del bloque hasta ahí (`_block_header`); si no, le robaría el `title:` a un `reading {}` hijo o el
+  `audio_text:` a un `listeningfillblank`.
+- `lines:` y `audio_text:` son **excluyentes** (un audio por bloque) → error si van los dos.
+- Un bloque con estímulo **necesita al menos una actividad** → error si está vacío.
+- **Calificación:** sin cambios. Cada actividad se califica como siempre; a la IA se le pasa el
+  estímulo del bloque como `context` para que sepa qué escuchó o leyó el alumno.
+- **En papel:** un bloque con `lines:`/`audio_text:` se omite **entero** (sus preguntas serían
+  sobre un audio que nadie va a oír). Un bloque con `text:` sí se imprime, con el texto arriba.
 
 ### Restricciones de bloques
 
