@@ -16,7 +16,7 @@ export const VOICE_OPTIONS = [
   { name: 'en-US-MichelleNeural', label: 'Michelle · EE. UU. ♀ infantil' },
   { name: 'en-US-RogerNeural',   label: 'Roger · EE. UU. ♂ infantil' },
   { name: 'en-GB-MaisieNeural',  label: 'Maisie · Reino Unido ♀ infantil' },
-  { name: 'en-GB-OliverNeural',  label: 'Oliver · Reino Unido ♂ infantil' },
+  { name: 'en-GB-LibbyNeural',   label: 'Libby · Reino Unido ♀ infantil' },
 ] as const;
 
 /** DSL `voice: male|female` → la voz más clara de cada género. */

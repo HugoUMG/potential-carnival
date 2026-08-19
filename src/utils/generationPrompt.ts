@@ -301,8 +301,8 @@ listeningorder {
 #          palabras) o quítalo para dejarla abierta a la IA.
 # Voces por hablante (opcional): male_voice / female_voice con un alias 'male'/'female' o un nombre
 #          literal de edge-tts. Si el diálogo es entre NIÑOS usa voces infantiles:
-#          en-US-AnaNeural (niña) / en-US-MichelleNeural (niña) / en-US-RogerNeural (niño)
-#          en-GB-MaisieNeural (niña UK) / en-GB-OliverNeural (niño UK).
+#          en-US-AnaNeural (niña) / en-US-MichelleNeural (niña) / en-US-RogerNeural (niño, el
+#          único niño que sirve edge-tts) / en-GB-MaisieNeural (niña UK) / en-GB-LibbyNeural (niña UK).
 #          Sin ellos cada hablante usa la voz curada de su género.
 conversation {
   lines:

@@ -441,6 +441,30 @@ DEFAULT_TTS_RATE = "-15%"
 _RATE_RE = re.compile(r"^[+-]\d{1,2}%$")
 _VOICE_RE = re.compile(r"^[A-Za-z0-9-]{5,48}$")
 
+# Las voces en inglés que expone el endpoint público de edge-tts (47, `edge-tts --list-voices`).
+# Es la ÚLTIMA PALABRA sobre si una voz existe: `en-GB-OliverNeural` está en el catálogo de Azure
+# pero el endpoint de Edge no la sirve (NoAudioReceived). Un nombre literal del DSL que no esté
+# aquí se rechaza con un mensaje claro, en vez de un 500 críptico o un Andrew silencioso.
+_EDGE_EN_VOICES = frozenset({
+    "en-AU-WilliamMultilingualNeural", "en-AU-NatashaNeural", "en-CA-ClaraNeural",
+    "en-CA-LiamNeural", "en-HK-YanNeural", "en-HK-SamNeural", "en-IN-NeerjaExpressiveNeural",
+    "en-IN-NeerjaNeural", "en-IN-PrabhatNeural", "en-IE-ConnorNeural", "en-IE-EmilyNeural",
+    "en-KE-AsiliaNeural", "en-KE-ChilembaNeural", "en-NZ-MitchellNeural", "en-NZ-MollyNeural",
+    "en-NG-AbeoNeural", "en-NG-EzinneNeural", "en-PH-JamesNeural", "en-PH-RosaNeural",
+    "en-US-AvaNeural", "en-US-AndrewNeural", "en-US-EmmaNeural", "en-US-BrianNeural",
+    "en-SG-LunaNeural", "en-SG-WayneNeural", "en-ZA-LeahNeural", "en-ZA-LukeNeural",
+    "en-TZ-ElimuNeural", "en-TZ-ImaniNeural", "en-GB-LibbyNeural", "en-GB-MaisieNeural",
+    "en-GB-RyanNeural", "en-GB-SoniaNeural", "en-GB-ThomasNeural", "en-US-AnaNeural",
+    "en-US-AndrewMultilingualNeural", "en-US-AriaNeural", "en-US-AvaMultilingualNeural",
+    "en-US-BrianMultilingualNeural", "en-US-ChristopherNeural", "en-US-EmmaMultilingualNeural",
+    "en-US-EricNeural", "en-US-GuyNeural", "en-US-JennyNeural", "en-US-MichelleNeural",
+    "en-US-RogerNeural", "en-US-SteffanNeural",
+})
+
+# Voz de niño en edge-tts solo hay una (`en-US-RogerNeural`) y suena más a adulto joven que a niño.
+# Subirle el tono lo acerca a una voz infantil (a Ana no le hace falta). Ajuste empírico: +15Hz.
+_VOICE_PITCH = {"en-US-RogerNeural": "+15Hz"}
+
 
 def _tts_rate(rate: str) -> str:
     """`rate` y `voice` llegan del query string y viajan al SSML que edge-tts manda a Microsoft:
@@ -450,6 +474,20 @@ def _tts_rate(rate: str) -> str:
 
 def _tts_voice(voice: str, fallback: str = "en-US-AndrewNeural") -> str:
     return voice if _VOICE_RE.match(voice) else fallback
+
+
+def _check_voice_exists(voice: str) -> None:
+    """Una voz con formato válido pero que el endpoint de edge-tts no sirve (p. ej.
+    `en-GB-OliverNeural`) fallaría al sintetizar con un error ajeno. Se corta antes."""
+    if voice not in _EDGE_EN_VOICES:
+        raise ValueError(
+            f"La voz '{voice}' no existe en el servicio de edge-tts. "
+            f"Consulta `edge-tts --list-voices` (solo voces en inglés)."
+        )
+
+
+def _pitch_for(voice: str) -> str | None:
+    return _VOICE_PITCH.get(voice)
 
 
 @app.get("/tts")
@@ -463,13 +501,17 @@ async def tts(
     # El coste se acota por los dos lados — `max_length` limita lo que cuesta UNA petición
     # (edge-tts sintetiza el mp3 entero en RAM antes de responder) y el rate limit, cuántas.
     _rate_limit(request, limit=300)
+    voice = _tts_voice(voice)
     try:
+        _check_voice_exists(voice)
         import edge_tts
-        communicate = edge_tts.Communicate(text, _tts_voice(voice), rate=_tts_rate(rate))
+        communicate = edge_tts.Communicate(text, voice, rate=_tts_rate(rate), pitch=_pitch_for(voice))
         chunks: list[bytes] = []
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 chunks.append(chunk["data"])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
     return StreamingResponse(iter(chunks), media_type="audio/mpeg")
@@ -484,11 +526,15 @@ async def tts_conversation(
     rate: str = DEFAULT_TTS_RATE,
 ) -> StreamingResponse:
     _rate_limit(request, limit=300)
+    male = _tts_voice(male)
+    female = _tts_voice(female)
     # `lines`: una por renglón, formato `speaker|texto` (speaker que empieza con 'f' = femenina).
     # Se sintetiza cada turno con su voz y se concatenan los MP3 en una sola pista.
     # ponytail: concatenación cruda de frames MP3 (suena bien para habla). Si se necesita
     #           una pausa marcada entre turnos, intercalar un MP3 de silencio corto.
     try:
+        _check_voice_exists(male)
+        _check_voice_exists(female)
         import edge_tts
         chunks: list[bytes] = []
         for raw in lines.split("\n"):
@@ -500,12 +546,14 @@ async def tts_conversation(
             if not text:
                 continue
             voice = female if speaker.strip().lower().startswith("f") else male
-            communicate = edge_tts.Communicate(text, _tts_voice(voice), rate=_tts_rate(rate))
+            communicate = edge_tts.Communicate(text, voice, rate=_tts_rate(rate), pitch=_pitch_for(voice))
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     chunks.append(chunk["data"])
         if not chunks:
             raise ValueError("Sin líneas de audio válidas")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
     return StreamingResponse(iter(chunks), media_type="audio/mpeg")
@@ -585,8 +633,9 @@ def _audible_text(activity: Any) -> str:
 
 
 async def _synthesize(text: str, voice: str) -> bytes:
+    _check_voice_exists(voice)
     import edge_tts
-    communicate = edge_tts.Communicate(text, voice, rate=DEFAULT_TTS_RATE)
+    communicate = edge_tts.Communicate(text, voice, rate=DEFAULT_TTS_RATE, pitch=_pitch_for(voice))
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
@@ -606,12 +655,14 @@ def _resolve_conversation_voice(voice: str | None, gender_default: str) -> str:
 async def _synthesize_lines(lines: list[dict], male_voice: str, female_voice: str) -> bytes:
     """Sintetiza una conversación turno a turno —cada uno con la voz de su hablante— y concatena
     los MP3 en una sola pista. Es lo mismo que hace GET /tts/conversation, sin pasar por red."""
+    _check_voice_exists(male_voice)
+    _check_voice_exists(female_voice)
     import edge_tts
     chunks: list[bytes] = []
     for line in lines:
         speaker = (line.get("speaker") or "").strip().lower()
         voice = female_voice if speaker.startswith("f") else male_voice
-        communicate = edge_tts.Communicate((line.get("text") or "").strip(), voice, rate=DEFAULT_TTS_RATE)
+        communicate = edge_tts.Communicate((line.get("text") or "").strip(), voice, rate=DEFAULT_TTS_RATE, pitch=_pitch_for(voice))
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 chunks.append(chunk["data"])

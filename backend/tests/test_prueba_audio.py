@@ -6,12 +6,16 @@ No toca la base de datos ni llama a ninguna IA (regla 34).
 from backend.app.main import (
     DEFAULT_TTS_RATE,
     _audible_text,
+    _check_voice_exists,
+    _pitch_for,
     _resolve_conversation_voice,
     _same_words,
     _tts_rate,
     _tts_voice,
 )
 from backend.app.parser import parse_worksheet_script
+
+import pytest
 
 SCRIPT = """worksheet {
   title: "Audio"
@@ -85,3 +89,19 @@ def test_voz_de_cada_hablante_se_resuelve_como_en_el_front():
     # Nombre literal de edge-tts (voz infantil, por ejemplo) → pasa tal cual.
     assert _resolve_conversation_voice("en-US-AnaNeural", "en-US-AriaNeural") == "en-US-AnaNeural"
     assert _resolve_conversation_voice("en-US-RogerNeural", "en-US-AndrewNeural") == "en-US-RogerNeural"
+
+
+def test_voice_que_edge_tts_no_sirve_se_rechaza_con_mensaje_claro():
+    # en-GB-OliverNeural existe en el catálogo de Azure pero el endpoint de Edge no lo sirve
+    # (NoAudioReceived): se corta antes con un mensaje claro, en vez de un 500 críptico.
+    with pytest.raises(ValueError, match="no existe en el servicio de edge-tts"):
+        _check_voice_exists("en-GB-OliverNeural")
+    # Las que sí sirve pasan.
+    _check_voice_exists("en-US-AnaNeural")
+    _check_voice_exists("en-GB-LibbyNeural")
+
+
+def test_roger_lleva_tono_subido_para_sonar_a_nino():
+    # Es el único niño del endpoint y suena a adulto joven: +15Hz compensa. Ana no lo necesita.
+    assert _pitch_for("en-US-RogerNeural") == "+15Hz"
+    assert _pitch_for("en-US-AnaNeural") is None

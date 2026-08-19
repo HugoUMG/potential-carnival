@@ -249,7 +249,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 
 /** Selector de voz por hablante (conversaciones). '' = la voz curada de ese género; el resto son
  *  las 10 curadas del reproductor (Andrew, Aria, Ryan, Sonia, Natasha y las infantiles Ana,
- *  Michelle, Maisie ♀ y Roger, Oliver ♂). Un nombre
+ *  Michelle, Maisie y Libby ♀, y Roger ♂ — el único niño que sirve edge-tts). Un nombre
  *  literal fuera de la lista no aparece aquí: se escribe a mano en el DSL. */
 function VoiceSelect({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   return (
