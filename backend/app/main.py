@@ -8,11 +8,12 @@ import time
 import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
 from .ai import ai_grade_activities, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import initialize_database
+from . import live
 from .models import (
     AiGenerateRequest,
     AiEditRequest,
@@ -26,6 +27,10 @@ from .models import (
     ClassroomVisibilityUpdate,
     ClassroomWorksheetAssignment,
     GoogleAuthRequest,
+    LiveAnswer,
+    LiveJoin,
+    LiveOpenQuestion,
+    LiveSessionCreate,
     LoginRequest,
     LoginResponse,
     PasswordUpdate,
@@ -1256,6 +1261,132 @@ def list_guest_responses(guest_token: str) -> list[WorksheetResponse]:
 def log_guest_session(payload: GuestSessionLog) -> None:
     """Registra un acceso de invitado. Sin autenticación."""
     repository.log_guest_access(payload.guest_token, payload.name, payload.classroom_id, payload.classroom_name)
+
+
+# ── Evaluación en tiempo real ────────────────────────────────────────────────
+#
+# El profesor lanza cada pregunta y los alumnos responden desde el celular. El estado vive en
+# memoria (`live.py`); aquí solo van los endpoints, que reusan la autenticación de siempre.
+#
+# NINGUNO pasa por `_rate_limit`, y es a propósito: el límite es POR IP y 50 alumnos en el WiFi
+# de un salón comparten una sola IP, así que el aula entera se comería un 429 en el primer
+# minuto de polling. Lo que protege estos endpoints es que son lecturas de un dict en memoria
+# (no cuestan BD ni dinero) y que `live.py` acota participantes y sesiones.
+
+
+@app.exception_handler(live.LiveError)
+def _live_error(_: Request, exc: live.LiveError) -> JSONResponse:
+    """Traduce el error de dominio de `live.py` a HTTP. Así ese módulo no importa FastAPI y
+    se puede probar sin levantar la app (ni cargar el `.env` de producción)."""
+    return JSONResponse(status_code=exc.status, content={"detail": exc.message})
+
+
+@app.post("/live/sessions")
+def create_live_session(payload: LiveSessionCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Abre una sesión en vivo a partir de una hoja propia. Devuelve el código para proyectar."""
+    worksheet = require_worksheet_manager(payload.worksheet_id, current_user)
+    activities = worksheet.json_content.iter_activities()
+    session = live.create_session(
+        worksheet_id=worksheet.id,
+        worksheet_title=worksheet.title,
+        owner_id=current_user.id,
+        info_fields=worksheet.json_content.info_fields,
+        questions=live.extract_questions(activities),
+        duration=payload.duration,
+        instant_feedback=payload.instant_feedback,
+        # Lo que la hoja tiene y en vivo no se puede jugar. Viaja al panel para que descartarlo
+        # sea visible, en vez de que la sesión salga más corta sin explicación.
+        skipped=live.summarize(activities)["skipped"],
+    )
+    return session.host_state()
+
+
+# Declarado ANTES de `/live/{code}`: FastAPI resuelve por orden y si no, "sessions" entraría
+# como código de sesión.
+@app.get("/live/sessions")
+def list_live_sessions(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict[str, Any]]:
+    return live.list_sessions(current_user.id, current_user.role == UserRole.admin)
+
+
+@app.get("/live/{code}")
+def live_state(code: str, pid: str | None = None) -> dict[str, Any]:
+    """Estado de la sesión. Sin autenticación: es lo que polean el alumno y la pantalla.
+
+    La respuesta correcta solo viaja cuando la pregunta ya se reveló (ver `public_state`).
+    """
+    return live.get_session(code).public_state(pid=pid)
+
+
+@app.post("/live/{code}/join")
+def live_join(code: str, payload: LiveJoin) -> dict[str, Any]:
+    """Entra a la sesión con los campos `info {}` de la hoja (Carné, Nombre…), todos obligatorios."""
+    session = live.get_session(code)
+    participant = session.join(payload.info)
+    return {"pid": participant.pid, "label": participant.label, **session.public_state(pid=participant.pid)}
+
+
+@app.post("/live/{code}/answer")
+def live_answer(code: str, payload: LiveAnswer) -> dict[str, Any]:
+    session = live.get_session(code)
+    result = session.submit(payload.pid, payload.answer)
+    return {**result, **session.public_state(pid=payload.pid)}
+
+
+@app.get("/live/{code}/host")
+def live_host_state(code: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    return live.owned_session(code, current_user.id, current_user.role == UserRole.admin).host_state()
+
+
+@app.post("/live/{code}/next")
+def live_next_question(code: str, payload: LiveOpenQuestion = LiveOpenQuestion(), current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    session = live.owned_session(code, current_user.id, current_user.role == UserRole.admin)
+    session.open_next(payload.duration)
+    return session.host_state()
+
+
+@app.post("/live/{code}/reveal")
+def live_reveal(code: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Cierra la pregunta actual antes de que se acabe el tiempo y muestra la respuesta."""
+    session = live.owned_session(code, current_user.id, current_user.role == UserRole.admin)
+    session.reveal()
+    return session.host_state()
+
+
+@app.post("/live/{code}/finish")
+def live_finish(code: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Termina la sesión y GUARDA una respuesta por alumno, como cualquier otra entrega: así
+    aparecen en Revisión y sobreviven al reinicio del proceso, que es lo único que la sesión en
+    memoria no aguanta."""
+    session = live.owned_session(code, current_user.id, current_user.role == UserRole.admin)
+    session.end()
+    saved = 0
+    for row in session.snapshot():
+        if not row["answered"]:
+            continue  # entró pero nunca respondió: no se le inventa una entrega
+        details = [AnswerDetail(**detail) for detail in row["details"]]
+        correct_count, pending_count, score = _score_details(details)
+        answers: dict[str, Any] = dict(row["answers"])
+        for index, label in enumerate(session.info_fields):
+            answers[f"_info_{index}"] = row["info"].get(label, "")
+        repository.add_response(WorksheetResponse(
+            worksheet_id=session.worksheet_id,
+            student_id=None,
+            student_name=row["label"],
+            answers_json=answers,
+            details=details,
+            score=score,
+            correct_count=correct_count,
+            pending_count=pending_count,
+            guest_token=f"live:{session.code}:{row['pid']}",
+        ))
+        saved += 1
+    return {"saved": saved, **session.host_state()}
+
+
+@app.delete("/live/{code}", status_code=204)
+def live_close(code: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    live.owned_session(code, current_user.id, current_user.role == UserRole.admin)
+    live.close_session(code)
 
 
 @app.post("/public/transcribe")

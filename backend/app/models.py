@@ -241,6 +241,26 @@ class WorksheetResponse(BaseModel):
     guest_token: str | None = None
 
 
+class LiveSessionCreate(BaseModel):
+    worksheet_id: str
+    duration: int = Field(default=20, ge=0, le=600)  # 0 = sin límite, la cierra el profesor
+    instant_feedback: bool = False  # False = ✓/✗ al revelar (Kahoot); True = al tocar
+
+
+class LiveOpenQuestion(BaseModel):
+    duration: int | None = Field(default=None, ge=0, le=600)
+
+
+class LiveJoin(BaseModel):
+    # Claves = los `info {}` de la hoja (Carné, Nombre…). La hoja decide qué se pide.
+    info: dict[str, str]
+
+
+class LiveAnswer(BaseModel):
+    pid: str
+    answer: Any = None
+
+
 class ClassroomCreate(BaseModel):
     name: str
 

@@ -13,12 +13,13 @@ responsabilidad.
 | `ai.py` | 900 | Gemini/Groq: generación, calificación, resumen, vocabulario, Whisper |
 | `parser.py` | 550 | DSL → `WorksheetData` + validación (`SUPPORTED_BLOCKS`) |
 | `models.py` | 320 | Modelos Pydantic = contrato HTTP |
+| `live.py` | 380 | Evaluación en tiempo real: sesiones **en memoria**, fases, puntaje y marcador. Lógica pura — no importa `main`, `repository` ni `database` (ADR-26) |
 | `security.py` | 79 | JWT (HS256) y hashing PBKDF2-SHA256 |
 | `domain.py` | 68 | Dataclasses internas: `ActivityData`, `BlockData`, `WorksheetData` |
 | `settings.py` | 42 | Carga de `.env` y orígenes CORS |
 | `__init__.py` | 10 | Llama a `_load_dotenv()` **al importar el paquete** |
 
-No hay `routers/` ni `services/`: la app es un solo `FastAPI()` en `main.py` con **83 rutas**. No fue
+No hay `routers/` ni `services/`: la app es un solo `FastAPI()` en `main.py` con **99 rutas**. No fue
 una decisión de diseño: creció por fases (alumnos registrados primero, invitados después) y cada una
 añadió sus rutas al final del mismo módulo. Ver [15_DECISIONS, ADR-12](15_DECISIONS.md), que además
 dice cuál sería el primer corte sensato si algún día se parte.

@@ -245,6 +245,49 @@ minuto y por IP** → **429**.
 > caso particular del problema descrito en [el plan de fuga de respuestas](plans/PLAN-fuga-de-respuestas.md).
 > Pasarlo a POST **no** lo arregla (el cuerpo se ve igual en la pestaña de red).
 
+## Evaluación en tiempo real (`/live/*`)
+
+Sesión sincrona estilo Kahoot: el profesor lanza cada pregunta y el salón responde desde el celular.
+El estado vive **en memoria** (`backend/app/live.py`), no en la base.
+
+```
+POST   /live/sessions                 — Abrir sesión desde una hoja propia → código de 5 letras   (profesor)
+GET    /live/sessions                 — Sesiones abiertas propias (recuperar tras recargar)       (profesor)
+GET    /live/{code}/host              — Estado del panel: marcador completo + temario             (dueño)
+POST   /live/{code}/next              — Lanzar la siguiente pregunta (body opcional: `duration`)  (dueño)
+POST   /live/{code}/reveal            — Cerrar la pregunta antes de tiempo y revelar              (dueño)
+POST   /live/{code}/finish            — Terminar y GUARDAR una entrega por alumno                 (dueño)
+DELETE /live/{code}                   — Cerrar y descartar la sesión                              (dueño)
+
+GET    /live/{code}?pid=…             — Estado de la sesión (lo que polean alumno y pantalla)     (sin JWT)
+POST   /live/{code}/join              — Entrar con los campos `info {}` de la hoja → `pid`        (sin JWT)
+POST   /live/{code}/answer            — Enviar respuesta a la pregunta abierta                    (sin JWT)
+```
+
+- **Cuatro tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse` e
+  `imagechoice`. Son los que tienen opciones tocables y calificación instantánea; el resto necesita
+  teclado o califica en diferido. Una hoja sin ninguno devuelve **422** al abrir la sesión.
+- **Una actividad no es siempre una pregunta.** Un `truefalse` con cinco enunciados son **cinco**
+  preguntas en vivo, numeradas `{activity_id}:{índice}` — la misma convención que usa
+  `_build_answer_details` para esos enunciados, de modo que lo que guarda `finish` encaja con lo que
+  Revisión ya sabe leer. `imagechoice` se califica por el TEXTO de la opción (ADR-20) y arrastra sus
+  `option_images`, rellenadas a la longitud de `options`.
+- **Lo descartado se reporta, no se pierde.** `live.summarize()` cuenta por tipo lo que la hoja tiene
+  y en vivo no se puede jugar, y viaja en `host_state().skipped` para que el panel lo enseñe. Sin eso,
+  una hoja de diez actividades abriría una sesión de tres preguntas sin explicar por qué.
+- **La clave nunca viaja mientras la pregunta está abierta.** `public_state` añade `answer` y
+  `option_counts` **solo** en fase `reveal`. Es el mismo criterio de la regla 13 y lo cubre un test.
+- **El cronómetro lo calcula el servidor** (`remaining_ms`): el celular solo lo pinta, así que cambiar
+  la hora del teléfono no lo adelanta. Al llegar a cero la fase pasa sola a `reveal`; **lanzar** la
+  siguiente pregunta siempre es una acción explícita del profesor.
+- **Ninguno pasa por `_rate_limit`**, a propósito: el límite es por IP y un salón entero comparte la
+  del WiFi. Ver la regla 17 en [12_RULES](12_RULES.md#backend).
+- Identidad por `pid` (token opaco). Reentrar con el **mismo primer campo** (el carné) devuelve el
+  mismo participante con sus puntos: recargar la página no cuesta el marcador.
+- `finish` escribe una fila en `worksheet_responses` por alumno que haya respondido algo, con
+  `guest_token = live:{code}:{pid}` y los `info {}` en `_info_N`. Aparecen en **Revisión** como
+  cualquier otra entrega. Es lo único que sobrevive al reinicio del proceso.
+
 ## Público / invitado (sin JWT)
 
 ```

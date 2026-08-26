@@ -3,6 +3,10 @@
 Reglas duras. Si una de estas se rompe, algo se cae en producción o alguien pierde datos.
 El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
 
+> Los números son **identificadores estables**, no posiciones: otros documentos citan "la regla 13",
+> "la regla 35". Una regla nueva toma el siguiente número libre aunque quede fuera de orden dentro de
+> su sección. **No renumerar**: rompería las referencias de `05_API`, `09_SECURITY` y `11_TESTING`.
+
 ---
 
 ## Base de datos
@@ -61,6 +65,11 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
 27. Textos de interfaz en **español**; el contenido evaluable de las hojas, en **inglés**.
 28. `npm run build` debe quedar limpio. `npm run lint` arrastra 18 errores heredados: **no añadir
     errores nuevos** (ver [11_TESTING](11_TESTING.md)).
+45. **El nombre visible de un tipo de actividad se escribe SOLO en `activityRegistry[tipo].label`.**
+    Lo leen el picker, el lienzo, la tarjeta de la hoja y el panel en vivo. `TYPE_META`
+    (`VisualWorksheetBuilder.tsx`) es solo icono y colores — no volver a meterle un `label`: cuando lo
+    tuvo, 11 de 21 tipos acabaron con dos nombres distintos y el profesor creaba un "Open Answer" que
+    la hoja pintaba como "Text box".
 
 ## Contenido de las hojas
 
@@ -90,6 +99,29 @@ Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas
     campo en el DSL, su editor visual debe poder editarlo (pasó con `voice`/`rate` de las
     `listening*`, que solo existían en script y en el bloque).
 
+## Evaluación en tiempo real (`/live/*`)
+
+39. **El estado de la sesión vive en memoria y el backend corre con UN worker.** Si algún día
+    `render.yaml` lleva `--workers`, cada proceso tendría su propio dict y los alumnos verían sesiones
+    distintas: eso obliga a Redis, no es un ajuste. Vale lo mismo para `_rate_limit` y
+    `_response_locks`.
+40. **Los endpoints `/live/*` NO pasan por `_rate_limit`.** El límite es por IP y un salón entero
+    comparte la del WiFi: 50 alumnos poleando cada segundo se comerían un 429 en el primer minuto. Lo
+    que los protege es que solo leen un dict (no cuestan base ni dinero) y que `live.py` acota
+    participantes y sesiones.
+41. **La respuesta correcta no viaja mientras la pregunta está abierta.** `public_state` añade
+    `answer` y `option_counts` solo en fase `reveal`. Es la regla 13 aplicada aquí, y es lo primero
+    que hay que volver a comprobar si se toca el payload.
+42. **El cronómetro lo calcula el servidor** (`remaining_ms`). Nunca fiarlo del reloj del cliente:
+    se cambia desde los ajustes del teléfono.
+43. **Una actividad que no se puede jugar en vivo se REPORTA, no se descarta en silencio.** Si se
+    añade un tipo a `LIVE_TYPES`, o se quita, `summarize()` y el panel tienen que seguir diciendo qué
+    queda fuera. Un profesor que abre una sesión más corta que su hoja sin explicación es el mismo
+    fallo silencioso que ya está en la tabla de antipatrones.
+44. **`LIVE_TYPES` está duplicada** en `backend/app/live.py` y `src/components/LiveHostPanel.tsx` (el
+    panel necesita contar preguntas por hoja sin una petición por hoja). Si cambia una, cambia la
+    otra: hay un test que lee el `.tsx` y falla si se desincronizan.
+
 ---
 
 ## Antipatrones ya cometidos (no repetir)
@@ -106,3 +138,5 @@ Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas
 | Añadir un campo solo en el parser | Se descartaba al persistir o al leer (pasó con `voice`) |
 | Poner el reproductor de audio en `reading` | Convertía comprensión lectora en auditiva |
 | Pasar `pitch=None` explícito a `edge_tts.Communicate` | `TypeError: pitch must be str` — cayó TODO el audio del sistema (edge-tts 7.2.8) |
+| Escribir `info { - Campo }` en vez de `info { fields: - Campo }` | `_parse_info_fields` devuelve `[]` **sin error**: la hoja se guarda sin campos de identificación y no se nota |
+| Declarar `/live/{code}` antes que `/live/sessions` | FastAPI resuelve por orden: `"sessions"` entraría como código de sesión |

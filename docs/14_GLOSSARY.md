@@ -31,6 +31,24 @@ escribió (`answers_json`), el detalle calificado (`details_json`), la nota y lo
 **Vocabulary list / Lista de vocabulario** — Colección de palabras con traducción y audio, asignable
 a aulas o directamente a lectores.
 
+**Sesión en vivo / `LiveSession`** — Una hoja convertida en actividad sincrona estilo Kahoot: el
+profesor lanza cada pregunta, el salón responde desde el celular y la pantalla proyecta el marcador.
+Vive **en memoria** (`live.py`), se identifica con un **código de 5 letras** y sus fases son
+`lobby → question → reveal → … → ended`. Al terminar deja una entrega por alumno en
+`worksheet_responses` (ADR-25).
+
+**`LIVE_TYPES`** — Los cuatro tipos que se pueden responder en vivo: `multiplechoice`, `multiselect`,
+`truefalse` e `imagechoice`. Lo demás necesita teclado o califica en diferido. **Está duplicada** en
+`live.py` y en `LiveHostPanel.tsx`, con un test que falla si se desincronizan.
+
+**`LiveQuestion`** — Una pregunta de la sesión, que **no** es lo mismo que una actividad: un
+`truefalse` de cinco enunciados produce cinco `LiveQuestion` numeradas `{activity_id}:{índice}`, la
+misma convención que `_build_answer_details`.
+
+**`pid`** — Identificador opaco de un participante dentro de una sesión en vivo. Reentrar con el
+mismo primer campo `info {}` (normalmente el carné) devuelve el mismo `pid` y conserva los puntos:
+recargar la página no cuesta el marcador.
+
 ## DSL y parseo
 
 **DSL / WorksheetScript** — El lenguaje propio en que se escribe una hoja. Referencia completa en
@@ -53,7 +71,9 @@ de devolverla. **Un tipo nuevo necesita su regla aquí.**
 
 **`info {}` / campos `_info_*`** — Campos de identificación a nivel de **hoja** (nombre, sección…).
 Las respuestas se guardan como `answers_json._info_0`, `_info_1`… Son strings planos en el DSL
-(`- Name`), no `- label: "Name"`.
+(`- Name`), no `- label: "Name"`, y van bajo la clave `fields:` — `info { fields: \n - Name }`.
+Sin ese `fields:`, `_parse_info_fields` devuelve `[]` **sin error**. Son también los campos que pide
+la pantalla de entrada de una sesión en vivo.
 
 ## Calificación
 

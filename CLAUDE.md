@@ -23,6 +23,7 @@ Luego carga **solo** el documento del dominio que toque la tarea. No cargues `do
 | Prompts, generación o calificación por IA | [`06_AI`](docs/06_AI.md) |
 | Sintaxis del DSL, parser, tipos de actividad | [`07_DSL`](docs/07_DSL.md) |
 | Cómo se pinta y se resuelve una actividad | [`08_RENDERER`](docs/08_RENDERER.md) |
+| Sesión en vivo (Kahoot del profesor) | [`live.py`](backend/app/live.py) · [`05_API`](docs/05_API.md) · [ADR-25/26](docs/15_DECISIONS.md) |
 | Auth, roles, JWT, Google | [`09_SECURITY`](docs/09_SECURITY.md) |
 | Variables, Render, arranque local | [`10_DEPLOYMENT`](docs/10_DEPLOYMENT.md) |
 | Tests | [`11_TESTING`](docs/11_TESTING.md) |
