@@ -17,6 +17,8 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 | `/v/:vocabId` | `VocabDirectPage` | público (enlace directo a una lista) |
 | `/w/:worksheetId` | `DirectWorksheetPage` | público (enlace directo a una hoja) |
 | `/guest` | `GuestPage` | público — **sin entradas en la UI**, solo por URL |
+| `/en-vivo/:code` | `LivePage` | público (alumno en una sesión en tiempo real) |
+| `/en-vivo/:code/pantalla` | `LiveScreenPage` | público (pantalla para proyectar) |
 | `/__shots` | `DevShots` | solo en `import.meta.env.DEV` |
 
 `ProtectedRoute` envuelve los portales autenticados. Cualquier otra ruta redirige a `/`.
@@ -24,7 +26,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 ## Las secciones son rutas, no estado
 
 ```tsx
-const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas',
+const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas', 'envivo',
   'aulas', 'estudiantes', 'profesores', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes'];
 const STUDENT_TABS: StudentTab[] = ['activas', 'calificadas', 'vocabulario', 'perfil'];
 
@@ -35,7 +37,7 @@ La pestaña activa se **deriva de `useParams`**. Así se comparte por URL, se ma
 botón "atrás" del navegador funciona.
 
 **Para añadir una sección de profesor:** agregarla a `TEACHER_SECTIONS` en `App.tsx` **y** al `GROUPS`
-de `TeacherDashboard.tsx`. El menú lateral está agrupado: Resumen · Contenido · Mis grupos ·
+de `TeacherDashboard.tsx`. El menú lateral está agrupado: Resumen · Contenido · En clase · Mis grupos ·
 Seguimiento (antes eran diez botones seguidos).
 
 ## Componentes
@@ -58,6 +60,8 @@ Seguimiento (antes eran diez botones seguidos).
 | `SubmitConfirmModal.tsx` | Confirmación propia de envío (no `window.confirm`) |
 | `LoadingScreen.tsx` | `LoadingScreen` / `Spinner` compartidos |
 | `TeacherDashboard.tsx` | Menú lateral agrupado (`GROUPS`) + métricas |
+| `LiveHostPanel.tsx` | Panel del profesor de la evaluación en tiempo real (sección `envivo`): elige la hoja, abre la sesión y lanza pregunta por pregunta. Recupera sesiones abiertas si recargó el navegador — la sesión vive en el backend, no en la pestaña. `liveBreakdown()` cuenta las preguntas jugables **y lo que queda fuera**, que se enseña con `SkippedNote`: descartar una actividad tiene que ser visible antes de proyectar, no una sorpresa con el salón mirando |
+| `pages/LivePage.tsx` | `LivePage` (alumno) y `LiveScreenPage` (pantalla proyectada). Comparten `useLivePoll` (poll de 1s), `useWakeLock` y `useCountdown`. Aviso de pregunta nueva por **tres canales a la vez**: vibración, destello a pantalla completa y sonido — en iPhone `navigator.vibrate` no existe, así que allí los otros dos no son respaldo sino el aviso |
 | `GoogleSignInButton.tsx` | Google Identity Services → `POST /auth/google` |
 | `ThemeToggle.tsx` | Interruptor claro/oscuro |
 | `ProtectedRoute.tsx` | Guarda de rutas por rol |
@@ -271,3 +275,10 @@ Tailwind que la pantalla ya usa** (`.bg-white`, `.text-slate-500`, `.bg-rex-ligh
 - Iconos: `lucide-react`.
 - Los textos de la interfaz van en **español**; el contenido evaluable de las hojas, en **inglés**.
 - Lint: `npm run lint` (ESLint 9, `--max-warnings 0`).
+
+> ⚠️ **Hay DOS tablas con el nombre visible de cada tipo de actividad y no coinciden:** `TYPE_META`
+> (`VisualWorksheetBuilder.tsx`), que es lo que el profesor ve en el picker al crear, y el `label` de
+> cada entrada de `activityRegistry`, que es lo que pinta `ActivityCard` en la hoja. `textbox` es
+> "Open Answer" en una y "Text box" en la otra. Para nombrar un tipo en una pantalla del **profesor**
+> se usa `TYPE_LABELS`, exportada desde `VisualWorksheetBuilder.tsx`, que deriva de `TYPE_META`.
+> Unificarlas está pendiente.

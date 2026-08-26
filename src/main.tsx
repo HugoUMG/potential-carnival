@@ -9,6 +9,7 @@ import { ReaderPortal } from './pages/ReaderPortal';
 import { VocabPublicPage } from './pages/VocabPublicPage';
 import { GuestPage } from './pages/GuestPage';
 import { DirectWorksheetPage } from './pages/DirectWorksheetPage';
+import { LivePage, LiveScreenPage } from './pages/LivePage';
 import { VocabDirectPage } from './pages/VocabDirectPage';
 import { SiteLayout } from './pages/site/SiteLayout';
 import { HomePage } from './pages/site/HomePage';
@@ -82,6 +83,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/vocab" element={<VocabPublicPage />} />
         <Route path="/guest" element={<GuestPage />} />
         <Route path="/w/:worksheetId" element={<DirectWorksheetPage />} />
+        {/* Evaluación en tiempo real: el alumno entra con el código, la pantalla se proyecta.
+            Las dos son públicas — el control lo tiene el profesor desde su portal. */}
+        <Route path="/en-vivo/:code" element={<LivePage />} />
+        <Route path="/en-vivo/:code/pantalla" element={<LiveScreenPage />} />
         <Route path="/v/:vocabId" element={<VocabDirectPage />} />
         {/* Banco de capturas del editor para /aprende. Solo en dev: no entra al build. */}
         {import.meta.env.DEV && <Route path="/__shots" element={<DevShots />} />}

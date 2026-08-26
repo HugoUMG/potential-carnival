@@ -496,6 +496,73 @@ que en una hoja no suena.
 
 ---
 
+## 🟢 ADR-25 — La sesión en vivo va con polling y estado en memoria, no con WebSockets ni tabla
+
+**Decisión.** La evaluación en tiempo real (`/live/*`) mantiene cada sesión en un **dict de módulo**
+(`backend/app/live.py`) y los clientes la consultan con un **poll de 1 segundo**. No hay tabla, ni
+Redis, ni WebSockets.
+
+**Motivo.** El caso real es un salón: ~50 personas, una hora, una sesión a la vez. Con ese tamaño,
+1 segundo de latencia no se distingue de "instantáneo" en un juego de preguntas, y el poll cuesta una
+lectura de diccionario — menos que el `SELECT` que costaría una tabla. WebSockets, en cambio, es
+infraestructura nueva entera: servidor con soporte, gestión de conexiones y desconexiones,
+reconexión cuando un alumno pierde la señal, y verificar que el plan de Render aguante conexiones
+persistentes. Es la pieza más cara del diseño para el problema menos urgente.
+
+**Alternativas descartadas.**
+
+- *WebSockets desde el principio.* Elimina el retraso y el tráfico ocioso, pero es la infraestructura
+  que el proyecto no tiene. Sigue siendo el salto correcto **si** la latencia llega a molestarse o si
+  las sesiones pasan de unos cientos de participantes.
+- *Long-polling.* Da push casi real sin WebSockets, pero deja 50 peticiones abiertas a la vez contra
+  un solo worker y se pelea con los tiempos de espera del proxy de Render. Más piezas móviles que el
+  poll, para ganar menos de un segundo.
+- *Guardar cada respuesta en la base según llega.* Son 50 escrituras a Aiven por pregunta para
+  alimentar un marcador que se descarta al terminar. `finish` escribe una vez por alumno al final,
+  que es cuando el dato deja de ser efímero y pasa a ser una nota.
+
+**Consecuencias.** Tres techos, y hay que conocerlos antes de una clase:
+
+1. **Un reinicio del proceso borra las sesiones vivas.** Un redeploy a media actividad la mata. Por eso
+   `finish` persiste en `worksheet_responses`: lo que se pierde es la sesión en curso, no las notas.
+2. **Obliga a un solo worker.** Con `--workers` en `render.yaml`, cada proceso tendría su propio dict
+   y los alumnos verían sesiones distintas. Eso ya valía para `_rate_limit` y `_response_locks`; aquí
+   deja de ser un detalle y pasa a ser la regla 39.
+3. **Los endpoints `/live/*` no pueden pasar por `_rate_limit`** (regla 40): es por IP y un salón
+   entero comparte la del WiFi.
+
+## 🟢 ADR-26 — `live.py` no importa `main.py`, aunque eso duplique seis líneas de calificación
+
+**Decisión.** `live.py` es lógica pura: no importa `main`, ni `repository`, ni `database`. Como
+consecuencia lleva su propio `LiveQuestion.is_correct()`, seis líneas que repiten el criterio de
+`_build_answer_details` para los tipos jugables.
+
+**Motivo.** Importar `backend.app` carga el `.env` real (regla 35): un test que importe `main` puede
+acabar escribiendo en Aiven. Manteniendo `live.py` limpio, `test_live_session.py` corre sin abrir una
+sola conexión, y de paso se evita el import circular (`main` importa `live` para montar los
+endpoints, no al revés).
+
+**Alternativas descartadas.**
+
+- *Importar `_build_answer_details` desde `main`.* Es la reutilización obvia y la que pide la regla de
+  no duplicar. Arrastra el `.env` de producción a la ruta caliente y al test — precio demasiado alto
+  por seis líneas.
+- *Mover el calificador a un módulo compartido.* Correcto a futuro, pero `_build_answer_details`
+  depende de `AnswerDetail`, del `WorksheetJson` completo y de los contextos de bloque: sacarlo es una
+  refactorización de `main.py`, no un movimiento de archivo. Si un tercer sitio llega a necesitarlo,
+  ahí sí toca.
+
+**Consecuencia.** Si cambia el criterio de acierto de esos tipos, hay que tocar **los dos sitios**. El
+test cubre los casos que se desincronizarían primero (comparación de texto sin distinguir mayúsculas
+en MC, conjunto exacto en multiselect), así que el descuadre sale en rojo y no en el salón.
+
+La duplicación se pagó una sola vez y se aprovecha: `truefalse` entra convertido a las opciones
+`"True"`/`"False"` —las mismas cadenas que guarda el renderer de la hoja— así que cae en la
+comparación de texto que ya existía, sin una rama de calificación nueva. Lo mismo `imagechoice`, que
+por ADR-20 se califica por el TEXTO de la opción y solo añade las URLs al payload.
+
+---
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

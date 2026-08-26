@@ -154,6 +154,36 @@ La revisión de agosto de 2026 cerró la escalada del `reader` y los topes de lo
 
 ---
 
+## Cerrado: evaluación en tiempo real (agosto 2026)
+
+Sesión sincrona estilo Kahoot, orquestada por el profesor: sección **En clase → Evaluación en vivo**
+del portal, `/en-vivo/:code` para el alumno y `/en-vivo/:code/pantalla` para proyectar. Polling de 1s
+y estado en memoria (ADR-25); cronómetro del servidor; vibración + destello + sonido en cada pregunta
+nueva; wake lock para que no se apague la pantalla; `finish` deja las entregas en Revisión.
+
+**Cuatro tipos jugables:** `multiplechoice`, `multiselect`, `truefalse` (un enunciado = una pregunta)
+e `imagechoice`. Lo que la hoja tenga y no se pueda jugar **se reporta por tipo** en el panel, antes
+de abrir la sesión y en el temario.
+
+**Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
+
+- **WebSockets.** El salto correcto si la latencia llega a notarse o si las sesiones crecen a cientos
+  de participantes. Ver los tres techos del ADR-25.
+- **Equipos y modos de juego.** Individual y ya.
+- **`fillblank` en vivo.** Es viable (~60 líneas: input + envío), pero teclear en celular contra reloj
+  castiga al que escribe lento y un typo vale cero — la calificación es exacta. Si se añade, subir el
+  tiempo por pregunta.
+- **`matching` y `dragdrop`.** El problema no es el código sino el dedo: emparejar o arrastrar con
+  prisa en pantalla chica frustra más de lo que enseña.
+- **`textbox` (Open Answer).** No encaja: no tiene clave, lo califica la IA en diferido. Sin
+  correcto/incorrecto no hay puntos ni marcador. Haría falta otro modo (nube de respuestas sin
+  puntaje), que es otra función.
+- **`listeningmultiplechoice`.** Calificaría igual que un MC, pero habría que decidir quién reproduce
+  el audio: 50 celulares desfasados no sirven, tendría que sonar solo en la pantalla proyectada.
+- **Reanudar una sesión tras un reinicio del backend.** Hoy se pierde la sesión en curso; las notas
+  no, si se llegó a pulsar *Terminar y guardar*.
+- **Código QR para entrar.** Se comparte el enlace o se teclea el código de 5 letras.
+
 ## Cerrado recientemente
 
 ### Revisión QA de los 19 tipos (julio 2026)

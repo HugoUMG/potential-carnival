@@ -129,6 +129,24 @@ Los tres endpoints **no pueden pedir JWT**: `/tts` se usa como `src` de un `<aud
 cabeceras, y `/public/transcribe` sostiene el modo invitado, que existe precisamente para no pedir
 cuenta.
 
+### Los `/live/*` quedan fuera del rate limit, a propósito
+
+`_rate_limit` es por IP, y un salón entero comparte la del WiFi: 50 alumnos poleando cada segundo se
+comerían un 429 en el primer minuto y la actividad se caería con el público delante. Los endpoints de
+la sesión en vivo van **sin** tope de peticiones. Lo que los sostiene en su lugar:
+
+- **No cuestan base ni dinero**: leen y escriben un dict en memoria, nunca Aiven ni una API de pago.
+- **`live.py` acota lo que sí crece**: 300 participantes por sesión, 50 sesiones a la vez, y las de
+  más de 8 horas se descartan al abrir una nueva.
+- **La superficie es mínima**: sin código de sesión válido (5 letras de un alfabeto de 32) no se llega
+  a ningún estado, y las tres acciones públicas (`join`, `answer`, leer el estado) no revelan nada que
+  no esté ya proyectado en la pantalla del salón.
+
+Lo que sí protege la actividad de un tramposo es que **la clave nunca viaja mientras la pregunta está
+abierta** (`public_state` la añade solo en fase `reveal`): quien abra las herramientas del navegador
+ve exactamente lo mismo que quien mira la pantalla. Es el mismo criterio de la regla 13, y hay un test
+que lo comprueba.
+
 ## Contenido HTML del alumno (`content`)
 
 El bloque `content` renderiza HTML que escribió el profesor:

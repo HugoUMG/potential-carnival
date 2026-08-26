@@ -25,8 +25,9 @@ DSL propio y obtiene una hoja interactiva con:
 ## Estado actual
 
 En producción, con datos reales, desplegado en Render + Aiven. Funcionan los 21 tipos de actividad,
-el sistema de aulas, la calificación IA, el modo invitado, el enlace directo, la impresión en papel
-y el portal de vocabulario.
+el sistema de aulas, la calificación IA, el modo invitado, el enlace directo, la impresión en papel,
+el portal de vocabulario y la **evaluación en tiempo real** (sesión sincrona estilo Kahoot que el
+profesor orquesta pregunta por pregunta).
 
 **El flujo vivo es el enlace directo `/w/:worksheetId`.** Las aulas y los alumnos registrados
 funcionan y se mantienen, pero hoy no son lo que más se usa en producción: fueron la primera fase del
@@ -65,6 +66,8 @@ Además, sin cuenta:
   hoja publicada y el alumno la resuelve sin login ni menú.
 - **Modo invitado** (`/guest`) — nombre + aula pública, identificado por `guest_token`. Sigue vivo
   pero **sus entradas están ocultas en la UI**.
+- **Sesión en vivo** (`/en-vivo/:code`) — el alumno entra con un código de 5 letras y los campos
+  `info {}` de la hoja (carné, nombre). `/en-vivo/:code/pantalla` es la vista para proyectar.
 - **Portal público de vocabulario** (`/vocab`, `/v/:vocabId`).
 
 ## Flujo principal

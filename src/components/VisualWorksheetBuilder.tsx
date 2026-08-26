@@ -61,6 +61,14 @@ const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNo
   content:                { label: 'Contenido / Repaso',       icon: <FileText size={14} />,     color: 'text-slate-700',   bg: 'bg-slate-50 border-slate-200' },
 };
 
+/** Los nombres de tipo **tal como los ve el profesor al crear la actividad**, para que otras
+ *  pantallas los llamen igual. `activityRegistry` tiene su propia tabla de `label` y las dos NO
+ *  coinciden (aquí `textbox` es "Open Answer"; allí, "Text box"): quien nombre un tipo en una
+ *  pantalla del profesor debe usar esta, que es la del picker. */
+export const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(TYPE_META).map(([type, meta]) => [type, meta.label]),
+);
+
 // Grupos para el picker de actividades
 const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
   { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse'] },

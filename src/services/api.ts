@@ -778,3 +778,114 @@ export async function generateWorksheetWithAI(
   });
   return normalizeWorksheet(worksheet);
 }
+
+// ── Evaluación en tiempo real ────────────────────────────────────────────────
+
+export type LivePhase = 'lobby' | 'question' | 'reveal' | 'ended';
+
+export interface LiveState {
+  code: string;
+  title: string;
+  phase: LivePhase;
+  version: number;
+  index: number;
+  total: number;
+  participants: number;
+  answered: number;
+  duration: number;
+  /** Lo calcula el SERVIDOR: el cronómetro no depende del reloj del celular. null = sin límite. */
+  remaining_ms: number | null;
+  info_fields: string[];
+  question?: {
+    id: string;
+    type: 'multiplechoice' | 'multiselect' | 'truefalse' | 'imagechoice';
+    question: string;
+    options: string[];
+    number: number;
+    image?: string | null;              // imagechoice: imagen del enunciado
+    option_images?: string[] | null;    // imagechoice: URL por opción, PARALELA a `options`
+  };
+  /** Solo llega en fase `reveal`. Mientras la pregunta está abierta el backend no la manda. */
+  answer?: string | string[];
+  answer_label?: string;
+  option_counts?: number[];
+  leaderboard?: { label: string; score: number; correct: number }[];
+  me?: { label: string; score: number; correct_total: number; rank: number | null; answered: boolean; answer: unknown; correct?: boolean } | null;
+}
+
+export interface LiveHostState extends LiveState {
+  questions: { number: number; question: string; type: string }[];
+  roster: { label: string; info: Record<string, string>; score: number; correct: number }[];
+  instant_feedback: boolean;
+  /** Actividades de la hoja que NO se pueden jugar en vivo, por tipo. Se enseñan para que
+   *  descartarlas sea visible en vez de dejar la sesión corta sin explicación. */
+  skipped: { type: string; count: number }[];
+  saved?: number;
+}
+
+/** Estado de la sesión (alumno y pantalla). Público: no manda cabecera de autenticación. */
+export async function getLiveState(code: string, pid?: string): Promise<LiveState> {
+  const query = pid ? `?pid=${encodeURIComponent(pid)}` : '';
+  const response = await fetch(`${API_BASE_URL}/live/${encodeURIComponent(code)}${query}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Sesión no disponible' }));
+    throw new Error(String(error.detail ?? 'Sesión no disponible'));
+  }
+  return response.json() as Promise<LiveState>;
+}
+
+export async function joinLive(code: string, info: Record<string, string>): Promise<LiveState & { pid: string; label: string }> {
+  const response = await fetch(`${API_BASE_URL}/live/${encodeURIComponent(code)}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ info }),
+  });
+  const data = await response.json().catch(() => ({ detail: 'No se pudo entrar' }));
+  if (!response.ok) throw new Error(String((data as { detail?: string }).detail ?? 'No se pudo entrar'));
+  return data as LiveState & { pid: string; label: string };
+}
+
+export async function answerLive(code: string, pid: string, answer: unknown): Promise<LiveState & { correct?: boolean; points?: number }> {
+  const response = await fetch(`${API_BASE_URL}/live/${encodeURIComponent(code)}/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pid, answer }),
+  });
+  const data = await response.json().catch(() => ({ detail: 'No se pudo enviar' }));
+  if (!response.ok) throw new Error(String((data as { detail?: string }).detail ?? 'No se pudo enviar'));
+  return data as LiveState & { correct?: boolean; points?: number };
+}
+
+// Las de abajo son del profesor: van por `request()`, que adjunta el JWT de la sesión.
+
+export function crearSesionEnVivo(worksheetId: string, duration: number, instantFeedback: boolean): Promise<LiveHostState> {
+  return request<LiveHostState>('/live/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ worksheet_id: worksheetId, duration, instant_feedback: instantFeedback }),
+  });
+}
+
+export function listarSesionesEnVivo(): Promise<{ code: string; title: string; worksheet_id: string; phase: LivePhase; participants: number; total: number }[]> {
+  return request('/live/sessions');
+}
+
+export function estadoSesionEnVivo(code: string): Promise<LiveHostState> {
+  return request<LiveHostState>(`/live/${encodeURIComponent(code)}/host`);
+}
+
+export function lanzarSiguientePregunta(code: string, duration?: number): Promise<LiveHostState> {
+  return request<LiveHostState>(`/live/${encodeURIComponent(code)}/next`, { method: 'POST', body: JSON.stringify({ duration: duration ?? null }) });
+}
+
+export function revelarRespuesta(code: string): Promise<LiveHostState> {
+  return request<LiveHostState>(`/live/${encodeURIComponent(code)}/reveal`, { method: 'POST' });
+}
+
+/** Termina y GUARDA una entrega por alumno (aparecen en Revisión como cualquier otra). */
+export function terminarSesionEnVivo(code: string): Promise<LiveHostState> {
+  return request<LiveHostState>(`/live/${encodeURIComponent(code)}/finish`, { method: 'POST' });
+}
+
+export function cerrarSesionEnVivo(code: string): Promise<void> {
+  return request<void>(`/live/${encodeURIComponent(code)}`, { method: 'DELETE' });
+}
