@@ -1044,7 +1044,7 @@ const nextId = (type: string) => `${type}-${crypto.randomUUID()}`;
 export const activityRegistry = {
   fillblank: {
     type: 'fillblank',
-    label: 'Fill in the blank',
+    label: 'Completar huecos',
     description: 'The student types the missing word or phrase.',
     icon: '✏️',
     create: () => ({ id: nextId('fillblank'), type: 'fillblank', text: 'I ____ ready.', answer: 'am' }),
@@ -1052,7 +1052,7 @@ export const activityRegistry = {
   },
   multiplechoice: {
     type: 'multiplechoice',
-    label: 'Multiple choice',
+    label: 'Opción múltiple',
     description: 'The student chooses one correct option.',
     icon: '✅',
     create: () => ({ id: nextId('multiplechoice'), type: 'multiplechoice', question: 'Choose the correct answer.', options: ['am', 'is', 'are'], answer: 'am' }),
@@ -1060,7 +1060,7 @@ export const activityRegistry = {
   },
   multiselect: {
     type: 'multiselect',
-    label: 'Multiple answers',
+    label: 'Varias respuestas',
     description: 'The student can choose several correct options.',
     icon: '🗹',
     create: () => ({ id: nextId('multiselect'), type: 'multiselect', question: 'Select all that apply.', options: ['run', 'runs', 'running', 'ran'], answer: ['run', 'runs'] }),
@@ -1076,7 +1076,7 @@ export const activityRegistry = {
   },
   textbox: {
     type: 'textbox',
-    label: 'Text box',
+    label: 'Respuesta abierta',
     description: 'Long written response.',
     icon: '📝',
     create: () => ({ id: nextId('textbox'), type: 'textbox', prompt: 'Describe your house.' }),
@@ -1084,7 +1084,7 @@ export const activityRegistry = {
   },
   matching: {
     type: 'matching',
-    label: 'Matching',
+    label: 'Relacionar',
     description: 'Match words with meanings.',
     icon: '🔗',
     create: () => ({ id: nextId('matching'), type: 'matching', left: ['dog', 'cat'], right: ['animal that barks', 'animal that meows'] }),
@@ -1108,7 +1108,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ListeningActivity>,
   imagequestion: {
     type: 'imagequestion',
-    label: 'Image question',
+    label: 'Imagen + pregunta',
     description: 'Visual prompt with written answer.',
     icon: '🖼️',
     create: () => ({ id: nextId('imagequestion'), type: 'imagequestion', image: 'https://placehold.co/900x500', prompt: 'Describe what you see.' }),
@@ -1116,7 +1116,7 @@ export const activityRegistry = {
   },
   imagechoice: {
     type: 'imagechoice',
-    label: 'Image + Multiple choice',
+    label: 'Imagen + opción múltiple',
     description: 'Choose one option; the options can be pictures.',
     icon: '🖼️✅',
     create: () => ({ id: nextId('imagechoice'), type: 'imagechoice', question: 'Which one is the apple?', options: ['apple', 'banana'], option_images: ['https://placehold.co/400x300?text=apple', 'https://placehold.co/400x300?text=banana'], answer: 'apple' }),
@@ -1124,7 +1124,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ImageChoiceActivity>,
   imagematching: {
     type: 'imagematching',
-    label: 'Image + Matching',
+    label: 'Imagen + relacionar',
     description: 'Match each picture with its word.',
     icon: '🖼️🔗',
     create: () => ({ id: nextId('imagematching'), type: 'imagematching', left: ['Image 1', 'Image 2'], left_images: ['https://placehold.co/400x300?text=dog', 'https://placehold.co/400x300?text=cat'], right: ['dog', 'cat'] }),
@@ -1132,7 +1132,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ImageMatchingActivity>,
   listeningfillblank: {
     type: 'listeningfillblank',
-    label: 'Listening + Fill blank',
+    label: 'Listening + completar',
     description: 'Listen and complete the missing words.',
     icon: '🎧✏️',
     create: () => ({ id: nextId('listeningfillblank'), type: 'listeningfillblank', audio_text: 'She goes to school every day.', text: 'She _____ to school every day.', answer: 'goes' }),
@@ -1140,7 +1140,7 @@ export const activityRegistry = {
   },
   listeningmultiplechoice: {
     type: 'listeningmultiplechoice',
-    label: 'Listening + Multiple choice',
+    label: 'Listening + opción múltiple',
     description: 'Listen and choose the correct option.',
     icon: '🎧✅',
     create: () => ({ id: nextId('listeningmultiplechoice'), type: 'listeningmultiplechoice', audio_text: 'The meeting is on Friday at 3 PM.', question: 'When is the meeting?', options: ['Thursday at 3 PM', 'Friday at 3 PM', 'Friday at 5 PM'], answer: 'Friday at 3 PM' }),
@@ -1148,7 +1148,7 @@ export const activityRegistry = {
   },
   listeningmatching: {
     type: 'listeningmatching',
-    label: 'Listening + Matching',
+    label: 'Listening + relacionar',
     description: 'Match each audio with its meaning.',
     icon: '🎧🔗',
     create: () => ({ id: nextId('listeningmatching'), type: 'listeningmatching', pairs: [{ audio_text: 'It might rain later.', match: 'Possibility' }, { audio_text: 'You should rest more.', match: 'Advice' }], options: ['Possibility', 'Advice'] }),
@@ -1156,7 +1156,7 @@ export const activityRegistry = {
   },
   listeningtruefalse: {
     type: 'listeningtruefalse',
-    label: 'Listening + True/False',
+    label: 'Listening + verdadero/falso',
     description: 'Listen and decide if each statement is true or false.',
     icon: '🎧❓',
     create: () => ({ id: nextId('listeningtruefalse'), type: 'listeningtruefalse', audio_text: 'The store opens at 9 AM and closes at 6 PM.', statements: [{ text: 'The store opens at 9 AM.', answer: true }, { text: 'The store closes at 8 PM.', answer: false }] }),
@@ -1164,7 +1164,7 @@ export const activityRegistry = {
   },
   listeningorder: {
     type: 'listeningorder',
-    label: 'Listening + Ordenar',
+    label: 'Listening + ordenar',
     description: 'Listen and drag the scrambled words into the correct order.',
     icon: '🎧🔀',
     create: () => ({ id: nextId('listeningorder'), type: 'listeningorder', audio_text: 'She has never been to Paris.', answer: ['She', 'has', 'never', 'been', 'to', 'Paris'], bank: ['Paris', 'She', 'to', 'has', 'been', 'never'] }),
@@ -1180,7 +1180,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ConversationActivity>,
   content: {
     type: 'content',
-    label: 'Contenido / Repaso (HTML)',
+    label: 'Contenido / Repaso',
     description: 'Read-only rich content (headings, colors, layout) to review the topic. Not graded.',
     icon: '📄',
     create: () => ({ id: nextId('content'), type: 'content', title: 'Repaso', html: '<h1 style="color:#0EA5E9">Título</h1>\n<p>Escribe aquí un repaso corto del tema. Puedes usar <b>negrita</b>, colores y listas.</p>' }),
@@ -1188,7 +1188,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ContentActivity>,
   truefalse: {
     type: 'truefalse',
-    label: 'True / False',
+    label: 'Verdadero / Falso',
     description: 'Decide if each statement is true or false.',
     icon: '✔️❌',
     create: () => ({ id: nextId('truefalse'), type: 'truefalse', statements: [{ text: 'The Earth is round.', answer: true }, { text: 'The Sun orbits the Earth.', answer: false }] }),
@@ -1196,7 +1196,7 @@ export const activityRegistry = {
   },
   readingtruefalse: {
     type: 'readingtruefalse',
-    label: 'Reading + True/False',
+    label: 'Reading + verdadero/falso',
     description: 'Read a text (with audio), then answer True or False.',
     icon: '📖❓',
     create: () => ({ id: nextId('readingtruefalse'), type: 'readingtruefalse', title: 'My School', content: 'My school is very big. There are many classrooms and a large library.', statements: [{ text: 'The school has a library.', answer: true }, { text: 'The school is small.', answer: false }] }),

@@ -494,6 +494,52 @@ el mismo robo, que ya existía en silencio, con el `title:` de un `reading {}`. 
 con audio se omite **entero**: sus actividades son de tipos imprimibles, pero preguntan sobre algo
 que en una hoja no suena.
 
+## 🟢 ADR-25 — El nombre visible de un tipo vive solo en `activityRegistry`, y va en español
+
+**Decisión.** `activityRegistry[type].label` es la **única fuente de verdad** del nombre visible de
+un tipo de actividad, y ese nombre va en **español**. `TYPE_META` (`VisualWorksheetBuilder.tsx`) se
+quedó **solo con el estilo** —icono lucide, `color`, `bg`— y lee la etiqueta del registro, igual que
+`ActivityCard` y `ThumbPlaceholderCard`. No hay un segundo campo con el nombre en inglés.
+
+**Motivo.** Había **dos** tablas con los mismos 21 tipos y nombres distintos: el profesor añadía un
+"Open Answer" en el constructor y la misma actividad aparecía como "Text box" en la vista previa y en
+la miniatura de la hoja guardada. Nada rompía —dos strings— así que la divergencia creció en
+silencio: `TYPE_META` mezclaba español e inglés ("Imagen + Opción múltiple", "Multi-Select") y el
+registro casi todo en inglés con cuatro excepciones ("Arrastrar palabras", "Conversación (2 voces)").
+`activityRegistry` se queda con la etiqueta porque ya es el registro canónico del tipo: está indexado
+por `WorksheetActivity['type']` con un `satisfies` que obliga a cubrir **todos** los tipos, mientras
+que `TYPE_META` solo cubre los del constructor visual.
+
+**Alternativas descartadas.**
+
+- *Dos campos explícitos, `label` (es) + `labelEn` (en), uno por audiencia.* Es la lectura literal de
+  la regla 27 —interfaz en español, contenido evaluable en inglés— pero se cae al mirar quién lee la
+  etiqueta: las cuatro pantallas que nombran un tipo (picker, tarjeta del lienzo, `ActivityCard`,
+  `ThumbPlaceholderCard`) son **interfaz**, y en las cuatro el nombre va junto a chrome que ya está
+  en español ("Actividad 3", "Interactiva"). El contenido evaluable en inglés es la hoja —preguntas,
+  opciones, textos—, no cómo se llama el tipo. `labelEn` no habría tenido ni un consumidor, y un
+  campo sin consumidor se desincroniza igual que las dos tablas que este ADR une. Además **el nombre
+  en inglés ya existe y no se puede desincronizar**: es la clave `type` (`fillblank`,
+  `listeningmultiplechoice`), que es literalmente la palabra del DSL, y es la que usan `07_DSL.md`,
+  `_WORKSHEET_SYSTEM` y `GENERATION_PROMPT`.
+- *Dejar la etiqueta en `TYPE_META` y que el registro la lea de ahí.* Invierte la dependencia hacia
+  el archivo equivocado: `WorksheetRenderer` (lo que ve el alumno) acabaría importando del
+  constructor del profesor, y `TYPE_META` no cubre por tipos lo que cubre el registro.
+- *Fusionar las dos tablas enteras.* No hacía falta: los iconos son de dos clases distintas (emoji en
+  el registro, componente lucide en el constructor) y `color`/`bg` solo tienen sentido en el
+  constructor. El problema era el LABEL, y solo se movió el LABEL.
+
+**Consecuencia.** Las etiquetas cambian en pantalla: el nombre unificado es el español, así que el
+alumno ya no ve "Fill in the blank" sino "Completar huecos", y el profesor ya no ve "Open Answer"
+sino "Respuesta abierta". Se conservan como términos de la profesión los que un profesor de inglés
+hispanohablante usa tal cual: **Listening**, **Reading** y **Speaking**. Un tipo nuevo trae su
+`label` en el registro y **nada más**: el picker lo pinta solo. La página pública
+`src/pages/site/ActivitiesPage.tsx` mantiene a propósito sus **propios** nombres comerciales ("Unir
+con líneas", "Completar espacios") sobre una lista curada: es copy de venta agrupado por destreza,
+no chrome de la aplicación, y no lee del registro.
+
+---
+
 ---
 
 ## Cómo añadir una decisión

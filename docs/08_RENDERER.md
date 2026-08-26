@@ -66,6 +66,13 @@ precedencia **incorrecto > abierta > correcto**.
 
 Un componente por tipo. Detalles que importan:
 
+**`label` es el nombre visible del tipo, y no hay otro.** Va en **español** (regla 27: el nombre de
+un tipo es interfaz, no contenido evaluable) y lo leen las cuatro pantallas que nombran un tipo:
+`ActivityCard` y `ThumbPlaceholderCard` en `WorksheetRenderer.tsx`, y el picker y las tarjetas del
+lienzo en `VisualWorksheetBuilder.tsx`. `TYPE_META` de ese archivo guarda **solo** el estilo (icono
+lucide, `color`, `bg`). El nombre en inglés del tipo no se guarda porque ya existe: es la clave
+`type`, que es la palabra del DSL. Ver [ADR-25](15_DECISIONS.md).
+
 **`fillblank` / `dragdrop` / `listeningfillblank`** — el marcador `_____` (exactamente 5 guiones
 bajos) se parte y entre las partes va un `<input>` o un hueco:
 
@@ -225,7 +232,7 @@ silencio**:
 4. `ai.py` — si el corrector exacto puede fallar con un acierto legítimo, evaluarlo para
    `_AI_RESCUABLE`; y documentarlo en `_WORKSHEET_SYSTEM`.
 5. `src/types.ts` y `services/api.ts` (`normalizeActivity`, `withInstructions`).
-6. `activityRegistry.tsx` — el componente.
+6. `activityRegistry.tsx` — el componente **y su `label`** (el nombre visible, en español).
 7. `VisualWorksheetBuilder.tsx` + `dslSerializer.ts` — editor visual y round-trip.
 8. `WorksheetPrint.tsx` — cómo se ve en papel, o si se omite.
 9. [07_DSL](07_DSL.md) + `GENERATION_PROMPT` (`src/utils/generationPrompt.ts`).

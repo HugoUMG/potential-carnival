@@ -284,6 +284,10 @@ export interface VocabularyList {
 
 export interface ActivityDefinition<T extends WorksheetActivity = WorksheetActivity> {
   type: T['type'];
+  /** Nombre visible del tipo, en **español** (regla 27: el nombre de un tipo es interfaz, no
+   *  contenido evaluable). ÚNICA fuente de verdad: toda pantalla que nombre un tipo lee este
+   *  campo — nadie mantiene su propia tabla de etiquetas. El nombre en inglés del tipo ya existe
+   *  y es la clave `type`, que es la palabra del DSL. */
   label: string;
   description: string;
   icon: string;

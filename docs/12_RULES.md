@@ -59,6 +59,10 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
 26. Toda pantalla que dependa de la primera consulta muestra `LoadingScreen`/`Spinner` — la base
     tarda.
 27. Textos de interfaz en **español**; el contenido evaluable de las hojas, en **inglés**.
+    El **nombre visible de un tipo de actividad es interfaz**, no contenido: va en español y
+    vive **solo** en `activityRegistry[type].label` (ADR-25). Ninguna pantalla mantiene su
+    propia tabla de etiquetas. El nombre en inglés del tipo ya existe: es la clave `type`, que
+    es la palabra del DSL.
 28. `npm run build` debe quedar limpio. `npm run lint` arrastra 18 errores heredados: **no añadir
     errores nuevos** (ver [11_TESTING](11_TESTING.md)).
 
