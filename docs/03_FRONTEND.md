@@ -276,9 +276,13 @@ Tailwind que la pantalla ya usa** (`.bg-white`, `.text-slate-500`, `.bg-rex-ligh
 - Los textos de la interfaz van en **español**; el contenido evaluable de las hojas, en **inglés**.
 - Lint: `npm run lint` (ESLint 9, `--max-warnings 0`).
 
-> ⚠️ **Hay DOS tablas con el nombre visible de cada tipo de actividad y no coinciden:** `TYPE_META`
-> (`VisualWorksheetBuilder.tsx`), que es lo que el profesor ve en el picker al crear, y el `label` de
-> cada entrada de `activityRegistry`, que es lo que pinta `ActivityCard` en la hoja. `textbox` es
-> "Open Answer" en una y "Text box" en la otra. Para nombrar un tipo en una pantalla del **profesor**
-> se usa `TYPE_LABELS`, exportada desde `VisualWorksheetBuilder.tsx`, que deriva de `TYPE_META`.
-> Unificarlas está pendiente.
+## El nombre de un tipo de actividad se escribe en UN solo sitio
+
+`activityRegistry[tipo].label`. Lo leen el picker del constructor, la tarjeta del lienzo, la tarjeta
+de la hoja (`ActivityCard`) y el panel en vivo, así que el profesor lee el mismo nombre en los cuatro.
+
+Antes había **dos** tablas: `TYPE_META` en `VisualWorksheetBuilder.tsx` llevaba su propio `label` y se
+desincronizó de la del registro sin que nadie lo notara — el profesor añadía un "Open Answer" desde el
+picker y la hoja se lo pintaba como "Text box" (11 de 21 tipos no coincidían). `TYPE_META` ya no tiene
+`label`: solo icono y colores. Quitar el campo es lo que impide la divergencia; un comentario pidiendo
+mantenerlas iguales, no.

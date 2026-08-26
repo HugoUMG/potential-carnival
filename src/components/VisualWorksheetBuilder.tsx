@@ -37,37 +37,38 @@ const VISUAL_TYPES: VisualActivityType[] = [
   'reading', 'readingtruefalse', 'imagequestion', 'imagechoice', 'imagematching', 'speaking', 'content',
 ];
 
-const TYPE_META: Record<VisualActivityType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
-  fillblank:              { label: 'Fill in the Blank',        icon: <AlignLeft size={14} />,    color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
-  multiplechoice:         { label: 'Multiple Choice',          icon: <CheckSquare size={14} />,  color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
-  multiselect:            { label: 'Multi-Select',             icon: <ListChecks size={14} />,   color: 'text-rex-deep',     bg: 'bg-rex/10 border-rex/30' },
-  dragdrop:               { label: 'Drag & Drop',              icon: <Move size={14} />,         color: 'text-pink-700',    bg: 'bg-pink-50 border-pink-200' },
-  matching:               { label: 'Matching',                 icon: <Columns2 size={14} />,     color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-  textbox:                { label: 'Open Answer',              icon: <List size={14} />,         color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200' },
-  truefalse:              { label: 'True / False',             icon: <ToggleLeft size={14} />,   color: 'text-rose-700',    bg: 'bg-rose-50 border-rose-200' },
-  listening:              { label: 'Listening',                icon: <Volume2 size={14} />,      color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
-  listeningfillblank:     { label: 'Listening + Fill Blank',   icon: <Headphones size={14} />,   color: 'text-teal-700',    bg: 'bg-teal-50 border-teal-200' },
-  listeningmultiplechoice:{ label: 'Listening + MC',           icon: <Headphones size={14} />,   color: 'text-rex-deep',  bg: 'bg-rex/10 border-rex/30' },
-  listeningmatching:      { label: 'Listening + Matching',     icon: <Headphones size={14} />,   color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
-  listeningtruefalse:     { label: 'Listening + True/False',   icon: <Headphones size={14} />,   color: 'text-spike-dark', bg: 'bg-spike/10 border-spike/30' },
-  listeningorder:         { label: 'Listening + Ordenar',      icon: <Headphones size={14} />,   color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
-  conversation:           { label: 'Conversación (2 voces)',   icon: <MessagesSquare size={14} />, color: 'text-rex-deep',   bg: 'bg-rex/10 border-rex/30' },
-  reading:                { label: 'Reading',                  icon: <BookOpen size={14} />,     color: 'text-lime-700',    bg: 'bg-lime-50 border-lime-200' },
-  readingtruefalse:       { label: 'Reading + True/False',     icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
-  imagequestion:          { label: 'Image Question',           icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
-  imagechoice:            { label: 'Imagen + Opción múltiple', icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
-  imagematching:          { label: 'Imagen + Matching',        icon: <Image size={14} />,        color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
-  speaking:               { label: 'Speaking (mic)',           icon: <Mic size={14} />,          color: 'text-red-700',     bg: 'bg-red-50 border-red-200' },
-  content:                { label: 'Contenido / Repaso',       icon: <FileText size={14} />,     color: 'text-slate-700',   bg: 'bg-slate-50 border-slate-200' },
+/** Solo el ASPECTO de cada tipo en el constructor (icono y colores). El NOMBRE no vive aquí: sale
+ *  de `activityRegistry[tipo].label`, que es el único sitio donde se escribe.
+ *
+ *  Antes esta tabla llevaba su propio `label` y las dos se desincronizaron sin que nadie lo notara:
+ *  el profesor añadía un "Open Answer" desde el picker y la hoja se lo pintaba como "Text box".
+ *  Quitar el campo es lo que impide que vuelva a pasar — no un comentario pidiendo cuidado. */
+const TYPE_META: Record<VisualActivityType, { icon: React.ReactNode; color: string; bg: string }> = {
+  fillblank:              { icon: <AlignLeft size={14} />,    color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
+  multiplechoice:         { icon: <CheckSquare size={14} />,  color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
+  multiselect:            { icon: <ListChecks size={14} />,   color: 'text-rex-deep',     bg: 'bg-rex/10 border-rex/30' },
+  dragdrop:               { icon: <Move size={14} />,         color: 'text-pink-700',    bg: 'bg-pink-50 border-pink-200' },
+  matching:               { icon: <Columns2 size={14} />,     color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
+  textbox:                { icon: <List size={14} />,         color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200' },
+  truefalse:              { icon: <ToggleLeft size={14} />,   color: 'text-rose-700',    bg: 'bg-rose-50 border-rose-200' },
+  listening:              { icon: <Volume2 size={14} />,      color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
+  listeningfillblank:     { icon: <Headphones size={14} />,   color: 'text-teal-700',    bg: 'bg-teal-50 border-teal-200' },
+  listeningmultiplechoice:{ icon: <Headphones size={14} />,   color: 'text-rex-deep',  bg: 'bg-rex/10 border-rex/30' },
+  listeningmatching:      { icon: <Headphones size={14} />,   color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
+  listeningtruefalse:     { icon: <Headphones size={14} />,   color: 'text-spike-dark', bg: 'bg-spike/10 border-spike/30' },
+  listeningorder:         { icon: <Headphones size={14} />,   color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
+  conversation:           { icon: <MessagesSquare size={14} />, color: 'text-rex-deep',   bg: 'bg-rex/10 border-rex/30' },
+  reading:                { icon: <BookOpen size={14} />,     color: 'text-lime-700',    bg: 'bg-lime-50 border-lime-200' },
+  readingtruefalse:       { icon: <BookOpen size={14} />,     color: 'text-green-700',   bg: 'bg-green-50 border-green-200' },
+  imagequestion:          { icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
+  imagechoice:            { icon: <Image size={14} />,        color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
+  imagematching:          { icon: <Image size={14} />,        color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
+  speaking:               { icon: <Mic size={14} />,          color: 'text-red-700',     bg: 'bg-red-50 border-red-200' },
+  content:                { icon: <FileText size={14} />,     color: 'text-slate-700',   bg: 'bg-slate-50 border-slate-200' },
 };
 
-/** Los nombres de tipo **tal como los ve el profesor al crear la actividad**, para que otras
- *  pantallas los llamen igual. `activityRegistry` tiene su propia tabla de `label` y las dos NO
- *  coinciden (aquí `textbox` es "Open Answer"; allí, "Text box"): quien nombre un tipo en una
- *  pantalla del profesor debe usar esta, que es la del picker. */
-export const TYPE_LABELS: Record<string, string> = Object.fromEntries(
-  Object.entries(TYPE_META).map(([type, meta]) => [type, meta.label]),
-);
+/** Nombre visible de un tipo. Única fuente: `activityRegistry`. */
+const typeLabel = (type: VisualActivityType) => activityRegistry[type].label;
 
 // Grupos para el picker de actividades
 const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
@@ -1043,7 +1044,7 @@ function ActivityCard({ act, index, total, expanded, onToggle, onUpdate, onRemov
           className="cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing"
         ><GripVertical size={16} /></span>
         <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${meta.color} ${meta.bg}`}>
-          {meta.icon} {meta.label}
+          {meta.icon} {typeLabel(act.type)}
         </span>
         <span className="text-xs text-slate-400">#{index + 1}</span>
         <div className="ml-auto flex items-center gap-1">
@@ -1324,7 +1325,7 @@ function BlockCard({ block, blockIndex, totalBlocks, openActivityId, onOpenActiv
                       return (
                         <button key={type} type="button" onClick={() => addActivity(type)}
                           className={`flex items-center gap-2 rounded-xl border p-3 text-left text-sm font-semibold transition hover:shadow-sm ${m.color} ${m.bg}`}>
-                          <span className="text-base">{m.icon}</span> {m.label}
+                          <span className="text-base">{m.icon}</span> {typeLabel(type)}
                         </button>
                       );
                     })}

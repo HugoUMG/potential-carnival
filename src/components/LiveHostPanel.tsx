@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Copy, ExternalLink, Flag, Info, Monitor, Play, Radio, SkipForward, Square, Users } from 'lucide-react';
 import { RichText } from './RichText';
-import { TYPE_LABELS } from './VisualWorksheetBuilder';
+import { activityRegistry } from './activityRegistry';
 import {
   cerrarSesionEnVivo,
   crearSesionEnVivo,
@@ -41,11 +41,10 @@ function liveBreakdown(worksheet: Worksheet): { questions: number; skipped: Map<
   return { questions, skipped };
 }
 
-/** Nombre de un tipo tal como el profesor lo vio al crear la actividad (el picker del
- *  constructor visual). No se usa `activityRegistry[].label` porque las dos tablas no coinciden:
- *  ahí `textbox` es "Text box" y en el picker es "Open Answer". */
+/** Nombre visible de un tipo. Única fuente: `activityRegistry`, la misma que usa el picker del
+ *  constructor y la tarjeta de la hoja, así que el profesor lee el mismo nombre en los tres. */
 function typeLabel(type: string): string {
-  return TYPE_LABELS[type] ?? type;
+  return activityRegistry[type as keyof typeof activityRegistry]?.label ?? type;
 }
 
 function SkippedNote({ skipped }: { skipped: Map<string, number> | { type: string; count: number }[] }) {

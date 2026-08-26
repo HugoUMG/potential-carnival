@@ -3,6 +3,10 @@
 Reglas duras. Si una de estas se rompe, algo se cae en producción o alguien pierde datos.
 El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
 
+> Los números son **identificadores estables**, no posiciones: otros documentos citan "la regla 13",
+> "la regla 35". Una regla nueva toma el siguiente número libre aunque quede fuera de orden dentro de
+> su sección. **No renumerar**: rompería las referencias de `05_API`, `09_SECURITY` y `11_TESTING`.
+
 ---
 
 ## Base de datos
@@ -61,6 +65,11 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
 27. Textos de interfaz en **español**; el contenido evaluable de las hojas, en **inglés**.
 28. `npm run build` debe quedar limpio. `npm run lint` arrastra 18 errores heredados: **no añadir
     errores nuevos** (ver [11_TESTING](11_TESTING.md)).
+45. **El nombre visible de un tipo de actividad se escribe SOLO en `activityRegistry[tipo].label`.**
+    Lo leen el picker, el lienzo, la tarjeta de la hoja y el panel en vivo. `TYPE_META`
+    (`VisualWorksheetBuilder.tsx`) es solo icono y colores — no volver a meterle un `label`: cuando lo
+    tuvo, 11 de 21 tipos acabaron con dos nombres distintos y el profesor creaba un "Open Answer" que
+    la hoja pintaba como "Text box".
 
 ## Contenido de las hojas
 

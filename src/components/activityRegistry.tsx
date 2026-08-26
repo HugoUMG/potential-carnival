@@ -1044,7 +1044,7 @@ const nextId = (type: string) => `${type}-${crypto.randomUUID()}`;
 export const activityRegistry = {
   fillblank: {
     type: 'fillblank',
-    label: 'Fill in the blank',
+    label: 'Fill in the Blank',
     description: 'The student types the missing word or phrase.',
     icon: '✏️',
     create: () => ({ id: nextId('fillblank'), type: 'fillblank', text: 'I ____ ready.', answer: 'am' }),
@@ -1052,7 +1052,7 @@ export const activityRegistry = {
   },
   multiplechoice: {
     type: 'multiplechoice',
-    label: 'Multiple choice',
+    label: 'Multiple Choice',
     description: 'The student chooses one correct option.',
     icon: '✅',
     create: () => ({ id: nextId('multiplechoice'), type: 'multiplechoice', question: 'Choose the correct answer.', options: ['am', 'is', 'are'], answer: 'am' }),
@@ -1060,7 +1060,7 @@ export const activityRegistry = {
   },
   multiselect: {
     type: 'multiselect',
-    label: 'Multiple answers',
+    label: 'Multi-Select',
     description: 'The student can choose several correct options.',
     icon: '🗹',
     create: () => ({ id: nextId('multiselect'), type: 'multiselect', question: 'Select all that apply.', options: ['run', 'runs', 'running', 'ran'], answer: ['run', 'runs'] }),
@@ -1068,7 +1068,7 @@ export const activityRegistry = {
   },
   dragdrop: {
     type: 'dragdrop',
-    label: 'Arrastrar palabras',
+    label: 'Drag & Drop',
     description: 'Word bank dragged into blanks.',
     icon: '🧩',
     create: () => ({ id: nextId('dragdrop'), type: 'dragdrop', text: 'She _____ to school and _____ English.', answer: ['goes', 'studies'], bank: ['goes', 'go', 'studies', 'study'] }),
@@ -1076,7 +1076,7 @@ export const activityRegistry = {
   },
   textbox: {
     type: 'textbox',
-    label: 'Text box',
+    label: 'Open Answer',
     description: 'Long written response.',
     icon: '📝',
     create: () => ({ id: nextId('textbox'), type: 'textbox', prompt: 'Describe your house.' }),
@@ -1108,7 +1108,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ListeningActivity>,
   imagequestion: {
     type: 'imagequestion',
-    label: 'Image question',
+    label: 'Image Question',
     description: 'Visual prompt with written answer.',
     icon: '🖼️',
     create: () => ({ id: nextId('imagequestion'), type: 'imagequestion', image: 'https://placehold.co/900x500', prompt: 'Describe what you see.' }),
@@ -1116,7 +1116,7 @@ export const activityRegistry = {
   },
   imagechoice: {
     type: 'imagechoice',
-    label: 'Image + Multiple choice',
+    label: 'Imagen + Opción múltiple',
     description: 'Choose one option; the options can be pictures.',
     icon: '🖼️✅',
     create: () => ({ id: nextId('imagechoice'), type: 'imagechoice', question: 'Which one is the apple?', options: ['apple', 'banana'], option_images: ['https://placehold.co/400x300?text=apple', 'https://placehold.co/400x300?text=banana'], answer: 'apple' }),
@@ -1124,7 +1124,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ImageChoiceActivity>,
   imagematching: {
     type: 'imagematching',
-    label: 'Image + Matching',
+    label: 'Imagen + Matching',
     description: 'Match each picture with its word.',
     icon: '🖼️🔗',
     create: () => ({ id: nextId('imagematching'), type: 'imagematching', left: ['Image 1', 'Image 2'], left_images: ['https://placehold.co/400x300?text=dog', 'https://placehold.co/400x300?text=cat'], right: ['dog', 'cat'] }),
@@ -1132,7 +1132,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ImageMatchingActivity>,
   listeningfillblank: {
     type: 'listeningfillblank',
-    label: 'Listening + Fill blank',
+    label: 'Listening + Fill Blank',
     description: 'Listen and complete the missing words.',
     icon: '🎧✏️',
     create: () => ({ id: nextId('listeningfillblank'), type: 'listeningfillblank', audio_text: 'She goes to school every day.', text: 'She _____ to school every day.', answer: 'goes' }),
@@ -1140,7 +1140,7 @@ export const activityRegistry = {
   },
   listeningmultiplechoice: {
     type: 'listeningmultiplechoice',
-    label: 'Listening + Multiple choice',
+    label: 'Listening + Multiple Choice',
     description: 'Listen and choose the correct option.',
     icon: '🎧✅',
     create: () => ({ id: nextId('listeningmultiplechoice'), type: 'listeningmultiplechoice', audio_text: 'The meeting is on Friday at 3 PM.', question: 'When is the meeting?', options: ['Thursday at 3 PM', 'Friday at 3 PM', 'Friday at 5 PM'], answer: 'Friday at 3 PM' }),
@@ -1180,7 +1180,7 @@ export const activityRegistry = {
   } satisfies ActivityDefinition<ConversationActivity>,
   content: {
     type: 'content',
-    label: 'Contenido / Repaso (HTML)',
+    label: 'Contenido / Repaso',
     description: 'Read-only rich content (headings, colors, layout) to review the topic. Not graded.',
     icon: '📄',
     create: () => ({ id: nextId('content'), type: 'content', title: 'Repaso', html: '<h1 style="color:#0EA5E9">Título</h1>\n<p>Escribe aquí un repaso corto del tema. Puedes usar <b>negrita</b>, colores y listas.</p>' }),
