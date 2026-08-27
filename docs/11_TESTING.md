@@ -18,7 +18,7 @@ Los tres, más `python -m compileall backend/app backend/tests`, son la verifica
 un commit grande. No hay CI que los ejecute: el único workflow de GitHub Actions es el respaldo
 semanal de la base.
 
-> **Estado real a 2026-08-26:** `pytest` pasa (113 tests). `npm run lint` y `npm run build` están
+> **Estado real a 2026-08-26:** `pytest` pasa (116 tests). `npm run lint` y `npm run build` están
 > limpios. La regla al trabajar es **no añadir errores nuevos**; dejarlo en cero ya está hecho.
 
 ## Qué hay cubierto
@@ -43,7 +43,7 @@ red que hay.
 | `test_prueba_audio.py` | Prueba de audio: `_audible_text` saca lo que suena de cada tipo (`listening`→`text`, resto→`audio_text`, `speaking`→`target`, `conversation`→turnos encadenados) y `_same_words` ignora puntuación y cifras (`seven` ≡ `7`) pero no cambios reales (`3rd` ≠ `third`) |
 | `test_revision_hoja.py` | `review_worksheet_script` manda el script completo y un system prompt de "resuélvela como alumno", y el modo físico cambia la instrucción (`IMPRIMIR`) |
 | `test_bloque_estimulo.py` | El estímulo compartido de `block {}` (ADR-24): que `lines`/`audio_text`/`text` se leen del bloque, que **no** se los roba a una actividad hija (`_block_header`), que audio + conversación a la vez y que un estímulo sin actividades son errores, que en papel el bloque con audio se va entero y el de lectura se conserva, y que la IA recibe el estímulo del bloque como `context` |
-| `test_live_session.py` | Evaluación en tiempo real: que solo entran los cuatro tipos de `LIVE_TYPES` (y que esa lista **coincide con la copia de `LiveHostPanel.tsx`**, leyendo el `.tsx`), que un `truefalse` se parte en una pregunta por enunciado con ids `id:índice`, que `imagechoice` se califica por texto y arrastra imágenes paralelas, que **lo descartado se reporta por tipo** en vez de desaparecer, que los campos de entrada salen del `info {}` de la hoja (con la sintaxis equivocada saldrían del valor por defecto y el test no probaría nada), que **la clave no viaja mientras la pregunta está abierta**, que sin pregunta abierta nadie responde y nadie responde dos veces, el conjunto exacto de `multiselect`, que el tiempo agotado revela solo, que responder rápido puntea más, que recargar la página no borra los puntos, y que solo el dueño controla la sesión. Importa **solo `live.py` y el parser**: no abre conexión, así que no puede escribir en Aiven |
+| `test_live_session.py` | Evaluación en tiempo real: que solo entran los cuatro tipos de `LIVE_TYPES` (y que esa lista **coincide con la copia de `LiveHostPanel.tsx`**, leyendo el `.tsx`), que un `truefalse` se parte en una pregunta por enunciado con ids `id:índice`, que `imagechoice` se califica por texto y arrastra imágenes paralelas, que **lo descartado se reporta por tipo** en vez de desaparecer, que los campos de entrada salen del `info {}` de la hoja (con la sintaxis equivocada saldrían del valor por defecto y el test no probaría nada), que **la clave no viaja mientras la pregunta está abierta**, que sin pregunta abierta nadie responde y nadie responde dos veces, el conjunto exacto de `multiselect`, que el tiempo agotado revela solo, que responder rápido puntea más, que recargar la página no borra los puntos, que solo el dueño controla la sesión, **que la nota se calcula sobre las preguntas LANZADAS y no sobre las respondidas** (ADR-28), que se distingue "no respondió a tiempo" de "se conectó tarde", y que una pregunta nunca lanzada no cuenta ni a favor ni en contra de nadie. Importa **solo `live.py` y el parser**: no abre conexión, así que no puede escribir en Aiven |
 | `test_modo_fisico.py` | Modo físico (ADR-21): las listas `PRINTABLE_TYPES`/`NON_PRINTABLE_TYPES` cubren todo sin solaparse, `strip_non_printable` deja solo lo imprimible, no descuadra prefixos (`listening` vs `listeningfillblank`), y `_PRINTABLE_MODE` solo aparece cuando se pide `printable`. También el **banco de imágenes**: `_image_bank_section` entra al system prompt solo cuando se provee `image_bank`, y lleva URL y descripción para que las oraciones las respeten |
 
 > `test_every_documented_type_parses` (en `test_parser.py`) ahora cubre los **21 tipos**
@@ -91,6 +91,8 @@ algo que no funciona, ese test falla.
 | Biblioteca de imágenes personal (permisos por dueño) | `test_teacher_images.py` |
 | Fases, puntaje o payload de la sesión en vivo | `test_live_session.py` — y **siempre** que la clave siga sin viajar en fase `question` |
 | Un tipo nuevo en `LIVE_TYPES` | `test_live_session.py`: cómo se extrae, cómo se califica, y que la copia de `LiveHostPanel.tsx` siga igual |
+| El cálculo de la nota en vivo (`snapshot()`) | `test_live_session.py` — y siempre verificar que el denominador siga siendo las preguntas LANZADAS, no las respondidas (ADR-28) |
+| Un `useEffect` que dependa del objeto entero que devuelve un poll (`useLivePoll`, etc.) | No usar el objeto como dependencia — usar sus campos primitivos. Ver ADR-29: el objeto es nuevo en cada poll aunque nada cambie, y eso reejecuta el efecto de más |
 | Frontend | No hay test: verificarlo en el navegador y dejar `npm run lint` y `npm run build` limpios |
 
 Regla de fondo: **una lógica no trivial deja un check que falla si se rompe**. No hace falta una

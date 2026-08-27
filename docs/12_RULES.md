@@ -121,6 +121,17 @@ Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas
 44. **`LIVE_TYPES` está duplicada** en `backend/app/live.py` y `src/components/LiveHostPanel.tsx` (el
     panel necesita contar preguntas por hoja sin una petición por hoja). Si cambia una, cambia la
     otra: hay un test que lee el `.tsx` y falla si se desincronizan.
+45. **La nota de una sesión en vivo se calcula sobre las preguntas LANZADAS, no sobre las
+    respondidas.** `snapshot()` recorre `self.questions` completo, no `participant.answers`. Una
+    pregunta sin responder cuenta como incorrecta con el motivo distinguido ("no respondió a
+    tiempo" vs "se conectó después"); una pregunta que nunca se lanzó no cuenta para nadie
+    (ADR-28). Si se toca `snapshot()`, verificar que el denominador de la nota no vuelva a
+    encogerse con lo no respondido.
+46. **Ningún `useEffect` lleva el objeto entero de un hook de poll en sus dependencias** — solo
+    sus campos primitivos (`state?.phase`, `state?.index`…). `useLivePoll` (y cualquier hook
+    similar) crea un objeto nuevo en cada tick aunque nada cambie; con el objeto en las
+    dependencias, React reejecuta el efecto en cada poll y llama al cleanup anterior antes de
+    tiempo — es la causa del bug de la pantalla naranja fija (ADR-29).
 
 ---
 

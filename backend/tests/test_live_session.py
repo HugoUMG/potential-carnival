@@ -322,3 +322,48 @@ def test_el_resultado_por_alumno_queda_listo_para_guardarse():
     assert filas["Ana"]["details"][0]["status"] == "incorrect"
     assert filas["Ana"]["info"] == {"Carné": "2021-001", "Nombre": "Ana"}
     assert filas["Beto"]["answered"] == 0  # `main` lo salta: no se inventa una entrega
+
+
+def test_la_nota_se_calcula_sobre_las_preguntas_lanzadas_no_sobre_las_respondidas():
+    """El bug real: antes de esta corrección, alguien que entraba a media sesión y se perdía la
+    mitad de las preguntas sacaba la misma nota que quien las contestó todas, porque el
+    denominador (`len(graded)` en `_score_details`) se encogía junto con el numerador."""
+    session = _session()
+    ana = session.join({"Carné": "1", "Nombre": "Ana"})
+    session.open_next()
+    session.submit(ana.pid, "Ciudad de Guatemala")  # P1 correcta
+    session.reveal()
+    session.open_next()  # P2 (multiselect): Ana no contesta
+
+    fila = next(r for r in session.snapshot() if r["label"] == "Ana")
+    correctas = sum(1 for d in fila["details"] if d["status"] == "correct")
+
+    assert (correctas, len(fila["details"])) == (1, 2)  # 1 de 2, no 1 de 1
+
+
+def test_distingue_conexion_tardia_de_no_responder_a_tiempo():
+    """Los dos motivos por los que una pregunta queda sin responder no son lo mismo, y en
+    Revisión tienen que verse distintos: uno es "no llegaste a tiempo", el otro "no estabas"."""
+    session = _session()
+    presente = session.join({"Carné": "1", "Nombre": "Presente"})
+    session.open_next()  # P1 lanzada; Presente ya está dentro pero no contesta
+    session.join({"Carné": "2", "Nombre": "Tardío"})  # entra DESPUÉS de que se lanzara
+
+    filas = {r["label"]: r for r in session.snapshot()}
+
+    assert filas["Presente"]["details"][0]["teacher_comment"] == "No respondió a tiempo."
+    assert "se conectó después" in filas["Tardío"]["details"][0]["teacher_comment"]
+    assert filas["Presente"]["details"][0]["status"] == filas["Tardío"]["details"][0]["status"] == "incorrect"
+    assert presente.pid  # sanity: el fixture se usó
+
+
+def test_una_pregunta_nunca_lanzada_no_cuenta_ni_a_favor_ni_en_contra():
+    """Si la sesión termina antes de llegar a la última pregunta, esa pregunta no aparece en el
+    detalle de nadie: nadie la vivió, así que no se puede calificar a nadie por ella."""
+    session = _session()
+    session.join({"Carné": "1", "Nombre": "Ana"})
+    session.open_next()  # solo P1; P2 nunca se lanza
+
+    fila = next(r for r in session.snapshot() if r["label"] == "Ana")
+
+    assert len(fila["details"]) == 1

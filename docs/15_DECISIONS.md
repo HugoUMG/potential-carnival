@@ -594,6 +594,77 @@ cámara.
 
 ---
 
+## 🟢 ADR-28 — La nota en vivo se calcula sobre las preguntas lanzadas, no sobre las respondidas
+
+**Decisión.** `LiveSession.snapshot()` recorre TODAS las preguntas que llegaron a lanzarse
+(`question_opened_at`), no solo las que cada alumno respondió. Las que faltan cuentan como
+**incorrectas**, con el motivo en `teacher_comment` — distinguido según si el alumno ya estaba
+dentro cuando se lanzó ("No respondió a tiempo.") o entró después ("Pregunta omitida: se conectó
+después de que se lanzara esta pregunta.").
+
+**Motivo.** Bug real, reportado en producción: `_score_details` calcula
+`correct_count / len(graded)`, y `graded` salía de `details`, que antes solo llevaba las preguntas
+que el alumno había respondido. Alguien que entraba a media sesión y se perdía la mitad de las
+preguntas terminaba con el mismo denominador que alguien que las contestó todas — la nota se
+inflaba exactamente en la proporción de lo que se había perdido. Con 5 de 10 respondidas y las 5
+correctas, salía 100, igual que quien respondió las 10.
+
+**Alternativas descartadas.**
+
+- *Excluir al alumno tardío de la nota (dejarlo `pending`).* Oculta el problema en vez de
+  resolverlo: un tardío con 3 de 3 seguiría sacando 100 aunque se perdiera 7 preguntas. El
+  denominador tiene que ser el mismo para todos los que vivieron la sesión.
+- *Registrar solo "no respondió", sin distinguir el motivo.* Es lo mínimo que arregla la nota, pero
+  en Revisión un profesor no puede distinguir "no le dio tiempo de leer la pregunta" (problema de
+  ritmo, quizás dar más segundos) de "no estaba conectado" (problema de asistencia). Son
+  intervenciones distintas y confundirlas en el mismo texto no ayuda a decidir.
+- *Guardar el motivo como un campo nuevo en el modelo.* No hizo falta: `AnswerDetail.teacher_comment`
+  ya existe (lo usa la IA al calificar) y el frontend de Revisión ya lo pinta con 💬. Cero cambios de
+  esquema.
+
+**Consecuencias.** Una pregunta que la sesión **nunca llegó a lanzar** (se cerró antes de tiempo) no
+cuenta ni a favor ni en contra de nadie — no forma parte de la sesión que vivió ningún alumno. El
+motivo se decide comparando `participant.joined_at` contra el momento en que se lanzó esa pregunta
+concreta (`question_opened_at[q.id]`), no contra la hora de cierre de la sesión: alguien que entró
+a media pregunta abierta y no llegó a responder cae en "se conectó después", que es la lectura
+correcta aunque técnicamente estuviera unos segundos conectado antes del reveal.
+
+## 🟢 ADR-29 — El destello de pregunta nueva no depende del objeto `state` entero
+
+**Decisión.** El `useEffect` de `useQuestionAlert` (`LivePage.tsx`) tiene como dependencias
+`[phase, index]` — dos primitivos — en vez de `[state, state.phase, state.index]`.
+
+**Motivo.** Bug real, reportado como "la pantalla se queda naranja fija y hay que recargar".
+`useLivePoll` crea un objeto `state` **nuevo** en cada poll (cada ~1s) aunque nada haya cambiado.
+Con `state` en las dependencias, React reejecutaba el efecto en **cada poll**, y antes de correr el
+cuerpo nuevo llamaba al cleanup del anterior (`clearTimeout`). El cuerpo del efecto corta antes de
+volver a programar el apagado (`if index === lastAlerted.current return`), así que si ese
+`clearTimeout` llegaba a ejecutarse ANTES de que el `setTimeout(900ms)` original disparase — el
+margen es de sobra en una red estable (900 vs ~1000ms), pero se cierra o se invierte con la latencia
+irregular de un WiFi de salón, o con los timers que un navegador móvil retrasa cuando la pestaña
+pasa a segundo plano — el temporizador que iba a apagar el destello se cancelaba sin que nada lo
+reemplazara. El destello se quedaba encendido hasta que un remount (recargar la página) reiniciaba
+el estado desde cero.
+
+Se verificó el mecanismo exacto reproduciendo, en el motor de JS del navegador, la misma
+comparación de dependencias que usa React (`Object.is` sobre el array): con `state` completo como
+dependencia, tras 8 "polls" simulados el destello queda en `true`; con `[phase, index]`, se apaga
+solo en los 8 casos.
+
+**Alternativas descartadas.**
+
+- *Aumentar la duración del `setTimeout` a 2-3s.* Reduce la ventana de la carrera sin eliminarla —
+  sigue siendo posible con suficiente jitter, solo que menos frecuente. No es una corrección, es
+  bajarle el volumen a un bug que sigue ahí.
+- *Memoizar `state` con `useMemo`/comparación profunda en `useLivePoll`.* Resuelve el síntoma en
+  este hook concreto, pero deja la trampa disponible para el siguiente `useEffect` que alguien
+  escriba con `state` completo en las dependencias. Corregir en el sitio que la usa mal es más
+  robusto que blindar el productor.
+
+**Consecuencia.** Se añadió además una red de seguridad: cualquier fase que no sea `"question"`
+apaga el destello explícitamente (no solo confía en que el `setTimeout` dispare). Cubre el caso
+límite de una pregunta que se revela o se salta antes de que el timer de 900ms llegue a correr.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:
