@@ -122,6 +122,10 @@ class LiveSession:
     skipped: list[dict[str, Any]] = field(default_factory=list)  # [{type, count}] descartado
     index: int = -1  # -1 = sala de espera, aún no se ha lanzado ninguna pregunta
     opened_at: float | None = None
+    # Cuándo se lanzó CADA pregunta (question_id -> monotonic). Es lo que permite distinguir, al
+    # cerrar la sesión, entre "no llegó a tiempo" (ya estaba dentro cuando se lanzó) y "se la
+    # perdió por completo" (entró después): sin esto solo se sabe que no contestó, no por qué.
+    question_opened_at: dict[str, float] = field(default_factory=dict)
     revealed: bool = False
     version: int = 0  # sube en cada cambio; el cliente lo usa para saber "pasó algo"
     participants: dict[str, Participant] = field(default_factory=dict)
@@ -175,6 +179,7 @@ class LiveSession:
             self.duration = max(0, min(600, duration))
         self.index += 1
         self.opened_at = time.monotonic()
+        self.question_opened_at[self.questions[self.index].id] = self.opened_at
         self.revealed = False
         self.version += 1
 
@@ -355,18 +360,44 @@ class LiveSession:
 
     def snapshot(self) -> list[dict[str, Any]]:
         """Resultado por alumno para persistirlo en `worksheet_responses`. Devuelve datos planos:
-        construir el `WorksheetResponse` es cosa de `main`, que sí conoce el repositorio."""
+        construir el `WorksheetResponse` es cosa de `main`, que sí conoce el repositorio.
+
+        Recorre TODAS las preguntas que se llegaron a LANZAR, no solo las que el alumno respondió.
+        Antes la nota se promediaba solo sobre lo respondido (`correct / len(graded)` en
+        `_score_details`, con `graded` limitado a esas): alguien que entraba a media sesión y se
+        perdía la mitad de las preguntas terminaba con la misma nota que quien las respondió
+        todas, porque el denominador se encogía junto con el numerador. Las que faltan cuentan
+        como incorrectas, con el motivo distinguido en `teacher_comment` (se ve en Revisión):
+
+          · ya estaba dentro cuando se lanzó y no llegó a contestar → "No respondió a tiempo."
+          · entró después de que se lanzara → "Pregunta omitida: se conectó después de que se
+            lanzara esta pregunta."
+
+        Una pregunta que nunca se llegó a lanzar (la sesión terminó antes) no cuenta ni a favor ni
+        en contra de nadie: no forma parte de la sesión que vivió ningún alumno.
+        """
         results = []
         for participant in self.ranking():
-            graded = [(q, participant.answers.get(q.id)) for q in self.questions if q.id in participant.answers]
+            rows: list[tuple[LiveQuestion, Any, str, str]] = []
+            for q in self.questions:
+                opened_at = self.question_opened_at.get(q.id)
+                if opened_at is None:
+                    continue
+                if q.id in participant.answers:
+                    given = participant.answers[q.id]
+                    rows.append((q, given, "correct" if q.is_correct(given) else "incorrect", ""))
+                elif participant.joined_at > opened_at:
+                    rows.append((q, None, "incorrect", "Pregunta omitida: se conectó después de que se lanzara esta pregunta."))
+                else:
+                    rows.append((q, None, "incorrect", "No respondió a tiempo."))
             results.append({
                 "pid": participant.pid,
                 "label": participant.label,
                 "info": participant.info,
                 "score": participant.score,
                 "correct": participant.correct,
-                "answered": len(graded),
-                "answers": {q.id: given for q, given in graded},
+                "answered": len(participant.answers),  # lo que de verdad tocó, no lo omitido
+                "answers": dict(participant.answers),
                 "details": [
                     {
                         "activity_id": q.id,
@@ -374,9 +405,10 @@ class LiveSession:
                         "prompt": q.question,
                         "student_answer": given,
                         "correct_answer": q.answer,
-                        "status": "correct" if q.is_correct(given) else "incorrect",
+                        "status": status,
+                        "teacher_comment": comment,
                     }
-                    for q, given in graded
+                    for q, given, status, comment in rows
                 ],
             })
         return results

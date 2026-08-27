@@ -287,6 +287,11 @@ POST   /live/{code}/answer            — Enviar respuesta a la pregunta abierta
 - `finish` escribe una fila en `worksheet_responses` por alumno que haya respondido algo, con
   `guest_token = live:{code}:{pid}` y los `info {}` en `_info_N`. Aparecen en **Revisión** como
   cualquier otra entrega. Es lo único que sobrevive al reinicio del proceso.
+- **La nota se calcula sobre las preguntas LANZADAS, no sobre las respondidas** (ADR-28). Una
+  pregunta sin responder cuenta como incorrecta, con el motivo en `teacher_comment` — se ve en
+  Revisión con 💬: *"No respondió a tiempo."* si ya estaba dentro cuando se lanzó, *"Pregunta
+  omitida: se conectó después de que se lanzara esta pregunta."* si entró después. Una pregunta que
+  la sesión nunca llegó a lanzar no cuenta para nadie.
 
 ## Público / invitado (sin JWT)
 

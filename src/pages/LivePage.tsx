@@ -101,14 +101,32 @@ function useWakeLock(enabled: boolean) {
  *
  *  No son alternativas en cascada: `navigator.vibrate` no existe en iPhone (Safari nunca lo
  *  implementó y no hay forma de lograrlo desde una web), así que en la mitad de los celulares
- *  del salón el destello y el sonido son el aviso, no el respaldo. */
+ *  del salón el destello y el sonido son el aviso, no el respaldo.
+ *
+ *  Las dependencias del efecto son `phase`/`index` (primitivos), NO el objeto `state` entero.
+ *  `useLivePoll` crea un `state` nuevo cada segundo aunque nada cambie; con `state` en las
+ *  dependencias, el efecto se reejecutaba en cada poll y React llamaba primero al cleanup del
+ *  anterior (`clearTimeout`). Si ese `clearTimeout` corría antes de que el propio `setTimeout` de
+ *  900ms disparase — bastaba que el poll llegara unos milisegundos antes de tiempo, o que el
+ *  timer se retrasara con la pestaña en segundo plano — el temporizador que iba a apagar el
+ *  destello se cancelaba, y como el guard de abajo corta antes de llegar a `setFlash`, nada
+ *  volvía a apagarlo: pantalla naranja fija hasta recargar. */
 function useQuestionAlert(state: LiveState | null): boolean {
   const [flash, setFlash] = useState(false);
   const lastAlerted = useRef<number>(-2);
+  const phase = state?.phase;
+  const index = state?.index;
 
   useEffect(() => {
-    if (!state || state.phase !== 'question' || state.index === lastAlerted.current) return;
-    lastAlerted.current = state.index;
+    // Red de seguridad: cualquier fase que no sea "question" apaga el destello. Cubre el caso
+    // límite de una pregunta que se salta o revela antes de que el timeout de abajo llegue a
+    // correr — sin esto ese destello se quedaría pegado hasta la siguiente pregunta.
+    if (phase !== 'question' || index === undefined) {
+      setFlash(false);
+      return;
+    }
+    if (index === lastAlerted.current) return; // ya se avisó de esta pregunta
+    lastAlerted.current = index;
     if (typeof navigator.vibrate === 'function') {
       try { navigator.vibrate([180, 90, 180]); } catch { /* el navegador puede ignorarlo */ }
     }
@@ -116,7 +134,7 @@ function useQuestionAlert(state: LiveState | null): boolean {
     setFlash(true);
     const id = setTimeout(() => setFlash(false), 900);
     return () => clearTimeout(id);
-  }, [state, state?.phase, state?.index]);
+  }, [phase, index]);
 
   return flash;
 }
