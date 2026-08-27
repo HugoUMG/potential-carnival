@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Check, Trophy, Users, X } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { RichText } from '../components/RichText';
 import { playSfx } from '../utils/sfx';
@@ -514,13 +515,25 @@ export function LiveScreenPage() {
         </div>
       </header>
 
-      {/* ── Sala de espera: el código, en grande, es lo único que importa ── */}
+      {/* ── Sala de espera: dos formas de entrar, ninguna es teclear la URL larga ── */}
       {state.phase === 'lobby' && (
-        <section className="mt-16 text-center">
-          <p className="text-xl text-white/60">Entra desde tu celular a</p>
-          <p className="mt-3 text-4xl font-bold text-rex">{joinUrl.replace(/^https?:\/\//, '')}</p>
-          <p className="mt-12 text-xl text-white/60">o con el código</p>
-          <p className="mt-2 text-[10rem] font-black leading-none tracking-[0.15em] text-white">{normalized}</p>
+        <section className="flex min-h-[78vh] flex-wrap items-center justify-center gap-x-16 gap-y-8">
+          <div className="text-center">
+            <p className="mb-4 text-xl text-white/60">Escanea con la cámara</p>
+            {/* Tarjeta blanca con margen: un QR sobre fondo oscuro y sin zona de silencio
+                alrededor no lo lee ninguna cámara. El nivel M (15% de corrección) es el que
+                mantiene los módulos grandes — más corrección lo haría más denso y peor de
+                leer desde el fondo del salón, que es justo lo contrario de lo que se busca. */}
+            <div className="inline-block rounded-3xl bg-white p-5">
+              <QRCodeSVG value={joinUrl} size={320} level="M" />
+            </div>
+          </div>
+          <div className="text-center">
+            <p className="text-xl text-white/60">o con el código</p>
+            <p className="mt-2 text-[7rem] font-black leading-none tracking-[0.12em] text-white lg:text-[9rem]">{normalized}</p>
+            {/* Último recurso, para quien no pueda escanear: por eso va pequeña. */}
+            <p className="mt-6 text-base text-white/40">{joinUrl.replace(/^https?:\/\//, '')}</p>
+          </div>
         </section>
       )}
 

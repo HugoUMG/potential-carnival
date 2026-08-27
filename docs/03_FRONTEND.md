@@ -61,7 +61,7 @@ Seguimiento (antes eran diez botones seguidos).
 | `LoadingScreen.tsx` | `LoadingScreen` / `Spinner` compartidos |
 | `TeacherDashboard.tsx` | Menú lateral agrupado (`GROUPS`) + métricas |
 | `LiveHostPanel.tsx` | Panel del profesor de la evaluación en tiempo real (sección `envivo`): elige la hoja, abre la sesión y lanza pregunta por pregunta. Recupera sesiones abiertas si recargó el navegador — la sesión vive en el backend, no en la pestaña. `liveBreakdown()` cuenta las preguntas jugables **y lo que queda fuera**, que se enseña con `SkippedNote`: descartar una actividad tiene que ser visible antes de proyectar, no una sorpresa con el salón mirando |
-| `pages/LivePage.tsx` | `LivePage` (alumno) y `LiveScreenPage` (pantalla proyectada). Comparten `useLivePoll` (poll de 1s), `useWakeLock` y `useCountdown`. Aviso de pregunta nueva por **tres canales a la vez**: vibración, destello a pantalla completa y sonido — en iPhone `navigator.vibrate` no existe, así que allí los otros dos no son respaldo sino el aviso |
+| `pages/LivePage.tsx` | `LivePage` (alumno) y `LiveScreenPage` (pantalla proyectada). Comparten `useLivePoll` (poll de 1s), `useWakeLock` y `useCountdown`. Aviso de pregunta nueva por **tres canales a la vez**: vibración, destello a pantalla completa y sonido — en iPhone `navigator.vibrate` no existe, así que allí los otros dos no son respaldo sino el aviso. La sala de espera proyecta un **QR** (`qrcode.react`, 320 px, nivel M) sobre tarjeta blanca con margen, más el código de 5 letras; la URL queda pequeña, como último recurso (ADR-27) |
 | `GoogleSignInButton.tsx` | Google Identity Services → `POST /auth/google` |
 | `ThemeToggle.tsx` | Interruptor claro/oscuro |
 | `ProtectedRoute.tsx` | Guarda de rutas por rol |
