@@ -561,6 +561,37 @@ La duplicación se pagó una sola vez y se aprovecha: `truefalse` entra converti
 comparación de texto que ya existía, sin una rama de calificación nueva. Lo mismo `imagechoice`, que
 por ADR-20 se califica por el TEXTO de la opción y solo añade las URLs al payload.
 
+## 🟢 ADR-27 — El QR de la sala de espera sí justifica una dependencia (`qrcode.react`)
+
+**Decisión.** La pantalla proyectada de una sesión en vivo muestra un QR generado con
+`qrcode.react` (17 KB, **cero dependencias transitivas**), en vez de escribirlo a mano o pedirlo a
+un servicio.
+
+**Motivo.** La regla 16 dice comprobar primero si la biblioteca estándar o algo ya instalado lo
+resuelve. Se comprobó: no hay nada. Y codificar un QR no es un caso como el del `.env`, que se
+resolvió con seis líneas propias en vez de `python-dotenv`: es Reed-Solomon, matrices de bits,
+selección de máscara e información de formato — unas 300 líneas de especificación que se escriben
+mal en el primer intento y fallan justo donde importa (una cámara que no lee). Aquí la
+proporción se invierte: la dependencia es menos código propio *y* menos riesgo.
+
+**Alternativas descartadas.**
+
+- *Escribir el codificador.* Reinventar una especificación cerrada, sin ganancia. La versión
+  perezosa de verdad es no escribirla.
+- *Una API externa de QR* (`api.qrserver.com` y similares). Sin dependencia en el `package.json`,
+  pero mete una llamada de red **en el momento más frágil**: el salón entrando a la sesión, con el
+  WiFi del evento. Un QR que no carga porque el WiFi está saturado es peor que no tener QR.
+- *Generarlo en el backend.* Una dependencia de Python y una petición por sesión, para algo que el
+  navegador puede calcular solo con datos que ya tiene (`window.location.origin` + el código).
+
+**Consecuencias.** El bundle sube 16 KB (6,6 KB gzip). El QR se calcula en el cliente, así que
+funciona aunque el backend esté caído — la URL no depende de la red. Se pintan **320 px** a nivel
+de corrección **M**: con la URL de producción son 33×33 módulos, unos 9,7 px cada uno, que es lo
+que hace falta para escanearlo desde el fondo del salón. Más corrección de errores lo haría más
+denso y **peor** de leer a distancia, que es justo lo contrario de lo que se busca. La tarjeta
+blanca con margen no es decorativa: sin zona de silencio, sobre fondo oscuro, no lo lee ninguna
+cámara.
+
 ---
 
 ## Cómo añadir una decisión

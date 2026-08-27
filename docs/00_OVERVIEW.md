@@ -43,6 +43,7 @@ Ver [13_ROADMAP](13_ROADMAP.md) para el resto.
 | Capa | Tecnología |
 |------|-----------|
 | Frontend | React 19 + Vite 7 + TypeScript 5.8 + Tailwind CSS 3 |
+| Dependencias de runtime | Deliberadamente pocas (regla 16): `dompurify`, `lucide-react`, `react-router-dom`, `zzfx`, `country-flag-emoji-polyfill` y `qrcode.react` (QR de la sala de espera, ADR-27) |
 | Backend | Python + FastAPI (Pydantic v2) |
 | Base de datos | PostgreSQL en producción (Aiven) / SQLite en desarrollo |
 | Autenticación | JWT con roles + Google Identity Services |

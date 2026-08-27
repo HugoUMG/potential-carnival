@@ -182,7 +182,7 @@ de abrir la sesión y en el temario.
   el audio: 50 celulares desfasados no sirven, tendría que sonar solo en la pantalla proyectada.
 - **Reanudar una sesión tras un reinicio del backend.** Hoy se pierde la sesión en curso; las notas
   no, si se llegó a pulsar *Terminar y guardar*.
-- **Código QR para entrar.** Se comparte el enlace o se teclea el código de 5 letras.
+- ~~**Código QR para entrar.**~~ Hecho: la sala de espera proyecta el QR junto al código (ADR-27).
 
 ## Cerrado recientemente
 
