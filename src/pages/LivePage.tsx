@@ -4,8 +4,29 @@ import { Check, Trophy, Users, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { RichText } from '../components/RichText';
+import RexMascot from '../components/RexMascot';
 import { playSfx } from '../utils/sfx';
-import { answerLive, getLiveState, joinLive, type LiveState } from '../services/api';
+import {
+  answerLive,
+  getLiveState,
+  joinLive,
+  reactLive,
+  setLiveAvatar,
+  type LiveAward,
+  type LiveState,
+} from '../services/api';
+
+/** Avatares elegibles. **Misma lista que `AVATARS` en `backend/app/live.py`**, que es quien
+ *  valida: aquí solo se pintan. Duplicada por el mismo motivo que `LIVE_TYPES` (evitar una
+ *  petición para algo que no cambia) y comprobada por el mismo test. */
+const AVATARS = [
+  '🦖', '🦕', '🐉', '🦊', '🐼', '🦁', '🐨', '🐸', '🦉', '🐙',
+  '🦈', '🐝', '🚀', '⚡', '🎸', '🎨', '⚽', '🍕', '👑', '🤖',
+];
+
+/** Los cinco emojis que se pueden lanzar. **Misma lista que `REACTIONS` en `live.py`.**
+ *  Cinco y no un chat: esto acaba proyectado en la pared del salón. */
+const REACTIONS = ['👍', '😂', '😮', '🔥', '😭'];
 
 /** Colores de las opciones, estilo Kahoot: se reconocen por color desde el fondo del salón,
  *  no por leer el texto. Ciclan si hay más de cuatro opciones. */
@@ -163,6 +184,152 @@ function useCountdown(remainingMs: number | null | undefined): number | null {
   return left;
 }
 
+/** Convierte el chorro de reacciones del servidor en emojis que suben por la pantalla.
+ *
+ *  El servidor manda las MISMAS reacciones en varios polls seguidos (viven 6s), así que hace
+ *  falta una clave estable para no relanzar la animación cada segundo: se reconstruye el
+ *  instante en que se lanzó (`ahora − age_ms`) redondeado a medio segundo, que absorbe el
+ *  jitter de la red. Las que llegan ya viejas se descartan: son de un poll anterior.
+ *
+ *  La purga va en un `setInterval` propio y NO en el efecto que consume `reactions`. Ese efecto
+ *  se reejecuta en cada poll (el array es nuevo aunque el contenido no cambie) y su cleanup
+ *  cancelaría el temporizador de borrado antes de que llegara a correr — el mismo fallo que
+ *  dejaba la pantalla naranja fija en `useQuestionAlert`, aquí serían emojis pegados. */
+interface Floater { key: string; emoji: string; label: string; left: number; born: number }
+
+function useReactionStream(reactions: LiveState['reactions']): Floater[] {
+  const [live, setLive] = useState<Floater[]>([]);
+  const seen = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!reactions?.length) return;
+    const now = Date.now();
+    const fresh: Floater[] = [];
+    for (const r of reactions) {
+      if (r.age_ms > 2500) continue; // de un poll anterior: ya se animó
+      const key = `${r.label}|${r.emoji}|${Math.round((now - r.age_ms) / 500)}`;
+      if (seen.current.has(key)) continue;
+      seen.current.add(key);
+      fresh.push({ key, emoji: r.emoji, label: r.label, left: 4 + Math.random() * 84, born: now });
+    }
+    if (seen.current.size > 400) seen.current.clear(); // cota: la sesión dura una clase entera
+    if (fresh.length) setLive((current) => [...current, ...fresh].slice(-24));
+  }, [reactions]);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setLive((current) => (current.length ? current.filter((f) => Date.now() - f.born < 3200) : current)),
+      400,
+    );
+    return () => clearInterval(id);
+  }, []);
+
+  return live;
+}
+
+function ReactionLayer({ reactions }: { reactions: LiveState['reactions'] }) {
+  const floaters = useReactionStream(reactions);
+  if (!floaters.length) return null;
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden" aria-hidden>
+      {floaters.map((f) => (
+        <span key={f.key} className="live-float absolute bottom-16 text-4xl drop-shadow" style={{ left: `${f.left}%` }}>
+          {f.emoji}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Los cinco botones de reacción. Se pintan solo en los tiempos muertos: durante una pregunta
+ *  abierta, un emoji volando por la pantalla es exactamente la distracción que no toca. */
+function ReactionBar({ onSend }: { onSend: (emoji: string) => void }) {
+  return (
+    <div className="flex items-center justify-center gap-2">
+      {REACTIONS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          aria-label={`Enviar ${emoji}`}
+          className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-2xl shadow-sm transition hover:-translate-y-0.5 hover:shadow active:scale-90"
+          onClick={() => onSend(emoji)}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Espera con algo que se mueve. El ✅ estático dejaba al alumno mirando una pantalla muerta
+ *  mientras el cronómetro seguía corriendo, y no había forma de distinguir "enviado" de
+ *  "colgado". El dino pensando dentro del anillo que gira dice las dos cosas: llegó, y se está
+ *  esperando a alguien más. */
+function WaitingDino({ title, hint, mood = 'thinking' }: { title: string; hint: string; mood?: 'thinking' | 'wave' }) {
+  return (
+    <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+      <div className="relative mx-auto grid h-32 w-32 place-items-center">
+        <span className="live-spin absolute inset-0 rounded-full border-4 border-rex-light border-t-rex" />
+        <RexMascot mood={mood} className="live-bob h-20 w-20 object-contain" />
+      </div>
+      <p className="mt-4 text-lg font-bold text-slate-900">{title}</p>
+      <p className="mt-1 text-sm text-slate-500">{hint}</p>
+      <div className="mt-4 flex justify-center gap-1.5" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="live-dot h-2.5 w-2.5 rounded-full bg-rex" style={{ animationDelay: `${i * 0.18}s` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AvatarPicker({ value, onPick, disabled }: { value: string; onPick: (emoji: string) => void; disabled?: boolean }) {
+  return (
+    <div className="grid grid-cols-10 gap-1.5">
+      {AVATARS.map((emoji) => (
+        <button
+          key={emoji}
+          type="button"
+          disabled={disabled}
+          aria-label={`Elegir ${emoji}`}
+          aria-pressed={value === emoji}
+          className={`grid aspect-square place-items-center rounded-xl text-xl transition disabled:opacity-40 ${value === emoji ? 'bg-rex-light ring-2 ring-rex' : 'bg-slate-50 hover:bg-slate-100'}`}
+          onClick={() => onPick(emoji)}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Menciones del final. El marcador solo enseña el TOTAL, y el total mezcla aciertos con
+ *  rapidez: cuando el segundo lugar tiene más correctas que el primero, esto es lo que lo
+ *  explica sin enseñar la fórmula. */
+function Awards({ awards }: { awards: LiveAward[] }) {
+  if (!awards.length) return null;
+  return (
+    <div className="rounded-3xl bg-white p-5 shadow-sm">
+      <p className="mb-3 font-bold text-slate-800">Menciones especiales</p>
+      <div className="grid gap-2">
+        {awards.map((a) => (
+          <div key={a.key} className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-spike/10 to-transparent px-4 py-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-2xl shadow-sm">{a.badge}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-black text-slate-900">{a.title}</p>
+              <p className="truncate text-xs text-slate-500">{a.subtitle}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="truncate text-sm font-bold text-rex-deep">{a.emoji} {a.label}</p>
+              <p className="text-xs text-slate-400">{a.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TimeBar({ remaining, duration }: { remaining: number | null; duration: number }) {
   if (remaining == null || !duration) {
     return <p className="text-center text-sm font-semibold text-slate-500">Sin límite de tiempo · el profesor cierra la pregunta</p>;
@@ -182,7 +349,7 @@ function TimeBar({ remaining, duration }: { remaining: number | null; duration: 
   );
 }
 
-function Leaderboard({ rows, title = 'Marcador' }: { rows: { label: string; score: number; correct: number }[]; title?: string }) {
+function Leaderboard({ rows, title = 'Marcador' }: { rows: { label: string; emoji?: string; score: number; correct: number }[]; title?: string }) {
   const MEDALS = ['🥇', '🥈', '🥉'];
   if (!rows.length) return null;
   return (
@@ -192,12 +359,18 @@ function Leaderboard({ rows, title = 'Marcador' }: { rows: { label: string; scor
         {rows.map((row, i) => (
           <li key={`${row.label}-${i}`} className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${i === 0 ? 'bg-spike/10' : 'bg-slate-50'}`}>
             <span className="w-8 text-center text-lg font-black text-slate-400">{MEDALS[i] ?? i + 1}</span>
+            <span className="text-xl" aria-hidden>{row.emoji ?? ''}</span>
             <span className="min-w-0 flex-1 truncate font-semibold text-slate-800">{row.label}</span>
             <span className="text-xs text-slate-500">{row.correct} ✓</span>
             <strong className="tabular-nums text-rex-deep">{row.score}</strong>
           </li>
         ))}
       </ol>
+      {/* Sin esto, el marcador miente por omisión: enseña un total que mezcla dos cosas y deja
+          al segundo con más correctas que el primero preguntándose por qué perdió. */}
+      <p className="mt-3 text-center text-[11px] leading-snug text-slate-400">
+        Cada acierto vale 500 puntos + hasta 500 más por responder rápido: acertar más no siempre gana.
+      </p>
     </div>
   );
 }
@@ -216,7 +389,7 @@ function SessionError({ message }: { message: string }) {
 
 // ── Portal del alumno · /en-vivo/:code ───────────────────────────────────────
 
-interface StoredJoin { pid: string; info: Record<string, string> }
+interface StoredJoin { pid: string; info: Record<string, string>; emoji?: string }
 
 function readStoredJoin(code: string): StoredJoin | null {
   try {
@@ -234,6 +407,8 @@ function JoinForm({ code, fields, title, onJoined }: {
   onJoined: (join: StoredJoin, state: LiveState) => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>(() => readStoredJoin(code)?.info ?? {});
+  // Se recuerda entre sesiones: el que ya eligió dino no vuelve a elegir cada clase.
+  const [emoji, setEmoji] = useState(() => readStoredJoin(code)?.emoji ?? AVATARS[0]);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const complete = fields.every((f) => (values[f] ?? '').trim());
@@ -243,8 +418,8 @@ function JoinForm({ code, fields, title, onJoined }: {
     setSending(true);
     setError('');
     try {
-      const state = await joinLive(code, values);
-      const join = { pid: state.pid, info: values };
+      const state = await joinLive(code, values, emoji);
+      const join = { pid: state.pid, info: values, emoji };
       try { localStorage.setItem(`live:${code}`, JSON.stringify(join)); } catch { /* modo privado */ }
       onJoined(join, state);
     } catch (e) {
@@ -260,6 +435,12 @@ function JoinForm({ code, fields, title, onJoined }: {
         <p className="text-center text-xs font-bold uppercase tracking-[0.2em] text-rex">Sesión {code}</p>
         <h1 className="mt-2 text-center text-2xl font-extrabold text-slate-900">{title}</h1>
         <p className="mt-1 text-center text-sm text-slate-500">Completa tus datos para entrar.</p>
+
+        <div className="mt-5">
+          <p className="mb-2 text-center text-6xl leading-none" aria-hidden>{emoji}</p>
+          <p className="mb-2 text-sm font-semibold text-slate-700">Elige tu avatar</p>
+          <AvatarPicker value={emoji} onPick={setEmoji} />
+        </div>
 
         <div className="mt-6 grid gap-3">
           {fields.map((field, i) => (
@@ -323,6 +504,22 @@ export function LivePage() {
     }
   }, [join, normalized, sending, setState]);
 
+  // Reacción y avatar se envían "y ya": un fallo aquí no interrumpe la evaluación, y el poll
+  // de 1s corrige el estado por su cuenta. Lo único que no se puede permitir es un error
+  // rojo en pantalla por un emoji que no llegó.
+  const react = useCallback((emoji: string) => {
+    if (!join) return;
+    playSfx('toggle');
+    void reactLive(normalized, join.pid, emoji).then(setState).catch(() => {});
+  }, [join, normalized, setState]);
+
+  const pickAvatar = useCallback((emoji: string) => {
+    if (!join) return;
+    setJoin((j) => (j ? { ...j, emoji } : j));
+    try { localStorage.setItem(`live:${normalized}`, JSON.stringify({ ...join, emoji })); } catch { /* modo privado */ }
+    void setLiveAvatar(normalized, join.pid, emoji).then(setState).catch(() => {});
+  }, [join, normalized, setState]);
+
   if (error && !state) return <SessionError message={error} />;
   if (!state) return <LoadingScreen message="Buscando la sesión…" />;
   if (!join) {
@@ -339,10 +536,14 @@ export function LivePage() {
   return (
     <main className="min-h-screen bg-cream pb-10">
       {flash && <div className="live-flash pointer-events-none fixed inset-0 z-50 bg-spike" aria-hidden />}
+      <ReactionLayer reactions={state.reactions} />
 
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <div className="min-w-0">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-rex-light text-2xl" aria-hidden>
+            {me?.emoji ?? join.emoji ?? '🦖'}
+          </span>
+          <div className="min-w-0 flex-1">
             <p className="truncate text-xs text-slate-500">{state.title}</p>
             <p className="truncate font-bold leading-tight text-slate-900">{me?.label ?? 'Conectado'}</p>
           </div>
@@ -364,14 +565,32 @@ export function LivePage() {
       <div className="mx-auto mt-5 grid max-w-2xl gap-5 px-4">
         {/* ── Sala de espera: mientras el profesor no lance, aquí se queda ── */}
         {state.phase === 'lobby' && (
-          <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
-            <p className="text-5xl">⏳</p>
-            <h1 className="mt-4 text-xl font-extrabold text-slate-900">Ya estás dentro</h1>
-            <p className="mt-2 text-sm text-slate-500">Espera a que el profesor lance la primera pregunta. No cierres esta página.</p>
-            <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-rex-light px-4 py-2 text-sm font-semibold text-rex-deep">
-              <Users size={16} /> {state.participants} conectado{state.participants === 1 ? '' : 's'}
-            </p>
-          </div>
+          <>
+            <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+              <div className="relative mx-auto grid h-32 w-32 place-items-center">
+                <span className="live-spin absolute inset-0 rounded-full border-4 border-rex-light border-t-rex" />
+                <RexMascot mood="wave" className="live-bob h-20 w-20 object-contain" />
+              </div>
+              <h1 className="mt-4 text-xl font-extrabold text-slate-900">Ya estás dentro</h1>
+              <p className="mt-2 text-sm text-slate-500">Espera a que el profesor lance la primera pregunta. No cierres esta página.</p>
+              <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-rex-light px-4 py-2 text-sm font-semibold text-rex-deep">
+                <Users size={16} /> {state.participants} conectado{state.participants === 1 ? '' : 's'}
+              </p>
+            </div>
+
+            {/* Solo aquí: el avatar se congela en cuanto arranca la evaluación (lo impone el
+                backend). Cambiar de cara a media pregunta distraería a todo el salón y haría
+                irreconocible el marcador entre una pregunta y la siguiente. */}
+            <div className="rounded-3xl bg-white p-5 shadow-sm">
+              <p className="mb-3 text-sm font-semibold text-slate-700">
+                Tu avatar <span className="ml-1 text-xl align-middle">{me?.emoji ?? join.emoji}</span>
+                <span className="block text-xs font-normal text-slate-400">Solo se puede cambiar ahora, antes de que empiece.</span>
+              </p>
+              <AvatarPicker value={me?.emoji ?? join.emoji ?? AVATARS[0]} onPick={pickAvatar} />
+            </div>
+
+            <ReactionBar onSend={react} />
+          </>
         )}
 
         {/* ── Pregunta abierta ── */}
@@ -388,13 +607,12 @@ export function LivePage() {
             </div>
 
             {answered ? (
-              <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
-                <p className="text-5xl">✅</p>
-                <p className="mt-3 text-lg font-bold text-slate-900">Respuesta enviada</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {me?.correct === undefined ? 'El resultado se muestra cuando el profesor cierre la pregunta.' : me.correct ? '¡Correcta!' : 'Incorrecta.'}
-                </p>
-              </div>
+              <WaitingDino
+                title={me?.correct === undefined ? 'Respuesta enviada' : me.correct ? '¡Correcta!' : 'Incorrecta'}
+                hint={me?.correct === undefined
+                  ? `Revisando las respuestas del salón… ${state.answered} de ${state.participants} ya contestaron.`
+                  : 'Espera a que el profesor cierre la pregunta.'}
+              />
             ) : (
               <>
                 <div className="grid gap-3">
@@ -450,6 +668,17 @@ export function LivePage() {
                 {me?.correct ? '¡Correcta!' : answered ? 'Incorrecta' : 'Sin responder'}
               </h1>
               <p className="mt-1 text-sm text-white/90">Respuesta correcta: <strong>{state.answer_label}</strong></p>
+              {/* El desglose de ESTA pregunta. Sin él, el puntaje sube en saltos que no se
+                  parecen a nada y el marcador final parece decidido a dedo. */}
+              {me?.correct && me.last_base != null && (
+                <p className="mt-3 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/20 px-4 py-2 text-sm font-semibold">
+                  <span>+{me.last_base} por acertar</span>
+                  <span className="opacity-70">+</span>
+                  <span>+{me.last_speed_bonus ?? 0} por rapidez</span>
+                  <span className="opacity-70">=</span>
+                  <strong>{me.last_base + (me.last_speed_bonus ?? 0)}</strong>
+                </p>
+              )}
               <p className="mt-4 text-lg font-bold">{me?.score ?? 0} puntos {me?.rank != null && <>· puesto #{me.rank}</>}</p>
             </div>
 
@@ -472,6 +701,7 @@ export function LivePage() {
             </div>
             <Leaderboard rows={state.leaderboard ?? []} title="Top 5" />
             <p className="text-center text-sm text-slate-500">Espera la siguiente pregunta…</p>
+            <ReactionBar onSend={react} />
           </>
         )}
 
@@ -486,7 +716,9 @@ export function LivePage() {
               </p>
               {me?.rank != null && <p className="mt-1 text-sm text-slate-500">Quedaste en el puesto #{me.rank} de {state.participants}.</p>}
             </div>
+            <Awards awards={state.awards ?? []} />
             <Leaderboard rows={state.leaderboard ?? []} title="Top 5" />
+            <ReactionBar onSend={react} />
           </>
         )}
 
@@ -513,7 +745,10 @@ export function LiveScreenPage() {
   const totalAnswers = (state.option_counts ?? []).reduce((a, b) => a + b, 0) || 1;
 
   return (
-    <main className="min-h-screen bg-ink px-8 py-6 text-white">
+    // `live-stage` en vez del gris pardo de `bg-ink`: es lo que se proyecta en la pared del
+    // salón durante media hora, y un fondo plano y apagado no da ninguna sensación de evento.
+    <main className="live-stage min-h-screen px-8 py-6 text-white">
+      <ReactionLayer reactions={state.reactions} />
       <header className="flex items-center justify-between gap-6">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-white/50">{state.title}</p>
@@ -535,7 +770,7 @@ export function LiveScreenPage() {
 
       {/* ── Sala de espera: dos formas de entrar, ninguna es teclear la URL larga ── */}
       {state.phase === 'lobby' && (
-        <section className="flex min-h-[78vh] flex-wrap items-center justify-center gap-x-16 gap-y-8">
+        <section className="flex min-h-[62vh] flex-wrap items-center justify-center gap-x-16 gap-y-8">
           <div className="text-center">
             <p className="mb-4 text-xl text-white/60">Escanea con la cámara</p>
             {/* Tarjeta blanca con margen: un QR sobre fondo oscuro y sin zona de silencio
@@ -551,6 +786,26 @@ export function LiveScreenPage() {
             <p className="mt-2 text-[7rem] font-black leading-none tracking-[0.12em] text-white lg:text-[9rem]">{normalized}</p>
             {/* Último recurso, para quien no pueda escanear: por eso va pequeña. */}
             <p className="mt-6 text-base text-white/40">{joinUrl.replace(/^https?:\/\//, '')}</p>
+          </div>
+        </section>
+      )}
+
+      {/* Quién va entrando, con su avatar. Es lo que convierte la sala de espera en algo que se
+          mira: cada alumno busca su emoji en la pared y sabe que llegó. */}
+      {state.phase === 'lobby' && (state.lobby_roster?.length ?? 0) > 0 && (
+        <section className="mx-auto mt-4 max-w-6xl">
+          <div className="flex flex-wrap justify-center gap-2">
+            {state.lobby_roster!.map((p, i) => (
+              <span key={`${p.label}-${i}`} className="live-pop flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-lg font-semibold">
+                <span aria-hidden>{p.emoji}</span>
+                <span className="max-w-[14ch] truncate">{p.label}</span>
+              </span>
+            ))}
+            {state.participants > state.lobby_roster!.length && (
+              <span className="rounded-full bg-white/5 px-4 py-2 text-lg text-white/50">
+                +{state.participants - state.lobby_roster!.length} más
+              </span>
+            )}
           </div>
         </section>
       )}
@@ -616,11 +871,12 @@ export function LiveScreenPage() {
       )}
 
       {state.phase === 'ended' && (
-        <section className="mx-auto mt-10 max-w-2xl text-center">
+        <section className="mx-auto mt-8 max-w-5xl text-center">
           <p className="text-6xl">🏆</p>
-          <h1 className="mt-4 text-4xl font-black">Resultados finales</h1>
-          <div className="mt-8 text-ink">
-            <Leaderboard rows={state.leaderboard ?? []} title="Top 5" />
+          <h1 className="mt-3 text-4xl font-black">Resultados finales</h1>
+          <div className="mt-6 grid gap-6 text-left lg:grid-cols-2">
+            <div className="text-ink"><Leaderboard rows={state.leaderboard ?? []} title="Top 5" /></div>
+            <div className="text-ink"><Awards awards={state.awards ?? []} /></div>
           </div>
         </section>
       )}

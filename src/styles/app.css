@@ -944,3 +944,50 @@ textarea.code-field, textarea.code-field:focus {
 
 /* Barra de tiempo: se pinta con `width` desde el estado, la transición la suaviza. */
 .live-timebar { transition: width 0.25s linear; }
+
+/* Fondo de la pantalla proyectada. Sustituye al plano `bg-ink` (#2B2A26), un gris pardo que en
+   un cañón de proyección se ve sucio y sin profundidad. Verde de la marca con dos focos: el
+   claro arriba a la izquierda da relieve, el naranja de las espinas abajo a la derecha calienta
+   la esquina que si no queda muerta. `fixed` para que no se desplace con el scroll. */
+.live-stage {
+  background-color: #10231C;
+  background-image:
+    radial-gradient(90% 70% at 12% -10%, rgba(132, 184, 76, 0.30) 0%, transparent 60%),
+    radial-gradient(70% 60% at 100% 110%, rgba(238, 123, 48, 0.22) 0%, transparent 65%),
+    linear-gradient(160deg, #22503A 0%, #16362A 45%, #0E1F19 100%);
+  background-attachment: fixed;
+}
+
+/* Espera activa: el dino cabecea dentro de un anillo que gira. Antes había un ✅ estático y no
+   se distinguía "enviado, esperando al salón" de "se colgó" — con el cronómetro corriendo por
+   detrás, esa duda es justo lo que pone nervioso a quien ya respondió. */
+@keyframes live-bob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-8px) rotate(2deg); }
+}
+.live-bob { animation: live-bob 2.2s ease-in-out infinite; }
+
+@keyframes live-spin { to { transform: rotate(360deg); } }
+.live-spin { animation: live-spin 1.6s linear infinite; }
+
+@keyframes live-dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40%           { opacity: 1;    transform: translateY(-5px); }
+}
+.live-dot { animation: live-dot 1.2s ease-in-out infinite; }
+
+/* Reacciones: el emoji sube y se desvanece. La deriva lateral (`--drift`) es fija por elemento;
+   sin ella, veinte emojis simultáneos suben en columnas perfectamente rectas y se ve mecánico. */
+@keyframes live-float {
+  0%   { opacity: 0;    transform: translateY(0) scale(0.6); }
+  12%  { opacity: 1;    transform: translateY(-24px) scale(1.15); }
+  100% { opacity: 0;    transform: translateY(-46vh) translateX(28px) scale(0.9); }
+}
+.live-float { animation: live-float 3.2s cubic-bezier(0.25, 0.6, 0.4, 1) forwards; }
+
+/* Nada de lo de arriba comunica información: quien pide menos movimiento se queda sin ello y no
+   se pierde nada. El anillo y los puntos siguen ahí, quietos. */
+@media (prefers-reduced-motion: reduce) {
+  .live-bob, .live-spin, .live-dot, .live-float { animation: none; }
+  .live-float { opacity: 1; }
+}

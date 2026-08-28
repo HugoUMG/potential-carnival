@@ -665,6 +665,58 @@ solo en los 8 casos.
 apaga el destello explícitamente (no solo confía en que el `setTimeout` dispare). Cubre el caso
 límite de una pregunta que se revela o se salta antes de que el timer de 900ms llegue a correr.
 
+## 🟢 ADR-30 — El puntaje en vivo se enseña desglosado, no se simplifica a "aciertos"
+
+**Contexto.** Un profesor proyectó el marcador final y el salón se le echó encima: el segundo lugar
+tenía **18 respuestas correctas** y el primero **17**, pero el primero ganaba por 900 puntos. La
+fórmula (`_points`) es 500 por acertar + hasta 500 por rapidez, así que el resultado era correcto —
+pero la pantalla solo enseñaba el total, y un total que mezcla dos cosas no se puede defender
+delante de treinta adolescentes.
+
+**Decisión.** Se mantiene la fórmula y se rompe la opacidad: `_points()` devuelve las dos mitades
+por separado, el alumno ve `+500 por acertar +320 por rapidez` junto a su ✓, el marcador lleva una
+línea fija que dice que acertar más no siempre gana, y al terminar se reparten **menciones**
+nombradas (*El mentalista* al que más acertó, *El más veloz del Oeste* al mejor promedio, *La mente
+maestra* al que gana las dos). Cada alumno se lleva una mención como mucho.
+
+**Alternativas descartadas.**
+
+- *Quitar el bono de velocidad y ordenar por aciertos.* Es lo que pedía la intuición, y es peor: con
+  cincuenta alumnos y diez preguntas, media clase empata en el primer puesto. El bono existe para
+  desempatar (ver el comentario de `_points`), no por gamificación gratuita.
+- *Enseñar la fórmula en la pantalla.* "500 + 500·(1 − t/T)" no explica nada a un alumno de
+  secundaria. Un nombre propio para lo que cada uno hizo mejor sí.
+- *Ordenar el marcador por aciertos y enseñar el puntaje como dato secundario.* Cambia qué significa
+  ganar a mitad del curso, con sesiones ya corridas y notas ya guardadas.
+
+**Consecuencia.** El `roster` del profesor lleva `avg_speed` (segundos promedio por acierto): es lo
+único que separa "acertó más" de "fue más rápido" cuando dos puntajes se cruzan, y el profesor es
+quien recibe la pregunta. Las menciones solo cuentan los aciertos para la velocidad — contestar
+rapidísimo y mal no es ser rápido, y sin ese filtro el premio se lo lleva quien toca el primer botón
+que ve.
+
+## 🟢 ADR-31 — El historial de sesiones en vivo se reconstruye de las entregas, sin tabla nueva
+
+**Contexto.** Hacía falta un panel de sesiones en vivo pasadas. El estado de `live.py` vive en
+memoria y se pierde al reiniciar el proceso (ADR-25), así que ahí no hay historial que leer.
+
+**Decisión.** `GET /live/history` reagrupa las filas de `worksheet_responses` por el código que ya
+va dentro del `guest_token` (`live:{code}:{pid}`, que `finish` escribe desde el primer día). Cero
+tablas, cero migraciones, cero datos nuevos que guardar.
+
+**Alternativas descartadas.**
+
+- *Una tabla `live_sessions`.* Duplicaría información que ya está en `worksheet_responses` y abriría
+  la puerta a que las dos se contradigan (una sesión registrada cuyas entregas alguien borró).
+- *Persistir la sesión en memoria antes de morir.* Requiere un hook de apagado en el que no se puede
+  confiar: Render mata el proceso, y un `finish` que ya guardó lo importante hace el resto inútil.
+
+**Consecuencia.** El agrupado se hace en Python, no en SQL: partir el token dentro de la query
+pediría `split_part` en Postgres y `substr`/`instr` en SQLite — dos dialectos para lo que aquí es un
+`for`. El techo conocido: el `LIMIT` va sobre **filas**, no sobre sesiones. Y una sesión en curso no
+aparece en el historial hasta que se termina, que es exactamente lo correcto: hasta entonces está en
+`GET /live/sessions`.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

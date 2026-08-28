@@ -254,11 +254,20 @@ class LiveOpenQuestion(BaseModel):
 class LiveJoin(BaseModel):
     # Claves = los `info {}` de la hoja (Carné, Nombre…). La hoja decide qué se pide.
     info: dict[str, str]
+    # Avatar elegido en la sala de espera. `live.AVATARS` es quien valida: aquí no se acota el
+    # largo porque un emoji fuera de la lista se descarta entero, no se recorta.
+    emoji: str | None = None
 
 
 class LiveAnswer(BaseModel):
     pid: str
     answer: Any = None
+
+
+class LiveEmoji(BaseModel):
+    """Reacción o avatar: los dos son `pid` + un emoji de una lista cerrada de `live.py`."""
+    pid: str
+    emoji: str
 
 
 class ClassroomCreate(BaseModel):

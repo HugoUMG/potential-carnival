@@ -165,8 +165,33 @@ nueva; wake lock para que no se apague la pantalla; `finish` deja las entregas e
 e `imagechoice`. Lo que la hoja tenga y no se pueda jugar **se reporta por tipo** en el panel, antes
 de abrir la sesión y en el temario.
 
+**Segunda pasada de UX (agosto 2026).** Salió de mirar una sesión real corriendo en un salón:
+
+- **El puntaje se explica.** Desglose `+500 por acertar / +N por rapidez` junto al ✓, nota fija en el
+  marcador y **menciones** al terminar (*El mentalista*, *El más veloz del Oeste*, *La mente
+  maestra*, *El imparable*, *El francotirador*, *El incansable*). El detonante: 18 correctas
+  perdiendo contra 17 sin ninguna explicación en pantalla (ADR-30).
+- **La espera se anima.** El ✅ estático dejaba al alumno mirando una pantalla muerta con el
+  cronómetro corriendo por detrás, sin poder distinguir "enviado" de "colgado". Ahora el dino
+  cabecea dentro de un anillo que gira, con el conteo de cuántos van respondiendo.
+- **Avatar y reacciones.** 20 emojis para elegir personaje (solo antes de empezar: a mitad de
+  pregunta distraería al salón) y 5 emojis lanzables en los tiempos muertos, que suben flotando en
+  la pantalla del alumno **y** en la proyectada. Listas cerradas a propósito: no es un chat, y lo
+  que se elija acaba proyectado en la pared.
+- **Arrancar sin bajar hasta el fondo.** Con ~50 hojas en producción, el tiempo por pregunta y el
+  botón de inicio vivían al final de la página: se elegía la hoja 40 y había que bajar a ciegas.
+  Ahora van **dentro** de la tarjeta seleccionada, con buscador arriba.
+- **Historial de sesiones pasadas** en el panel, reconstruido de las entregas ya guardadas sin tabla
+  nueva (ADR-31).
+- **Fondo de la pantalla proyectada.** `bg-ink` plano (gris pardo) → gradiente de marca; en un cañón
+  de proyección el plano se veía sucio.
+
 **Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
 
+- **El catálogo completo de tipos en vivo.** Pedido y **pendiente**: hoy solo entran los cuatro de
+  arriba. Los motivos por los que cada uno de los demás no entra están listados aquí abajo — no son
+  falta de código, son que el tipo no encaja en una pregunta cronometrada respondida con el pulgar.
+  Cualquier ampliación tiene que resolver **eso**, no solo escribir el renderer.
 - **WebSockets.** El salto correcto si la latencia llega a notarse o si las sesiones crecen a cientos
   de participantes. Ver los tres techos del ADR-25.
 - **Equipos y modos de juego.** Individual y ya.

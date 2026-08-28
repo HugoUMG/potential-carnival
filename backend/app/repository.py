@@ -493,6 +493,74 @@ class WorksheetRepository:
             ).fetchall()
         return {dict(r)["wid"]: int(dict(r)["cnt"]) for r in rows}
 
+    def live_session_history(self, owner_id: str | None, limit: int = 40) -> list[dict]:
+        """Sesiones en vivo YA TERMINADAS, agrupadas, más recientes primero.
+
+        No hay tabla de sesiones en vivo: `live.py` las tiene en memoria y las pierde al
+        reiniciar el proceso (a propósito, ver su cabecera). Lo que sí sobrevive son las entregas
+        que deja `finish`, marcadas con `guest_token = 'live:{CÓDIGO}:{pid}'`. Este método las
+        reagrupa por ese código, así que el historial sale de datos que ya se estaban guardando
+        y una sesión en curso simplemente todavía no aparece.
+
+        ponytail: se agrupa en Python, no en SQL. Partir el token dentro de la query pediría
+        `split_part` en Postgres y `substr`/`instr` en SQLite — dos dialectos para una operación
+        que aquí cuesta un `for`. El techo: lee las filas de las últimas sesiones antes de
+        agrupar, así que el `LIMIT` va sobre FILAS, no sobre sesiones.
+        """
+        where = "worksheet_responses.guest_token LIKE 'live:%'"
+        params: list[object] = []
+        if owner_id is not None:
+            where += f" AND worksheets.created_by = {self._placeholder}"
+            params.append(owner_id)
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT worksheet_responses.guest_token AS token,
+                       worksheet_responses.worksheet_id AS wid,
+                       worksheets.title AS title,
+                       worksheet_responses.student_name AS name,
+                       worksheet_responses.score AS score,
+                       worksheet_responses.correct_count AS correct,
+                       worksheet_responses.submitted_at AS submitted_at
+                FROM worksheet_responses
+                JOIN worksheets ON worksheets.id = worksheet_responses.worksheet_id
+                WHERE {where}
+                ORDER BY worksheet_responses.submitted_at DESC
+                LIMIT {int(limit) * 60}
+                """,
+                tuple(params),
+            ).fetchall()
+
+        sessions: dict[str, dict] = {}
+        for raw in rows:
+            row = dict(raw)
+            parts = str(row["token"]).split(":")
+            if len(parts) < 3:
+                continue  # token con otra forma: no es de una sesión en vivo
+            code = parts[1]
+            session = sessions.setdefault(code, {
+                "code": code,
+                "worksheet_id": row["wid"],
+                "title": row["title"],
+                "submitted_at": row["submitted_at"],
+                "participants": 0,
+                "scores": [],
+                "top": [],
+            })
+            session["participants"] += 1
+            session["scores"].append(float(row["score"] or 0))
+            session["top"].append({"label": row["name"], "score": float(row["score"] or 0), "correct": int(row["correct"] or 0)})
+            # La query viene DESC: la fila más nueva de la sesión es la primera que se ve.
+            session["submitted_at"] = max(session["submitted_at"], row["submitted_at"])
+
+        out = []
+        for session in sessions.values():
+            scores = session.pop("scores")
+            session["average"] = round(sum(scores) / len(scores), 1) if scores else 0.0
+            session["top"] = sorted(session["top"], key=lambda p: -p["score"])[:5]
+            out.append(session)
+        return sorted(out, key=lambda s: s["submitted_at"], reverse=True)[:limit]
+
     def count_student_attempts(self, worksheet_id: str, student_id: str) -> int:
         placeholder = self._placeholder
         with get_connection() as connection:

@@ -43,6 +43,26 @@ LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice")
 MAX_PARTICIPANTS = 300
 MAX_SESSIONS = 50
 SESSION_TTL_SECONDS = 8 * 3600
+
+# Avatares que puede elegir el alumno. Lista CERRADA a propósito: es lo que se proyecta en la
+# pantalla del salón, así que no se acepta cualquier carácter que llegue en el JSON — un emoji
+# arbitrario (o una cadena de mil caracteres) es texto libre de un anónimo en el proyector.
+# Veinte y no más: la cuadrícula tiene que caber en un celular sin scroll y elegir tiene que
+# durar segundos, no un minuto. **Duplicada en `src/pages/LivePage.tsx`** (mismo criterio que
+# `LIVE_TYPES`); si cambia aquí, cambia allá — lo comprueba un test.
+AVATARS = (
+    "🦖", "🦕", "🐉", "🦊", "🐼", "🦁", "🐨", "🐸", "🦉", "🐙",
+    "🦈", "🐝", "🚀", "⚡", "🎸", "🎨", "⚽", "🍕", "👑", "🤖",
+)
+DEFAULT_AVATAR = "🦖"
+
+# Emojis que un alumno puede lanzar en los tiempos muertos. Cinco, no un chat: en una pantalla
+# proyectada delante de la clase, texto libre de un anónimo es un problema de moderación que
+# nadie va a poder atender en medio de una evaluación. Con cinco caras no hay nada que moderar.
+REACTIONS = ("👍", "😂", "😮", "🔥", "😭")
+REACTION_COOLDOWN = 1.5   # segundos entre reacciones del MISMO alumno: evita el spam de uno solo
+REACTION_TTL = 6.0        # cuánto viaja una reacción en el estado antes de caerse sola
+MAX_REACTIONS = 40        # cota del buffer: 50 alumnos tocando a la vez no lo hacen crecer sin fin
 # Sin I/O/0/1: se dicta en voz alta y se teclea en un celular, no hay margen para confundir.
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 5
@@ -103,10 +123,29 @@ class Participant:
     pid: str
     info: dict[str, str]  # {"Carné": "2021-001", "Nombre": "Ana"} — las claves son los info_fields
     label: str
+    emoji: str = DEFAULT_AVATAR
     score: int = 0
     correct: int = 0
     answers: dict[str, Any] = field(default_factory=dict)  # question_id -> respuesta enviada
     joined_at: float = field(default_factory=time.monotonic)
+    # Segundos tardados en las preguntas ACERTADAS y cuántas son. Es lo que permite premiar al
+    # más rápido sin confundirlo con el que más acierta: el puntaje mezcla las dos cosas (500
+    # por acertar + hasta 500 por rapidez) y por eso, mirando solo el puntaje, no se puede saber
+    # cuál de las dos ganó — que es exactamente la pregunta que hacen los alumnos al ver el
+    # marcador. Solo cuentan los aciertos: contestar rapidísimo y mal no es ser rápido.
+    speed_sum: float = 0.0
+    speed_n: int = 0
+    streak: int = 0
+    best_streak: int = 0
+    # Desglose de la ÚLTIMA respuesta, para poder enseñar "500 + 320" en vez de un 820 sin origen.
+    last_base: int = 0
+    last_speed_bonus: int = 0
+    last_reaction_at: float = 0.0
+
+    def avg_speed(self) -> float | None:
+        """Segundos promedio por acierto. `None` si no acertó ninguna: sin aciertos no hay
+        velocidad que medir (y un 0.0 lo haría ganar el premio al más rápido)."""
+        return self.speed_sum / self.speed_n if self.speed_n else None
 
 
 @dataclass
@@ -130,6 +169,9 @@ class LiveSession:
     version: int = 0  # sube en cada cambio; el cliente lo usa para saber "pasó algo"
     participants: dict[str, Participant] = field(default_factory=dict)
     created_at: float = field(default_factory=time.monotonic)
+    # Reacciones recientes, las últimas primero. NO suben `version`: son decoración, y hacer que
+    # cuenten como "pasó algo" mezclaría un emoji con lanzar una pregunta.
+    reactions: list[dict[str, Any]] = field(default_factory=list)
 
     # ── Estado ────────────────────────────────────────────────────────────────
 
@@ -170,6 +212,73 @@ class LiveSession:
         # Empate a puntos → gana quien lleva más aciertos; si aún empatan, quien entró antes.
         return sorted(self.participants.values(), key=lambda p: (-p.score, -p.correct, p.joined_at))
 
+    def awards(self) -> list[dict[str, Any]]:
+        """Menciones del final: quién fue el más rápido, quién el que más acertó, etc.
+
+        Existen porque el marcador solo enseña el TOTAL, y el total mezcla aciertos con rapidez
+        (`_points`). Cuando el segundo lugar tiene más respuestas correctas que el primero, el
+        podio a secas parece injusto; nombrar en voz alta lo que cada uno hizo mejor lo explica
+        sin tener que enseñar la fórmula.
+
+        Cada alumno se lleva UNA mención como mucho, en el orden en que se otorgan aquí: repartir
+        cuatro títulos entre el mismo primer lugar deja al resto del salón sin nada, que es justo
+        lo contrario de para lo que sirven.
+        """
+        launched = len(self.question_opened_at)
+        pool = [p for p in self.ranking() if p.answers]
+        if not pool:
+            return []
+
+        taken: set[str] = set()
+        out: list[dict[str, Any]] = []
+
+        def add(key: str, badge: str, title: str, subtitle: str, who: Participant | None, detail: str) -> None:
+            if who is None or who.pid in taken:
+                return
+            taken.add(who.pid)
+            out.append({"key": key, "badge": badge, "title": title, "subtitle": subtitle,
+                        "label": who.label, "emoji": who.emoji, "detail": detail})
+
+        sharpest = max(pool, key=lambda p: (p.correct, p.score))
+        quick = [p for p in pool if p.speed_n]
+        # Empate al milisegundo → gana quien tiene más puntos. Sin el desempate, el ganador
+        # dependería del orden del dict, que no es un criterio que se pueda explicar a nadie.
+        fastest = min(quick, key=lambda p: (p.avg_speed() or 0.0, -p.score)) if quick else None
+
+        def secs(p: Participant) -> str:
+            return f"{p.avg_speed():.1f}s por acierto"
+
+        if sharpest.correct and fastest is sharpest:
+            add("mente_maestra", "🧠", "La mente maestra", "Más aciertos Y el más rápido del salón",
+                sharpest, f"{sharpest.correct} de {launched} · {secs(sharpest)}")
+        else:
+            if sharpest.correct:
+                add("mentalista", "🔮", "El mentalista", "Nadie acertó más preguntas",
+                    sharpest, f"{sharpest.correct} de {launched} correctas")
+            if fastest is not None:
+                add("veloz", "🤠", "El más veloz del Oeste", "El dedo más rápido en acertar",
+                    fastest, secs(fastest))
+
+        streaks = [p for p in pool if p.best_streak >= 3]
+        if streaks:
+            champ = max(streaks, key=lambda p: (p.best_streak, p.score))
+            add("imparable", "🔥", "El imparable", "La racha más larga sin fallar",
+                champ, f"{champ.best_streak} seguidas")
+
+        snipers = [p for p in pool if len(p.answers) >= 3 and p.correct / len(p.answers) >= 0.6]
+        if snipers:
+            champ = max(snipers, key=lambda p: (p.correct / len(p.answers), p.correct))
+            add("francotirador", "🎯", "El francotirador", "La mejor puntería: casi no falla",
+                champ, f"{round(100 * champ.correct / len(champ.answers))}% de acierto")
+
+        if launched >= 3:
+            complete = [p for p in pool if len(p.answers) == launched]
+            if complete:
+                add("incansable", "💪", "El incansable", "No dejó ni una sola sin responder",
+                    max(complete, key=lambda p: p.score), f"{launched} de {launched} respondidas")
+
+        return out
+
     # ── Acciones del profesor ─────────────────────────────────────────────────
 
     def open_next(self, duration: int | None = None) -> None:
@@ -196,7 +305,7 @@ class LiveSession:
 
     # ── Acciones del alumno ───────────────────────────────────────────────────
 
-    def join(self, info: dict[str, str]) -> Participant:
+    def join(self, info: dict[str, str], emoji: str | None = None) -> Participant:
         """Registra a un alumno. Los campos obligatorios son los `info {}` de la propia hoja
         (Carné, Nombre…): la hoja decide qué se pide, no este módulo.
 
@@ -209,6 +318,8 @@ class LiveSession:
         if missing:
             raise LiveError(f"Falta completar: {', '.join(missing)}", status=422)
 
+        avatar = emoji if emoji in AVATARS else DEFAULT_AVATAR
+
         key_field = self.info_fields[0] if self.info_fields else None
         if key_field:
             key = _norm(clean[key_field])
@@ -216,12 +327,14 @@ class LiveSession:
                 if _norm(existing.info.get(key_field)) == key:
                     existing.info = clean
                     existing.label = self._label(clean)
+                    if emoji in AVATARS:
+                        existing.emoji = avatar
                     return existing
 
         if len(self.participants) >= MAX_PARTICIPANTS:
             raise LiveError("La sesión está llena", status=409)
 
-        participant = Participant(pid=secrets.token_urlsafe(9), info=clean, label=self._label(clean))
+        participant = Participant(pid=secrets.token_urlsafe(9), info=clean, label=self._label(clean), emoji=avatar)
         self.participants[participant.pid] = participant
         self.version += 1
         return participant
@@ -247,23 +360,72 @@ class LiveSession:
         elapsed = time.monotonic() - (self.opened_at or time.monotonic())
         correct = question.is_correct(answer)
         participant.answers[question.id] = answer
-        points = self._points(elapsed) if correct else 0
+        base, bonus = self._points(elapsed) if correct else (0, 0)
+        participant.last_base, participant.last_speed_bonus = base, bonus
         if correct:
             participant.correct += 1
-            participant.score += points
+            participant.score += base + bonus
+            participant.speed_sum += elapsed
+            participant.speed_n += 1
+            participant.streak += 1
+            participant.best_streak = max(participant.best_streak, participant.streak)
+        else:
+            participant.streak = 0
         self.version += 1
 
         result: dict[str, Any] = {"registered": True}
         if self.instant_feedback:
-            result |= {"correct": correct, "points": points}
+            result |= {"correct": correct, "points": base + bonus, "base": base, "speed_bonus": bonus}
         return result
 
-    def _points(self, elapsed: float) -> int:
-        """500 por acertar + hasta 500 por rapidez. Con 50 personas el conteo de aciertos a secas
-        deja veinte empatadas en primer lugar; el bono de velocidad desempata solo."""
+    def _points(self, elapsed: float) -> tuple[int, int]:
+        """(500 por acertar, hasta 500 por rapidez). Con 50 personas el conteo de aciertos a secas
+        deja veinte empatadas en primer lugar; el bono de velocidad desempata solo.
+
+        Devuelve las DOS mitades por separado, no el total: sin el desglose, dos alumnos con
+        distinto número de aciertos y puntajes cruzados (más aciertos, menos puntos) no tienen
+        forma de saber por qué, y el marcador parece arbitrario. Es la pregunta que hacen en
+        cuanto ven el podio.
+        """
         if not self.duration:
-            return 1000
-        return round(500 + 500 * max(0.0, 1 - elapsed / self.duration))
+            return 500, 500  # sin cronómetro no hay rapidez que medir: todos cobran el bono entero
+        return 500, round(500 * max(0.0, 1 - elapsed / self.duration))
+
+    def react(self, pid: str, emoji: str) -> None:
+        """Lanza un emoji al aire. No es un chat (ver `REACTIONS`): cinco caras y nada más."""
+        participant = self.participants.get(pid)
+        if participant is None:
+            raise LiveError("No estás en esta sesión", status=404)
+        if emoji not in REACTIONS:
+            raise LiveError("Ese emoji no está disponible", status=422)
+        now = time.monotonic()
+        if now - participant.last_reaction_at < REACTION_COOLDOWN:
+            return  # silencioso: al alumno que toca rápido no se le enseña un error, se le ignora
+        participant.last_reaction_at = now
+        self.reactions.append({"emoji": emoji, "label": participant.label, "at": now})
+        del self.reactions[:-MAX_REACTIONS]
+
+    def recent_reactions(self) -> list[dict[str, Any]]:
+        now = time.monotonic()
+        self.reactions = [r for r in self.reactions if now - r["at"] < REACTION_TTL]
+        # `age_ms` en vez de `at`: el cliente no comparte el reloj monotónico del servidor, y con
+        # la edad puede animar el emoji desde donde va sin necesidad de sincronizar nada.
+        return [{"emoji": r["emoji"], "label": r["label"], "age_ms": int((now - r["at"]) * 1000)} for r in self.reactions]
+
+    def set_avatar(self, pid: str, emoji: str) -> Participant:
+        """Cambia el avatar. Solo ANTES de que arranque la evaluación (o ya terminada): a mitad
+        de una pregunta, un alumno que cambia de cara en la pantalla proyectada es una distracción
+        para todo el salón, y el marcador dejaría de ser reconocible entre pregunta y pregunta."""
+        participant = self.participants.get(pid)
+        if participant is None:
+            raise LiveError("No estás en esta sesión", status=404)
+        if self.phase() not in {"lobby", "ended"}:
+            raise LiveError("Solo puedes cambiar tu avatar antes de que empiece la evaluación")
+        if emoji not in AVATARS:
+            raise LiveError("Ese avatar no está disponible", status=422)
+        participant.emoji = emoji
+        self.version += 1
+        return participant
 
     # ── Lo que ven los clientes ───────────────────────────────────────────────
 
@@ -288,6 +450,7 @@ class LiveSession:
             "duration": self.duration,
             "remaining_ms": self.remaining_ms(),
             "info_fields": self.info_fields,
+            "reactions": self.recent_reactions(),
         }
 
         if question is not None and phase in {"question", "reveal"}:
@@ -308,9 +471,21 @@ class LiveSession:
 
         if phase in {"reveal", "ended"}:
             state["leaderboard"] = [
-                {"label": p.label, "score": p.score, "correct": p.correct}
+                {"label": p.label, "emoji": p.emoji, "score": p.score, "correct": p.correct}
                 for p in self.ranking()[:top]
             ]
+
+        if phase == "lobby":
+            # Quién ha entrado, para la pantalla de espera. Solo el nombre y el avatar: el resto
+            # del `info {}` (el carné) NO viaja a un endpoint público. Se corta en 60 porque es
+            # lo que cabe en una proyección; el contador de arriba ya da el total real.
+            state["lobby_roster"] = [
+                {"label": p.label, "emoji": p.emoji}
+                for p in sorted(self.participants.values(), key=lambda p: p.joined_at)[:60]
+            ]
+
+        if phase == "ended":
+            state["awards"] = self.awards()
 
         if pid:
             state["me"] = self._me(pid, question, phase)
@@ -334,16 +509,20 @@ class LiveSession:
         ranking = self.ranking()
         me: dict[str, Any] = {
             "label": participant.label,
+            "emoji": participant.emoji,
             "score": participant.score,
             "correct_total": participant.correct,
             "rank": next((i + 1 for i, p in enumerate(ranking) if p.pid == pid), None),
             "answered": question is not None and question.id in participant.answers,
             "answer": participant.answers.get(question.id) if question else None,
+            "can_change_avatar": phase in {"lobby", "ended"},
         }
         # El ✓/✗ se guarda hasta el reveal (comportamiento Kahoot): así el primero en responder
         # no le canta la respuesta al de al lado. `instant_feedback` lo adelanta al toque.
         if question is not None and me["answered"] and (phase == "reveal" or self.instant_feedback):
             me["correct"] = question.is_correct(participant.answers[question.id])
+            # El desglose solo viaja con el ✓/✗: enseñarlo antes delataría si acertó.
+            me |= {"last_base": participant.last_base, "last_speed_bonus": participant.last_speed_bonus}
         return me
 
     def host_state(self) -> dict[str, Any]:
@@ -352,10 +531,20 @@ class LiveSession:
         state["questions"] = [{"number": i + 1, "question": q.question, "type": q.type} for i, q in enumerate(self.questions)]
         state["skipped"] = self.skipped
         state["roster"] = [
-            {"label": p.label, "info": p.info, "score": p.score, "correct": p.correct}
+            {
+                "label": p.label,
+                "emoji": p.emoji,
+                "info": p.info,
+                "score": p.score,
+                "correct": p.correct,
+                # El promedio por acierto es lo único que separa "acertó más" de "fue más rápido"
+                # cuando dos puntajes se cruzan. El profesor es quien recibe la pregunta.
+                "avg_speed": round(p.avg_speed(), 1) if p.avg_speed() is not None else None,
+            }
             for p in self.ranking()
         ]
         state["instant_feedback"] = self.instant_feedback
+        state["awards"] = self.awards()
         return state
 
     def snapshot(self) -> list[dict[str, Any]]:

@@ -809,13 +809,46 @@ export interface LiveState {
   answer?: string | string[];
   answer_label?: string;
   option_counts?: number[];
-  leaderboard?: { label: string; score: number; correct: number }[];
-  me?: { label: string; score: number; correct_total: number; rank: number | null; answered: boolean; answer: unknown; correct?: boolean } | null;
+  leaderboard?: { label: string; emoji?: string; score: number; correct: number }[];
+  me?: {
+    label: string;
+    emoji?: string;
+    score: number;
+    correct_total: number;
+    rank: number | null;
+    answered: boolean;
+    answer: unknown;
+    correct?: boolean;
+    /** Desglose de la última respuesta: 500 por acertar + bono por rapidez. Solo llega junto
+     *  con el ✓/✗ — antes delataría si acertó. Es lo que explica un marcador donde el segundo
+     *  tiene más correctas que el primero. */
+    last_base?: number;
+    last_speed_bonus?: number;
+    can_change_avatar?: boolean;
+  } | null;
+  /** Emojis lanzados en los últimos segundos. `age_ms` es la edad al salir del servidor: el
+   *  cliente anima desde ahí sin tener que compartir reloj con el backend. */
+  reactions?: { emoji: string; label: string; age_ms: number }[];
+  /** Menciones del final ("El mentalista", "El más veloz del Oeste"…). Solo en fase `ended`. */
+  awards?: LiveAward[];
+  /** Quién ha entrado, para la sala de espera. Solo nombre y avatar: el carné no sale por un
+   *  endpoint público. Cortado a 60 — el contador `participants` lleva el total real. */
+  lobby_roster?: { label: string; emoji: string }[];
+}
+
+export interface LiveAward {
+  key: string;
+  badge: string;
+  title: string;
+  subtitle: string;
+  label: string;
+  emoji: string;
+  detail: string;
 }
 
 export interface LiveHostState extends LiveState {
   questions: { number: number; question: string; type: string }[];
-  roster: { label: string; info: Record<string, string>; score: number; correct: number }[];
+  roster: { label: string; emoji?: string; info: Record<string, string>; score: number; correct: number; avg_speed: number | null }[];
   instant_feedback: boolean;
   /** Actividades de la hoja que NO se pueden jugar en vivo, por tipo. Se enseñan para que
    *  descartarlas sea visible en vez de dejar la sesión corta sin explicación. */
@@ -834,15 +867,39 @@ export async function getLiveState(code: string, pid?: string): Promise<LiveStat
   return response.json() as Promise<LiveState>;
 }
 
-export async function joinLive(code: string, info: Record<string, string>): Promise<LiveState & { pid: string; label: string }> {
+export async function joinLive(code: string, info: Record<string, string>, emoji?: string): Promise<LiveState & { pid: string; label: string }> {
   const response = await fetch(`${API_BASE_URL}/live/${encodeURIComponent(code)}/join`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ info }),
+    body: JSON.stringify({ info, emoji }),
   });
   const data = await response.json().catch(() => ({ detail: 'No se pudo entrar' }));
   if (!response.ok) throw new Error(String((data as { detail?: string }).detail ?? 'No se pudo entrar'));
   return data as LiveState & { pid: string; label: string };
+}
+
+/** Emoji al aire durante los tiempos muertos. Público, como el resto del portal del alumno. */
+export async function reactLive(code: string, pid: string, emoji: string): Promise<LiveState> {
+  const response = await fetch(`${API_BASE_URL}/live/${encodeURIComponent(code)}/react`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pid, emoji }),
+  });
+  const data = await response.json().catch(() => ({ detail: 'No se pudo enviar' }));
+  if (!response.ok) throw new Error(String((data as { detail?: string }).detail ?? 'No se pudo enviar'));
+  return data as LiveState;
+}
+
+/** Cambia el avatar. El backend lo rechaza fuera de la sala de espera (o del final). */
+export async function setLiveAvatar(code: string, pid: string, emoji: string): Promise<LiveState> {
+  const response = await fetch(`${API_BASE_URL}/live/${encodeURIComponent(code)}/avatar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pid, emoji }),
+  });
+  const data = await response.json().catch(() => ({ detail: 'No se pudo cambiar el avatar' }));
+  if (!response.ok) throw new Error(String((data as { detail?: string }).detail ?? 'No se pudo cambiar el avatar'));
+  return data as LiveState;
 }
 
 export async function answerLive(code: string, pid: string, answer: unknown): Promise<LiveState & { correct?: boolean; points?: number }> {
@@ -867,6 +924,22 @@ export function crearSesionEnVivo(worksheetId: string, duration: number, instant
 
 export function listarSesionesEnVivo(): Promise<{ code: string; title: string; worksheet_id: string; phase: LivePhase; participants: number; total: number }[]> {
   return request('/live/sessions');
+}
+
+/** Sesiones en vivo YA TERMINADAS. Sale de las entregas guardadas, no de la memoria del
+ *  backend: a diferencia de `listarSesionesEnVivo`, esto sobrevive a un redeploy. */
+export function historialSesionesEnVivo(): Promise<LiveHistoryRow[]> {
+  return request('/live/history');
+}
+
+export interface LiveHistoryRow {
+  code: string;
+  worksheet_id: string;
+  title: string;
+  submitted_at: string;
+  participants: number;
+  average: number;
+  top: { label: string; score: number; correct: number }[];
 }
 
 export function estadoSesionEnVivo(code: string): Promise<LiveHostState> {

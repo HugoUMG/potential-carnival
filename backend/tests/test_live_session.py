@@ -8,7 +8,15 @@ import time
 
 import pytest
 
-from backend.app.live import LIVE_TYPES, LiveError, create_session, extract_questions, get_session, summarize
+from backend.app.live import (
+    DEFAULT_AVATAR,
+    LIVE_TYPES,
+    LiveError,
+    create_session,
+    extract_questions,
+    get_session,
+    summarize,
+)
 from backend.app.parser import parse_worksheet_script
 
 
@@ -367,3 +375,130 @@ def test_una_pregunta_nunca_lanzada_no_cuenta_ni_a_favor_ni_en_contra():
     fila = next(r for r in session.snapshot() if r["label"] == "Ana")
 
     assert len(fila["details"]) == 1
+
+
+# ── Puntaje, menciones, avatar y reacciones ──────────────────────────────────
+
+
+def test_el_puntaje_separa_acertar_de_ser_rapido():
+    """El bug que originó todo esto: el marcador solo enseña el TOTAL, y el total mezcla dos
+    cosas. Quien acierta más puede quedar por debajo de quien va más rápido, y sin el desglose
+    no hay forma de explicarlo. `_points` devuelve las dos mitades por separado."""
+    session = _session(duration=20)
+    base_rapido, bono_rapido = session._points(0.0)
+    base_lento, bono_lento = session._points(20.0)
+
+    assert base_rapido == base_lento == 500     # acertar vale lo mismo para todos
+    assert bono_rapido == 500 and bono_lento == 0  # la rapidez es lo único que cambia
+
+
+def test_sin_limite_de_tiempo_nadie_pierde_bono_por_lento():
+    """Con `duration=0` no hay cronómetro contra el que medir rapidez. Si el bono se calculara
+    igual, el elapsed dividiría entre cero (o daría 0 a todos), que es castigar por una regla
+    que la sesión no tiene."""
+    assert _session(duration=0)._points(300.0) == (500, 500)
+
+
+def test_mas_aciertos_y_mas_rapido_se_lleva_una_sola_mencion():
+    """Quien gana en las dos cosas es "La mente maestra", no "El mentalista" Y "El más veloz":
+    repartir los cuatro títulos entre el mismo primer lugar deja al resto del salón sin nada,
+    que es justo lo contrario de para lo que sirven las menciones."""
+    session = _session(duration=20)
+    crack = session.join({"Carné": "1", "Nombre": "Crack"})
+    otro = session.join({"Carné": "2", "Nombre": "Otro"})
+    session.open_next()
+    session.submit(crack.pid, "Ciudad de Guatemala")   # acierta
+    session.submit(otro.pid, "Antigua")                # falla
+    session.end()
+
+    claves = [a["key"] for a in session.awards()]
+    assert claves.count("mente_maestra") == 1
+    assert "mentalista" not in claves and "veloz" not in claves
+    assert session.awards()[0]["label"] == "Crack"
+
+
+def test_el_mas_veloz_solo_cuenta_los_aciertos():
+    """Contestar rapidísimo y mal no es ser rápido. Sin este filtro, quien toca el primer botón
+    que ve en cada pregunta gana el premio a la velocidad sin acertar una sola."""
+    session = _session(duration=20)
+    listo = session.join({"Carné": "1", "Nombre": "Listo"})
+    impulsivo = session.join({"Carné": "2", "Nombre": "Impulsivo"})
+    session.open_next()
+    session.submit(impulsivo.pid, "Antigua")           # instantáneo pero incorrecto
+    session.submit(listo.pid, "Ciudad de Guatemala")   # más tarde y correcto
+    session.end()
+
+    ganadores = {a["key"]: a["label"] for a in session.awards()}
+    assert "Impulsivo" not in ganadores.values()
+    assert session.participants[impulsivo.pid].avg_speed() is None
+
+
+def test_el_avatar_se_congela_al_arrancar_la_evaluacion():
+    """Se elige en la sala de espera y ahí se queda: un alumno cambiando de cara a mitad de
+    pregunta distrae al salón entero y hace irreconocible el marcador entre una y otra."""
+    session = _session()
+    ana = session.join({"Carné": "1", "Nombre": "Ana"}, emoji="🦊")
+    assert ana.emoji == "🦊"
+
+    session.set_avatar(ana.pid, "🐼")  # todavía en lobby: permitido
+    assert ana.emoji == "🐼"
+
+    session.open_next()
+    with pytest.raises(LiveError):
+        session.set_avatar(ana.pid, "🚀")
+    assert ana.emoji == "🐼"
+
+
+def test_un_avatar_fuera_de_la_lista_no_llega_a_la_pantalla():
+    """`AVATARS` es una lista CERRADA: lo que se elija aquí acaba proyectado en la pared del
+    salón, así que no se acepta cualquier cadena que llegue en el JSON."""
+    session = _session()
+    ana = session.join({"Carné": "1", "Nombre": "Ana"}, emoji="💩")
+    assert ana.emoji == DEFAULT_AVATAR  # el que no está en la lista se descarta, no se guarda
+
+    with pytest.raises(LiveError):
+        session.set_avatar(ana.pid, "<script>")
+
+
+def test_las_reacciones_tienen_freno_por_alumno():
+    """Sin cooldown, un solo alumno tapa la proyección con cincuenta emojis por segundo."""
+    session = _session()
+    ana = session.join({"Carné": "1", "Nombre": "Ana"})
+
+    session.react(ana.pid, "🔥")
+    session.react(ana.pid, "🔥")  # inmediatamente después: se ignora, sin error
+
+    assert len(session.recent_reactions()) == 1
+
+    with pytest.raises(LiveError):
+        session.react(ana.pid, "🖕")  # fuera de los cinco de `REACTIONS`
+
+
+def test_la_sala_de_espera_no_publica_el_carne():
+    """`lobby_roster` viaja por un endpoint SIN autenticación. Solo el nombre y el avatar: el
+    resto del `info {}` es dato personal y no tiene por qué salir de ahí."""
+    session = _session()
+    session.join({"Carné": "2021-999", "Nombre": "Ana"}, emoji="🐼")
+
+    fila = session.public_state()["lobby_roster"][0]
+
+    assert fila == {"label": "Ana", "emoji": "🐼"}
+
+
+def test_las_listas_de_emojis_no_se_desincronizan_con_el_frontend():
+    """`AVATARS` y `REACTIONS` están duplicadas en `src/pages/LivePage.tsx` para pintarlas sin
+    una petición. El backend es quien VALIDA: si allá aparece un emoji que aquí no está, el
+    alumno lo elige, el POST lo rechaza y se queda con el avatar por defecto sin saber por qué.
+    Este test es lo único que impide que las dos listas se separen en silencio."""
+    from pathlib import Path
+
+    from backend.app.live import AVATARS, REACTIONS
+
+    fuente = (Path(__file__).resolve().parents[2] / "src" / "pages" / "LivePage.tsx").read_text(encoding="utf-8")
+
+    def lista(nombre: str) -> set[str]:
+        bloque = fuente.split(f"const {nombre} = [", 1)[1].split("];", 1)[0]
+        return {trozo.strip().strip("',") for trozo in bloque.replace("\n", "").split(",") if trozo.strip()}
+
+    assert lista("AVATARS") == set(AVATARS)
+    assert lista("REACTIONS") == set(REACTIONS)

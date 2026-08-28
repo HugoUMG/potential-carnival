@@ -28,6 +28,7 @@ from .models import (
     ClassroomWorksheetAssignment,
     GoogleAuthRequest,
     LiveAnswer,
+    LiveEmoji,
     LiveJoin,
     LiveOpenQuestion,
     LiveSessionCreate,
@@ -1308,6 +1309,15 @@ def list_live_sessions(current_user: PublicUser = Depends(require_teacher_or_adm
     return live.list_sessions(current_user.id, current_user.role == UserRole.admin)
 
 
+# También antes de `/live/{code}`, por el mismo motivo que `/live/sessions`.
+@app.get("/live/history")
+def live_history(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict[str, Any]]:
+    """Sesiones en vivo ya terminadas. Sale de las entregas que guarda `finish`, no de la
+    memoria: una sesión sobrevive al reinicio del proceso aquí, en `list_sessions` no."""
+    owner = None if current_user.role == UserRole.admin else current_user.id
+    return repository.live_session_history(owner)
+
+
 @app.get("/live/{code}")
 def live_state(code: str, pid: str | None = None) -> dict[str, Any]:
     """Estado de la sesión. Sin autenticación: es lo que polean el alumno y la pantalla.
@@ -1321,7 +1331,7 @@ def live_state(code: str, pid: str | None = None) -> dict[str, Any]:
 def live_join(code: str, payload: LiveJoin) -> dict[str, Any]:
     """Entra a la sesión con los campos `info {}` de la hoja (Carné, Nombre…), todos obligatorios."""
     session = live.get_session(code)
-    participant = session.join(payload.info)
+    participant = session.join(payload.info, payload.emoji)
     return {"pid": participant.pid, "label": participant.label, **session.public_state(pid=participant.pid)}
 
 
@@ -1330,6 +1340,23 @@ def live_answer(code: str, payload: LiveAnswer) -> dict[str, Any]:
     session = live.get_session(code)
     result = session.submit(payload.pid, payload.answer)
     return {**result, **session.public_state(pid=payload.pid)}
+
+
+@app.post("/live/{code}/react")
+def live_react(code: str, payload: LiveEmoji) -> dict[str, Any]:
+    """Lanza uno de los cinco emojis de `live.REACTIONS`. No es un chat, a propósito: lo que se
+    manda aquí acaba proyectado en la pared del salón."""
+    session = live.get_session(code)
+    session.react(payload.pid, payload.emoji)
+    return session.public_state(pid=payload.pid)
+
+
+@app.post("/live/{code}/avatar")
+def live_avatar(code: str, payload: LiveEmoji) -> dict[str, Any]:
+    """Cambia el avatar del alumno. Solo en la sala de espera o al terminar (ver `set_avatar`)."""
+    session = live.get_session(code)
+    session.set_avatar(payload.pid, payload.emoji)
+    return session.public_state(pid=payload.pid)
 
 
 @app.get("/live/{code}/host")

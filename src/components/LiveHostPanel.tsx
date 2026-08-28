@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Copy, ExternalLink, Flag, Info, Monitor, Play, Radio, SkipForward, Square, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Copy, ExternalLink, Flag, History, Info, Monitor, Play, Radio, Search, SkipForward, Square, Users, Zap } from 'lucide-react';
 import { RichText } from './RichText';
 import { activityRegistry } from './activityRegistry';
 import {
@@ -7,9 +7,11 @@ import {
   crearSesionEnVivo,
   estadoSesionEnVivo,
   lanzarSiguientePregunta,
+  historialSesionesEnVivo,
   listarSesionesEnVivo,
   revelarRespuesta,
   terminarSesionEnVivo,
+  type LiveHistoryRow,
   type LiveHostState,
 } from '../services/api';
 import type { Worksheet } from '../types';
@@ -96,6 +98,49 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Historial de sesiones en vivo YA TERMINADAS, con su podio.
+ *
+ *  No sale de `live.py` (su estado vive en memoria y se pierde al reiniciar el proceso) sino de
+ *  las entregas que deja `finish`, reagrupadas por el código de sesión. Es lo que hace que una
+ *  evaluación en vivo deje rastro visible sin tener que entrar a Revisión hoja por hoja: ahí
+ *  las entregas quedan mezcladas con las de la hoja normal y no se sabe cuál fue en vivo. */
+function LiveHistory({ rows }: { rows: LiveHistoryRow[] }) {
+  const MEDALS = ['🥇', '🥈', '🥉'];
+  if (!rows.length) return null;
+  return (
+    <div className="rounded-2xl border border-slate-200 p-4">
+      <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
+        <History size={16} className="text-slate-400" /> Sesiones en vivo anteriores
+      </p>
+      <p className="mt-1 text-xs text-slate-400">
+        Las entregas de cada una también están en <strong>Revisión</strong>, dentro de su hoja.
+      </p>
+      <div className="mt-3 grid gap-2">
+        {rows.map((s) => (
+          <details key={s.code} className="rounded-xl bg-slate-50 px-4 py-3">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <strong className="tracking-widest text-slate-900">{s.code}</strong>
+              <span className="min-w-0 flex-1 truncate text-slate-600">{s.title}</span>
+              <span className="shrink-0 text-xs text-slate-500">{s.participants} alumno{s.participants === 1 ? '' : 's'}</span>
+              <span className="shrink-0 text-xs font-semibold text-rex-deep">promedio {s.average}</span>
+            </summary>
+            <ol className="mt-2 grid gap-1">
+              {s.top.map((p, i) => (
+                <li key={`${p.label}-${i}`} className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm">
+                  <span className="w-6 text-center">{MEDALS[i] ?? i + 1}</span>
+                  <span className="min-w-0 flex-1 truncate">{p.label}</span>
+                  <span className="text-xs text-slate-400">{p.correct}✓</span>
+                  <strong className="tabular-nums text-rex-deep">{Math.round(p.score)}</strong>
+                </li>
+              ))}
+            </ol>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Panel del profesor para la evaluación en tiempo real: elige la hoja, abre la sesión y va
  *  lanzando pregunta por pregunta. Nada avanza solo — el ritmo lo pone quien está al frente. */
 export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
@@ -106,18 +151,24 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
   const [instant, setInstant] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [history, setHistory] = useState<LiveHistoryRow[]>([]);
   const polling = useRef(false);
 
   // Se listan TODAS las hojas, no solo las jugables: si una no sirve, el profesor tiene que ver
   // que existe y por qué no sirve. Ocultarla deja la impresión de que se perdió.
-  const breakdowns = new Map(worksheets.map((w) => [w.id, liveBreakdown(w)]));
+  const breakdowns = useMemo(() => new Map(worksheets.map((w) => [w.id, liveBreakdown(w)])), [worksheets]);
   const playable = worksheets.filter((w) => (breakdowns.get(w.id)?.questions ?? 0) > 0);
   const unplayable = worksheets.filter((w) => (breakdowns.get(w.id)?.questions ?? 0) === 0);
+  // Con cincuenta hojas en producción, una lista sin filtro es scroll y nada más.
+  const needle = query.trim().toLowerCase();
+  const visible = needle ? playable.filter((w) => w.title.toLowerCase().includes(needle)) : playable;
 
   // Sesiones que siguen vivas en el backend: si el profesor recargó el navegador a media
   // clase, aquí las recupera en vez de quedarse sin control (la sesión no vive en esta pestaña).
   useEffect(() => {
     void listarSesionesEnVivo().then(setPrevious).catch(() => {});
+    void historialSesionesEnVivo().then(setHistory).catch(() => {});
   }, []);
 
   // Poll del panel: 1.5s basta para ver subir el contador de respuestas.
@@ -180,7 +231,20 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
 
         <div className="mt-6 grid gap-4">
           <div>
-            <p className="mb-2 text-sm font-semibold text-slate-700">1 · Elige la evaluación</p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-700">Elige la evaluación y arráncala aquí mismo</p>
+              {playable.length > 6 && (
+                <label className="flex min-w-[14rem] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5">
+                  <Search size={15} className="shrink-0 text-slate-400" />
+                  <input
+                    className="w-full bg-transparent text-sm outline-none"
+                    placeholder={`Buscar entre ${playable.length} evaluaciones…`}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </label>
+              )}
+            </div>
             {playable.length === 0 ? (
               <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
                 Ninguna de tus evaluaciones tiene actividades que se puedan responder en vivo desde el
@@ -188,30 +252,73 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
                 <strong> verdadero/falso</strong> o <strong>imagen + opción múltiple</strong>. Crea una y vuelve aquí.
               </p>
             ) : (
-              <div className="grid gap-2">
-                {playable.map((w) => {
+              // Contenedor con scroll propio: con cincuenta hojas, la página entera medía metros
+              // y los controles quedaban al fondo, lejos de la hoja que se acababa de elegir.
+              <div className="grid max-h-[26rem] gap-2 overflow-y-auto pr-1">
+                {visible.map((w) => {
                   const { questions, skipped } = breakdowns.get(w.id)!;
                   const selected = worksheetId === w.id;
                   return (
-                    <button
+                    <div
                       key={w.id}
-                      className={`block w-full rounded-2xl border p-4 text-left transition ${selected ? 'border-rex bg-rex-light' : 'border-slate-200 hover:border-slate-300'}`}
-                      onClick={() => setWorksheetId(w.id)}
+                      className={`rounded-2xl border transition ${selected ? 'border-rex bg-rex-light' : 'border-slate-200 hover:border-slate-300'}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                          <strong className="block truncate text-slate-900">{w.title}</strong>
-                          <p className="truncate text-xs text-slate-500"><RichText text={w.description} /></p>
+                      <button className="block w-full p-4 text-left" onClick={() => setWorksheetId(selected ? '' : w.id)}>
+                        <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <strong className="block truncate text-slate-900">{w.title}</strong>
+                            <p className="truncate text-xs text-slate-500"><RichText text={w.description} /></p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-rex-deep">
+                            {questions} pregunta{questions === 1 ? '' : 's'}
+                          </span>
                         </div>
-                        <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-rex-deep">
-                          {questions} pregunta{questions === 1 ? '' : 's'}
-                        </span>
-                      </div>
-                      {/* Solo en la seleccionada: en la lista entera sería ruido. */}
-                      {selected && <SkippedNote skipped={skipped} />}
-                    </button>
+                        {/* Solo en la seleccionada: en la lista entera sería ruido. */}
+                        {selected && <SkippedNote skipped={skipped} />}
+                      </button>
+
+                      {/* Tiempo, feedback y arranque DENTRO de la tarjeta. Antes vivían al final
+                          de la página: elegir una hoja de la posición 40 obligaba a bajar hasta
+                          el fondo, poner el tiempo y arrancar sin ver ya cuál se había elegido. */}
+                      {selected && (
+                        <div className="border-t border-rex/20 p-4">
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tiempo por pregunta</p>
+                          <div className="flex flex-wrap gap-2">
+                            {DURATIONS.map((d) => (
+                              <button
+                                key={d}
+                                className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${duration === d ? 'bg-rex text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+                                onClick={() => setDuration(d)}
+                              >
+                                {d === 0 ? 'Sin límite' : `${d}s`}
+                              </button>
+                            ))}
+                          </div>
+                          <label className="mt-3 flex items-start gap-2 text-sm text-slate-600">
+                            <input type="checkbox" className="mt-0.5" checked={instant} onChange={(e) => setInstant(e.target.checked)} />
+                            <span>
+                              Mostrar el ✓/✗ al momento de responder.
+                              <span className="block text-xs text-slate-400">
+                                Apagado (recomendado): el resultado sale cuando cierras la pregunta, así el primero en responder no le canta la respuesta al de al lado.
+                              </span>
+                            </span>
+                          </label>
+                          {error && <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
+                          <button
+                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-rex px-6 py-3.5 text-base font-bold text-white transition hover:bg-rex-dark disabled:opacity-50"
+                            disabled={busy}
+                            onClick={() => void run(() => crearSesionEnVivo(w.id, duration, instant))}
+                          >
+                            <Zap size={18} /> {busy ? 'Abriendo…' : 'Iniciar evaluación con esta actividad'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
+                {visible.length === 0 && (
+                  <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Ninguna evaluación jugable se llama así.</p>
+                )}
               </div>
             )}
 
@@ -232,39 +339,7 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
             )}
           </div>
 
-          <div>
-            <p className="mb-2 text-sm font-semibold text-slate-700">2 · Tiempo por pregunta</p>
-            <div className="flex flex-wrap gap-2">
-              {DURATIONS.map((d) => (
-                <button
-                  key={d}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${duration === d ? 'bg-rex text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  onClick={() => setDuration(d)}
-                >
-                  {d === 0 ? 'Sin límite' : `${d}s`}
-                </button>
-              ))}
-            </div>
-            <label className="mt-3 flex items-start gap-2 text-sm text-slate-600">
-              <input type="checkbox" className="mt-0.5" checked={instant} onChange={(e) => setInstant(e.target.checked)} />
-              <span>
-                Mostrar el ✓/✗ al momento de responder.
-                <span className="block text-xs text-slate-400">
-                  Apagado (recomendado): el resultado sale cuando cierras la pregunta, así el primero en responder no le canta la respuesta al de al lado.
-                </span>
-              </span>
-            </label>
-          </div>
-
-          {error && <p className="rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
-
-          <button
-            className="flex items-center justify-center gap-2 rounded-2xl bg-rex px-6 py-4 text-lg font-bold text-white transition hover:bg-rex-dark disabled:opacity-50"
-            disabled={!worksheetId || busy}
-            onClick={() => void run(() => crearSesionEnVivo(worksheetId, duration, instant))}
-          >
-            <Radio size={20} /> {busy ? 'Abriendo…' : 'Abrir sesión en vivo'}
-          </button>
+          <LiveHistory rows={history} />
         </div>
       </section>
     );
@@ -419,12 +494,34 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
           {state.roster.map((p, i) => (
             <li key={`${p.label}-${i}`} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${i < 3 ? 'bg-spike/10' : 'bg-slate-50'}`}>
               <span className="w-6 text-center font-bold text-slate-400">{i + 1}</span>
+              <span aria-hidden>{p.emoji}</span>
               <span className="min-w-0 flex-1 truncate font-semibold text-slate-800" title={Object.entries(p.info).map(([k, v]) => `${k}: ${v}`).join(' · ')}>{p.label}</span>
+              {/* El promedio por acierto es lo único que separa "acertó más" de "fue más rápido"
+                  cuando dos puntajes se cruzan: es la pregunta que hacen los alumnos al ver el
+                  podio, y aquí el profesor tiene la respuesta a mano. */}
+              {p.avg_speed != null && <span className="text-[11px] tabular-nums text-slate-400" title="Segundos promedio por acierto">{p.avg_speed}s</span>}
               <span className="text-xs text-slate-400">{p.correct}✓</span>
               <strong className="tabular-nums text-rex-deep">{p.score}</strong>
             </li>
           ))}
         </ol>
+
+        {(state.awards?.length ?? 0) > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Menciones</p>
+            <ul className="grid gap-1.5">
+              {state.awards!.map((a) => (
+                <li key={a.key} className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs">
+                  <span className="text-base" aria-hidden>{a.badge}</span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-slate-800">{a.title}</strong>
+                    <span className="block truncate text-slate-400">{a.emoji} {a.label} · {a.detail}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </aside>
     </section>
   );

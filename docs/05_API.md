@@ -253,6 +253,7 @@ El estado vive **en memoria** (`backend/app/live.py`), no en la base.
 ```
 POST   /live/sessions                 — Abrir sesión desde una hoja propia → código de 5 letras   (profesor)
 GET    /live/sessions                 — Sesiones abiertas propias (recuperar tras recargar)       (profesor)
+GET    /live/history                  — Sesiones YA TERMINADAS con su podio (sale de la BD)       (profesor)
 GET    /live/{code}/host              — Estado del panel: marcador completo + temario             (dueño)
 POST   /live/{code}/next              — Lanzar la siguiente pregunta (body opcional: `duration`)  (dueño)
 POST   /live/{code}/reveal            — Cerrar la pregunta antes de tiempo y revelar              (dueño)
@@ -262,6 +263,8 @@ DELETE /live/{code}                   — Cerrar y descartar la sesión         
 GET    /live/{code}?pid=…             — Estado de la sesión (lo que polean alumno y pantalla)     (sin JWT)
 POST   /live/{code}/join              — Entrar con los campos `info {}` de la hoja → `pid`        (sin JWT)
 POST   /live/{code}/answer            — Enviar respuesta a la pregunta abierta                    (sin JWT)
+POST   /live/{code}/react             — Lanzar uno de los 5 emojis de `REACTIONS`                 (sin JWT)
+POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `ended`)             (sin JWT)
 ```
 
 - **Cuatro tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse` e
@@ -287,6 +290,28 @@ POST   /live/{code}/answer            — Enviar respuesta a la pregunta abierta
 - `finish` escribe una fila en `worksheet_responses` por alumno que haya respondido algo, con
   `guest_token = live:{code}:{pid}` y los `info {}` en `_info_N`. Aparecen en **Revisión** como
   cualquier otra entrega. Es lo único que sobrevive al reinicio del proceso.
+- **El puntaje son DOS mitades y viajan separadas.** `_points()` devuelve `(500 por acertar, hasta
+  500 por rapidez)`; `me.last_base` / `me.last_speed_bonus` las mandan al alumno **junto con el
+  ✓/✗** (antes delataría si acertó) y `roster[].avg_speed` da al profesor los segundos promedio por
+  acierto. Sin ese desglose, un marcador donde el segundo tiene más correctas que el primero no se
+  puede explicar: es exactamente la pregunta que hace el salón al ver el podio (ADR-30).
+- **Menciones al terminar** (`awards`, fase `ended` y siempre en `host_state`): *La mente maestra*
+  (más aciertos **y** más rápido), *El mentalista*, *El más veloz del Oeste*, *El imparable*,
+  *El francotirador*, *El incansable*. Cada alumno se lleva **una** como mucho — repartir las
+  cuatro entre el mismo primer lugar deja al resto del salón sin nada. Solo cuentan los aciertos
+  para la velocidad: contestar rapidísimo y mal no es ser rápido.
+- **Avatar y reacciones son listas CERRADAS** (`AVATARS`, 20; `REACTIONS`, 5), duplicadas en
+  `src/pages/LivePage.tsx` y comprobadas por un test. Lo que se elija ahí acaba proyectado en la
+  pared del salón, así que el backend no acepta cualquier cadena que llegue en el JSON. Las
+  reacciones no son un chat, a propósito: con cinco caras no hay nada que moderar. Llevan cooldown
+  de 1,5 s por alumno, viven 6 s y **no** suben `version` (son decoración, no un evento de sesión).
+- **El avatar se congela al arrancar.** `set_avatar` solo funciona en `lobby` o `ended`: cambiar de
+  cara a mitad de pregunta distrae al salón y hace irreconocible el marcador entre una y otra.
+- `lobby_roster` (solo en fase `lobby`) lleva **nombre y avatar y nada más**, cortado en 60. Sale
+  por un endpoint sin JWT: el carné no tiene por qué viajar ahí. Lo cubre un test.
+- `GET /live/history` **no** lee la memoria: reagrupa las entregas que dejó `finish` por el código
+  del `guest_token`. Por eso una sesión en curso no aparece y el historial sobrevive a un redeploy,
+  al revés que `GET /live/sessions` (ADR-31).
 - **La nota se calcula sobre las preguntas LANZADAS, no sobre las respondidas** (ADR-28). Una
   pregunta sin responder cuenta como incorrecta, con el motivo en `teacher_comment` — se ve en
   Revisión con 💬: *"No respondió a tiempo."* si ya estaba dentro cuando se lanzó, *"Pregunta
