@@ -52,20 +52,54 @@ function colorFor(index: number, type?: string) {
 
 // ── Infraestructura compartida ────────────────────────────────────────────────
 
-/** Poll de 1s. ponytail: `setInterval` + fetch en vez de WebSockets — el backend no tiene
- *  infraestructura de tiempo real y 1s de latencia no se nota en un juego de preguntas. El
- *  techo: con cientos de alumnos o si el retraso llega a molestar, el salto es a WebSockets.
+/** Cada cuánto pregunta el cliente, SEGÚN LA FASE. Las que no están aquí van a 1s.
+ *
+ *  Medido: la lógica de la sesión es el 0,6% del coste de una petición y la pila HTTP el 99,4%,
+ *  así que lo único que mueve la aguja del servidor es CUÁNTAS peticiones se hacen. Y el grueso
+ *  no está en el juego: está en la sala de espera (cincuenta celulares preguntando cada segundo
+ *  mientras el profesor monta el proyector) y en la pantalla final (preguntando para siempre por
+ *  unos resultados que ya no cambian). Pregunta y revelación siguen a 1s: ahí sí se siente.
+ *
+ *  Medido sobre una sesión modelo (3 min de espera + 20 preguntas de 30s + 5 min de resultados):
+ *  **31% menos peticiones**, 1080 → 750 por alumno. Sube bastante si la espera o la pantalla
+ *  final se quedan puestas más rato, que es lo que pasa en una clase de verdad.
+ *
+ *  Importa porque el backend corre en el plan gratuito de Render (0.1 CPU). */
+const POLL_MS: Record<string, number> = {
+  lobby: 2000,
+  ended: 5000,
+};
+const POLL_DEFAULT_MS = 1000;
+
+/** ponytail: `setInterval` + fetch en vez de WebSockets — el backend no tiene infraestructura de
+ *  tiempo real y 1s de latencia no se nota en un juego de preguntas. El techo: con cientos de
+ *  alumnos o si el retraso llega a molestar, el salto es a WebSockets (ADR-25).
  *  `busy` evita que dos peticiones se solapen cuando la red va lenta. */
 function useLivePoll(code: string, pid: string | null) {
   const [state, setState] = useState<LiveState | null>(null);
   const [error, setError] = useState('');
   const busy = useRef(false);
+  const phase = useRef<string | null>(null);
+  const lastFetch = useRef(0);
+
+  // La fase se guarda en un ref, NO en las dependencias del efecto de abajo. `useLivePoll` crea
+  // un `state` nuevo en cada poll: con `state` en las dependencias, el efecto se recrearía cada
+  // segundo y su cleanup mataría el `setInterval` antes de que llegara a disparar. Es el mismo
+  // fallo que dejaba la pantalla naranja fija en `useQuestionAlert` (ADR-29). Aquí la dependencia
+  // es `state?.phase`, un primitivo que cambia cuatro veces por sesión.
+  useEffect(() => { phase.current = state?.phase ?? null; }, [state?.phase]);
 
   useEffect(() => {
     let alive = true;
-    async function tick() {
+    async function tick(force = false) {
       if (busy.current) return;
+      // El temporizador late siempre a 1s (lo más rápido que se necesita) y aquí se decide si
+      // toca pedir de verdad. Reprogramar el intervalo en cada cambio de fase sería volver a
+      // meter el estado en las dependencias, que es justo lo que rompe.
+      const wait = POLL_MS[phase.current ?? ''] ?? POLL_DEFAULT_MS;
+      if (!force && Date.now() - lastFetch.current < wait - 50) return;
       busy.current = true;
+      lastFetch.current = Date.now();
       try {
         const next = await getLiveState(code, pid ?? undefined);
         if (alive) {
@@ -78,7 +112,7 @@ function useLivePoll(code: string, pid: string | null) {
         busy.current = false;
       }
     }
-    void tick();
+    void tick(true);
     const id = setInterval(() => void tick(), 1000);
     return () => { alive = false; clearInterval(id); };
   }, [code, pid]);

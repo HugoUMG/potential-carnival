@@ -786,6 +786,43 @@ proyecte con la barra de direcciones visible la enseña: es del mismo orden que 
 sesión, y quien quisiera usarla tendría que teclear un token de 11 caracteres para oír un audio que
 está sonando por los altavoces.
 
+## 🟢 ADR-34 — El polling se espacia por fase, no se optimiza la lógica de la sesión
+
+**Contexto.** El backend corre en el plan **gratuito** de Render: 0.1 CPU y 512 MB. Con 50 alumnos
+poleando cada segundo son ~52 peticiones/segundo sostenidas, y había que saber si aguantaba.
+
+**Medición** (`live.py` es lógica pura, así que se puede cronometrar sin levantar la app):
+
+| Parte de una petición | Coste | % |
+|---|---|---|
+| `public_state()` + `json.dumps()` | 0,027 ms | **0,6 %** |
+| Pila HTTP/ASGI | ~4,4 ms | **99,4 %** |
+
+RAM: 0,06 MB por sesión de 50 alumnos, 0,30 MB con 300 — irrelevante frente a 512 MB. Y el **tipo**
+de actividad no cambia nada por poll (0,018 ms sea `multiplechoice`, escucha o lectura): la
+explosión y la extracción ocurren **una vez**, al abrir la sesión.
+
+**Decisión.** No se optimiza nada de `live.py`: sería pulir el 0,6%. Se reduce el número de
+peticiones espaciando el poll **por fase** — 2s en `lobby`, 5s en `ended`, 1s en el resto. El
+desperdicio no está en el juego sino en la sala de espera (cincuenta celulares preguntando cada
+segundo mientras el profesor monta el proyector) y en la pantalla de resultados. Medido sobre una
+sesión modelo: **31% menos peticiones**, y más si esas dos pantallas se quedan puestas.
+
+**Alternativas descartadas.**
+
+- *Subir el intervalo base a 2s para todo.* Ahorra más, pero el retraso se siente justo donde
+  importa: al lanzar una pregunta y al revelarla.
+- *Reprogramar el `setInterval` en cada cambio de fase.* Obliga a meter el estado en las
+  dependencias del efecto, que es exactamente lo que provocó el bug de ADR-29. El temporizador
+  late siempre a 1s y una compuerta decide si toca pedir; la fase vive en un `ref`.
+- *WebSockets.* Sigue siendo la salida correcta por encima de ~100 alumnos simultáneos (ADR-25),
+  pero es una infraestructura entera para un problema que un `if` resuelve a este tamaño.
+
+**Consecuencia.** El riesgo real del plan gratuito **no es la CPU**: es que la sesión vive en
+memoria (ADR-25) y un reinicio del proceso la borra. UptimeRobot evita el spin-down por
+inactividad, pero **un redeploy a media clase pierde la sesión en curso** — las notas solo
+sobreviven si ya se pulsó *Terminar y guardar*.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:
