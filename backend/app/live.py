@@ -42,7 +42,7 @@ from typing import Any
 LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice",
               "matching", "imagematching", "dragdrop", "fillblank",
               "listeningmultiplechoice", "listeningtruefalse", "listeningmatching",
-              "listeningfillblank", "listeningorder")
+              "listeningfillblank", "listeningorder", "readingtruefalse")
 
 # Cuántas fichas puede tener una oración para ordenar. Armar doce fichas con el pulgar y el
 # cronómetro corriendo no es una pregunta de inglés, es una de motricidad.
@@ -808,6 +808,34 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
         return []
     if kind == "listeningfillblank" and not audio:
         return []
+
+    # `readingtruefalse` es un `truefalse` con un texto encima. NO usa la subfase de escucha, y
+    # la diferencia no es de comodidad: el audio es EFÍMERO —no se puede volver a oír mientras
+    # el reloj corre, por eso necesita una pausa antes de arrancarlo— y el texto se queda en
+    # pantalla, así que se lee mientras se responde. Es el mismo trato que ya reciben los textos
+    # de un `block {}`. Lo que sí hace falta es más tiempo, y el panel lo sugiere.
+    if kind == "readingtruefalse":
+        content = (getattr(activity, "content", None) or "").strip()
+        statements = [
+            s for s in (getattr(activity, "statements", None) or [])
+            if (s.get("text") or "").strip() and s.get("answer") is not None
+        ]
+        if not content or not statements:
+            return []
+        return [
+            LiveQuestion(
+                id=f"{activity.id}:{index}",
+                type=kind,
+                question=statement["text"].strip(),
+                options=list(TRUE_FALSE_OPTIONS),
+                answer="True" if statement["answer"] else "False",
+                # El texto de la actividad gana al del bloque: es más específico. Un
+                # `readingtruefalse` dentro de un bloque con lectura es raro, pero si pasa, el
+                # alumno tiene que ver el que la pregunta cita.
+                passage=content,
+            )
+            for index, statement in enumerate(statements)
+        ]
 
     if kind == "truefalse":
         out = []

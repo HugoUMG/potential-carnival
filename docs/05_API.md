@@ -269,11 +269,16 @@ POST   /live/{code}/react             — Lanzar uno de los 5 emojis de `REACTIO
 POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `ended`)             (sin JWT)
 ```
 
-- **Trece tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse`,
+- **Catorce tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse`,
   `imagechoice`, `matching`, `imagematching`, `dragdrop`, `fillblank`, `listeningmultiplechoice`,
-  `listeningtruefalse`, `listeningmatching`, `listeningfillblank` y `listeningorder`. Son los que
-  se responden desde el celular y se califican solos; el resto califica en diferido. Una hoja sin
-  ninguno devuelve **422** al abrir la sesión.
+  `listeningtruefalse`, `listeningmatching`, `listeningfillblank`, `listeningorder` y
+  `readingtruefalse`. Son los que se responden desde el celular y se califican solos; el resto
+  califica en diferido. Una hoja sin ninguno devuelve **422** al abrir la sesión.
+- **La lectura NO pasa por la subfase, el audio sí**, y la diferencia no es de comodidad: el audio
+  es **efímero** —no se puede volver a oír mientras el reloj corre, de ahí la pausa— y el texto se
+  queda en pantalla, así que se lee mientras se responde. `readingtruefalse` manda su `content` en
+  `question.passage`, con **cada** enunciado: el alumno responde el tercero varios minutos después
+  de que se proyectara el primero. Mismo trato que los textos de un `block {}`.
 - **Subfase `listening`** (ADR-33). Una pregunta con audio nace ahí: se proyecta y suena, pero los
   botones del alumno están **cerrados** y el cronómetro **no ha arrancado**. Lo cierra el profesor
   con `POST /live/{code}/answers`, y ahí empieza a contar. Sin esa subfase, el bono de rapidez de

@@ -24,7 +24,7 @@ import type { Worksheet } from '../types';
 const LIVE_TYPES = new Set([
   'multiplechoice', 'multiselect', 'truefalse', 'imagechoice', 'matching', 'imagematching',
   'dragdrop', 'fillblank', 'listeningmultiplechoice', 'listeningtruefalse', 'listeningmatching',
-  'listeningfillblank', 'listeningorder',
+  'listeningfillblank', 'listeningorder', 'readingtruefalse',
 ]);
 
 /** Tope de opciones por pregunta. **Mismo valor que `MAX_LIVE_OPTIONS` en `live.py`.** */
@@ -38,7 +38,7 @@ const BLANK = '_____';
 
 /** Tipos que se responden con el teclado o colocando fichas. Sirven para sugerir más tiempo:
  *  20 segundos alcanzan para tocar un botón, no para escribir contra reloj en un celular. */
-const TYPING_TYPES = new Set(['fillblank', 'dragdrop', 'listeningfillblank', 'listeningorder']);
+const TYPING_TYPES = new Set(['fillblank', 'dragdrop', 'listeningfillblank', 'listeningorder', 'readingtruefalse']);
 
 /** Cuántas preguntas da UNA actividad. **Espejo de `activity_questions()` en `live.py`**, que
  *  es la autoridad: aquí solo se cuenta, para no pedir una petición por hoja con cincuenta en
@@ -62,7 +62,8 @@ function questionCount(activity: Worksheet['activities'][number]): number {
     const tiles = (activity.answer ?? []).filter((t) => String(t ?? '').trim());
     return tiles.length >= 2 && tiles.length <= MAX_LIVE_TILES ? 1 : 0;
   }
-  if (activity.type === 'truefalse' || activity.type === 'listeningtruefalse') {
+  if (activity.type === 'readingtruefalse' && !(activity.content ?? '').trim()) return 0;
+  if (activity.type === 'truefalse' || activity.type === 'listeningtruefalse' || activity.type === 'readingtruefalse') {
     return (activity.statements ?? []).filter((s) => s.text?.trim() && s.answer != null).length;
   }
   if (activity.type === 'matching' || activity.type === 'imagematching') {
@@ -141,6 +142,7 @@ const QUESTION_BADGE: Record<string, string> = {
   listeningmatching: '🔊 pareja',
   listeningfillblank: '🔊 hueco',
   listeningorder: '🔊 ordenar',
+  readingtruefalse: '📖 V/F',
 };
 
 function CopyField({ label, value }: { label: string; value: string }) {
@@ -360,8 +362,8 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
                               botón: 20s castigan al que teclea despacio, no al que no sabe. */}
                           {w.activities.some((a) => TYPING_TYPES.has(a.type) && questionCount(a)) && duration > 0 && duration < 45 && (
                             <p className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                              Esta evaluación tiene preguntas que se escriben o se arman con fichas.
-                              Con {duration}s se castiga a quien teclea despacio, no a quien no sabe:{' '}
+                              Esta evaluación tiene preguntas que se escriben, se arman con fichas o traen un
+                              texto que leer. Con {duration}s se mide quién teclea o lee rápido, no quién sabe:{' '}
                               <button className="font-bold underline" onClick={(e) => { e.stopPropagation(); setDuration(45); }}>ponle 45s</button>.
                             </p>
                           )}

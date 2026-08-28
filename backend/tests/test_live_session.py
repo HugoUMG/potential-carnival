@@ -133,7 +133,7 @@ def test_solo_entran_los_tipos_jugables_en_vivo():
         "multiplechoice", "multiselect", "truefalse", "imagechoice",
         "matching", "imagematching", "dragdrop", "fillblank",
         "listeningmultiplechoice", "listeningtruefalse", "listeningmatching",
-        "listeningfillblank", "listeningorder",
+        "listeningfillblank", "listeningorder", "readingtruefalse",
     }
 
 
@@ -885,3 +885,46 @@ def test_ordenar_una_oracion_exige_el_orden_exacto():
     assert pregunta.is_correct(["She", "has", "never", "been"])
     assert not pregunta.is_correct(["She", "never", "has", "been"])
     assert not pregunta.is_correct(["She", "has", "never", "been", "to"])
+
+
+# ── Fase 4: lectura ──────────────────────────────────────────────────────────
+
+
+class _Lectura:
+    id, type = "rtf1", "readingtruefalse"
+    audio_text = voice = rate = None
+    title = "Tom's day"
+    content = "Tom is a baker. He wakes up at four every morning."
+    statements = [{"text": "Tom is a baker.", "answer": True}, {"text": "He sleeps late.", "answer": False}]
+
+
+def test_un_readingtruefalse_lleva_su_texto_a_cada_enunciado():
+    """El texto viaja con CADA pregunta, no una vez al principio: el alumno responde el tercer
+    enunciado varios minutos después de que se proyectara el primero, y sin el texto delante
+    estaría contestando de memoria."""
+    preguntas = activity_questions(_Lectura())
+
+    assert [q.id for q in preguntas] == ["rtf1:0", "rtf1:1"]
+    assert all(q.passage == _Lectura.content for q in preguntas)
+    assert [q.answer for q in preguntas] == ["True", "False"]
+
+
+def test_la_lectura_no_pasa_por_la_subfase_de_escucha():
+    """La distinción que decide el diseño: el audio es EFÍMERO y por eso necesita una pausa antes
+    de arrancar el reloj; el texto se queda en pantalla y se lee mientras se responde. Meter la
+    lectura en la subfase obligaría al profesor a dos clics por pregunta sin ganar nada."""
+    session = _session()
+    session.questions = activity_questions(_Lectura())
+    session.open_next()
+
+    assert session.phase() == "question"     # directo, sin escala
+    assert session.remaining_ms() is not None  # el cronómetro ya corre
+
+
+def test_un_readingtruefalse_sin_texto_no_es_jugable():
+    """Sin `content` no es una actividad de lectura: son enunciados sueltos sobre nada. El
+    parser lo valida, pero una hoja editada a mano puede llegar así."""
+    class _Vacia(_Lectura):
+        content = ""
+
+    assert activity_questions(_Vacia()) == []

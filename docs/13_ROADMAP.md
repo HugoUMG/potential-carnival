@@ -223,9 +223,13 @@ de abrir la sesión y en el temario.
 - **El audio del `block {}` se hereda**: una `multiplechoice` colgada de un bloque con `audio_text`
   es ahora una pregunta de escucha. Los bloques de conversación (`lines`) siguen fuera.
 
-**Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
+**Ampliación del catálogo, fase 4 — lectura (agosto 2026).** De 13 tipos a **14**: `readingtruefalse`,
+que manda su `content` con cada enunciado. **No** usa la subfase de la fase 3, y se evaluó y se
+descartó hacerlo: el audio es efímero y por eso necesita la pausa antes de arrancar el reloj, pero el
+texto se queda en pantalla y se lee mientras se responde. El panel sugiere más tiempo, como con las
+de teclado.
 
-- **Fase 4 — lectura** (`readingtruefalse`), que reusa la subfase de la 3 para proyectar el texto.
+**Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
 - **`listening` (el tipo) y `conversation`.** Los dos son respuesta de texto libre con clave, y
   `_build_answer_details` los compara exacto **a sabiendas de que casi siempre falla**, dejando que
   la IA los rescate después (por eso están en `_AI_RESCUABLE`). En vivo no hay IA: el ✓/✗ instantáneo
