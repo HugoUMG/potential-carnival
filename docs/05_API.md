@@ -256,6 +256,8 @@ GET    /live/sessions                 — Sesiones abiertas propias (recuperar t
 GET    /live/history                  — Sesiones YA TERMINADAS con su podio (sale de la BD)       (profesor)
 GET    /live/{code}/host              — Estado del panel: marcador completo + temario             (dueño)
 POST   /live/{code}/next              — Lanzar la siguiente pregunta (body opcional: `duration`)  (dueño)
+POST   /live/{code}/answers           — Cerrar la escucha y arrancar el cronómetro               (dueño)
+GET    /live/{code}/audio?k=…         — mp3 de la pregunta abierta, para la PANTALLA          (llave)
 POST   /live/{code}/reveal            — Cerrar la pregunta antes de tiempo y revelar              (dueño)
 POST   /live/{code}/finish            — Terminar y GUARDAR una entrega por alumno                 (dueño)
 DELETE /live/{code}                   — Cerrar y descartar la sesión                              (dueño)
@@ -267,10 +269,30 @@ POST   /live/{code}/react             — Lanzar uno de los 5 emojis de `REACTIO
 POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `ended`)             (sin JWT)
 ```
 
-- **Ocho tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse`,
-  `imagechoice`, `matching`, `imagematching`, `dragdrop` y `fillblank`. Son los que se responden
-  desde el celular y se califican solos; el resto necesita audio o califica en diferido. Una hoja
-  sin ninguno devuelve **422** al abrir la sesión.
+- **Trece tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse`,
+  `imagechoice`, `matching`, `imagematching`, `dragdrop`, `fillblank`, `listeningmultiplechoice`,
+  `listeningtruefalse`, `listeningmatching`, `listeningfillblank` y `listeningorder`. Son los que
+  se responden desde el celular y se califican solos; el resto califica en diferido. Una hoja sin
+  ninguno devuelve **422** al abrir la sesión.
+- **Subfase `listening`** (ADR-33). Una pregunta con audio nace ahí: se proyecta y suena, pero los
+  botones del alumno están **cerrados** y el cronómetro **no ha arrancado**. Lo cierra el profesor
+  con `POST /live/{code}/answers`, y ahí empieza a contar. Sin esa subfase, el bono de rapidez de
+  `_points` premia a quien toca un botón antes de oír: 500 puntos por adivinar a ciegas, y el que
+  escucha la pregunta entera pierde por escucharla. Las preguntas **sin** audio no pasan por aquí.
+- **El audio suena SOLO en la pantalla proyectada, y su texto no viaja nunca.** `public_state()`
+  manda `has_audio: bool` y nada más; el mp3 se pide a `GET /live/{code}/audio?k={screen_key}`.
+  La llave se genera al crear la sesión y viaja **solo en `host_state()`** (detrás del JWT); el
+  panel la mete en la URL de proyección. Es necesario porque el alumno y la pantalla polean el
+  MISMO endpoint público: sin una llave aparte, cualquier forma de mandar el audio a la pantalla
+  se lo manda también al celular, y `audio_text` es la transcripción literal — la regla 41 rota
+  por otra puerta. Lo cubre un test. Reproducir en 50 celulares además no serviría: van
+  desfasados y son 50 peticiones a `/tts` por pregunta desde la IP del salón (429 asegurado).
+- **El audio del `block {}` se hereda.** Una `multiplechoice` normal colgada de un bloque con
+  `audio_text` es, en vivo, una pregunta de escucha. Los bloques de **conversación** (`lines`, dos
+  voces) siguen descartándose y reportándose: sintetizarlos es concatenar un mp3 por turno.
+- **`listeningorder`** usa `input: "order"` (fichas que se tocan en orden). Compara con `==` y no
+  con `>=`: ahí sobrar una ficha **sí** es un error, al revés que en los huecos, donde lo que
+  sobra es un campo vacío del cliente.
 - **`fillblank` y `dragdrop` comparten mecánica** (`input: "blanks"`) y solo cambia de dónde sale
   la palabra: con `options` (el `bank`) se tocan **fichas**, sin ellas se **teclea**. Nada de
   arrastrar — en pantalla chica y contra reloj, tocar hace lo mismo sin frustrar. La respuesta es

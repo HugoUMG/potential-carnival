@@ -40,7 +40,13 @@ from typing import Any
 # `src/components/LiveHostPanel.tsx` para pintar ese resumen sin una petición por hoja; si cambia
 # aquí, cambia allá — lo comprueba un test.
 LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice",
-              "matching", "imagematching", "dragdrop", "fillblank")
+              "matching", "imagematching", "dragdrop", "fillblank",
+              "listeningmultiplechoice", "listeningtruefalse", "listeningmatching",
+              "listeningfillblank", "listeningorder")
+
+# Cuántas fichas puede tener una oración para ordenar. Armar doce fichas con el pulgar y el
+# cronómetro corriendo no es una pregunta de inglés, es una de motricidad.
+MAX_LIVE_TILES = 8
 
 # El hueco del DSL. Misma cadena que cuenta `_activity_problem` en `parser.py` y que parte el
 # renderer de la hoja: si aquí se contara distinto, la sesión pediría más o menos huecos de los
@@ -117,6 +123,15 @@ class LiveQuestion:
     # ("choice", "multi", y más adelante "text", "blanks", "order"); `type` se queda solo para
     # la etiqueta y el color.
     input: str = "choice"
+    # ── Audio ────────────────────────────────────────────────────────────────
+    # El texto que se sintetiza NUNCA sale en `public_state()`: el alumno y la pantalla polean
+    # el MISMO endpoint sin autenticación, así que publicarlo aquí sería regalar la
+    # transcripción del audio a cualquiera que abra las herramientas del navegador — la regla 41
+    # rota por otra puerta. Al cliente solo le llega `has_audio`; el mp3 se pide aparte, con la
+    # llave de pantalla (`LiveSession.screen_key`), que solo viaja en `host_state()`.
+    audio_text: str | None = None
+    voice: str | None = None
+    rate: str | None = None
     # Texto compartido sobre el que pregunta la actividad (el `text` de un `block {}`). Se pinta
     # arriba del enunciado. Sin esto, una hoja con una lectura y cinco preguntas debajo mandaba
     # al alumno las preguntas SIN el texto del que hablan.
@@ -146,6 +161,15 @@ class LiveQuestion:
             correct = {_norm(a) for a in (self.answer if isinstance(self.answer, list) else [self.answer])}
             chosen = {_norm(a) for a in (given if isinstance(given, list) else ([given] if given else []))}
             return bool(correct) and chosen == correct
+        if self.input == "order":
+            # Orden EXACTO, con `==` y no `>=`: aquí sobrar una ficha sí es un error (`main.py`
+            # usa el mismo criterio para `listeningorder`). En los huecos no, porque el que
+            # sobra es un campo vacío del cliente, no una palabra que el alumno haya puesto.
+            correct_order = self.answer if isinstance(self.answer, list) else [self.answer]
+            chosen_order = given if isinstance(given, list) else [given]
+            return len(chosen_order) == len(correct_order) and all(
+                _norm(chosen_order[i]) == _norm(c) for i, c in enumerate(correct_order)
+            )
         if self.input == "blanks":
             correct_list = self.answer if isinstance(self.answer, list) else [self.answer]
             chosen_list = given if isinstance(given, list) else [given]
@@ -211,6 +235,11 @@ class LiveSession:
     version: int = 0  # sube en cada cambio; el cliente lo usa para saber "pasó algo"
     participants: dict[str, Participant] = field(default_factory=dict)
     created_at: float = field(default_factory=time.monotonic)
+    # Llave del audio proyectado. Viaja SOLO en `host_state()` (el panel la mete en la URL de la
+    # pantalla); con ella se pide el mp3 en `/live/{code}/audio`. Existe porque el alumno y la
+    # pantalla polean el MISMO endpoint público: sin una llave aparte, cualquier forma de mandar
+    # el audio a la pantalla se lo manda también al celular, y con él la transcripción.
+    screen_key: str = field(default_factory=lambda: secrets.token_urlsafe(8))
     # Reacciones recientes, las últimas primero. NO suben `version`: son decoración, y hacer que
     # cuenten como "pasó algo" mezclaría un emoji con lanzar una pregunta.
     reactions: list[dict[str, Any]] = field(default_factory=list)
@@ -231,16 +260,26 @@ class LiveSession:
         return max(0, int(left * 1000))
 
     def phase(self) -> str:
-        """lobby → question → reveal → … → ended.
+        """lobby → [listening] → question → reveal → … → ended.
 
         El tiempo agotado pasa solo a `reveal` (una pregunta abierta con el cronómetro en cero
         sería un limbo), pero LANZAR la siguiente siempre es decisión del profesor.
+
+        `listening` es la subfase de las preguntas con audio: se proyecta y suena, pero los
+        botones del alumno están cerrados y el cronómetro **no ha arrancado**. Sin ella, el bono
+        de rapidez de `_points` premiaría a quien toca un botón antes de oír el audio: 500 puntos
+        por adivinar a ciegas, y el que escucha la pregunta entera pierde por escucharla. El
+        cronómetro arranca cuando el profesor pulsa "Abrir respuestas" (`open_answers`).
         """
         if self.index < 0:
             return "lobby"
         if self.index >= len(self.questions):
             return "ended"
-        if self.revealed or self.remaining_ms() == 0:
+        if self.revealed:
+            return "reveal"
+        if self.opened_at is None:
+            return "listening"  # lanzada pero sin respuestas abiertas todavía
+        if self.remaining_ms() == 0:
             return "reveal"
         return "question"
 
@@ -329,9 +368,22 @@ class LiveSession:
         if duration is not None:
             self.duration = max(0, min(600, duration))
         self.index += 1
-        self.opened_at = time.monotonic()
-        self.question_opened_at[self.questions[self.index].id] = self.opened_at
+        question = self.questions[self.index]
+        # Con audio, la pregunta nace en `listening`: se proyecta y suena con las respuestas
+        # cerradas, y el cronómetro no arranca hasta `open_answers`. Sin audio, como siempre.
+        self.opened_at = None if question.audio_text else time.monotonic()
+        # Se marca al LANZAR, no al abrir respuestas: quien entra durante la escucha sí vivió la
+        # pregunta, y esto es lo que `snapshot()` usa para distinguir "no llegó a tiempo" de "se
+        # conectó después". Medirlo desde `open_answers` regalaría la pregunta al que entra tarde.
+        self.question_opened_at[question.id] = time.monotonic()
         self.revealed = False
+        self.version += 1
+
+    def open_answers(self) -> None:
+        """Cierra la escucha y arranca el cronómetro. Solo tiene sentido en fase `listening`."""
+        if self.phase() != "listening":
+            raise LiveError("Las respuestas ya están abiertas")
+        self.opened_at = time.monotonic()
         self.version += 1
 
     def reveal(self) -> None:
@@ -495,11 +547,14 @@ class LiveSession:
             "reactions": self.recent_reactions(),
         }
 
-        if question is not None and phase in {"question", "reveal"}:
+        if question is not None and phase in {"listening", "question", "reveal"}:
             state["question"] = {
                 "id": question.id,
                 "type": question.type,
                 "input": question.input,
+                # Solo el booleano. El texto que se sintetiza NO viaja por aquí: este endpoint
+                # es público y lo poleа el celular del alumno igual que la pantalla.
+                "has_audio": bool(question.audio_text),
                 "question": question.question,
                 "options": question.options,
                 "number": self.index + 1,
@@ -589,6 +644,9 @@ class LiveSession:
         ]
         state["instant_feedback"] = self.instant_feedback
         state["awards"] = self.awards()
+        # Solo aquí: `host_state` va detrás del JWT del profesor. Si esto se colara en
+        # `public_state`, el celular del alumno podría pedir el mp3 y sacar la transcripción.
+        state["screen_key"] = self.screen_key
         return state
 
     def snapshot(self) -> list[dict[str, Any]]:
@@ -674,8 +732,82 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
     if kind not in LIVE_TYPES:
         return []
 
+    audio = getattr(activity, "audio_text", None) or None
+    voice = getattr(activity, "voice", None)
+    rate = getattr(activity, "rate", None)
+
     def build(**kwargs: Any) -> LiveQuestion:
-        return LiveQuestion(passage=passage, **kwargs)
+        kwargs.setdefault("audio_text", audio)
+        return LiveQuestion(passage=passage, voice=voice, rate=rate, **kwargs)
+
+    # ── Audio ────────────────────────────────────────────────────────────────
+    # Los cinco tipos `listening*` son los de arriba con un audio delante. Todos exigen
+    # `audio_text`: sin él, la pregunta es incontestable (y el parser ya lo valida, pero una
+    # hoja vieja o editada a mano puede llegar sin él).
+
+    if kind == "listeningmatching":
+        # Un audio POR PAR: se oye una frase y se elige con qué empareja. De todos los tipos de
+        # audio es el que mejor funciona en vivo — el audio es corto y se repite por pregunta.
+        pairs = [p for p in (getattr(activity, "pairs", None) or []) if p.get("audio_text") and p.get("match")]
+        options = list(getattr(activity, "options", None) or []) or [p["match"] for p in pairs]
+        if len(pairs) < 1 or not (2 <= len(options) <= MAX_LIVE_OPTIONS):
+            return []
+        shuffled = list(options)
+        random.Random(f"{activity.id}:live").shuffle(shuffled)
+        return [
+            build(
+                id=f"{activity.id}:{index}",
+                type=kind,
+                # Mismo texto que usa `_build_answer_details` para este tipo: sin el enunciado,
+                # el temario del profesor y Revisión mostrarían filas en blanco.
+                question=f"Audio {index + 1}",
+                options=shuffled,
+                answer=pair["match"],
+                audio_text=pair["audio_text"],
+            )
+            for index, pair in enumerate(pairs)
+        ]
+
+    if kind == "listeningtruefalse":
+        statements = [
+            s for s in (getattr(activity, "statements", None) or [])
+            if (s.get("text") or "").strip() and s.get("answer") is not None
+        ]
+        if not audio or not statements:
+            return []
+        # El MISMO audio en cada enunciado: se vuelve a poder oír en cada pregunta, que es lo
+        # que hace falta cuando son cinco enunciados sobre una grabación de veinte segundos.
+        return [
+            build(
+                id=f"{activity.id}:{index}",
+                type=kind,
+                question=statement["text"].strip(),
+                options=list(TRUE_FALSE_OPTIONS),
+                answer="True" if statement["answer"] else "False",
+            )
+            for index, statement in enumerate(statements)
+        ]
+
+    if kind == "listeningorder":
+        tiles = [str(t) for t in (getattr(activity, "answer", None) or []) if str(t).strip()]
+        if not audio or not (2 <= len(tiles) <= MAX_LIVE_TILES):
+            return []
+        bank = list(getattr(activity, "bank", None) or tiles)
+        shuffled = list(bank)
+        random.Random(f"{activity.id}:live").shuffle(shuffled)
+        return [build(
+            id=activity.id,
+            type=kind,
+            question=str(getattr(activity, "prompt", None) or "Ordena la oración que escuchaste"),
+            options=shuffled,
+            answer=tiles,
+            input="order",
+        )]
+
+    if kind == "listeningmultiplechoice" and not audio:
+        return []
+    if kind == "listeningfillblank" and not audio:
+        return []
 
     if kind == "truefalse":
         out = []
@@ -732,7 +864,7 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
     #
     # El de UN hueco con banco es, además, un `multiplechoice` disfrazado: el parser ya valida
     # que el `bank` contenga todas las respuestas, así que se juega con los botones de siempre.
-    if kind in {"dragdrop", "fillblank"}:
+    if kind in {"dragdrop", "fillblank", "listeningfillblank"}:
         text = str(getattr(activity, "text", None) or "")
         answers = [a for a in (getattr(activity, "answer", None) or []) if str(a).strip()]
         bank = list(getattr(activity, "bank", None) or [])
@@ -776,42 +908,55 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
     )]
 
 
-def _block_context(blocks: list[Any] | None) -> tuple[dict[str, str], set[str]]:
-    """Mapea `id de actividad → texto del bloque`, y aparte las que cuelgan de un bloque con AUDIO.
+@dataclass(slots=True)
+class _BlockContext:
+    """Lo que un `block {}` aporta a cada actividad que cuelga de él.
 
     `WorksheetJson.iter_activities()` aplana los bloques y tira el `BlockData` entero
-    (`models.py`), así que hasta ahora una hoja con una lectura arriba y cinco preguntas debajo
-    (ADR-24) se jugaba en vivo mandando las preguntas SIN el texto del que hablan. Nadie se
-    enteraba: las preguntas llegaban bien formadas, solo que sobre la nada.
-
-    El audio es otra historia y todavía no se puede resolver: reproducirlo en 50 celulares no
-    sirve (van desfasados, y son 50 peticiones a `/tts` por pregunta desde la IP del salón,
-    que es un 429 asegurado), y proyectarlo pide una fase nueva que aún no existe. Hasta
-    entonces esas actividades se DESCARTAN en vez de servirse mudas — una pregunta sobre un
-    audio que nadie ha oído no es jugable, y fallar en voz alta es la regla de la casa.
+    (`models.py`), así que hasta agosto de 2026 una hoja con una lectura arriba y cinco preguntas
+    debajo (ADR-24) se jugaba en vivo mandando las preguntas SIN el texto del que hablan. Nadie se
+    enteraba: llegaban bien formadas, solo que sobre la nada.
     """
-    passages: dict[str, str] = {}
-    muted: set[str] = set()
+    passages: dict[str, str] = field(default_factory=dict)
+    audios: dict[str, tuple[str, str | None, str | None]] = field(default_factory=dict)
+    # Bloques de CONVERSACIÓN (`lines`, dos voces). Siguen mudos: sintetizarlos es concatenar un
+    # mp3 por turno (`/tts/conversation`), no una llamada. Se descartan y se reportan, en vez de
+    # preguntar por un diálogo que nadie ha oído.
+    muted: set[str] = field(default_factory=set)
+
+
+def _block_context(blocks: list[Any] | None) -> _BlockContext:
+    context = _BlockContext()
     for block in blocks or []:
         text = (getattr(block, "text", None) or "").strip()
-        has_audio = bool(getattr(block, "audio_text", None) or getattr(block, "lines", None))
+        audio = (getattr(block, "audio_text", None) or "").strip()
+        lines = getattr(block, "lines", None)
         for activity in getattr(block, "activities", None) or []:
             if text:
-                passages[activity.id] = text
-            if has_audio:
-                muted.add(activity.id)
-    return passages, muted
+                context.passages[activity.id] = text
+            if audio:
+                context.audios[activity.id] = (audio, getattr(block, "voice", None), getattr(block, "rate", None))
+            elif lines:
+                context.muted.add(activity.id)
+    return context
 
 
 def extract_questions(activities: list[Any], blocks: list[Any] | None = None) -> list[LiveQuestion]:
     """Las preguntas jugables de la hoja, en su orden. `blocks` aporta el estímulo compartido."""
-    passages, muted = _block_context(blocks)
-    return [
-        question
-        for activity in activities
-        if activity.id not in muted
-        for question in activity_questions(activity, passages.get(activity.id))
-    ]
+    context = _block_context(blocks)
+    out: list[LiveQuestion] = []
+    for activity in activities:
+        if activity.id in context.muted:
+            continue
+        questions = activity_questions(activity, context.passages.get(activity.id))
+        # El audio del BLOQUE se hereda: una `multiplechoice` normal colgada de un bloque con
+        # `audio_text` es, en vivo, una pregunta de escucha. Solo si la actividad no trae el suyo.
+        if (audio := context.audios.get(activity.id)) is not None:
+            for question in questions:
+                if not question.audio_text:
+                    question.audio_text, question.voice, question.rate = audio
+        out.extend(questions)
+    return out
 
 
 def summarize(activities: list[Any], blocks: list[Any] | None = None) -> dict[str, Any]:
@@ -821,7 +966,7 @@ def summarize(activities: list[Any], blocks: list[Any] | None = None) -> dict[st
     diez actividades abre una sesión de tres preguntas y no hay nada que le diga por qué — el
     fallo silencioso que este proyecto ya se ha comido varias veces (ver 12_RULES).
     """
-    _, muted = _block_context(blocks)
+    context = _block_context(blocks)
     skipped: dict[str, int] = {}
     playable = 0
     for activity in activities:
@@ -830,7 +975,7 @@ def summarize(activities: list[Any], blocks: list[Any] | None = None) -> dict[st
             continue  # material de repaso, no una actividad que se descarte
         # Se cuenta por lo que la actividad DA, no por su tipo: un `matching` de ocho columnas
         # es de tipo jugable y aun así no entra, y eso tiene que verse.
-        count = 0 if activity.id in muted else len(activity_questions(activity))
+        count = 0 if activity.id in context.muted else len(activity_questions(activity))
         if count:
             playable += count
         else:

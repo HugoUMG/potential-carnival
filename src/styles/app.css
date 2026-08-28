@@ -991,3 +991,16 @@ textarea.code-field, textarea.code-field:focus {
   .live-bob, .live-spin, .live-dot, .live-float { animation: none; }
   .live-float { opacity: 1; }
 }
+
+/* Onda de audio: la pantalla proyectada tiene que decir "está sonando" desde el fondo del
+   salón, donde un icono pequeño no se ve. También la usa el celular del alumno en la subfase
+   de escucha, donde no hay nada que tocar y sin movimiento parecería colgado. */
+@keyframes live-wave {
+  0%, 100% { height: 12px; opacity: 0.45; }
+  50%      { height: 44px; opacity: 1; }
+}
+.live-wave { height: 12px; animation: live-wave 0.9s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .live-wave { animation: none; height: 28px; }
+}

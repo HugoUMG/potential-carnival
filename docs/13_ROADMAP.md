@@ -211,13 +211,30 @@ de abrir la sesión y en el temario.
 - La revelación con huecos enseña la **oración resuelta** (en el celular, además, lo que puso el
   alumno). Sin eso quedaba en blanco: `option_counts` viene vacío cuando no hay opciones.
 
+**Ampliación del catálogo, fase 3 — audio (agosto 2026).** De 8 tipos a **13**:
+
+- **`listeningmultiplechoice`, `listeningtruefalse`, `listeningmatching`, `listeningfillblank` y
+  `listeningorder`**, más la mecánica `order` (fichas que se tocan en orden).
+- **Subfase `listening`** (ADR-33): la pregunta suena con las respuestas cerradas y el cronómetro
+  parado; lo arranca el profesor con *Abrir respuestas*. Es lo único que impide que el bono de
+  rapidez premie a quien contesta antes de oír.
+- **El audio suena solo en la pantalla proyectada**, servido con llave para que la transcripción
+  no viaje nunca al celular del alumno. La pantalla pide un gesto de desbloqueo una vez.
+- **El audio del `block {}` se hereda**: una `multiplechoice` colgada de un bloque con `audio_text`
+  es ahora una pregunta de escucha. Los bloques de conversación (`lines`) siguen fuera.
+
 **Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
 
-- **Las fases 3-5 del catálogo.** Decidido: audio (los 6 tipos `listening*`, con **subfase**: el
-  profesor da play y luego abre respuestas, que es lo único que impide que el bono de rapidez
-  premie a quien contesta antes de oír), luego lectura (`readingtruefalse`). Los de respuesta
-  abierta (`textbox`, `imagequestion`, `reading`) **no entran**: sin correcto/incorrecto no hay
-  puntos ni marcador, y en una sesión cronometrada eso rompe el ritmo. Meta realista: **15 de 21**.
+- **Fase 4 — lectura** (`readingtruefalse`), que reusa la subfase de la 3 para proyectar el texto.
+- **`listening` (el tipo) y `conversation`.** Los dos son respuesta de texto libre con clave, y
+  `_build_answer_details` los compara exacto **a sabiendas de que casi siempre falla**, dejando que
+  la IA los rescate después (por eso están en `_AI_RESCUABLE`). En vivo no hay IA: el ✓/✗ instantáneo
+  sería injustamente duro. Hace falta decidir si puntúan con comparación exacta (avisando al profesor
+  de usar respuestas de una palabra) o si entran sin puntaje y los califica la IA al terminar.
+  `conversation` además son ~40 segundos de audio para **una** pregunta: rinde mucho más como
+  estímulo de bloque con varias `multiplechoice` colgando, que es para lo que se diseñó ADR-24.
+- **Los de respuesta abierta** (`textbox`, `imagequestion`, `reading`): sin correcto/incorrecto no
+  hay puntos ni marcador, y en una sesión cronometrada eso rompe el ritmo. Meta realista: **15 de 21**.
 - **`speaking`, definitivamente fuera.** No es criterio, es aritmética: `/public/transcribe` limita a
   60 peticiones por IP y minuto, y un salón entero comparte la IP del WiFi — 50 alumnos respondiendo
   una pregunta hablada dejan sin responder a los últimos, con la clase mirando. Además 50 micrófonos
@@ -233,8 +250,8 @@ de abrir la sesión y en el temario.
 - **`textbox` (Open Answer).** No encaja: no tiene clave, lo califica la IA en diferido. Sin
   correcto/incorrecto no hay puntos ni marcador. Haría falta otro modo (nube de respuestas sin
   puntaje), que es otra función.
-- **`listeningmultiplechoice`.** Calificaría igual que un MC, pero habría que decidir quién reproduce
-  el audio: 50 celulares desfasados no sirven, tendría que sonar solo en la pantalla proyectada.
+- ~~**`listeningmultiplechoice`.**~~ Hecho en la fase 3, junto con los otros cuatro `listening*`.
+  La intuición era correcta: suena **solo** en la pantalla proyectada (ADR-33).
 - **Reanudar una sesión tras un reinicio del backend.** Hoy se pierde la sesión en curso; las notas
   no, si se llegó a pulsar *Terminar y guardar*.
 - ~~**Código QR para entrar.**~~ Hecho: la sala de espera proyecta el QR junto al código (ADR-27).

@@ -781,7 +781,10 @@ export async function generateWorksheetWithAI(
 
 // ── Evaluación en tiempo real ────────────────────────────────────────────────
 
-export type LivePhase = 'lobby' | 'question' | 'reveal' | 'ended';
+/** `listening`: la pregunta está lanzada y el audio suena en la pantalla proyectada, pero los
+ *  botones del alumno están cerrados y el cronómetro NO ha arrancado. Sin esa subfase, el bono
+ *  de rapidez premiaría a quien contesta antes de oír. La abre el profesor con `abrirRespuestas`. */
+export type LivePhase = 'lobby' | 'listening' | 'question' | 'reveal' | 'ended';
 
 export interface LiveState {
   code: string;
@@ -803,7 +806,12 @@ export interface LiveState {
      *  `type`. Con 21 tipos, ramificar por tipo son 21 ramas repartidas en tres archivos.
      *  `blanks`: la oración lleva huecos `_____`; con `options` se tocan fichas, sin ellas se
      *  teclea. La respuesta es una lista POSICIONAL, un elemento por hueco. */
-    input: 'choice' | 'multi' | 'blanks';
+    input: 'choice' | 'multi' | 'blanks' | 'order';
+    /** Si la pregunta lleva audio. El TEXTO que se sintetiza NO viaja nunca por aquí: este
+     *  endpoint es público y lo polea el celular del alumno igual que la pantalla, así que
+     *  mandarlo sería regalar la transcripción. El mp3 se pide en `/live/{code}/audio` con la
+     *  llave de pantalla, que solo llega en `LiveHostState.screen_key`. */
+    has_audio?: boolean;
     question: string;
     options: string[];
     number: number;
@@ -857,6 +865,9 @@ export interface LiveHostState extends LiveState {
   questions: { number: number; question: string; type: string }[];
   roster: { label: string; emoji?: string; info: Record<string, string>; score: number; correct: number; avg_speed: number | null }[];
   instant_feedback: boolean;
+  /** Llave para que la PANTALLA proyectada pueda pedir el mp3. Solo llega aquí, detrás del JWT:
+   *  el panel la mete en la URL de proyección y el celular del alumno nunca la ve. */
+  screen_key?: string;
   /** Actividades de la hoja que NO se pueden jugar en vivo, por tipo. Se enseñan para que
    *  descartarlas sea visible en vez de dejar la sesión corta sin explicación. */
   skipped: { type: string; count: number }[];
@@ -955,6 +966,18 @@ export function estadoSesionEnVivo(code: string): Promise<LiveHostState> {
 
 export function lanzarSiguientePregunta(code: string, duration?: number): Promise<LiveHostState> {
   return request<LiveHostState>(`/live/${encodeURIComponent(code)}/next`, { method: 'POST', body: JSON.stringify({ duration: duration ?? null }) });
+}
+
+/** Cierra la escucha y arranca el cronómetro (`listening` → `question`). */
+export function abrirRespuestas(code: string): Promise<LiveHostState> {
+  return request<LiveHostState>(`/live/${encodeURIComponent(code)}/answers`, { method: 'POST' });
+}
+
+/** URL del mp3 de la pregunta abierta, para el `<audio>` de la pantalla proyectada. */
+export function liveAudioUrl(code: string, screenKey: string, questionId: string): string {
+  // `questionId` no lo usa el backend (sirve el audio de la pregunta ABIERTA): va para que el
+  // navegador trate cada pregunta como un recurso distinto y no reutilice el mp3 anterior.
+  return `${API_BASE_URL}/live/${encodeURIComponent(code)}/audio?k=${encodeURIComponent(screenKey)}&q=${encodeURIComponent(questionId)}`;
 }
 
 export function revelarRespuesta(code: string): Promise<LiveHostState> {

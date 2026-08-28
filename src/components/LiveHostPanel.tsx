@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, ExternalLink, Flag, History, Info, Monitor, Play, Radio, Search, SkipForward, Square, Users, Zap } from 'lucide-react';
+import { Copy, ExternalLink, Flag, History, Info, Monitor, Play, Radio, Search, SkipForward, Square, Users, Volume2, Zap } from 'lucide-react';
 import { RichText } from './RichText';
 import { activityRegistry } from './activityRegistry';
 import {
+  abrirRespuestas,
   cerrarSesionEnVivo,
   crearSesionEnVivo,
   estadoSesionEnVivo,
-  lanzarSiguientePregunta,
   historialSesionesEnVivo,
+  lanzarSiguientePregunta,
   listarSesionesEnVivo,
   revelarRespuesta,
   terminarSesionEnVivo,
@@ -20,18 +21,24 @@ import type { Worksheet } from '../types';
  *  calificación instantánea. **Misma lista que `LIVE_TYPES` en `backend/app/live.py`** — está
  *  duplicada aquí para pintar el resumen de abajo sin una petición por hoja, y hay un test que
  *  falla si las dos se desincronizan (`test_live_session.py`). */
-const LIVE_TYPES = new Set(['multiplechoice', 'multiselect', 'truefalse', 'imagechoice', 'matching', 'imagematching', 'dragdrop', 'fillblank']);
+const LIVE_TYPES = new Set([
+  'multiplechoice', 'multiselect', 'truefalse', 'imagechoice', 'matching', 'imagematching',
+  'dragdrop', 'fillblank', 'listeningmultiplechoice', 'listeningtruefalse', 'listeningmatching',
+  'listeningfillblank', 'listeningorder',
+]);
 
 /** Tope de opciones por pregunta. **Mismo valor que `MAX_LIVE_OPTIONS` en `live.py`.** */
 const MAX_LIVE_OPTIONS = 6;
 /** Tope de huecos por pregunta. **Mismo valor que `MAX_LIVE_BLANKS` en `live.py`.** */
 const MAX_LIVE_BLANKS = 3;
+/** Tope de fichas de una oración para ordenar. **Mismo valor que `MAX_LIVE_TILES` en `live.py`.** */
+const MAX_LIVE_TILES = 8;
 /** El hueco del DSL. **Misma cadena que `BLANK` en `live.py`.** */
 const BLANK = '_____';
 
 /** Tipos que se responden con el teclado o colocando fichas. Sirven para sugerir más tiempo:
  *  20 segundos alcanzan para tocar un botón, no para escribir contra reloj en un celular. */
-const TYPING_TYPES = new Set(['fillblank', 'dragdrop']);
+const TYPING_TYPES = new Set(['fillblank', 'dragdrop', 'listeningfillblank', 'listeningorder']);
 
 /** Cuántas preguntas da UNA actividad. **Espejo de `activity_questions()` en `live.py`**, que
  *  es la autoridad: aquí solo se cuenta, para no pedir una petición por hoja con cincuenta en
@@ -41,8 +48,21 @@ const TYPING_TYPES = new Set(['fillblank', 'dragdrop']);
 function questionCount(activity: Worksheet['activities'][number]): number {
   if (!LIVE_TYPES.has(activity.type)) return 0;
   const within = (n: number) => n >= 2 && n <= MAX_LIVE_OPTIONS;
+  // Los `listening*` sin audio son incontestables: el parser lo valida, pero una hoja vieja o
+  // editada a mano puede llegar sin él, y entonces el backend la descarta.
+  const audio = 'audio_text' in activity ? (activity.audio_text ?? '') : '';
+  if (activity.type.startsWith('listening') && activity.type !== 'listeningmatching' && !audio) return 0;
 
-  if (activity.type === 'truefalse') {
+  if (activity.type === 'listeningmatching') {
+    const pairs = (activity.pairs ?? []).filter((p) => p.audio_text && p.match);
+    const options = (activity.options ?? []).length || pairs.length;
+    return pairs.length >= 1 && within(options) ? pairs.length : 0;
+  }
+  if (activity.type === 'listeningorder') {
+    const tiles = (activity.answer ?? []).filter((t) => String(t ?? '').trim());
+    return tiles.length >= 2 && tiles.length <= MAX_LIVE_TILES ? 1 : 0;
+  }
+  if (activity.type === 'truefalse' || activity.type === 'listeningtruefalse') {
     return (activity.statements ?? []).filter((s) => s.text?.trim() && s.answer != null).length;
   }
   if (activity.type === 'matching' || activity.type === 'imagematching') {
@@ -51,7 +71,7 @@ function questionCount(activity: Worksheet['activities'][number]): number {
     // Una pregunta por fila; las `right` completas son las opciones, de ahí el tope.
     return left.length >= 2 && right.length >= left.length && right.length <= MAX_LIVE_OPTIONS ? left.length : 0;
   }
-  if (activity.type === 'dragdrop' || activity.type === 'fillblank') {
+  if (activity.type === 'dragdrop' || activity.type === 'fillblank' || activity.type === 'listeningfillblank') {
     // Una oración con huecos es UNA pregunta, se teclee o se coloquen fichas.
     const blanks = (activity.text ?? '').split(BLANK).length - 1;
     const answers = (Array.isArray(activity.answer) ? activity.answer : [activity.answer]).filter((a) => String(a ?? '').trim());
@@ -94,11 +114,11 @@ function SkippedNote({ skipped }: { skipped: Map<string, number> | { type: strin
       <span>
         Queda fuera de la sesión: {rows.map((r) => `${r.count} ${typeLabel(r.type)}`).join(' · ')}.
         <span className="block text-slate-400">
-          En vivo se responde lo que se toca con el pulgar y se califica solo: opción múltiple, selección
-          múltiple, verdadero/falso, imagen + opción múltiple, emparejar, emparejar imágenes y arrastrar
-          de un solo hueco. También queda fuera una actividad de esas si pasa de {MAX_LIVE_OPTIONS} opciones
-          (los colores dejan de distinguirse desde el fondo) o si depende de un audio. El resto sigue en la
-          hoja para resolverla normal.
+          En vivo entra lo que se responde desde el celular y se califica solo: opción múltiple, selección
+          múltiple, verdadero/falso, imagen + opción múltiple, emparejar, emparejar imágenes, huecos y los
+          cinco tipos de escucha. Una actividad de esas queda fuera igualmente si pasa de {MAX_LIVE_OPTIONS} opciones
+          (los colores dejan de distinguirse desde el fondo), si tiene más de {MAX_LIVE_BLANKS} huecos, o si cuelga
+          de un bloque de conversación a dos voces. El resto sigue en la hoja para resolverla normal.
         </span>
       </span>
     </p>
@@ -116,6 +136,11 @@ const QUESTION_BADGE: Record<string, string> = {
   imagematching: 'imagen',
   dragdrop: 'hueco',
   fillblank: 'escribir',
+  listeningmultiplechoice: '🔊',
+  listeningtruefalse: '🔊 V/F',
+  listeningmatching: '🔊 pareja',
+  listeningfillblank: '🔊 hueco',
+  listeningorder: '🔊 ordenar',
 };
 
 function CopyField({ label, value }: { label: string; value: string }) {
@@ -404,7 +429,9 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
 
   // ── Sesión abierta: control pregunta por pregunta ──────────────────────────
   const joinUrl = `${window.location.origin}/en-vivo/${state.code}`;
-  const screenUrl = `${joinUrl}/pantalla`;
+  // La llave del audio va en la URL de la PANTALLA y solo ahí: el enlace de los alumnos no la
+  // lleva, así que ningún celular puede pedir el mp3 (y con él, la transcripción).
+  const screenUrl = `${joinUrl}/pantalla${state.screen_key ? `?k=${encodeURIComponent(state.screen_key)}` : ''}`;
   const hasNext = state.index + 1 < state.total;
   const isEnded = state.phase === 'ended';
 
@@ -468,8 +495,10 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
                 <p className="font-bold text-slate-900">
                   {state.phase === 'lobby' ? 'Sala de espera' : `Pregunta ${state.index + 1} de ${state.total}`}
                 </p>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${state.phase === 'question' ? 'bg-emerald-100 text-emerald-700' : state.phase === 'reveal' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
-                  {state.phase === 'question' ? 'Pregunta abierta' : state.phase === 'reveal' ? 'Respuesta revelada' : 'Esperando'}
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${state.phase === 'question' ? 'bg-emerald-100 text-emerald-700' : state.phase === 'reveal' ? 'bg-amber-100 text-amber-700' : state.phase === 'listening' ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {state.phase === 'question' ? 'Pregunta abierta'
+                    : state.phase === 'reveal' ? 'Respuesta revelada'
+                    : state.phase === 'listening' ? 'Sonando el audio' : 'Esperando'}
                 </span>
               </div>
 
@@ -485,6 +514,18 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
               )}
 
               <div className="mt-5 flex flex-wrap gap-3">
+                {/* La escucha se cierra a mano: mientras dure, el cronómetro no ha arrancado y
+                    nadie puede responder, así que el audio se puede repetir sin castigar a
+                    nadie. Es el paso que impide que gane quien contesta antes de oír. */}
+                {state.phase === 'listening' && (
+                  <button
+                    className="flex items-center gap-2 rounded-2xl bg-rex px-6 py-3 font-bold text-white transition hover:bg-rex-dark disabled:opacity-50"
+                    disabled={busy}
+                    onClick={() => void run(() => abrirRespuestas(state.code))}
+                  >
+                    <Volume2 size={18} /> Abrir respuestas y arrancar el tiempo
+                  </button>
+                )}
                 {state.phase === 'question' && (
                   <button
                     className="flex items-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 font-bold text-white transition hover:bg-amber-600 disabled:opacity-50"

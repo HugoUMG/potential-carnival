@@ -746,6 +746,46 @@ pregunta cada segundo— y para que un test pueda comprobarlo. Y aparece un tope
 (6): un `matching` de ocho columnas son ocho botones con `OPTION_COLORS` de cuatro entradas, o sea
 dos azules; se descarta entero y se reporta, porque recortar perdería la clave la mitad de las veces.
 
+## 🟢 ADR-33 — El audio en vivo suena solo en la pantalla, con llave, y detiene el cronómetro
+
+**Contexto.** Los cinco tipos `listening*` no entraban a la sesión en vivo por dos problemas que
+parecían de UI y son de arquitectura.
+
+**Decisión — dónde suena.** Solo en la **pantalla proyectada**, nunca en los celulares.
+Reproducir en 50 teléfonos no sirve: van desfasados unos de otros, y son 50 peticiones a `/tts`
+por pregunta desde la IP del salón, que con `_rate_limit(limit=300)` es un 429 a la sexta pregunta.
+Proyectado es **una** petición por pregunta.
+
+**Decisión — cómo llega sin filtrarse.** `audio_text` es la transcripción literal de lo que hay
+que escuchar, y el alumno y la pantalla polean el **mismo** endpoint público (`GET /live/{code}`):
+cualquier campo que se añada ahí para que la pantalla reproduzca el audio se lo regala también al
+celular. Por eso el estado público solo lleva `has_audio: bool`, y el mp3 se sirve aparte en
+`GET /live/{code}/audio?k={screen_key}`, con una llave que solo viaja en `host_state()`.
+
+**Decisión — cuándo arranca el reloj.** Fase nueva `listening`: la pregunta se lanza, suena y se
+proyecta con las respuestas **cerradas**; el cronómetro empieza cuando el profesor pulsa *Abrir
+respuestas*. Sin ella, el bono de rapidez de `_points` premia a quien toca un botón antes de oír
+—500 puntos por adivinar a ciegas— y castiga a quien escucha la pregunta entera.
+
+**Alternativas descartadas.**
+
+- *Mandar la URL de `/tts?text=…` a la pantalla.* Lleva el texto en el query string: lo filtra
+  igual, y encima lo deja en el historial del navegador.
+- *Cronómetro corriendo mientras suena, con tiempos por defecto más largos.* No arregla el
+  incentivo, solo lo diluye: sigue ganando quien contesta sin escuchar.
+- *Sin cronómetro para los tipos con audio.* Simple y justo, pero se pierde el desempate por
+  velocidad justo en las preguntas donde más gente empata.
+- *Servir el audio detrás del JWT del profesor.* La pantalla suele abrirse en el PC del proyector,
+  donde nadie ha iniciado sesión.
+
+**Consecuencia.** La pantalla necesita un **gesto de desbloqueo** ("Activar el audio"): ningún
+navegador reproduce sonido sin una interacción previa en esa pestaña, y sin el botón el primer
+`play()` de la clase falla dejando al salón mirando una pantalla muda. Se pide una vez, en la sala
+de espera, cuando no hay prisa. La llave viaja en la URL de proyección, así que un profesor que
+proyecte con la barra de direcciones visible la enseña: es del mismo orden que enseñar el código de
+sesión, y quien quisiera usarla tendría que teclear un token de 11 caracteres para oír un audio que
+está sonando por los altavoces.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

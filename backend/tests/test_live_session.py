@@ -4,6 +4,7 @@ Importa SOLO `backend.app.live` y el parser: los dos son lógica pura y no abren
 que este test no puede escribir en Aiven por accidente (regla 2 de CLAUDE.md).
 """
 
+import json
 import time
 
 import pytest
@@ -131,6 +132,8 @@ def test_solo_entran_los_tipos_jugables_en_vivo():
     assert set(LIVE_TYPES) == {
         "multiplechoice", "multiselect", "truefalse", "imagechoice",
         "matching", "imagematching", "dragdrop", "fillblank",
+        "listeningmultiplechoice", "listeningtruefalse", "listeningmatching",
+        "listeningfillblank", "listeningorder",
     }
 
 
@@ -621,20 +624,39 @@ def test_la_lectura_del_bloque_llega_a_la_pregunta():
     planas = [a for b in data.blocks for a in b.activities]
     preguntas = extract_questions(planas, data.blocks)
 
-    assert len(preguntas) == 1  # la del bloque con audio se descarta, ver el test siguiente
-    assert preguntas[0].passage == "Tom is a baker. He wakes up at four."
+    lectura = next(q for q in preguntas if q.passage)
+    assert lectura.passage == "Tom is a baker. He wakes up at four."
+    assert not lectura.audio_text  # la lectura no suena: es texto
 
 
-def test_una_pregunta_sobre_un_audio_que_nadie_puede_oir_no_se_sirve_muda():
-    """Reproducir el audio en 50 celulares no sirve (van desfasados, y son 50 peticiones a
-    `/tts` por pregunta desde la IP del salón), y proyectarlo pide una fase que aún no existe.
-    Hasta entonces se descarta y se REPORTA, en vez de preguntar por un audio inaudible."""
+def test_una_actividad_hereda_el_audio_de_su_bloque():
+    """Una `multiplechoice` normal colgada de un bloque con `audio_text` es, en vivo, una
+    pregunta de escucha: nace en fase `listening` y el mp3 sale del bloque. Antes de la fase 3
+    estas se descartaban por no poder sonar."""
     data = parse_worksheet_script(SCRIPT_BLOQUE)
     planas = [a for b in data.blocks for a in b.activities]
-    resumen = summarize(planas, data.blocks)
+    preguntas = extract_questions(planas, data.blocks)
 
-    assert resumen["playable"] == 1
-    assert resumen["skipped"] == [{"type": "multiplechoice", "count": 1}]
+    con_audio = next(q for q in preguntas if q.audio_text)
+    assert con_audio.audio_text == "He wakes up at four."
+    assert summarize(planas, data.blocks)["playable"] == 2
+
+
+def test_un_bloque_de_conversacion_sigue_mudo_y_se_reporta():
+    """`lines` son dos voces y sintetizarlo es concatenar un mp3 por turno, no una llamada.
+    Hasta que exista, se descarta y se REPORTA: preguntar por un diálogo que nadie ha oído es
+    el fallo silencioso de siempre con otro disfraz."""
+    class _Actividad:
+        id, type = "a1", "multiplechoice"
+        options, answer = ["Yes", "No"], "Yes"
+
+    class _Bloque:
+        text = audio_text = None
+        lines = [{"speaker": "A", "text": "Hi"}, {"speaker": "B", "text": "Hello"}]
+        activities = [_Actividad()]
+
+    assert extract_questions([_Actividad()], [_Bloque()]) == []
+    assert summarize([_Actividad()], [_Bloque()])["skipped"] == [{"type": "multiplechoice", "count": 1}]
 
 
 def test_el_panel_y_el_backend_cuentan_las_mismas_preguntas():
@@ -722,3 +744,144 @@ def test_una_pregunta_de_huecos_no_filtra_la_clave_mientras_esta_abierta():
 
     session.reveal()
     assert session.public_state()["answer"] == ["am"]
+
+
+# ── Fase 3: audio y la subfase de escucha ────────────────────────────────────
+
+
+def _audio_mc(audio="He wakes up at four.", **kw):
+    class _Fake:
+        id, type = "lmc1", "listeningmultiplechoice"
+        options, answer = ["Four", "Five"], "Four"
+        voice = rate = None
+    _Fake.audio_text = audio
+    for k, v in kw.items():
+        setattr(_Fake, k, v)
+    return _Fake()
+
+
+def test_la_transcripcion_del_audio_no_sale_nunca_en_el_estado_publico():
+    """El test que justifica toda la maquinaria de la llave de pantalla. El alumno y la pantalla
+    polean el MISMO endpoint sin autenticación, así que si `audio_text` viajara en
+    `public_state()`, cualquiera con las herramientas del navegador leería lo que tiene que
+    escuchar. Es la regla 41 por otra puerta."""
+    session = _session()
+    session.questions = activity_questions(_audio_mc())
+    session.join({"Carné": "1", "Nombre": "Ana"})
+    session.open_next()
+
+    publicado = json.dumps(session.public_state(), ensure_ascii=False)
+
+    assert "He wakes up at four" not in publicado
+    assert session.public_state()["question"]["has_audio"] is True
+
+
+def test_la_llave_de_pantalla_solo_viaja_en_el_estado_del_profesor():
+    """`host_state()` va detrás del JWT; `public_state()` no. Si la llave se colara ahí, el
+    celular del alumno podría pedir el mp3 — y con él, la transcripción."""
+    session = _session()
+
+    assert "screen_key" not in session.public_state()
+    assert session.host_state()["screen_key"] == session.screen_key
+
+
+def test_una_pregunta_con_audio_nace_escuchando_y_sin_cronometro():
+    """La subfase que decide la fase 3: mientras suena, los botones están cerrados y el reloj no
+    ha arrancado. Sin ella, el bono de rapidez premia a quien contesta antes de oír el audio."""
+    session = _session(duration=20)
+    session.questions = activity_questions(_audio_mc())
+    ana = session.join({"Carné": "1", "Nombre": "Ana"})
+    session.open_next()
+
+    assert session.phase() == "listening"
+    assert session.remaining_ms() is None  # el cronómetro no ha empezado
+    with pytest.raises(LiveError):
+        session.submit(ana.pid, "Four")  # no se puede responder a ciegas
+
+    session.open_answers()
+
+    assert session.phase() == "question"
+    assert session.remaining_ms() > 0
+    assert session.submit(ana.pid, "Four") == {"registered": True}
+
+
+def test_una_pregunta_sin_audio_no_pasa_por_la_escucha():
+    """La subfase es solo para el audio: meter a todas por ahí obligaría al profesor a pulsar
+    dos botones por pregunta en una sesión donde no suena nada."""
+    session = _session()
+    session.open_next()
+
+    assert session.phase() == "question"
+    with pytest.raises(LiveError):
+        session.open_answers()  # no hay escucha que cerrar
+
+
+def test_el_bono_de_rapidez_se_mide_desde_que_se_abren_las_respuestas():
+    """El punto entero de la subfase. Si `opened_at` se fijara al lanzar, un audio de veinte
+    segundos consumiría el cronómetro entero y todos cobrarían cero de bono por escuchar."""
+    session = _session(duration=20)
+    session.questions = activity_questions(_audio_mc())
+    ana = session.join({"Carné": "1", "Nombre": "Ana"})
+    session.open_next()
+    time.sleep(0.05)      # "suena el audio"
+    session.open_answers()  # aquí arranca el reloj
+    session.submit(ana.pid, "Four")
+
+    # Responde nada más abrirse: cobra el bono casi entero, no uno recortado por la escucha.
+    assert session.participants[ana.pid].score > 950
+
+
+def test_un_listeningtruefalse_reparte_el_mismo_audio_a_cada_enunciado():
+    """Cinco enunciados sobre una grabación de veinte segundos: cada pregunta tiene que poder
+    volver a reproducirla, o el que se distrajo en la primera pierde las cinco."""
+    class _Fake:
+        id, type = "ltf1", "listeningtruefalse"
+        audio_text = "Tom wakes up at four."
+        voice = rate = None
+        statements = [{"text": "Tom is a baker.", "answer": True}, {"text": "He sleeps late.", "answer": False}]
+
+    preguntas = activity_questions(_Fake())
+
+    assert [q.id for q in preguntas] == ["ltf1:0", "ltf1:1"]
+    assert all(q.audio_text == "Tom wakes up at four." for q in preguntas)
+
+
+def test_un_listeningmatching_lleva_un_audio_por_par():
+    """Aquí el audio es corto y cambia en cada pregunta, que es lo que mejor funciona en vivo."""
+    class _Fake:
+        id, type = "lm1", "listeningmatching"
+        audio_text = None
+        voice = rate = None
+        options = None
+        pairs = [{"audio_text": "a dog", "match": "perro"}, {"audio_text": "a cat", "match": "gato"}]
+
+    preguntas = activity_questions(_Fake())
+
+    assert [q.audio_text for q in preguntas] == ["a dog", "a cat"]
+    assert [q.answer for q in preguntas] == ["perro", "gato"]
+    # Sin `options` explícitas se usan todos los `match`, barajados como en `matching`.
+    assert all(sorted(q.options) == ["gato", "perro"] for q in preguntas)
+
+
+def test_un_listening_sin_audio_se_descarta_en_vez_de_ser_incontestable():
+    """El parser lo valida, pero una hoja vieja o editada a mano puede llegar sin `audio_text`.
+    Servirla dejaría al salón mirando una pregunta sobre un audio que no existe."""
+    assert activity_questions(_audio_mc(audio=None)) == []
+
+
+def test_ordenar_una_oracion_exige_el_orden_exacto():
+    """`order` compara con `==` y no con `>=`: aquí sobrar una ficha SÍ es un error, al revés
+    que en los huecos, donde el que sobra es un campo vacío del cliente."""
+    class _Fake:
+        id, type = "lo1", "listeningorder"
+        audio_text = "She has never been to Paris."
+        voice = rate = None
+        answer = ["She", "has", "never", "been"]
+        bank = None
+
+    pregunta = activity_questions(_Fake())[0]
+
+    assert pregunta.input == "order"
+    assert pregunta.is_correct(["She", "has", "never", "been"])
+    assert not pregunta.is_correct(["She", "never", "has", "been"])
+    assert not pregunta.is_correct(["She", "has", "never", "been", "to"])

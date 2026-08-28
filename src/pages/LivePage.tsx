@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Check, Trophy, Users, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -10,6 +10,7 @@ import {
   answerLive,
   getLiveState,
   joinLive,
+  liveAudioUrl,
   reactLive,
   setLiveAvatar,
   type LiveAward,
@@ -340,6 +341,65 @@ function BlanksPad({ question, disabled, onSend }: {
   );
 }
 
+/** Ordenar una oración con fichas (`input: "order"`). Tocar una ficha del banco la añade al
+ *  final; tocar una colocada la devuelve. Es el mismo gesto que `BlanksPad` y por el mismo
+ *  motivo: arrastrar en pantalla chica y contra reloj frustra, y tocar hace lo mismo. */
+function OrderPad({ question, disabled, onSend }: {
+  question: NonNullable<LiveState['question']>;
+  disabled: boolean;
+  onSend: (answer: string[]) => void;
+}) {
+  const [placed, setPlaced] = useState<number[]>([]); // índices en `options`, en orden
+  const tiles = question.options ?? [];
+
+  useEffect(() => { setPlaced([]); }, [question.id]);
+
+  return (
+    <>
+      <div className="min-h-[5rem] rounded-3xl bg-white p-4 shadow-sm">
+        {placed.length === 0 && <p className="py-4 text-center text-sm text-slate-400">Toca las palabras en el orden correcto</p>}
+        <div className="flex flex-wrap gap-2">
+          {placed.map((tileIndex, position) => (
+            <button
+              key={`${tileIndex}-${position}`}
+              type="button"
+              disabled={disabled}
+              className="rounded-xl bg-rex px-3 py-2 font-bold text-white transition active:scale-95"
+              onClick={() => setPlaced((current) => current.filter((_, i) => i !== position))}
+            >
+              {tiles[tileIndex]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-2">
+        {tiles.map((word, i) => (
+          // Por ÍNDICE y no por palabra: una oración puede repetir "the", y filtrar por texto
+          // dejaría la segunda inservible en cuanto se coloca la primera.
+          <button
+            key={i}
+            type="button"
+            disabled={disabled || placed.includes(i)}
+            className="rounded-2xl bg-white px-4 py-3 text-lg font-bold text-slate-800 shadow-sm transition active:scale-95 disabled:opacity-25"
+            onClick={() => { playSfx('toggle'); setPlaced((current) => [...current, i]); }}
+          >
+            {word}
+          </button>
+        ))}
+      </div>
+
+      <button
+        className="rounded-2xl bg-slate-900 px-5 py-4 text-lg font-bold text-white transition hover:bg-slate-700 disabled:opacity-40"
+        disabled={placed.length !== tiles.length || disabled}
+        onClick={() => onSend(placed.map((i) => tiles[i]))}
+      >
+        {disabled ? 'Enviando…' : 'Enviar respuesta'}
+      </button>
+    </>
+  );
+}
+
 /** Los cinco botones de reacción. Se pintan solo en los tiempos muertos: durante una pregunta
  *  abierta, un emoji volando por la pantalla es exactamente la distracción que no toca. */
 function ReactionBar({ onSend }: { onSend: (emoji: string) => void }) {
@@ -427,6 +487,56 @@ function Awards({ awards }: { awards: LiveAward[] }) {
       </div>
     </div>
   );
+}
+
+/** Reproduce el audio de la pregunta en la PANTALLA PROYECTADA, y solo ahí.
+ *
+ *  El mp3 se pide a `/live/{code}/audio` con la llave de pantalla: el texto que se sintetiza no
+ *  viaja nunca en el estado público, porque el celular del alumno polea el mismo endpoint que
+ *  la pantalla y eso sería regalarle la transcripción.
+ *
+ *  El desbloqueo no es opcional: ningún navegador reproduce audio sin una interacción previa
+ *  del usuario en esa pestaña. Sin el botón, el primer `play()` de la clase falla y el salón se
+ *  queda mirando una pantalla muda sin ninguna pista de por qué. Se pide UNA vez por sesión. */
+function useScreenAudio(code: string, screenKey: string, state: LiveState | null) {
+  const ref = useRef<HTMLAudioElement | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const playedFor = useRef<string | null>(null);
+
+  const questionId = state?.question?.id;
+  const hasAudio = Boolean(state?.question?.has_audio);
+  const phase = state?.phase;
+
+  useEffect(() => {
+    if (!unlocked || !screenKey || !hasAudio || !questionId) return;
+    // Solo al entrar en `listening`: es la subfase que existe justo para escuchar. Repetirlo en
+    // `question` pisaría al salón mientras responde.
+    if (phase !== 'listening' || playedFor.current === questionId) return;
+    playedFor.current = questionId;
+    setFailed(false);
+    const el = ref.current;
+    if (!el) return;
+    el.src = liveAudioUrl(code, screenKey, questionId);
+    el.play().catch(() => setFailed(true));
+  }, [code, screenKey, questionId, hasAudio, phase, unlocked]);
+
+  const replay = useCallback(() => {
+    const el = ref.current;
+    if (!el || !screenKey || !questionId) return;
+    setFailed(false);
+    el.src = liveAudioUrl(code, screenKey, questionId);
+    el.play().catch(() => setFailed(true));
+  }, [code, screenKey, questionId]);
+
+  const unlock = useCallback(() => {
+    setUnlocked(true);
+    // Un `play()` sobre el elemento vacío basta para que el navegador dé el permiso a esta
+    // pestaña; que falle es lo esperado y no significa nada.
+    ref.current?.play().catch(() => {});
+  }, []);
+
+  return { ref, unlocked, unlock, replay, failed, needed: hasAudio, hasKey: Boolean(screenKey) };
 }
 
 function TimeBar({ remaining, duration }: { remaining: number | null; duration: number }) {
@@ -692,6 +802,29 @@ export function LivePage() {
           </>
         )}
 
+        {/* ── Escuchando: suena en la pantalla del salón, aquí no hay nada que tocar ── */}
+        {question && state.phase === 'listening' && (
+          <>
+            <div className="rounded-3xl bg-white p-5 text-center shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-rex">
+                Pregunta {question.number} de {state.total}
+              </p>
+              <p className="mt-6 text-6xl">🔊</p>
+              <h1 className="mt-4 text-xl font-extrabold text-slate-900">Escucha el audio</h1>
+              <p className="mt-2 text-sm text-slate-500">
+                Suena en la pantalla del salón. Cuando el profesor abra las respuestas
+                empieza a contar el tiempo — hasta entonces no pierdes nada por esperar.
+              </p>
+              <div className="mt-5 flex justify-center gap-1.5" aria-hidden>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <span key={i} className="live-wave w-2 rounded-full bg-rex" style={{ animationDelay: `${i * 0.12}s` }} />
+                ))}
+              </div>
+            </div>
+            <ReactionBar onSend={react} />
+          </>
+        )}
+
         {/* ── Pregunta abierta ── */}
         {question && state.phase === 'question' && (
           <>
@@ -728,6 +861,8 @@ export function LivePage() {
               />
             ) : question.input === 'blanks' ? (
               <BlanksPad question={question} disabled={sending} onSend={(answer) => void send(answer)} />
+            ) : question.input === 'order' ? (
+              <OrderPad question={question} disabled={sending} onSend={(answer) => void send(answer)} />
             ) : (
               <>
                 <div className="grid gap-3">
@@ -802,24 +937,27 @@ export function LivePage() {
             {/* Con huecos no hay opciones que contar (`option_counts` viene vacío), así que la
                 rejilla de abajo se quedaría en blanco. Se enseña la oración resuelta, que es lo
                 que de verdad quiere ver quien acaba de fallar un hueco. */}
-            {question.input === 'blanks' ? (
+            {question.input === 'blanks' || question.input === 'order' ? (
               <div className="rounded-3xl bg-white p-5 shadow-sm">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">La oración completa</p>
                 <p className="mt-2 text-lg leading-loose text-slate-800">
-                  {question.question.split(BLANK).map((part, i, all) => (
-                    <span key={i}>
-                      <RichText text={part} />
-                      {i < all.length - 1 && (
-                        <strong className="mx-1 rounded-lg bg-rex-light px-2 py-0.5 text-rex-deep">
-                          {(Array.isArray(state.answer) ? state.answer : [state.answer])[i] ?? ''}
-                        </strong>
-                      )}
-                    </span>
-                  ))}
+                  {question.input === 'order'
+                    // Ordenar: la respuesta ES la oración, en orden.
+                    ? <strong className="text-rex-deep">{(Array.isArray(state.answer) ? state.answer : [state.answer]).join(' ')}</strong>
+                    : question.question.split(BLANK).map((part, i, all) => (
+                      <span key={i}>
+                        <RichText text={part} />
+                        {i < all.length - 1 && (
+                          <strong className="mx-1 rounded-lg bg-rex-light px-2 py-0.5 text-rex-deep">
+                            {(Array.isArray(state.answer) ? state.answer : [state.answer])[i] ?? ''}
+                          </strong>
+                        )}
+                      </span>
+                    ))}
                 </p>
                 {answered && !me?.correct && (
                   <p className="mt-3 text-sm text-red-600">
-                    Tú pusiste: <strong>{(Array.isArray(me?.answer) ? me.answer : [me?.answer]).join(' · ')}</strong>
+                    Tú pusiste: <strong>{(Array.isArray(me?.answer) ? me.answer : [me?.answer]).join(question.input === 'order' ? ' ' : ' · ')}</strong>
                   </p>
                 )}
               </div>
@@ -875,9 +1013,14 @@ export function LivePage() {
 
 export function LiveScreenPage() {
   const { code = '' } = useParams<{ code: string }>();
+  const [params] = useSearchParams();
   const normalized = code.toUpperCase();
   const { state, error } = useLivePoll(normalized, null);
   const remaining = useCountdown(state?.remaining_ms);
+  // La llave llega en la URL que abre el panel del profesor. Sin ella la pantalla funciona
+  // igual, solo que muda: los tipos con audio avisan en vez de fallar en silencio.
+  const screenKey = params.get('k') ?? '';
+  const audio = useScreenAudio(normalized, screenKey, state);
   useWakeLock(true);
 
   if (error && !state) return <SessionError message={error} />;
@@ -892,6 +1035,21 @@ export function LiveScreenPage() {
     // salón durante media hora, y un fondo plano y apagado no da ninguna sensación de evento.
     <main className="live-stage min-h-screen px-8 py-6 text-white">
       <ReactionLayer reactions={state.reactions} />
+      {/* El <audio> vive siempre montado: crearlo al vuelo pierde el permiso de reproducción
+          que el navegador concede por pestaña, no por elemento. */}
+      <audio ref={audio.ref} className="hidden" />
+
+      {/* Desbloqueo. Se pide una vez, en la sala de espera, mientras no hay prisa: si se pidiera
+          al lanzar la primera pregunta de audio, el salón esperaría con la pantalla muda. */}
+      {audio.hasKey && !audio.unlocked && (
+        <button
+          type="button"
+          className="fixed bottom-6 right-6 z-50 rounded-2xl bg-spike px-6 py-4 text-lg font-bold shadow-xl transition hover:bg-spike-dark"
+          onClick={audio.unlock}
+        >
+          🔊 Activar el audio de esta pantalla
+        </button>
+      )}
       <header className="flex items-center justify-between gap-6">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-white/50">{state.title}</p>
@@ -953,9 +1111,60 @@ export function LiveScreenPage() {
         </section>
       )}
 
+      {/* ── Escuchando: la pantalla es la única fuente del audio ── */}
+      {question && state.phase === 'listening' && (
+        <section className="mt-10 text-center">
+          <p className="text-lg uppercase tracking-[0.3em] text-white/50">Pregunta {question.number} de {state.total}</p>
+          <p className="mt-10 text-[7rem] leading-none">🔊</p>
+          <h1 className="mt-6 text-5xl font-black">Escuchen con atención</h1>
+          <div className="mt-8 flex justify-center gap-2" aria-hidden>
+            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+              <span key={i} className="live-wave w-3 rounded-full bg-rex" style={{ animationDelay: `${i * 0.1}s` }} />
+            ))}
+          </div>
+          {/* Si algo falla, se dice en la pantalla en vez de dejar al salón esperando en
+              silencio a un audio que nunca va a sonar. */}
+          {!audio.hasKey && (
+            <p className="mx-auto mt-8 max-w-2xl rounded-2xl bg-amber-500/20 px-6 py-4 text-lg text-amber-100">
+              Esta pantalla se abrió sin la llave del audio. Ciérrala y vuelve a abrirla desde el
+              panel con <strong>Abrir la pantalla en otra pestaña</strong>.
+            </p>
+          )}
+          {audio.hasKey && !audio.unlocked && (
+            <p className="mx-auto mt-8 max-w-2xl rounded-2xl bg-amber-500/20 px-6 py-4 text-lg text-amber-100">
+              Pulsa <strong>Activar el audio de esta pantalla</strong> abajo a la derecha: el navegador
+              no deja sonar nada hasta que alguien toca la página.
+            </p>
+          )}
+          {audio.unlocked && (
+            <button
+              type="button"
+              className="mt-8 rounded-2xl bg-white/10 px-6 py-3 text-lg font-semibold transition hover:bg-white/20"
+              onClick={audio.replay}
+            >
+              {audio.failed ? '⚠️ No sonó · reintentar' : '↻ Repetir el audio'}
+            </button>
+          )}
+          <p className="mt-10 text-lg text-white/40">Las respuestas se abren cuando el profesor lo decida.</p>
+        </section>
+      )}
+
       {question && state.phase === 'question' && (
         <section className="mt-10">
           {question.type === 'truefalse' && <p className="text-center text-lg uppercase tracking-[0.3em] text-white/50">¿Verdadero o falso?</p>}
+          {/* Repetir sigue disponible con las respuestas ya abiertas: en un dictado, oírlo dos
+              veces es parte del ejercicio, no una trampa. */}
+          {question.has_audio && audio.unlocked && (
+            <div className="text-center">
+              <button
+                type="button"
+                className="rounded-2xl bg-white/10 px-5 py-2 font-semibold transition hover:bg-white/20"
+                onClick={audio.replay}
+              >
+                ↻ Repetir el audio
+              </button>
+            </div>
+          )}
           {/* La lectura va arriba y grande: la pantalla proyectada es donde de verdad se lee un
               texto compartido, no el celular. */}
           {question.passage && (
