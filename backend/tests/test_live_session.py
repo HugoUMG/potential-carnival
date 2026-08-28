@@ -5,6 +5,7 @@ que este test no puede escribir en Aiven por accidente (regla 2 de CLAUDE.md).
 """
 
 import json
+import re
 import time
 
 import pytest
@@ -928,3 +929,38 @@ def test_un_readingtruefalse_sin_texto_no_es_jugable():
         content = ""
 
     assert activity_questions(_Vacia()) == []
+
+
+def test_los_prompts_de_generacion_conocen_el_catalogo_en_vivo():
+    """Si el profesor pide "una evaluación para jugar en vivo", la IA tiene que saber qué tipos
+    valen. Sin esto genera `textbox` y `speaking` tan contenta, y el profesor se entera al elegir
+    la hoja en el panel — con la clase ya sentada.
+
+    La lista vive en TRES sitios (`LIVE_TYPES`, el prompt interno de `ai.py` y el prompt copiable
+    de `generationPrompt.ts`). El backend es la autoridad; los otros dos solo tienen que no
+    contradecirlo, y esto es lo único que lo garantiza.
+    """
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[2]
+    # `ai.py` se lee como TEXTO a propósito: importarlo arrastra el `.env` de producción (regla 2).
+    interno = (raiz / "backend" / "app" / "ai.py").read_text(encoding="utf-8").split("_LIVE_MODE = ", 1)[1].split('"""', 2)[1]
+    copiable = (raiz / "src" / "utils" / "generationPrompt.ts").read_text(encoding="utf-8")
+    copiable = copiable.split("=== SI LA HOJA ES PARA UNA SESIÓN EN VIVO ===", 1)[1].split("===", 1)[0]
+
+    # Palabras completas, NO subcadenas: `multiplechoice` está dentro de
+    # `listeningmultiplechoice` y `listening` dentro de los cinco de escucha, así que un `in`
+    # a secas daría por buena una lista a la que le falta la mitad de los tipos.
+    def nombrados(texto: str) -> set[str]:
+        return set(re.findall(r"[a-z]+", texto))
+
+    en_interno, en_copiable = nombrados(interno), nombrados(copiable)
+
+    for tipo in LIVE_TYPES:
+        assert tipo in en_interno, f"el prompt interno no menciona {tipo}"
+        assert tipo in en_copiable, f"el prompt copiable no menciona {tipo}"
+
+    # Y los que NO sirven tienen que estar nombrados como prohibidos, no simplemente ausentes:
+    # un tipo que no aparece en ningún lado, el modelo lo usa igual.
+    for tipo in ("textbox", "reading", "imagequestion", "speaking", "conversation", "listening"):
+        assert tipo in en_interno and tipo in en_copiable, f"{tipo} debería estar listado como prohibido"
