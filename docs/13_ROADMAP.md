@@ -201,14 +201,23 @@ de abrir la sesión y en el temario.
   del que hablan**. Las que cuelgan de un bloque con audio ahora se descartan y se reportan, en vez
   de servirse mudas.
 
+**Ampliación del catálogo, fase 2 — teclado (agosto 2026).** De 7 tipos a **8**:
+
+- **`fillblank`** y **`dragdrop` de varios huecos**, con una sola mecánica (`input: "blanks"`): con
+  banco se tocan fichas, sin banco se teclea. **Tocar, no arrastrar** — en pantalla chica y contra
+  reloj, arrastrar frustra más de lo que enseña y tocar hace lo mismo.
+- Tope de 3 huecos, y el panel **sugiere 45s** cuando la hoja trae preguntas de escribir: con 20s
+  se castiga a quien teclea despacio, no a quien no sabe.
+- La revelación con huecos enseña la **oración resuelta** (en el celular, además, lo que puso el
+  alumno). Sin eso quedaba en blanco: `option_counts` viene vacío cuando no hay opciones.
+
 **Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
 
-- **Las fases 2-5 del catálogo.** Decidido: teclado (`fillblank`, `dragdrop` multi-hueco), luego
-  audio (los 6 tipos `listening*`, con **subfase**: el profesor da play y luego abre respuestas, que
-  es lo único que impide que el bono de rapidez premie a quien contesta antes de oír), luego lectura
-  (`readingtruefalse`). Los de respuesta abierta (`textbox`, `imagequestion`, `reading`) **no
-  entran**: sin correcto/incorrecto no hay puntos ni marcador, y en una sesión cronometrada eso
-  rompe el ritmo. Meta realista: **15 de 21**.
+- **Las fases 3-5 del catálogo.** Decidido: audio (los 6 tipos `listening*`, con **subfase**: el
+  profesor da play y luego abre respuestas, que es lo único que impide que el bono de rapidez
+  premie a quien contesta antes de oír), luego lectura (`readingtruefalse`). Los de respuesta
+  abierta (`textbox`, `imagequestion`, `reading`) **no entran**: sin correcto/incorrecto no hay
+  puntos ni marcador, y en una sesión cronometrada eso rompe el ritmo. Meta realista: **15 de 21**.
 - **`speaking`, definitivamente fuera.** No es criterio, es aritmética: `/public/transcribe` limita a
   60 peticiones por IP y minuto, y un salón entero comparte la IP del WiFi — 50 alumnos respondiendo
   una pregunta hablada dejan sin responder a los últimos, con la clase mirando. Además 50 micrófonos
@@ -217,11 +226,10 @@ de abrir la sesión y en el temario.
 - **WebSockets.** El salto correcto si la latencia llega a notarse o si las sesiones crecen a cientos
   de participantes. Ver los tres techos del ADR-25.
 - **Equipos y modos de juego.** Individual y ya.
-- **`fillblank` en vivo.** Es viable (~60 líneas: input + envío), pero teclear en celular contra reloj
-  castiga al que escribe lento y un typo vale cero — la calificación es exacta. Si se añade, subir el
-  tiempo por pregunta.
-- **`matching` y `dragdrop`.** El problema no es el código sino el dedo: emparejar o arrastrar con
-  prisa en pantalla chica frustra más de lo que enseña.
+- ~~**`fillblank` en vivo.**~~ Hecho en la fase 2, con fichas o teclado y 45s sugeridos. El typo
+  sigue valiendo cero: la calificación es exacta, como en la hoja.
+- ~~**`matching` y `dragdrop`.**~~ Hecho en las fases 1 y 2. La objeción ("el problema es el dedo")
+  describía la mecánica de líneas del renderer, no el modelo de datos (ADR-32).
 - **`textbox` (Open Answer).** No encaja: no tiene clave, lo califica la IA en diferido. Sin
   correcto/incorrecto no hay puntos ni marcador. Haría falta otro modo (nube de respuestas sin
   puntaje), que es otra función.

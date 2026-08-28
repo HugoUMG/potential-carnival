@@ -241,6 +241,105 @@ function ReactionLayer({ reactions }: { reactions: LiveState['reactions'] }) {
   );
 }
 
+/** El hueco del DSL. **Misma cadena que `BLANK` en `live.py`** y que cuenta el parser. */
+const BLANK = '_____';
+
+/** Oración con huecos. Dos modos con una sola mecánica (`input: "blanks"`):
+ *
+ *  · con `options` (el `bank` de un `dragdrop`) se tocan fichas — tocar una la coloca en el
+ *    primer hueco libre, tocar un hueco lleno lo vacía. Nada de arrastrar: en pantalla chica y
+ *    contra reloj, arrastrar frustra más de lo que enseña, y tocar hace lo mismo;
+ *  · sin `options` (`fillblank`) se teclea, un campo por hueco.
+ *
+ *  La respuesta es POSICIONAL: la lista va en el orden de los huecos, que es lo que compara
+ *  `is_correct` con `input === "blanks"`. */
+function BlanksPad({ question, disabled, onSend }: {
+  question: NonNullable<LiveState['question']>;
+  disabled: boolean;
+  onSend: (answer: string[]) => void;
+}) {
+  const parts = question.question.split(BLANK);
+  const count = Math.max(1, parts.length - 1);
+  const [values, setValues] = useState<string[]>(() => Array(count).fill(''));
+  const chips = question.options ?? [];
+  const tileMode = chips.length > 0;
+
+  // Pregunta nueva → huecos vacíos. Sin esto se arrastra lo tecleado en la anterior.
+  useEffect(() => { setValues(Array(count).fill('')); }, [question.id, count]);
+
+  const put = (index: number, value: string) =>
+    setValues((current) => current.map((v, i) => (i === index ? value : v)));
+
+  const placeChip = (word: string) => {
+    const free = values.findIndex((v) => !v);
+    if (free === -1) return; // todos llenos: primero se vacía uno
+    playSfx('toggle');
+    put(free, word);
+  };
+
+  const complete = values.every((v) => v.trim());
+
+  return (
+    <>
+      <div className="rounded-3xl bg-white p-5 text-lg leading-loose shadow-sm">
+        {parts.map((part, i) => (
+          <span key={i}>
+            <RichText text={part} />
+            {i < count && (
+              tileMode ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  className={`mx-1 inline-block min-w-[5rem] rounded-xl px-3 py-1 text-center font-bold transition ${values[i] ? 'bg-rex text-white' : 'border-2 border-dashed border-slate-300 text-slate-300'}`}
+                  onClick={() => put(i, '')}
+                >
+                  {values[i] || '?'}
+                </button>
+              ) : (
+                <input
+                  className="mx-1 inline-block w-32 rounded-xl border-b-4 border-rex bg-rex-light px-2 py-1 text-center font-bold outline-none"
+                  disabled={disabled}
+                  value={values[i]}
+                  onChange={(e) => put(i, e.target.value)}
+                  aria-label={`Hueco ${i + 1}`}
+                  autoFocus={i === 0}
+                />
+              )
+            )}
+          </span>
+        ))}
+      </div>
+
+      {tileMode && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {chips.map((word) => {
+            const used = values.includes(word);
+            return (
+              <button
+                key={word}
+                type="button"
+                disabled={disabled || used}
+                className="rounded-2xl bg-white px-4 py-3 text-lg font-bold text-slate-800 shadow-sm transition active:scale-95 disabled:opacity-30"
+                onClick={() => placeChip(word)}
+              >
+                {word}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <button
+        className="rounded-2xl bg-slate-900 px-5 py-4 text-lg font-bold text-white transition hover:bg-slate-700 disabled:opacity-40"
+        disabled={!complete || disabled}
+        onClick={() => onSend(values.map((v) => v.trim()))}
+      >
+        {disabled ? 'Enviando…' : 'Enviar respuesta'}
+      </button>
+    </>
+  );
+}
+
 /** Los cinco botones de reacción. Se pintan solo en los tiempos muertos: durante una pregunta
  *  abierta, un emoji volando por la pantalla es exactamente la distracción que no toca. */
 function ReactionBar({ onSend }: { onSend: (emoji: string) => void }) {
@@ -609,7 +708,13 @@ export function LivePage() {
                   <p className="mt-2 max-h-40 overflow-y-auto text-sm leading-relaxed text-slate-700"><RichText text={question.passage} /></p>
                 </details>
               )}
-              <h1 className="mt-2 text-xl font-extrabold leading-snug text-slate-900"><RichText text={question.question} /></h1>
+              {/* Con huecos, la oración ES el campo de respuesta y se pinta abajo en el
+                  `BlanksPad`: repetirla aquí la enseñaría dos veces. */}
+              <h1 className="mt-2 text-xl font-extrabold leading-snug text-slate-900">
+                {question.input === 'blanks'
+                  ? (question.options?.length ? 'Coloca las palabras en su hueco' : 'Completa la oración')
+                  : <RichText text={question.question} />}
+              </h1>
               {question.image && <img className="mx-auto mt-3 block max-h-56 w-auto max-w-full rounded-2xl" src={question.image} alt="" />}
               <div className="mt-4"><TimeBar remaining={remaining} duration={state.duration} /></div>
             </div>
@@ -621,6 +726,8 @@ export function LivePage() {
                   ? `Revisando las respuestas del salón… ${state.answered} de ${state.participants} ya contestaron.`
                   : 'Espera a que el profesor cierre la pregunta.'}
               />
+            ) : question.input === 'blanks' ? (
+              <BlanksPad question={question} disabled={sending} onSend={(answer) => void send(answer)} />
             ) : (
               <>
                 <div className="grid gap-3">
@@ -692,6 +799,31 @@ export function LivePage() {
               <p className="mt-4 text-lg font-bold">{me?.score ?? 0} puntos {me?.rank != null && <>· puesto #{me.rank}</>}</p>
             </div>
 
+            {/* Con huecos no hay opciones que contar (`option_counts` viene vacío), así que la
+                rejilla de abajo se quedaría en blanco. Se enseña la oración resuelta, que es lo
+                que de verdad quiere ver quien acaba de fallar un hueco. */}
+            {question.input === 'blanks' ? (
+              <div className="rounded-3xl bg-white p-5 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">La oración completa</p>
+                <p className="mt-2 text-lg leading-loose text-slate-800">
+                  {question.question.split(BLANK).map((part, i, all) => (
+                    <span key={i}>
+                      <RichText text={part} />
+                      {i < all.length - 1 && (
+                        <strong className="mx-1 rounded-lg bg-rex-light px-2 py-0.5 text-rex-deep">
+                          {(Array.isArray(state.answer) ? state.answer : [state.answer])[i] ?? ''}
+                        </strong>
+                      )}
+                    </span>
+                  ))}
+                </p>
+                {answered && !me?.correct && (
+                  <p className="mt-3 text-sm text-red-600">
+                    Tú pusiste: <strong>{(Array.isArray(me?.answer) ? me.answer : [me?.answer]).join(' · ')}</strong>
+                  </p>
+                )}
+              </div>
+            ) : (
             <div className="grid gap-2">
               {question.options.map((option, i) => {
                 const isCorrect = correctSet.has(option.toLowerCase());
@@ -709,6 +841,7 @@ export function LivePage() {
                 );
               })}
             </div>
+            )}
             <Leaderboard rows={state.leaderboard ?? []} title="Top 5" />
             <p className="text-center text-sm text-slate-500">Espera la siguiente pregunta…</p>
             <ReactionBar onSend={react} />
@@ -830,7 +963,20 @@ export function LiveScreenPage() {
               <RichText text={question.passage} />
             </div>
           )}
-          <h1 className="mt-2 text-center text-5xl font-black leading-tight"><RichText text={question.question} /></h1>
+          {/* Con huecos, la oración se proyecta con los huecos VISIBLES: es lo que el salón
+              tiene que leer para responder desde el celular. */}
+          {question.input === 'blanks' ? (
+            <h1 className="mt-2 text-center text-5xl font-black leading-tight">
+              {question.question.split(BLANK).map((part, i, all) => (
+                <span key={i}>
+                  <RichText text={part} />
+                  {i < all.length - 1 && <span className="mx-2 text-white/35">_____</span>}
+                </span>
+              ))}
+            </h1>
+          ) : (
+            <h1 className="mt-2 text-center text-5xl font-black leading-tight"><RichText text={question.question} /></h1>
+          )}
           {question.image && <img className="mx-auto mt-6 block max-h-64 w-auto max-w-full rounded-3xl" src={question.image} alt="" />}
           {remaining != null && state.duration > 0 && (
             <div className="mx-auto mt-8 max-w-4xl">
@@ -858,8 +1004,27 @@ export function LiveScreenPage() {
       {question && state.phase === 'reveal' && (
         <section className="mt-8 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
           <div>
-            <h1 className="text-3xl font-black leading-tight"><RichText text={question.question} /></h1>
-            <p className="mt-2 text-lg text-rex">Respuesta: <strong>{state.answer_label}</strong></p>
+            {/* Sin opciones (huecos tecleados) no hay barras que pintar y el panel quedaría
+                vacío: se proyecta la oración ya resuelta, que es lo que hay que comentar. */}
+            {question.input === 'blanks' ? (
+              <h1 className="text-3xl font-black leading-loose">
+                {question.question.split(BLANK).map((part, i, all) => (
+                  <span key={i}>
+                    <RichText text={part} />
+                    {i < all.length - 1 && (
+                      <strong className="mx-2 rounded-lg bg-rex px-3 py-1">
+                        {(Array.isArray(state.answer) ? state.answer : [state.answer])[i] ?? ''}
+                      </strong>
+                    )}
+                  </span>
+                ))}
+              </h1>
+            ) : (
+              <>
+                <h1 className="text-3xl font-black leading-tight"><RichText text={question.question} /></h1>
+                <p className="mt-2 text-lg text-rex">Respuesta: <strong>{state.answer_label}</strong></p>
+              </>
+            )}
             <div className="mt-6 grid gap-3">
               {question.options.map((option, i) => {
                 const count = state.option_counts?.[i] ?? 0;

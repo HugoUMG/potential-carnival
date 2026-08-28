@@ -10,6 +10,7 @@ import pytest
 
 from backend.app.live import (
     DEFAULT_AVATAR,
+    MAX_LIVE_BLANKS,
     MAX_LIVE_OPTIONS,
     activity_questions,
     LIVE_TYPES,
@@ -129,7 +130,7 @@ def test_solo_entran_los_tipos_jugables_en_vivo():
     assert [q.type for q in questions] == ["multiplechoice", "multiselect"]
     assert set(LIVE_TYPES) == {
         "multiplechoice", "multiselect", "truefalse", "imagechoice",
-        "matching", "imagematching", "dragdrop",
+        "matching", "imagematching", "dragdrop", "fillblank",
     }
 
 
@@ -173,12 +174,9 @@ def test_lo_que_no_se_puede_jugar_se_reporta_en_vez_de_desaparecer():
     los descartes, el profesor abriría una sesión más corta que su hoja sin saber por qué."""
     resumen = summarize(parse_worksheet_script(SCRIPT_MIXTO).activities)
 
-    # 1 MC + 3 enunciados T/F + 1 imagechoice + 2 filas del matching (una pregunta por fila)
-    assert resumen["playable"] == 7
-    assert resumen["skipped"] == [
-        {"type": "fillblank", "count": 1},
-        {"type": "textbox", "count": 1},
-    ]
+    # 1 MC + 3 enunciados T/F + 1 imagechoice + 2 filas del matching + 1 fillblank
+    assert resumen["playable"] == 8
+    assert resumen["skipped"] == [{"type": "textbox", "count": 1}]
 
 
 def test_el_catalogo_en_vivo_es_el_mismo_en_el_backend_y_en_el_panel():
@@ -594,9 +592,10 @@ def test_un_matching_con_demasiadas_columnas_se_descarta_entero():
     assert activity_questions(_Fake()) == []
 
 
-def test_el_dragdrop_de_un_hueco_usa_el_bank_como_opciones():
-    """Con un solo hueco es un `multiplechoice` disfrazado, y el parser YA garantiza que el
-    `bank` contiene todas las respuestas. Con varios huecos hace falta la mecánica de fichas."""
+def test_el_dragdrop_de_un_hueco_se_juega_con_los_botones_de_siempre():
+    """Con un solo hueco es un `multiplechoice` disfrazado —el parser YA garantiza que el `bank`
+    contiene todas las respuestas—, así que se juega con los botones grandes y no con fichas.
+    Con varios huecos pasa a la mecánica de huecos, que es otra pantalla."""
     class _Uno:
         id, type = "d1", "dragdrop"
         text, answer, bank = "I _____ tired.", ["am"], ["am", "is", "are"]
@@ -604,9 +603,12 @@ def test_el_dragdrop_de_un_hueco_usa_el_bank_como_opciones():
     class _Varios(_Uno):
         text, answer = "I _____ very _____.", ["am", "tired"]
 
-    assert [q.options for q in activity_questions(_Uno())] == [["am", "is", "are"]]
-    assert activity_questions(_Uno())[0].answer == "am"
-    assert activity_questions(_Varios()) == []
+    uno = activity_questions(_Uno())[0]
+    assert (uno.input, uno.options, uno.answer) == ("choice", ["am", "is", "are"], "am")
+
+    varios = activity_questions(_Varios())[0]
+    # Misma mecánica que `fillblank`, pero con fichas: la lista es POSICIONAL, hueco por hueco.
+    assert (varios.input, varios.answer) == ("blanks", ["am", "tired"])
 
 
 def test_la_lectura_del_bloque_llega_a_la_pregunta():
@@ -649,3 +651,74 @@ def test_el_panel_y_el_backend_cuentan_las_mismas_preguntas():
     # Y el panel tiene que saber explotar TODO lo que el backend explota, no solo `truefalse`.
     for tipo in ("truefalse", "matching", "imagematching", "dragdrop"):
         assert tipo in panel, f"`liveBreakdown` no contempla {tipo}: contaría de menos"
+
+
+# ── Fase 2: la mecánica de huecos ────────────────────────────────────────────
+
+
+def _huecos(text="I _____ tired.", answer=("am",), bank=None, tipo="fillblank"):
+    class _Fake:
+        id, type = "f1", tipo
+    _Fake.text, _Fake.answer, _Fake.bank = text, list(answer), list(bank or [])
+    return _Fake()
+
+
+def test_los_huecos_se_califican_por_POSICION_no_por_conjunto():
+    """`multi` y `blanks` llegan las dos con una lista de respuestas y se comparan al REVÉS:
+    en multiselect el orden da igual, en los huecos el orden es justo lo que se califica. Si
+    `is_correct` se ramificara por tipo en vez de por mecánica, "tired am" pasaría por buena."""
+    pregunta = activity_questions(_huecos("I _____ very _____.", ("am", "tired")))[0]
+
+    assert pregunta.input == "blanks"
+    assert pregunta.is_correct(["am", "tired"])
+    assert not pregunta.is_correct(["tired", "am"])  # las dos palabras, en el hueco cambiado
+
+
+def test_los_huecos_ignoran_mayusculas_y_espacios_como_en_la_hoja():
+    """Mismo criterio que `_build_answer_details` (`_norm_answer`: strip + lowercase). Es la
+    duplicación que ADR-26 acepta a cambio de que `live.py` no importe `main.py`; este test es
+    lo que hace que un descuadre salga en rojo y no en el salón."""
+    pregunta = activity_questions(_huecos())[0]
+
+    assert pregunta.is_correct(["  AM  "])
+    assert not pregunta.is_correct(["is"])
+    # `>=` y no `==`, igual que main.py: un campo de más en el cliente no invalida la respuesta.
+    assert pregunta.is_correct(["am", ""])
+
+
+def test_una_oracion_sin_huecos_no_es_jugable():
+    """En vivo el hueco es lo que se pinta como campo. El parser admite un `fillblank` con la
+    clave suelta y sin `_____`; servirlo aquí dejaría al alumno sin dónde escribir."""
+    assert activity_questions(_huecos("I am tired.", ("am",))) == []
+
+
+def test_demasiados_huecos_se_descartan_en_vez_de_castigar():
+    """Rellenar cuatro campos con el pulgar y el cronómetro corriendo no es una pregunta, y en
+    la pantalla proyectada la oración deja de leerse. Se descarta y se reporta."""
+    largo = " ".join(["_____"] * (MAX_LIVE_BLANKS + 1))
+    assert activity_questions(_huecos(largo, tuple("abcd"))) == []
+
+
+def test_el_dragdrop_de_varios_huecos_lleva_el_bank_como_fichas():
+    """Misma mecánica que `fillblank` y solo cambia de dónde sale la palabra: con `bank` se
+    tocan fichas, sin él se teclea. Por eso comparten `input` y el cliente no ramifica por tipo."""
+    pregunta = activity_questions(_huecos(
+        "I _____ very _____.", ("am", "tired"), bank=["am", "is", "tired", "happy"], tipo="dragdrop",
+    ))[0]
+
+    assert (pregunta.input, pregunta.options) == ("blanks", ["am", "is", "tired", "happy"])
+
+
+def test_una_pregunta_de_huecos_no_filtra_la_clave_mientras_esta_abierta():
+    """La regla 41 por la puerta nueva: `options` de un `dragdrop` es el banco (que ya se ve en
+    la hoja normal), pero la lista de respuestas NO puede viajar hasta el reveal."""
+    session = _session()
+    session.questions = activity_questions(_huecos("I _____ tired.", ("am",)))
+    session.join({"Carné": "1", "Nombre": "Ana"})
+    session.open_next()
+
+    abierto = session.public_state()
+    assert "answer" not in abierto and "answer_label" not in abierto
+
+    session.reveal()
+    assert session.public_state()["answer"] == ["am"]

@@ -267,10 +267,20 @@ POST   /live/{code}/react             — Lanzar uno de los 5 emojis de `REACTIO
 POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `ended`)             (sin JWT)
 ```
 
-- **Siete tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse`,
-  `imagechoice`, `matching`, `imagematching` y `dragdrop` de **un solo hueco**. Son los que se
-  responden con el pulgar y se califican solos; el resto necesita teclado, audio o califica en
-  diferido. Una hoja sin ninguno devuelve **422** al abrir la sesión.
+- **Ocho tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse`,
+  `imagechoice`, `matching`, `imagematching`, `dragdrop` y `fillblank`. Son los que se responden
+  desde el celular y se califican solos; el resto necesita audio o califica en diferido. Una hoja
+  sin ninguno devuelve **422** al abrir la sesión.
+- **`fillblank` y `dragdrop` comparten mecánica** (`input: "blanks"`) y solo cambia de dónde sale
+  la palabra: con `options` (el `bank`) se tocan **fichas**, sin ellas se **teclea**. Nada de
+  arrastrar — en pantalla chica y contra reloj, tocar hace lo mismo sin frustrar. La respuesta es
+  una lista **POSICIONAL**, un elemento por hueco, comparada como en `_build_answer_details`
+  (`strip`+`lower`, y `len(dado) >= len(clave)`). Un `dragdrop` de **un** hueco con banco no usa
+  esta mecánica: es un `multiplechoice` disfrazado y se juega con los botones de siempre.
+  **Ojo:** `multi` y `blanks` llegan las dos con lista y se comparan al revés (conjunto vs.
+  posición), por eso `is_correct` ramifica por `input` y no por `type`.
+- **Tope de `MAX_LIVE_BLANKS` (3) huecos** y hace falta al menos uno: el hueco es lo que se pinta
+  como campo, así que un `fillblank` sin `_____` (que el parser sí admite) no es jugable.
 - **`activity_questions()` es la única autoridad** sobre qué entra. `extract_questions` la recorre y
   `summarize` la usa para contar lo descartado, así que las dos respuestas no pueden contradecirse.
   Antes eran dos criterios distintos y una actividad de tipo jugable que no diera ninguna pregunta

@@ -40,7 +40,15 @@ from typing import Any
 # `src/components/LiveHostPanel.tsx` para pintar ese resumen sin una petición por hoja; si cambia
 # aquí, cambia allá — lo comprueba un test.
 LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice",
-              "matching", "imagematching", "dragdrop")
+              "matching", "imagematching", "dragdrop", "fillblank")
+
+# El hueco del DSL. Misma cadena que cuenta `_activity_problem` en `parser.py` y que parte el
+# renderer de la hoja: si aquí se contara distinto, la sesión pediría más o menos huecos de los
+# que el profesor escribió.
+BLANK = "_____"
+# Tope de huecos por pregunta. Rellenar cuatro campos con el pulgar y el cronómetro corriendo no
+# es una pregunta, es un castigo; y en la pantalla proyectada la oración deja de leerse.
+MAX_LIVE_BLANKS = 3
 
 # Tope de opciones de una pregunta en vivo. `OPTION_COLORS` en `LivePage.tsx` tiene CUATRO
 # entradas y cicla: con siete opciones hay dos azules, y el color deja de identificar nada desde
@@ -115,22 +123,37 @@ class LiveQuestion:
     passage: str | None = None
 
     def is_correct(self, given: Any) -> bool:
-        """Misma semántica que `_build_answer_details` en `main.py`: `multiselect` exige que el
-        CONJUNTO elegido coincida exactamente; el resto compara texto sin distinguir mayúsculas.
+        """Misma semántica que `_build_answer_details` en `main.py`. Se ramifica por MECÁNICA
+        (`input`), no por tipo, porque dos mecánicas distintas usan una lista de respuestas y la
+        comparan de forma opuesta:
 
-        `truefalse` cae en la comparación de texto porque llega ya convertido a las opciones
-        "True"/"False" — las mismas cadenas que guarda el renderer normal, así que la entrega que
-        deja `finish` es indistinguible de una hecha en la hoja.
+          · `multi` (multiselect): el CONJUNTO elegido debe coincidir exactamente, sin importar
+            el orden en que se tocaron las opciones;
+          · `blanks` (fillblank, dragdrop): comparación POSICIONAL, hueco por hueco. Aquí el
+            orden es justo lo que se está calificando.
 
-        ponytail: seis líneas duplicadas en vez de importar el calificador de `main.py`, que
-        arrastraría el `.env` de producción al test. Si un día cambia el criterio de estos
-        tipos, hay que tocar los dos sitios — por eso el test cubre los casos que se
-        desincronizarían primero.
+        El resto compara texto sin distinguir mayúsculas. `truefalse` cae ahí porque llega ya
+        convertido a las opciones "True"/"False" — las mismas cadenas que guarda el renderer
+        normal, así que la entrega que deja `finish` es indistinguible de una hecha en la hoja.
+
+        ponytail: unas líneas duplicadas en vez de importar el calificador de `main.py`, que
+        arrastraría el `.env` de producción al test (ADR-26). El umbral que fija esa decisión
+        para sacar un módulo compartido es un TERCER SITIO que lo necesite, y siguen siendo dos.
+        Precio: si cambia el criterio de estos tipos hay que tocar los dos — por eso cada
+        mecánica nueva trae su test, y el descuadre sale en rojo y no en el salón.
         """
-        if self.type == "multiselect":
+        if self.input == "multi":
             correct = {_norm(a) for a in (self.answer if isinstance(self.answer, list) else [self.answer])}
             chosen = {_norm(a) for a in (given if isinstance(given, list) else ([given] if given else []))}
             return bool(correct) and chosen == correct
+        if self.input == "blanks":
+            correct_list = self.answer if isinstance(self.answer, list) else [self.answer]
+            chosen_list = given if isinstance(given, list) else [given]
+            # `>=` y no `==`, igual que `main.py`: al alumno le sobra un campo vacío en el
+            # cliente antes que faltarle uno, y lo que se califica son los huecos que hay clave.
+            return len(chosen_list) >= len(correct_list) and all(
+                _norm(chosen_list[i]) == _norm(c) for i, c in enumerate(correct_list)
+            )
         return _norm(given) == _norm(self.answer)
 
     def correct_label(self) -> str:
@@ -702,20 +725,36 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
             for index, label in enumerate(left)
         ]
 
-    # `dragdrop` de UN hueco es un `multiplechoice` disfrazado: el `bank` ya está validado por
-    # el parser para contener todas las respuestas, así que sirve de opciones tal cual. Con
-    # varios huecos hace falta la mecánica de fichas, que todavía no existe.
-    if kind == "dragdrop":
-        answers = list(getattr(activity, "answer", None) or [])
+    # `dragdrop` y `fillblank`: una oración con huecos `_____`. Los dos son la misma pregunta en
+    # vivo y solo cambia de dónde sale la respuesta — `dragdrop` trae `bank` (se toca una ficha)
+    # y `fillblank` no (se teclea). Por eso comparten `input="blanks"`: el cliente decide fichas
+    # o teclado mirando si vienen `options`, sin una rama por tipo.
+    #
+    # El de UN hueco con banco es, además, un `multiplechoice` disfrazado: el parser ya valida
+    # que el `bank` contenga todas las respuestas, así que se juega con los botones de siempre.
+    if kind in {"dragdrop", "fillblank"}:
+        text = str(getattr(activity, "text", None) or "")
+        answers = [a for a in (getattr(activity, "answer", None) or []) if str(a).strip()]
         bank = list(getattr(activity, "bank", None) or [])
-        if len(answers) != 1 or not (2 <= len(bank) <= MAX_LIVE_OPTIONS):
+        blanks = text.count(BLANK)
+        # Sin huecos no hay dónde escribir, y con más claves que huecos la oración no cuadra.
+        # `fillblank` admite `blanks == 0` en el parser (la clave puede ir suelta), pero en vivo
+        # se necesita el hueco para pintar el campo: sin él, no es jugable.
+        if not (1 <= blanks <= MAX_LIVE_BLANKS) or len(answers) < blanks:
             return []
+        answers = answers[:blanks]
+
+        if blanks == 1 and 2 <= len(bank) <= MAX_LIVE_OPTIONS:
+            return [build(id=activity.id, type=kind, question=text, options=bank, answer=answers[0])]
+
         return [build(
             id=activity.id,
             type=kind,
-            question=str(getattr(activity, "text", None) or ""),
-            options=bank,
-            answer=answers[0],
+            question=text,
+            # Con banco, las fichas son las opciones; sin banco se teclea y no hay ninguna.
+            options=bank if bank else [],
+            answer=answers,
+            input="blanks",
         )]
 
     options = list(getattr(activity, "options", None) or [])

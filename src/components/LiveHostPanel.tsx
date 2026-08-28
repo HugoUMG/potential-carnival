@@ -20,10 +20,18 @@ import type { Worksheet } from '../types';
  *  calificación instantánea. **Misma lista que `LIVE_TYPES` en `backend/app/live.py`** — está
  *  duplicada aquí para pintar el resumen de abajo sin una petición por hoja, y hay un test que
  *  falla si las dos se desincronizan (`test_live_session.py`). */
-const LIVE_TYPES = new Set(['multiplechoice', 'multiselect', 'truefalse', 'imagechoice', 'matching', 'imagematching', 'dragdrop']);
+const LIVE_TYPES = new Set(['multiplechoice', 'multiselect', 'truefalse', 'imagechoice', 'matching', 'imagematching', 'dragdrop', 'fillblank']);
 
 /** Tope de opciones por pregunta. **Mismo valor que `MAX_LIVE_OPTIONS` en `live.py`.** */
 const MAX_LIVE_OPTIONS = 6;
+/** Tope de huecos por pregunta. **Mismo valor que `MAX_LIVE_BLANKS` en `live.py`.** */
+const MAX_LIVE_BLANKS = 3;
+/** El hueco del DSL. **Misma cadena que `BLANK` en `live.py`.** */
+const BLANK = '_____';
+
+/** Tipos que se responden con el teclado o colocando fichas. Sirven para sugerir más tiempo:
+ *  20 segundos alcanzan para tocar un botón, no para escribir contra reloj en un celular. */
+const TYPING_TYPES = new Set(['fillblank', 'dragdrop']);
 
 /** Cuántas preguntas da UNA actividad. **Espejo de `activity_questions()` en `live.py`**, que
  *  es la autoridad: aquí solo se cuenta, para no pedir una petición por hoja con cincuenta en
@@ -43,9 +51,11 @@ function questionCount(activity: Worksheet['activities'][number]): number {
     // Una pregunta por fila; las `right` completas son las opciones, de ahí el tope.
     return left.length >= 2 && right.length >= left.length && right.length <= MAX_LIVE_OPTIONS ? left.length : 0;
   }
-  if (activity.type === 'dragdrop') {
-    // Solo el de UN hueco: con varios hace falta la mecánica de fichas, que aún no existe.
-    return (activity.answer ?? []).length === 1 && within((activity.bank ?? []).length) ? 1 : 0;
+  if (activity.type === 'dragdrop' || activity.type === 'fillblank') {
+    // Una oración con huecos es UNA pregunta, se teclee o se coloquen fichas.
+    const blanks = (activity.text ?? '').split(BLANK).length - 1;
+    const answers = (Array.isArray(activity.answer) ? activity.answer : [activity.answer]).filter((a) => String(a ?? '').trim());
+    return blanks >= 1 && blanks <= MAX_LIVE_BLANKS && answers.length >= blanks ? 1 : 0;
   }
   const answer = 'answer' in activity ? activity.answer : undefined;
   const options = 'options' in activity ? activity.options ?? [] : [];
@@ -105,6 +115,7 @@ const QUESTION_BADGE: Record<string, string> = {
   matching: 'pareja',
   imagematching: 'imagen',
   dragdrop: 'hueco',
+  fillblank: 'escribir',
 };
 
 function CopyField({ label, value }: { label: string; value: string }) {
@@ -320,6 +331,15 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
                       {selected && (
                         <div className="border-t border-rex/20 p-4">
                           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tiempo por pregunta</p>
+                          {/* Escribir en un celular contra reloj no es lo mismo que tocar un
+                              botón: 20s castigan al que teclea despacio, no al que no sabe. */}
+                          {w.activities.some((a) => TYPING_TYPES.has(a.type) && questionCount(a)) && duration > 0 && duration < 45 && (
+                            <p className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                              Esta evaluación tiene preguntas que se escriben o se arman con fichas.
+                              Con {duration}s se castiga a quien teclea despacio, no a quien no sabe:{' '}
+                              <button className="font-bold underline" onClick={(e) => { e.stopPropagation(); setDuration(45); }}>ponle 45s</button>.
+                            </p>
+                          )}
                           <div className="flex flex-wrap gap-2">
                             {DURATIONS.map((d) => (
                               <button

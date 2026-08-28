@@ -800,8 +800,10 @@ export interface LiveState {
     id: string;
     type: string;
     /** MECÁNICA de respuesta, separada del tipo del DSL: el cliente pinta mirando esto, no
-     *  `type`. Con 21 tipos, ramificar por tipo son 21 ramas repartidas en tres archivos. */
-    input: 'choice' | 'multi';
+     *  `type`. Con 21 tipos, ramificar por tipo son 21 ramas repartidas en tres archivos.
+     *  `blanks`: la oración lleva huecos `_____`; con `options` se tocan fichas, sin ellas se
+     *  teclea. La respuesta es una lista POSICIONAL, un elemento por hueco. */
+    input: 'choice' | 'multi' | 'blanks';
     question: string;
     options: string[];
     number: number;
