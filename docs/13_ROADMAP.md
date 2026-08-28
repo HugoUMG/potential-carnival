@@ -186,12 +186,34 @@ de abrir la sesión y en el temario.
 - **Fondo de la pantalla proyectada.** `bg-ink` plano (gris pardo) → gradiente de marca; en un cañón
   de proyección el plano se veía sucio.
 
+**Ampliación del catálogo, fase 1 (agosto 2026).** De 4 tipos jugables a **7**:
+
+- **`matching` e `imagematching`**, explotados en una pregunta de opción múltiple **por fila**. La
+  objeción original ("emparejar con el dedo frustra") describía la mecánica de líneas del renderer,
+  no el modelo de datos: `_build_answer_details` ya calificaba fila a fila (ADR-32).
+- **`dragdrop` de un solo hueco**, usando su `bank` como opciones. Con varios huecos hace falta la
+  mecánica de fichas, que es la fase 2.
+- **Tope de 6 opciones** por pregunta y **`question.input`** (mecánica de respuesta) separado de
+  `question.type`, para que los tipos que faltan sean entradas de 10 líneas y no ramas nuevas en
+  tres archivos.
+- **Arreglado: el estímulo del `block {}` se perdía en silencio.** Una hoja con una lectura arriba y
+  preguntas debajo (ADR-24) ya se jugaba en vivo, y el alumno recibía las preguntas **sin el texto
+  del que hablan**. Las que cuelgan de un bloque con audio ahora se descartan y se reportan, en vez
+  de servirse mudas.
+
 **Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
 
-- **El catálogo completo de tipos en vivo.** Pedido y **pendiente**: hoy solo entran los cuatro de
-  arriba. Los motivos por los que cada uno de los demás no entra están listados aquí abajo — no son
-  falta de código, son que el tipo no encaja en una pregunta cronometrada respondida con el pulgar.
-  Cualquier ampliación tiene que resolver **eso**, no solo escribir el renderer.
+- **Las fases 2-5 del catálogo.** Decidido: teclado (`fillblank`, `dragdrop` multi-hueco), luego
+  audio (los 6 tipos `listening*`, con **subfase**: el profesor da play y luego abre respuestas, que
+  es lo único que impide que el bono de rapidez premie a quien contesta antes de oír), luego lectura
+  (`readingtruefalse`). Los de respuesta abierta (`textbox`, `imagequestion`, `reading`) **no
+  entran**: sin correcto/incorrecto no hay puntos ni marcador, y en una sesión cronometrada eso
+  rompe el ritmo. Meta realista: **15 de 21**.
+- **`speaking`, definitivamente fuera.** No es criterio, es aritmética: `/public/transcribe` limita a
+  60 peticiones por IP y minuto, y un salón entero comparte la IP del WiFi — 50 alumnos respondiendo
+  una pregunta hablada dejan sin responder a los últimos, con la clase mirando. Además 50 micrófonos
+  abiertos graban el ruido de los otros 49. Haría falta una cola por participante y un modo de
+  turnos, que es otro juego.
 - **WebSockets.** El salto correcto si la latencia llega a notarse o si las sesiones crecen a cientos
   de participantes. Ver los tres techos del ADR-25.
 - **Equipos y modos de juego.** Individual y ya.

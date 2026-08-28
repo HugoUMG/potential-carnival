@@ -601,6 +601,14 @@ export function LivePage() {
                 Pregunta {question.number} de {state.total}
                 {question.type === 'truefalse' && <span className="ml-2 text-slate-400">· ¿Verdadero o falso?</span>}
               </p>
+              {/* La lectura del bloque, plegada: en un celular ocuparía la pantalla entera y
+                  taparía los botones, pero sin ella la pregunta habla de un texto invisible. */}
+              {question.passage && (
+                <details className="mt-2 rounded-2xl bg-slate-50 p-3" open>
+                  <summary className="cursor-pointer text-xs font-bold uppercase tracking-wide text-slate-500">Texto de la lectura</summary>
+                  <p className="mt-2 max-h-40 overflow-y-auto text-sm leading-relaxed text-slate-700"><RichText text={question.passage} /></p>
+                </details>
+              )}
               <h1 className="mt-2 text-xl font-extrabold leading-snug text-slate-900"><RichText text={question.question} /></h1>
               {question.image && <img className="mx-auto mt-3 block max-h-56 w-auto max-w-full rounded-2xl" src={question.image} alt="" />}
               <div className="mt-4"><TimeBar remaining={remaining} duration={state.duration} /></div>
@@ -626,7 +634,9 @@ export function LivePage() {
                         className={`flex items-center gap-3 rounded-2xl px-5 py-5 text-left text-lg font-bold text-white shadow-md transition active:scale-[0.98] disabled:opacity-60 ${color.button} ${isPicked ? 'ring-4 ring-slate-900/30' : ''}`}
                         disabled={sending}
                         onClick={() => {
-                          if (question.type === 'multiselect') {
+                          // Por MECÁNICA (`input`), no por tipo: así un tipo nuevo que se
+                          // responda igual no necesita tocar nada aquí.
+                          if (question.input === 'multi') {
                             playSfx('toggle');
                             setPicked((p) => (p.includes(option) ? p.filter((o) => o !== option) : [...p, option]));
                           } else {
@@ -644,7 +654,7 @@ export function LivePage() {
                     );
                   })}
                 </div>
-                {question.type === 'multiselect' && (
+                {question.input === 'multi' && (
                   <button
                     className="rounded-2xl bg-slate-900 px-5 py-4 text-lg font-bold text-white transition hover:bg-slate-700 disabled:opacity-40"
                     disabled={!picked.length || sending}
@@ -813,6 +823,13 @@ export function LiveScreenPage() {
       {question && state.phase === 'question' && (
         <section className="mt-10">
           {question.type === 'truefalse' && <p className="text-center text-lg uppercase tracking-[0.3em] text-white/50">¿Verdadero o falso?</p>}
+          {/* La lectura va arriba y grande: la pantalla proyectada es donde de verdad se lee un
+              texto compartido, no el celular. */}
+          {question.passage && (
+            <div className="mx-auto mb-6 max-h-[22vh] max-w-4xl overflow-y-auto rounded-3xl bg-white/10 px-8 py-5 text-lg leading-relaxed text-white/80">
+              <RichText text={question.passage} />
+            </div>
+          )}
           <h1 className="mt-2 text-center text-5xl font-black leading-tight"><RichText text={question.question} /></h1>
           {question.image && <img className="mx-auto mt-6 block max-h-64 w-auto max-w-full rounded-3xl" src={question.image} alt="" />}
           {remaining != null && state.duration > 0 && (

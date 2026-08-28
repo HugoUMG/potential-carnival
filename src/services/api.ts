@@ -798,12 +798,17 @@ export interface LiveState {
   info_fields: string[];
   question?: {
     id: string;
-    type: 'multiplechoice' | 'multiselect' | 'truefalse' | 'imagechoice';
+    type: string;
+    /** MECÁNICA de respuesta, separada del tipo del DSL: el cliente pinta mirando esto, no
+     *  `type`. Con 21 tipos, ramificar por tipo son 21 ramas repartidas en tres archivos. */
+    input: 'choice' | 'multi';
     question: string;
     options: string[];
     number: number;
-    image?: string | null;              // imagechoice: imagen del enunciado
+    image?: string | null;              // imagechoice / imagematching: imagen del enunciado
     option_images?: string[] | null;    // imagechoice: URL por opción, PARALELA a `options`
+    /** Texto compartido de un `block {}`: la lectura sobre la que pregunta la actividad. */
+    passage?: string | null;
   };
   /** Solo llega en fase `reveal`. Mientras la pregunta está abierta el backend no la manda. */
   answer?: string | string[];

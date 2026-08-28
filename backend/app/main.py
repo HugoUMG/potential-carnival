@@ -1286,18 +1286,23 @@ def _live_error(_: Request, exc: live.LiveError) -> JSONResponse:
 def create_live_session(payload: LiveSessionCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
     """Abre una sesión en vivo a partir de una hoja propia. Devuelve el código para proyectar."""
     worksheet = require_worksheet_manager(payload.worksheet_id, current_user)
-    activities = worksheet.json_content.iter_activities()
+    content = worksheet.json_content
+    activities = content.iter_activities()
+    # Los bloques van APARTE porque `iter_activities()` los aplana y tira el `BlockData` entero:
+    # sin esto, una hoja con una lectura arriba y varias preguntas debajo (ADR-24) mandaba al
+    # alumno las preguntas sin el texto del que hablan.
+    blocks = content.blocks
     session = live.create_session(
         worksheet_id=worksheet.id,
         worksheet_title=worksheet.title,
         owner_id=current_user.id,
         info_fields=worksheet.json_content.info_fields,
-        questions=live.extract_questions(activities),
+        questions=live.extract_questions(activities, blocks),
         duration=payload.duration,
         instant_feedback=payload.instant_feedback,
         # Lo que la hoja tiene y en vivo no se puede jugar. Viaja al panel para que descartarlo
         # sea visible, en vez de que la sesión salga más corta sin explicación.
-        skipped=live.summarize(activities)["skipped"],
+        skipped=live.summarize(activities, blocks)["skipped"],
     )
     return session.host_state()
 

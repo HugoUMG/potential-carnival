@@ -717,6 +717,35 @@ pediría `split_part` en Postgres y `substr`/`instr` en SQLite — dos dialectos
 aparece en el historial hasta que se termina, que es exactamente lo correcto: hasta entonces está en
 `GET /live/sessions`.
 
+## 🟢 ADR-32 — `matching` en vivo es una opción múltiple por fila, no un tablero que se arrastra
+
+**Contexto.** `matching` se descartó de la sesión en vivo con este motivo: *"el problema no es el
+código sino el dedo: emparejar con prisa en pantalla chica frustra más de lo que enseña"*. Es cierto
+**de la mecánica del renderer normal**, que empareja trazando líneas. Al revisar el catálogo completo
+apareció que `_build_answer_details` (`main.py`) **nunca calificó `matching` como un todo**: emite un
+detalle por fila, con `activity_id = f"{id}:{index}"`, `prompt = left[i]` y `correct_answer =
+right[i]`. La unidad de calificación siempre fue una pregunta de opción múltiple.
+
+**Decisión.** En vivo se explota fila a fila: enunciado `left[i]`, opciones = todas las `right`,
+clave `right[i]`. Son los mismos botones que ya pinta el resto de tipos, con cero UI nueva, y el
+"problema del dedo" desaparece igual que desapareció con `truefalse`. `imagematching` va idéntico,
+con la imagen como enunciado. `dragdrop` de un hueco entra por el mismo razonamiento: su `bank` ya
+está validado por el parser para contener todas las respuestas, así que **es** un `multiplechoice`.
+
+**Alternativas descartadas.**
+
+- *Portar el tablero de líneas al celular.* Es la lectura literal de la objeción original y lleva a
+  construir una mecánica táctil nueva para un problema que la explosión disuelve.
+- *Dejarlo fuera.* Habría descartado los tres tipos con mejor relación valor/coste del catálogo por
+  una objeción que no aplicaba al modelo de datos real.
+
+**Consecuencia.** Las opciones se **barajan de forma determinista** con `random.Random(activity.id)`:
+sin barajar, la clave de la fila `i` cae en la posición `i` (fila 1 → primer botón…) y la actividad
+se resuelve sin leerla. La semilla es fija para que el orden no cambie entre polls —el cliente
+pregunta cada segundo— y para que un test pueda comprobarlo. Y aparece un tope, `MAX_LIVE_OPTIONS`
+(6): un `matching` de ocho columnas son ocho botones con `OPTION_COLORS` de cuatro entradas, o sea
+dos azules; se descarta entero y se reporta, porque recortar perdería la clave la mitad de las veces.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

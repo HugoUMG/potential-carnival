@@ -22,6 +22,7 @@ clase. Tres techos conocidos:
 
 from __future__ import annotations
 
+import random
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -38,7 +39,15 @@ from typing import Any
 # del profesor lo enseña antes de abrir la sesión. Esta lista está duplicada en
 # `src/components/LiveHostPanel.tsx` para pintar ese resumen sin una petición por hoja; si cambia
 # aquí, cambia allá — lo comprueba un test.
-LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice")
+LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice",
+              "matching", "imagematching", "dragdrop")
+
+# Tope de opciones de una pregunta en vivo. `OPTION_COLORS` en `LivePage.tsx` tiene CUATRO
+# entradas y cicla: con siete opciones hay dos azules, y el color deja de identificar nada desde
+# el fondo del salón — que es justo para lo que está. Una actividad que pase de aquí no se
+# recorta (perdería la respuesta correcta la mitad de las veces): se descarta entera y se
+# reporta, como todo lo demás que se queda fuera.
+MAX_LIVE_OPTIONS = 6
 
 MAX_PARTICIPANTS = 300
 MAX_SESSIONS = 50
@@ -92,8 +101,18 @@ class LiveQuestion:
     question: str
     options: list[str]
     answer: str | list[str]
-    image: str | None = None  # imagechoice: imagen del enunciado
+    image: str | None = None  # imagechoice / imagematching: imagen del enunciado
     option_images: list[str] | None = None  # imagechoice: URL por opción, PARALELA a `options`
+    # MECÁNICA de respuesta, separada del tipo del DSL. El cliente decide qué pinta mirando
+    # esto, no `type`: con 21 tipos, ramificar por tipo son 21 ramas repartidas en tres archivos
+    # y la certeza de que alguna se olvida. Cinco mecánicas cubren el catálogo entero
+    # ("choice", "multi", y más adelante "text", "blanks", "order"); `type` se queda solo para
+    # la etiqueta y el color.
+    input: str = "choice"
+    # Texto compartido sobre el que pregunta la actividad (el `text` de un `block {}`). Se pinta
+    # arriba del enunciado. Sin esto, una hoja con una lectura y cinco preguntas debajo mandaba
+    # al alumno las preguntas SIN el texto del que hablan.
+    passage: str | None = None
 
     def is_correct(self, given: Any) -> bool:
         """Misma semántica que `_build_answer_details` en `main.py`: `multiselect` exige que el
@@ -457,11 +476,13 @@ class LiveSession:
             state["question"] = {
                 "id": question.id,
                 "type": question.type,
+                "input": question.input,
                 "question": question.question,
                 "options": question.options,
                 "number": self.index + 1,
                 "image": question.image,
                 "option_images": question.option_images,
+                "passage": question.passage,
             }
 
         if phase == "reveal" and question is not None:
@@ -611,70 +632,172 @@ _sessions: dict[str, LiveSession] = {}
 TRUE_FALSE_OPTIONS = ["True", "False"]
 
 
-def extract_questions(activities: list[Any]) -> list[LiveQuestion]:
-    """Se queda con las actividades del DSL que sirven en vivo, en el orden de la hoja.
+def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQuestion]:
+    """Las preguntas en vivo que da UNA actividad. Lista vacía = no se puede jugar.
 
-    Una actividad no es siempre una pregunta: un `truefalse` con cinco enunciados son CINCO
-    preguntas en vivo. Se numeran `{activity_id}:{índice}`, la misma convención que usa
-    `_build_answer_details` para esos enunciados, de modo que la entrega que guarda `finish`
-    encaja con lo que Revisión ya sabe leer.
+    Es la única autoridad sobre qué entra y qué no: `extract_questions` la recorre y `summarize`
+    la usa para contar lo descartado. Antes eran dos criterios distintos (una lista de tipos y
+    un recorrido aparte), y bastaba que una actividad de tipo jugable no diera ninguna pregunta
+    —sin clave, con demasiadas opciones— para que desapareciera sin contarse ni como jugada ni
+    como descartada. El fallo silencioso de la regla 3, otra vez.
+
+    Sobre la explosión: una actividad no es siempre una pregunta. Un `truefalse` de cinco
+    enunciados son CINCO preguntas, y un `matching` de cuatro filas son CUATRO. Se numeran
+    `{activity_id}:{índice}`, la misma convención que usa `_build_answer_details` en `main.py`
+    para esos mismos tipos, de modo que la entrega que guarda `finish` encaja con lo que
+    Revisión ya sabe leer.
     """
-    questions: list[LiveQuestion] = []
-    for activity in activities:
-        kind = getattr(activity, "type", None)
-        if kind not in LIVE_TYPES:
-            continue
+    kind = getattr(activity, "type", None)
+    if kind not in LIVE_TYPES:
+        return []
 
-        if kind == "truefalse":
-            for index, statement in enumerate(getattr(activity, "statements", None) or []):
-                text = (statement.get("text") or "").strip()
-                if not text or statement.get("answer") is None:
-                    continue
-                questions.append(LiveQuestion(
-                    id=f"{activity.id}:{index}",
-                    type="truefalse",
-                    question=text,
-                    options=list(TRUE_FALSE_OPTIONS),
-                    # Las mismas cadenas que guarda el renderer de la hoja ('true'/'false'),
-                    # comparadas sin distinguir mayúsculas.
-                    answer="True" if statement["answer"] else "False",
-                ))
-            continue
+    def build(**kwargs: Any) -> LiveQuestion:
+        return LiveQuestion(passage=passage, **kwargs)
 
-        options = list(getattr(activity, "options", None) or [])
-        answer = getattr(activity, "answer", None)
-        if len(options) < 2 or not answer:
-            continue  # sin opciones o sin clave no se puede jugar ni calificar
-        images = list(getattr(activity, "option_images", None) or []) if kind == "imagechoice" else []
-        questions.append(LiveQuestion(
+    if kind == "truefalse":
+        out = []
+        for index, statement in enumerate(getattr(activity, "statements", None) or []):
+            text = (statement.get("text") or "").strip()
+            if not text or statement.get("answer") is None:
+                continue
+            out.append(build(
+                id=f"{activity.id}:{index}",
+                type="truefalse",
+                question=text,
+                options=list(TRUE_FALSE_OPTIONS),
+                # Las mismas cadenas que guarda el renderer de la hoja ('true'/'false'),
+                # comparadas sin distinguir mayúsculas.
+                answer="True" if statement["answer"] else "False",
+            ))
+        return out
+
+    # `matching` e `imagematching`: una pregunta POR FILA, no un tablero que se arrastra.
+    # El renderer normal se juega con líneas y por eso se descartó en vivo la primera vez, pero
+    # `_build_answer_details` (main.py) ya califica estos tipos fila a fila — o sea que la
+    # unidad de calificación YA ES una opción múltiple: enunciado = `left[i]`, opciones = todas
+    # las `right`, clave = `right[i]`. En vivo son los mismos botones que el resto y el problema
+    # del dedo desaparece, igual que desapareció con `truefalse`.
+    if kind in {"matching", "imagematching"}:
+        left = list(getattr(activity, "left", None) or [])
+        right = list(getattr(activity, "right", None) or [])
+        images = list(getattr(activity, "left_images", None) or [])
+        if len(left) < 2 or len(right) < len(left) or len(right) > MAX_LIVE_OPTIONS:
+            return []
+        # Barajado DETERMINISTA por actividad: sin él la clave de la fila `i` cae siempre en la
+        # posición `i` (fila 1 → primer botón, fila 2 → segundo…) y el juego se resuelve sin
+        # leer nada. La semilla es el id de la actividad para que el orden sea el mismo en toda
+        # la sesión y reproducible en un test; `random` aquí es cosmético, no criptográfico.
+        options = list(right)
+        random.Random(f"{activity.id}:live").shuffle(options)
+        return [
+            build(
+                id=f"{activity.id}:{index}",
+                type=kind,
+                question=str(label),
+                options=options,
+                answer=right[index],
+                # `imagematching` pregunta POR la imagen: es el enunciado, no una opción.
+                image=images[index] if kind == "imagematching" and index < len(images) else None,
+            )
+            for index, label in enumerate(left)
+        ]
+
+    # `dragdrop` de UN hueco es un `multiplechoice` disfrazado: el `bank` ya está validado por
+    # el parser para contener todas las respuestas, así que sirve de opciones tal cual. Con
+    # varios huecos hace falta la mecánica de fichas, que todavía no existe.
+    if kind == "dragdrop":
+        answers = list(getattr(activity, "answer", None) or [])
+        bank = list(getattr(activity, "bank", None) or [])
+        if len(answers) != 1 or not (2 <= len(bank) <= MAX_LIVE_OPTIONS):
+            return []
+        return [build(
             id=activity.id,
             type=kind,
-            question=getattr(activity, "question", None) or getattr(activity, "prompt", None) or "",
-            options=options,
-            answer=answer,
-            image=getattr(activity, "image", None) if kind == "imagechoice" else None,
-            # Se rellena a la longitud de `options`: una URL de menos dejaría la opción sin
-            # imagen, no descuadrada.
-            option_images=(images + [""] * len(options))[:len(options)] if images else None,
-        ))
-    return questions
+            question=str(getattr(activity, "text", None) or ""),
+            options=bank,
+            answer=answers[0],
+        )]
+
+    options = list(getattr(activity, "options", None) or [])
+    answer = getattr(activity, "answer", None)
+    if not (2 <= len(options) <= MAX_LIVE_OPTIONS) or not answer:
+        return []  # sin opciones, sin clave o con demasiadas: no se puede jugar ni calificar
+    images = list(getattr(activity, "option_images", None) or []) if kind == "imagechoice" else []
+    return [build(
+        id=activity.id,
+        type=kind,
+        question=getattr(activity, "question", None) or getattr(activity, "prompt", None) or "",
+        options=options,
+        answer=answer,
+        input="multi" if kind == "multiselect" else "choice",
+        image=getattr(activity, "image", None) if kind == "imagechoice" else None,
+        # Se rellena a la longitud de `options`: una URL de menos dejaría la opción sin
+        # imagen, no descuadrada.
+        option_images=(images + [""] * len(options))[:len(options)] if images else None,
+    )]
 
 
-def summarize(activities: list[Any]) -> dict[str, Any]:
+def _block_context(blocks: list[Any] | None) -> tuple[dict[str, str], set[str]]:
+    """Mapea `id de actividad → texto del bloque`, y aparte las que cuelgan de un bloque con AUDIO.
+
+    `WorksheetJson.iter_activities()` aplana los bloques y tira el `BlockData` entero
+    (`models.py`), así que hasta ahora una hoja con una lectura arriba y cinco preguntas debajo
+    (ADR-24) se jugaba en vivo mandando las preguntas SIN el texto del que hablan. Nadie se
+    enteraba: las preguntas llegaban bien formadas, solo que sobre la nada.
+
+    El audio es otra historia y todavía no se puede resolver: reproducirlo en 50 celulares no
+    sirve (van desfasados, y son 50 peticiones a `/tts` por pregunta desde la IP del salón,
+    que es un 429 asegurado), y proyectarlo pide una fase nueva que aún no existe. Hasta
+    entonces esas actividades se DESCARTAN en vez de servirse mudas — una pregunta sobre un
+    audio que nadie ha oído no es jugable, y fallar en voz alta es la regla de la casa.
+    """
+    passages: dict[str, str] = {}
+    muted: set[str] = set()
+    for block in blocks or []:
+        text = (getattr(block, "text", None) or "").strip()
+        has_audio = bool(getattr(block, "audio_text", None) or getattr(block, "lines", None))
+        for activity in getattr(block, "activities", None) or []:
+            if text:
+                passages[activity.id] = text
+            if has_audio:
+                muted.add(activity.id)
+    return passages, muted
+
+
+def extract_questions(activities: list[Any], blocks: list[Any] | None = None) -> list[LiveQuestion]:
+    """Las preguntas jugables de la hoja, en su orden. `blocks` aporta el estímulo compartido."""
+    passages, muted = _block_context(blocks)
+    return [
+        question
+        for activity in activities
+        if activity.id not in muted
+        for question in activity_questions(activity, passages.get(activity.id))
+    ]
+
+
+def summarize(activities: list[Any], blocks: list[Any] | None = None) -> dict[str, Any]:
     """Cuántas preguntas jugables da la hoja y qué se queda fuera, por tipo.
 
     Existe para que descartar una actividad sea VISIBLE. Sin esto, un profesor con una hoja de
     diez actividades abre una sesión de tres preguntas y no hay nada que le diga por qué — el
     fallo silencioso que este proyecto ya se ha comido varias veces (ver 12_RULES).
     """
+    _, muted = _block_context(blocks)
     skipped: dict[str, int] = {}
+    playable = 0
     for activity in activities:
         kind = getattr(activity, "type", None)
-        if kind in LIVE_TYPES or kind == "content":
-            continue  # `content` es material de repaso, no una actividad que se descarte
-        skipped[kind] = skipped.get(kind, 0) + 1
+        if kind == "content":
+            continue  # material de repaso, no una actividad que se descarte
+        # Se cuenta por lo que la actividad DA, no por su tipo: un `matching` de ocho columnas
+        # es de tipo jugable y aun así no entra, y eso tiene que verse.
+        count = 0 if activity.id in muted else len(activity_questions(activity))
+        if count:
+            playable += count
+        else:
+            skipped[kind] = skipped.get(kind, 0) + 1
     return {
-        "playable": len(extract_questions(activities)),
+        "playable": playable,
         "skipped": [{"type": k, "count": v} for k, v in sorted(skipped.items())],
     }
 
@@ -712,7 +835,8 @@ def create_session(
     if not questions:
         raise LiveError(
             "Esta hoja no tiene ninguna actividad que se pueda responder en vivo. Sirven: opción "
-            "múltiple, selección múltiple, verdadero/falso e imagen + opción múltiple.",
+            "múltiple, selección múltiple, verdadero/falso, imagen + opción múltiple, "
+            "emparejar, emparejar imágenes y arrastrar de un solo hueco.",
             status=422,
         )
     _evict()

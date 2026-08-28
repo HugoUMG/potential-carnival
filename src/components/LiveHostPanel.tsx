@@ -20,25 +20,51 @@ import type { Worksheet } from '../types';
  *  calificación instantánea. **Misma lista que `LIVE_TYPES` en `backend/app/live.py`** — está
  *  duplicada aquí para pintar el resumen de abajo sin una petición por hoja, y hay un test que
  *  falla si las dos se desincronizan (`test_live_session.py`). */
-const LIVE_TYPES = new Set(['multiplechoice', 'multiselect', 'truefalse', 'imagechoice']);
+const LIVE_TYPES = new Set(['multiplechoice', 'multiselect', 'truefalse', 'imagechoice', 'matching', 'imagematching', 'dragdrop']);
+
+/** Tope de opciones por pregunta. **Mismo valor que `MAX_LIVE_OPTIONS` en `live.py`.** */
+const MAX_LIVE_OPTIONS = 6;
+
+/** Cuántas preguntas da UNA actividad. **Espejo de `activity_questions()` en `live.py`**, que
+ *  es la autoridad: aquí solo se cuenta, para no pedir una petición por hoja con cincuenta en
+ *  la lista. Un test compara los dos conteos sobre una hoja real y falla si se separan — sin
+ *  él, el panel prometería "1 pregunta" donde la sesión trae seis, y el profesor lo
+ *  descubriría con el salón mirando. */
+function questionCount(activity: Worksheet['activities'][number]): number {
+  if (!LIVE_TYPES.has(activity.type)) return 0;
+  const within = (n: number) => n >= 2 && n <= MAX_LIVE_OPTIONS;
+
+  if (activity.type === 'truefalse') {
+    return (activity.statements ?? []).filter((s) => s.text?.trim() && s.answer != null).length;
+  }
+  if (activity.type === 'matching' || activity.type === 'imagematching') {
+    const left = activity.left ?? [];
+    const right = activity.right ?? [];
+    // Una pregunta por fila; las `right` completas son las opciones, de ahí el tope.
+    return left.length >= 2 && right.length >= left.length && right.length <= MAX_LIVE_OPTIONS ? left.length : 0;
+  }
+  if (activity.type === 'dragdrop') {
+    // Solo el de UN hueco: con varios hace falta la mecánica de fichas, que aún no existe.
+    return (activity.answer ?? []).length === 1 && within((activity.bank ?? []).length) ? 1 : 0;
+  }
+  const answer = 'answer' in activity ? activity.answer : undefined;
+  const options = 'options' in activity ? activity.options ?? [] : [];
+  return within(options.length) && answer && answer.length ? 1 : 0;
+}
 
 /** Cuántas PREGUNTAS da la hoja y qué se queda fuera.
  *
- *  Una actividad no es siempre una pregunta: un `truefalse` de cinco enunciados son cinco
- *  preguntas en vivo (igual que `extract_questions` en el backend). Y lo descartado se cuenta
- *  para poder enseñarlo: si la sesión sale más corta que la hoja, el profesor tiene que saber
- *  por qué antes de proyectarla, no descubrirlo con el salón mirando. */
+ *  Se cuenta por lo que cada actividad DA, no por su tipo: un `matching` de ocho columnas es de
+ *  tipo jugable y aun así no entra, y eso tiene que verse. Si la sesión sale más corta que la
+ *  hoja, el profesor tiene que saber por qué antes de proyectarla. */
 function liveBreakdown(worksheet: Worksheet): { questions: number; skipped: Map<string, number> } {
   let questions = 0;
   const skipped = new Map<string, number>();
   for (const activity of worksheet.activities) {
-    if (activity.type === 'truefalse') {
-      questions += activity.statements?.length ?? 0;
-    } else if (LIVE_TYPES.has(activity.type)) {
-      questions += 1;
-    } else if (activity.type !== 'content') {
-      skipped.set(activity.type, (skipped.get(activity.type) ?? 0) + 1); // `content` es repaso, no se descarta
-    }
+    if (activity.type === 'content') continue; // repaso, no se descarta
+    const count = questionCount(activity);
+    if (count) questions += count;
+    else skipped.set(activity.type, (skipped.get(activity.type) ?? 0) + 1);
   }
   return { questions, skipped };
 }
@@ -57,7 +83,13 @@ function SkippedNote({ skipped }: { skipped: Map<string, number> | { type: strin
       <Info size={14} className="mt-0.5 shrink-0 text-amber-500" />
       <span>
         Queda fuera de la sesión: {rows.map((r) => `${r.count} ${typeLabel(r.type)}`).join(' · ')}.
-        <span className="block text-slate-400">En vivo solo se responden opción múltiple, selección múltiple, verdadero/falso e imagen + opción múltiple. El resto sigue en la hoja para resolverla normal.</span>
+        <span className="block text-slate-400">
+          En vivo se responde lo que se toca con el pulgar y se califica solo: opción múltiple, selección
+          múltiple, verdadero/falso, imagen + opción múltiple, emparejar, emparejar imágenes y arrastrar
+          de un solo hueco. También queda fuera una actividad de esas si pasa de {MAX_LIVE_OPTIONS} opciones
+          (los colores dejan de distinguirse desde el fondo) o si depende de un audio. El resto sigue en la
+          hoja para resolverla normal.
+        </span>
       </span>
     </p>
   );
@@ -70,6 +102,9 @@ const QUESTION_BADGE: Record<string, string> = {
   multiselect: 'multi',
   truefalse: 'V/F',
   imagechoice: 'imagen',
+  matching: 'pareja',
+  imagematching: 'imagen',
+  dragdrop: 'hueco',
 };
 
 function CopyField({ label, value }: { label: string; value: string }) {
@@ -249,7 +284,9 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
               <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
                 Ninguna de tus evaluaciones tiene actividades que se puedan responder en vivo desde el
                 celular: <strong>opción múltiple</strong>, <strong>selección múltiple</strong>,
-                <strong> verdadero/falso</strong> o <strong>imagen + opción múltiple</strong>. Crea una y vuelve aquí.
+                <strong> verdadero/falso</strong>, <strong>imagen + opción múltiple</strong>,
+                <strong> emparejar</strong>, <strong>emparejar imágenes</strong> o
+                <strong> arrastrar de un solo hueco</strong>. Crea una y vuelve aquí.
               </p>
             ) : (
               // Contenedor con scroll propio: con cincuenta hojas, la página entera medía metros

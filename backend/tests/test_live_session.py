@@ -10,6 +10,8 @@ import pytest
 
 from backend.app.live import (
     DEFAULT_AVATAR,
+    MAX_LIVE_OPTIONS,
+    activity_questions,
     LIVE_TYPES,
     LiveError,
     create_session,
@@ -125,7 +127,10 @@ def test_solo_entran_los_tipos_jugables_en_vivo():
     questions = extract_questions(data.activities)
 
     assert [q.type for q in questions] == ["multiplechoice", "multiselect"]
-    assert set(LIVE_TYPES) == {"multiplechoice", "multiselect", "truefalse", "imagechoice"}
+    assert set(LIVE_TYPES) == {
+        "multiplechoice", "multiselect", "truefalse", "imagechoice",
+        "matching", "imagematching", "dragdrop",
+    }
 
 
 def test_los_campos_de_entrada_salen_del_info_de_la_hoja():
@@ -168,10 +173,10 @@ def test_lo_que_no_se_puede_jugar_se_reporta_en_vez_de_desaparecer():
     los descartes, el profesor abriría una sesión más corta que su hoja sin saber por qué."""
     resumen = summarize(parse_worksheet_script(SCRIPT_MIXTO).activities)
 
-    assert resumen["playable"] == 5  # 1 MC + 3 enunciados T/F + 1 imagechoice
+    # 1 MC + 3 enunciados T/F + 1 imagechoice + 2 filas del matching (una pregunta por fila)
+    assert resumen["playable"] == 7
     assert resumen["skipped"] == [
         {"type": "fillblank", "count": 1},
-        {"type": "matching", "count": 1},
         {"type": "textbox", "count": 1},
     ]
 
@@ -502,3 +507,145 @@ def test_las_listas_de_emojis_no_se_desincronizan_con_el_frontend():
 
     assert lista("AVATARS") == set(AVATARS)
     assert lista("REACTIONS") == set(REACTIONS)
+
+
+# ── Catálogo: matching, imagematching, dragdrop y el estímulo del bloque ─────
+
+
+SCRIPT_BLOQUE = '''worksheet {
+title: "Bloques"
+description: "Estimulo compartido"
+
+info {
+  fields:
+  - Nombre
+}
+
+block {
+  title: "Lectura"
+  text: "Tom is a baker. He wakes up at four."
+
+  multiplechoice {
+    question: "What is Tom's job?"
+    options:
+    - Baker
+    - Teacher
+    answer: "Baker"
+  }
+}
+
+block {
+  title: "Audio"
+  audio_text: "He wakes up at four."
+
+  multiplechoice {
+    question: "What time?"
+    options:
+    - Four
+    - Five
+    answer: "Four"
+  }
+}
+}'''
+
+
+def _actividad(script: str, tipo: str):
+    return next(a for a in parse_worksheet_script(script).activities if a.type == tipo)
+
+
+def test_un_matching_es_una_pregunta_de_opcion_multiple_por_fila():
+    """El `matching` se descartó en vivo por "el problema del dedo", pero eso era la mecánica de
+    líneas del renderer: `_build_answer_details` YA lo califica fila a fila, o sea que la unidad
+    de calificación siempre fue una opción múltiple. Explotado son botones, como `truefalse`."""
+    preguntas = activity_questions(_actividad(SCRIPT_MIXTO, "matching"))
+
+    assert [q.question for q in preguntas] == ["dog", "cat"]
+    assert [q.answer for q in preguntas] == ["perro", "gato"]
+    assert all(sorted(q.options) == ["gato", "perro"] for q in preguntas)  # todas las `right`
+    # La convención de ids es la MISMA que usa `_build_answer_details` para este tipo; sin ella
+    # la entrega que guarda `finish` no encajaría con lo que Revisión sabe leer.
+    ids = [q.id for q in preguntas]
+    assert ids == [f"{ids[0].rsplit(':', 1)[0]}:0", f"{ids[0].rsplit(':', 1)[0]}:1"]
+
+
+def test_las_opciones_de_un_matching_no_salen_en_el_orden_de_la_clave():
+    """Sin barajar, la respuesta de la fila `i` cae siempre en el botón `i` y el juego se
+    resuelve sin leer. El barajado es determinista por actividad: el orden tiene que ser el
+    mismo en toda la sesión (el cliente pregunta cada segundo) y reproducible en un test."""
+    actividad = _actividad(SCRIPT_MIXTO, "matching")
+    preguntas = activity_questions(actividad)
+
+    # Determinista: dos extracciones de la misma actividad dan el mismo orden.
+    assert [q.options for q in activity_questions(actividad)] == [q.options for q in preguntas]
+    # Y todas las filas comparten un único orden, para que el alumno no lo relea cada vez.
+    assert len({tuple(q.options) for q in preguntas}) == 1
+
+
+def test_un_matching_con_demasiadas_columnas_se_descarta_entero():
+    """Los colores de las opciones ciclan cada cuatro: con ocho, dos son azules y el color deja
+    de identificar desde el fondo del salón. No se recorta (perdería la clave la mitad de las
+    veces): se descarta entero y se reporta, como todo lo que se queda fuera."""
+    class _Fake:
+        id, type = "m1", "matching"
+        left = [f"l{i}" for i in range(MAX_LIVE_OPTIONS + 1)]
+        right = [f"r{i}" for i in range(MAX_LIVE_OPTIONS + 1)]
+        left_images = None
+
+    assert activity_questions(_Fake()) == []
+
+
+def test_el_dragdrop_de_un_hueco_usa_el_bank_como_opciones():
+    """Con un solo hueco es un `multiplechoice` disfrazado, y el parser YA garantiza que el
+    `bank` contiene todas las respuestas. Con varios huecos hace falta la mecánica de fichas."""
+    class _Uno:
+        id, type = "d1", "dragdrop"
+        text, answer, bank = "I _____ tired.", ["am"], ["am", "is", "are"]
+
+    class _Varios(_Uno):
+        text, answer = "I _____ very _____.", ["am", "tired"]
+
+    assert [q.options for q in activity_questions(_Uno())] == [["am", "is", "are"]]
+    assert activity_questions(_Uno())[0].answer == "am"
+    assert activity_questions(_Varios()) == []
+
+
+def test_la_lectura_del_bloque_llega_a_la_pregunta():
+    """`iter_activities()` aplana los bloques y tira el `BlockData`, así que una hoja con una
+    lectura arriba y preguntas debajo (ADR-24) se jugaba mandando las preguntas SIN el texto del
+    que hablan. Llegaban bien formadas, solo que sobre la nada: nadie se enteraba."""
+    data = parse_worksheet_script(SCRIPT_BLOQUE)
+    # Con bloques, las actividades viven DENTRO de ellos: `WorksheetData.activities` queda vacía
+    # y aplanar es justo lo que hace `iter_activities()` en producción.
+    planas = [a for b in data.blocks for a in b.activities]
+    preguntas = extract_questions(planas, data.blocks)
+
+    assert len(preguntas) == 1  # la del bloque con audio se descarta, ver el test siguiente
+    assert preguntas[0].passage == "Tom is a baker. He wakes up at four."
+
+
+def test_una_pregunta_sobre_un_audio_que_nadie_puede_oir_no_se_sirve_muda():
+    """Reproducir el audio en 50 celulares no sirve (van desfasados, y son 50 peticiones a
+    `/tts` por pregunta desde la IP del salón), y proyectarlo pide una fase que aún no existe.
+    Hasta entonces se descarta y se REPORTA, en vez de preguntar por un audio inaudible."""
+    data = parse_worksheet_script(SCRIPT_BLOQUE)
+    planas = [a for b in data.blocks for a in b.activities]
+    resumen = summarize(planas, data.blocks)
+
+    assert resumen["playable"] == 1
+    assert resumen["skipped"] == [{"type": "multiplechoice", "count": 1}]
+
+
+def test_el_panel_y_el_backend_cuentan_las_mismas_preguntas():
+    """`liveBreakdown` en `LiveHostPanel.tsx` reimplementa la explosión para no pedir una
+    petición por hoja con cincuenta en la lista. Comparar solo la lista de TIPOS no basta: el
+    panel podría decir "1 pregunta" donde la sesión trae seis, y el profesor lo descubriría con
+    el salón mirando. Esto compara el CONTEO, que es lo que de verdad se desincroniza."""
+    from pathlib import Path
+
+    panel = (Path(__file__).resolve().parents[2] / "src" / "components" / "LiveHostPanel.tsx").read_text(encoding="utf-8")
+
+    # El tope tiene que ser el mismo número en los dos lados.
+    assert f"const MAX_LIVE_OPTIONS = {MAX_LIVE_OPTIONS};" in panel
+    # Y el panel tiene que saber explotar TODO lo que el backend explota, no solo `truefalse`.
+    for tipo in ("truefalse", "matching", "imagematching", "dragdrop"):
+        assert tipo in panel, f"`liveBreakdown` no contempla {tipo}: contaría de menos"

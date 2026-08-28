@@ -267,17 +267,40 @@ POST   /live/{code}/react             — Lanzar uno de los 5 emojis de `REACTIO
 POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `ended`)             (sin JWT)
 ```
 
-- **Cuatro tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse` e
-  `imagechoice`. Son los que tienen opciones tocables y calificación instantánea; el resto necesita
-  teclado o califica en diferido. Una hoja sin ninguno devuelve **422** al abrir la sesión.
-- **Una actividad no es siempre una pregunta.** Un `truefalse` con cinco enunciados son **cinco**
-  preguntas en vivo, numeradas `{activity_id}:{índice}` — la misma convención que usa
-  `_build_answer_details` para esos enunciados, de modo que lo que guarda `finish` encaja con lo que
-  Revisión ya sabe leer. `imagechoice` se califica por el TEXTO de la opción (ADR-20) y arrastra sus
-  `option_images`, rellenadas a la longitud de `options`.
+- **Siete tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse`,
+  `imagechoice`, `matching`, `imagematching` y `dragdrop` de **un solo hueco**. Son los que se
+  responden con el pulgar y se califican solos; el resto necesita teclado, audio o califica en
+  diferido. Una hoja sin ninguno devuelve **422** al abrir la sesión.
+- **`activity_questions()` es la única autoridad** sobre qué entra. `extract_questions` la recorre y
+  `summarize` la usa para contar lo descartado, así que las dos respuestas no pueden contradecirse.
+  Antes eran dos criterios distintos y una actividad de tipo jugable que no diera ninguna pregunta
+  (sin clave, con demasiadas opciones) desaparecía sin contarse ni como jugada ni como descartada.
+- **Una actividad no es siempre una pregunta.** Un `truefalse` de cinco enunciados son **cinco**
+  preguntas y un `matching` de cuatro filas son **cuatro**, numeradas `{activity_id}:{índice}` — la
+  misma convención que usa `_build_answer_details` para esos tipos, de modo que lo que guarda
+  `finish` encaja con lo que Revisión ya sabe leer.
+- **`matching` e `imagematching` se juegan como opción múltiple por fila**, no como un tablero que
+  se arrastra: enunciado = `left[i]`, opciones = todas las `right`, clave = `right[i]`. La unidad de
+  calificación ya era esa en `_build_answer_details`; en vivo son los mismos botones (ADR-32). Las
+  opciones se **barajan de forma determinista** por `activity.id`: sin barajar, la clave de la fila
+  `i` cae siempre en el botón `i` y el juego se resuelve sin leer.
+- **Tope de `MAX_LIVE_OPTIONS` (6) opciones por pregunta.** `OPTION_COLORS` cicla cada cuatro: con
+  siete hay dos azules y el color deja de identificar desde el fondo del salón. Lo que pasa del tope
+  se descarta **entero** y se reporta — recortar perdería la clave la mitad de las veces.
+- **`question.input` es la MECÁNICA de respuesta** (`choice` / `multi`), separada de `question.type`.
+  El cliente pinta mirando `input`; `type` se queda para la etiqueta y el color. Con 21 tipos,
+  ramificar por tipo son 21 ramas repartidas en tres archivos y la certeza de que alguna se olvida.
+- **El estímulo del `block {}` llega a la pregunta** (`question.passage`). `iter_activities()`
+  aplana los bloques y tira el `BlockData`, así que hasta agosto de 2026 una hoja con una lectura
+  arriba y preguntas debajo (ADR-24) mandaba al alumno las preguntas **sin el texto del que
+  hablan** — bien formadas, pero sobre la nada. `create_live_session` pasa ahora `content.blocks`
+  aparte. Las actividades que cuelgan de un bloque con **audio** se descartan y se reportan: una
+  pregunta sobre un audio que nadie ha oído no es jugable, y servirla muda es fallar en silencio.
 - **Lo descartado se reporta, no se pierde.** `live.summarize()` cuenta por tipo lo que la hoja tiene
   y en vivo no se puede jugar, y viaja en `host_state().skipped` para que el panel lo enseñe. Sin eso,
-  una hoja de diez actividades abriría una sesión de tres preguntas sin explicar por qué.
+  una hoja de diez actividades abriría una sesión de tres preguntas sin explicar por qué. **El conteo
+  está duplicado en `liveBreakdown()` (`LiveHostPanel.tsx`)** para no pedir una petición por hoja con
+  cincuenta en la lista; un test compara los dos y falla si se separan.
 - **La clave nunca viaja mientras la pregunta está abierta.** `public_state` añade `answer` y
   `option_counts` **solo** en fase `reveal`. Es el mismo criterio de la regla 13 y lo cubre un test.
 - **El cronómetro lo calcula el servidor** (`remaining_ms`): el celular solo lo pinta, así que cambiar
