@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Copy, ExternalLink, Flag, Info, Monitor, Play, Radio, SkipForward, Square, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Copy, ExternalLink, Flag, History, Info, Monitor, Play, Radio, Search, SkipForward, Square, Users, Volume2, Zap } from 'lucide-react';
 import { RichText } from './RichText';
 import { activityRegistry } from './activityRegistry';
 import {
+  abrirRespuestas,
   cerrarSesionEnVivo,
   crearSesionEnVivo,
   estadoSesionEnVivo,
+  historialSesionesEnVivo,
   lanzarSiguientePregunta,
   listarSesionesEnVivo,
   revelarRespuesta,
   terminarSesionEnVivo,
+  type LiveHistoryRow,
   type LiveHostState,
 } from '../services/api';
 import type { Worksheet } from '../types';
@@ -18,25 +21,81 @@ import type { Worksheet } from '../types';
  *  calificación instantánea. **Misma lista que `LIVE_TYPES` en `backend/app/live.py`** — está
  *  duplicada aquí para pintar el resumen de abajo sin una petición por hoja, y hay un test que
  *  falla si las dos se desincronizan (`test_live_session.py`). */
-const LIVE_TYPES = new Set(['multiplechoice', 'multiselect', 'truefalse', 'imagechoice']);
+const LIVE_TYPES = new Set([
+  'multiplechoice', 'multiselect', 'truefalse', 'imagechoice', 'matching', 'imagematching',
+  'dragdrop', 'fillblank', 'listeningmultiplechoice', 'listeningtruefalse', 'listeningmatching',
+  'listeningfillblank', 'listeningorder', 'readingtruefalse',
+]);
+
+/** Tope de opciones por pregunta. **Mismo valor que `MAX_LIVE_OPTIONS` en `live.py`.** */
+const MAX_LIVE_OPTIONS = 6;
+/** Tope de huecos por pregunta. **Mismo valor que `MAX_LIVE_BLANKS` en `live.py`.** */
+const MAX_LIVE_BLANKS = 3;
+/** Tope de fichas de una oración para ordenar. **Mismo valor que `MAX_LIVE_TILES` en `live.py`.** */
+const MAX_LIVE_TILES = 8;
+/** El hueco del DSL. **Misma cadena que `BLANK` en `live.py`.** */
+const BLANK = '_____';
+
+/** Tipos que se responden con el teclado o colocando fichas. Sirven para sugerir más tiempo:
+ *  20 segundos alcanzan para tocar un botón, no para escribir contra reloj en un celular. */
+const TYPING_TYPES = new Set(['fillblank', 'dragdrop', 'listeningfillblank', 'listeningorder', 'readingtruefalse']);
+
+/** Cuántas preguntas da UNA actividad. **Espejo de `activity_questions()` en `live.py`**, que
+ *  es la autoridad: aquí solo se cuenta, para no pedir una petición por hoja con cincuenta en
+ *  la lista. Un test compara los dos conteos sobre una hoja real y falla si se separan — sin
+ *  él, el panel prometería "1 pregunta" donde la sesión trae seis, y el profesor lo
+ *  descubriría con el salón mirando. */
+function questionCount(activity: Worksheet['activities'][number]): number {
+  if (!LIVE_TYPES.has(activity.type)) return 0;
+  const within = (n: number) => n >= 2 && n <= MAX_LIVE_OPTIONS;
+  // Los `listening*` sin audio son incontestables: el parser lo valida, pero una hoja vieja o
+  // editada a mano puede llegar sin él, y entonces el backend la descarta.
+  const audio = 'audio_text' in activity ? (activity.audio_text ?? '') : '';
+  if (activity.type.startsWith('listening') && activity.type !== 'listeningmatching' && !audio) return 0;
+
+  if (activity.type === 'listeningmatching') {
+    const pairs = (activity.pairs ?? []).filter((p) => p.audio_text && p.match);
+    const options = (activity.options ?? []).length || pairs.length;
+    return pairs.length >= 1 && within(options) ? pairs.length : 0;
+  }
+  if (activity.type === 'listeningorder') {
+    const tiles = (activity.answer ?? []).filter((t) => String(t ?? '').trim());
+    return tiles.length >= 2 && tiles.length <= MAX_LIVE_TILES ? 1 : 0;
+  }
+  if (activity.type === 'readingtruefalse' && !(activity.content ?? '').trim()) return 0;
+  if (activity.type === 'truefalse' || activity.type === 'listeningtruefalse' || activity.type === 'readingtruefalse') {
+    return (activity.statements ?? []).filter((s) => s.text?.trim() && s.answer != null).length;
+  }
+  if (activity.type === 'matching' || activity.type === 'imagematching') {
+    const left = activity.left ?? [];
+    const right = activity.right ?? [];
+    // Una pregunta por fila; las `right` completas son las opciones, de ahí el tope.
+    return left.length >= 2 && right.length >= left.length && right.length <= MAX_LIVE_OPTIONS ? left.length : 0;
+  }
+  if (activity.type === 'dragdrop' || activity.type === 'fillblank' || activity.type === 'listeningfillblank') {
+    // Una oración con huecos es UNA pregunta, se teclee o se coloquen fichas.
+    const blanks = (activity.text ?? '').split(BLANK).length - 1;
+    const answers = (Array.isArray(activity.answer) ? activity.answer : [activity.answer]).filter((a) => String(a ?? '').trim());
+    return blanks >= 1 && blanks <= MAX_LIVE_BLANKS && answers.length >= blanks ? 1 : 0;
+  }
+  const answer = 'answer' in activity ? activity.answer : undefined;
+  const options = 'options' in activity ? activity.options ?? [] : [];
+  return within(options.length) && answer && answer.length ? 1 : 0;
+}
 
 /** Cuántas PREGUNTAS da la hoja y qué se queda fuera.
  *
- *  Una actividad no es siempre una pregunta: un `truefalse` de cinco enunciados son cinco
- *  preguntas en vivo (igual que `extract_questions` en el backend). Y lo descartado se cuenta
- *  para poder enseñarlo: si la sesión sale más corta que la hoja, el profesor tiene que saber
- *  por qué antes de proyectarla, no descubrirlo con el salón mirando. */
+ *  Se cuenta por lo que cada actividad DA, no por su tipo: un `matching` de ocho columnas es de
+ *  tipo jugable y aun así no entra, y eso tiene que verse. Si la sesión sale más corta que la
+ *  hoja, el profesor tiene que saber por qué antes de proyectarla. */
 function liveBreakdown(worksheet: Worksheet): { questions: number; skipped: Map<string, number> } {
   let questions = 0;
   const skipped = new Map<string, number>();
   for (const activity of worksheet.activities) {
-    if (activity.type === 'truefalse') {
-      questions += activity.statements?.length ?? 0;
-    } else if (LIVE_TYPES.has(activity.type)) {
-      questions += 1;
-    } else if (activity.type !== 'content') {
-      skipped.set(activity.type, (skipped.get(activity.type) ?? 0) + 1); // `content` es repaso, no se descarta
-    }
+    if (activity.type === 'content') continue; // repaso, no se descarta
+    const count = questionCount(activity);
+    if (count) questions += count;
+    else skipped.set(activity.type, (skipped.get(activity.type) ?? 0) + 1);
   }
   return { questions, skipped };
 }
@@ -55,7 +114,13 @@ function SkippedNote({ skipped }: { skipped: Map<string, number> | { type: strin
       <Info size={14} className="mt-0.5 shrink-0 text-amber-500" />
       <span>
         Queda fuera de la sesión: {rows.map((r) => `${r.count} ${typeLabel(r.type)}`).join(' · ')}.
-        <span className="block text-slate-400">En vivo solo se responden opción múltiple, selección múltiple, verdadero/falso e imagen + opción múltiple. El resto sigue en la hoja para resolverla normal.</span>
+        <span className="block text-slate-400">
+          En vivo entra lo que se responde desde el celular y se califica solo: opción múltiple, selección
+          múltiple, verdadero/falso, imagen + opción múltiple, emparejar, emparejar imágenes, huecos y los
+          cinco tipos de escucha. Una actividad de esas queda fuera igualmente si pasa de {MAX_LIVE_OPTIONS} opciones
+          (los colores dejan de distinguirse desde el fondo), si tiene más de {MAX_LIVE_BLANKS} huecos, o si cuelga
+          de un bloque de conversación a dos voces. El resto sigue en la hoja para resolverla normal.
+        </span>
       </span>
     </p>
   );
@@ -68,6 +133,16 @@ const QUESTION_BADGE: Record<string, string> = {
   multiselect: 'multi',
   truefalse: 'V/F',
   imagechoice: 'imagen',
+  matching: 'pareja',
+  imagematching: 'imagen',
+  dragdrop: 'hueco',
+  fillblank: 'escribir',
+  listeningmultiplechoice: '🔊',
+  listeningtruefalse: '🔊 V/F',
+  listeningmatching: '🔊 pareja',
+  listeningfillblank: '🔊 hueco',
+  listeningorder: '🔊 ordenar',
+  readingtruefalse: '📖 V/F',
 };
 
 function CopyField({ label, value }: { label: string; value: string }) {
@@ -96,6 +171,49 @@ function CopyField({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Historial de sesiones en vivo YA TERMINADAS, con su podio.
+ *
+ *  No sale de `live.py` (su estado vive en memoria y se pierde al reiniciar el proceso) sino de
+ *  las entregas que deja `finish`, reagrupadas por el código de sesión. Es lo que hace que una
+ *  evaluación en vivo deje rastro visible sin tener que entrar a Revisión hoja por hoja: ahí
+ *  las entregas quedan mezcladas con las de la hoja normal y no se sabe cuál fue en vivo. */
+function LiveHistory({ rows }: { rows: LiveHistoryRow[] }) {
+  const MEDALS = ['🥇', '🥈', '🥉'];
+  if (!rows.length) return null;
+  return (
+    <div className="rounded-2xl border border-slate-200 p-4">
+      <p className="flex items-center gap-2 text-sm font-bold text-slate-800">
+        <History size={16} className="text-slate-400" /> Sesiones en vivo anteriores
+      </p>
+      <p className="mt-1 text-xs text-slate-400">
+        Las entregas de cada una también están en <strong>Revisión</strong>, dentro de su hoja.
+      </p>
+      <div className="mt-3 grid gap-2">
+        {rows.map((s) => (
+          <details key={s.code} className="rounded-xl bg-slate-50 px-4 py-3">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <strong className="tracking-widest text-slate-900">{s.code}</strong>
+              <span className="min-w-0 flex-1 truncate text-slate-600">{s.title}</span>
+              <span className="shrink-0 text-xs text-slate-500">{s.participants} alumno{s.participants === 1 ? '' : 's'}</span>
+              <span className="shrink-0 text-xs font-semibold text-rex-deep">promedio {s.average}</span>
+            </summary>
+            <ol className="mt-2 grid gap-1">
+              {s.top.map((p, i) => (
+                <li key={`${p.label}-${i}`} className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm">
+                  <span className="w-6 text-center">{MEDALS[i] ?? i + 1}</span>
+                  <span className="min-w-0 flex-1 truncate">{p.label}</span>
+                  <span className="text-xs text-slate-400">{p.correct}✓</span>
+                  <strong className="tabular-nums text-rex-deep">{Math.round(p.score)}</strong>
+                </li>
+              ))}
+            </ol>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Panel del profesor para la evaluación en tiempo real: elige la hoja, abre la sesión y va
  *  lanzando pregunta por pregunta. Nada avanza solo — el ritmo lo pone quien está al frente. */
 export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
@@ -106,18 +224,24 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
   const [instant, setInstant] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [history, setHistory] = useState<LiveHistoryRow[]>([]);
   const polling = useRef(false);
 
   // Se listan TODAS las hojas, no solo las jugables: si una no sirve, el profesor tiene que ver
   // que existe y por qué no sirve. Ocultarla deja la impresión de que se perdió.
-  const breakdowns = new Map(worksheets.map((w) => [w.id, liveBreakdown(w)]));
+  const breakdowns = useMemo(() => new Map(worksheets.map((w) => [w.id, liveBreakdown(w)])), [worksheets]);
   const playable = worksheets.filter((w) => (breakdowns.get(w.id)?.questions ?? 0) > 0);
   const unplayable = worksheets.filter((w) => (breakdowns.get(w.id)?.questions ?? 0) === 0);
+  // Con cincuenta hojas en producción, una lista sin filtro es scroll y nada más.
+  const needle = query.trim().toLowerCase();
+  const visible = needle ? playable.filter((w) => w.title.toLowerCase().includes(needle)) : playable;
 
   // Sesiones que siguen vivas en el backend: si el profesor recargó el navegador a media
   // clase, aquí las recupera en vez de quedarse sin control (la sesión no vive en esta pestaña).
   useEffect(() => {
     void listarSesionesEnVivo().then(setPrevious).catch(() => {});
+    void historialSesionesEnVivo().then(setHistory).catch(() => {});
   }, []);
 
   // Poll del panel: 1.5s basta para ver subir el contador de respuestas.
@@ -180,38 +304,105 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
 
         <div className="mt-6 grid gap-4">
           <div>
-            <p className="mb-2 text-sm font-semibold text-slate-700">1 · Elige la evaluación</p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-700">Elige la evaluación y arráncala aquí mismo</p>
+              {playable.length > 6 && (
+                <label className="flex min-w-[14rem] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3 py-1.5">
+                  <Search size={15} className="shrink-0 text-slate-400" />
+                  <input
+                    className="w-full bg-transparent text-sm outline-none"
+                    placeholder={`Buscar entre ${playable.length} evaluaciones…`}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                </label>
+              )}
+            </div>
             {playable.length === 0 ? (
               <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
                 Ninguna de tus evaluaciones tiene actividades que se puedan responder en vivo desde el
                 celular: <strong>opción múltiple</strong>, <strong>selección múltiple</strong>,
-                <strong> verdadero/falso</strong> o <strong>imagen + opción múltiple</strong>. Crea una y vuelve aquí.
+                <strong> verdadero/falso</strong>, <strong>imagen + opción múltiple</strong>,
+                <strong> emparejar</strong>, <strong>emparejar imágenes</strong> o
+                <strong> arrastrar de un solo hueco</strong>. Crea una y vuelve aquí.
               </p>
             ) : (
-              <div className="grid gap-2">
-                {playable.map((w) => {
+              // Contenedor con scroll propio: con cincuenta hojas, la página entera medía metros
+              // y los controles quedaban al fondo, lejos de la hoja que se acababa de elegir.
+              <div className="grid max-h-[26rem] gap-2 overflow-y-auto pr-1">
+                {visible.map((w) => {
                   const { questions, skipped } = breakdowns.get(w.id)!;
                   const selected = worksheetId === w.id;
                   return (
-                    <button
+                    <div
                       key={w.id}
-                      className={`block w-full rounded-2xl border p-4 text-left transition ${selected ? 'border-rex bg-rex-light' : 'border-slate-200 hover:border-slate-300'}`}
-                      onClick={() => setWorksheetId(w.id)}
+                      className={`rounded-2xl border transition ${selected ? 'border-rex bg-rex-light' : 'border-slate-200 hover:border-slate-300'}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                          <strong className="block truncate text-slate-900">{w.title}</strong>
-                          <p className="truncate text-xs text-slate-500"><RichText text={w.description} /></p>
+                      <button className="block w-full p-4 text-left" onClick={() => setWorksheetId(selected ? '' : w.id)}>
+                        <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <strong className="block truncate text-slate-900">{w.title}</strong>
+                            <p className="truncate text-xs text-slate-500"><RichText text={w.description} /></p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-rex-deep">
+                            {questions} pregunta{questions === 1 ? '' : 's'}
+                          </span>
                         </div>
-                        <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-semibold text-rex-deep">
-                          {questions} pregunta{questions === 1 ? '' : 's'}
-                        </span>
-                      </div>
-                      {/* Solo en la seleccionada: en la lista entera sería ruido. */}
-                      {selected && <SkippedNote skipped={skipped} />}
-                    </button>
+                        {/* Solo en la seleccionada: en la lista entera sería ruido. */}
+                        {selected && <SkippedNote skipped={skipped} />}
+                      </button>
+
+                      {/* Tiempo, feedback y arranque DENTRO de la tarjeta. Antes vivían al final
+                          de la página: elegir una hoja de la posición 40 obligaba a bajar hasta
+                          el fondo, poner el tiempo y arrancar sin ver ya cuál se había elegido. */}
+                      {selected && (
+                        <div className="border-t border-rex/20 p-4">
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tiempo por pregunta</p>
+                          {/* Escribir en un celular contra reloj no es lo mismo que tocar un
+                              botón: 20s castigan al que teclea despacio, no al que no sabe. */}
+                          {w.activities.some((a) => TYPING_TYPES.has(a.type) && questionCount(a)) && duration > 0 && duration < 45 && (
+                            <p className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                              Esta evaluación tiene preguntas que se escriben, se arman con fichas o traen un
+                              texto que leer. Con {duration}s se mide quién teclea o lee rápido, no quién sabe:{' '}
+                              <button className="font-bold underline" onClick={(e) => { e.stopPropagation(); setDuration(45); }}>ponle 45s</button>.
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {DURATIONS.map((d) => (
+                              <button
+                                key={d}
+                                className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${duration === d ? 'bg-rex text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+                                onClick={() => setDuration(d)}
+                              >
+                                {d === 0 ? 'Sin límite' : `${d}s`}
+                              </button>
+                            ))}
+                          </div>
+                          <label className="mt-3 flex items-start gap-2 text-sm text-slate-600">
+                            <input type="checkbox" className="mt-0.5" checked={instant} onChange={(e) => setInstant(e.target.checked)} />
+                            <span>
+                              Mostrar el ✓/✗ al momento de responder.
+                              <span className="block text-xs text-slate-400">
+                                Apagado (recomendado): el resultado sale cuando cierras la pregunta, así el primero en responder no le canta la respuesta al de al lado.
+                              </span>
+                            </span>
+                          </label>
+                          {error && <p className="mt-3 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
+                          <button
+                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-rex px-6 py-3.5 text-base font-bold text-white transition hover:bg-rex-dark disabled:opacity-50"
+                            disabled={busy}
+                            onClick={() => void run(() => crearSesionEnVivo(w.id, duration, instant))}
+                          >
+                            <Zap size={18} /> {busy ? 'Abriendo…' : 'Iniciar evaluación con esta actividad'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
+                {visible.length === 0 && (
+                  <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">Ninguna evaluación jugable se llama así.</p>
+                )}
               </div>
             )}
 
@@ -232,39 +423,7 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
             )}
           </div>
 
-          <div>
-            <p className="mb-2 text-sm font-semibold text-slate-700">2 · Tiempo por pregunta</p>
-            <div className="flex flex-wrap gap-2">
-              {DURATIONS.map((d) => (
-                <button
-                  key={d}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${duration === d ? 'bg-rex text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                  onClick={() => setDuration(d)}
-                >
-                  {d === 0 ? 'Sin límite' : `${d}s`}
-                </button>
-              ))}
-            </div>
-            <label className="mt-3 flex items-start gap-2 text-sm text-slate-600">
-              <input type="checkbox" className="mt-0.5" checked={instant} onChange={(e) => setInstant(e.target.checked)} />
-              <span>
-                Mostrar el ✓/✗ al momento de responder.
-                <span className="block text-xs text-slate-400">
-                  Apagado (recomendado): el resultado sale cuando cierras la pregunta, así el primero en responder no le canta la respuesta al de al lado.
-                </span>
-              </span>
-            </label>
-          </div>
-
-          {error && <p className="rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
-
-          <button
-            className="flex items-center justify-center gap-2 rounded-2xl bg-rex px-6 py-4 text-lg font-bold text-white transition hover:bg-rex-dark disabled:opacity-50"
-            disabled={!worksheetId || busy}
-            onClick={() => void run(() => crearSesionEnVivo(worksheetId, duration, instant))}
-          >
-            <Radio size={20} /> {busy ? 'Abriendo…' : 'Abrir sesión en vivo'}
-          </button>
+          <LiveHistory rows={history} />
         </div>
       </section>
     );
@@ -272,7 +431,9 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
 
   // ── Sesión abierta: control pregunta por pregunta ──────────────────────────
   const joinUrl = `${window.location.origin}/en-vivo/${state.code}`;
-  const screenUrl = `${joinUrl}/pantalla`;
+  // La llave del audio va en la URL de la PANTALLA y solo ahí: el enlace de los alumnos no la
+  // lleva, así que ningún celular puede pedir el mp3 (y con él, la transcripción).
+  const screenUrl = `${joinUrl}/pantalla${state.screen_key ? `?k=${encodeURIComponent(state.screen_key)}` : ''}`;
   const hasNext = state.index + 1 < state.total;
   const isEnded = state.phase === 'ended';
 
@@ -336,8 +497,10 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
                 <p className="font-bold text-slate-900">
                   {state.phase === 'lobby' ? 'Sala de espera' : `Pregunta ${state.index + 1} de ${state.total}`}
                 </p>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${state.phase === 'question' ? 'bg-emerald-100 text-emerald-700' : state.phase === 'reveal' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
-                  {state.phase === 'question' ? 'Pregunta abierta' : state.phase === 'reveal' ? 'Respuesta revelada' : 'Esperando'}
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${state.phase === 'question' ? 'bg-emerald-100 text-emerald-700' : state.phase === 'reveal' ? 'bg-amber-100 text-amber-700' : state.phase === 'listening' ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {state.phase === 'question' ? 'Pregunta abierta'
+                    : state.phase === 'reveal' ? 'Respuesta revelada'
+                    : state.phase === 'listening' ? 'Sonando el audio' : 'Esperando'}
                 </span>
               </div>
 
@@ -353,6 +516,18 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
               )}
 
               <div className="mt-5 flex flex-wrap gap-3">
+                {/* La escucha se cierra a mano: mientras dure, el cronómetro no ha arrancado y
+                    nadie puede responder, así que el audio se puede repetir sin castigar a
+                    nadie. Es el paso que impide que gane quien contesta antes de oír. */}
+                {state.phase === 'listening' && (
+                  <button
+                    className="flex items-center gap-2 rounded-2xl bg-rex px-6 py-3 font-bold text-white transition hover:bg-rex-dark disabled:opacity-50"
+                    disabled={busy}
+                    onClick={() => void run(() => abrirRespuestas(state.code))}
+                  >
+                    <Volume2 size={18} /> Abrir respuestas y arrancar el tiempo
+                  </button>
+                )}
                 {state.phase === 'question' && (
                   <button
                     className="flex items-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 font-bold text-white transition hover:bg-amber-600 disabled:opacity-50"
@@ -419,12 +594,34 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
           {state.roster.map((p, i) => (
             <li key={`${p.label}-${i}`} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm ${i < 3 ? 'bg-spike/10' : 'bg-slate-50'}`}>
               <span className="w-6 text-center font-bold text-slate-400">{i + 1}</span>
+              <span aria-hidden>{p.emoji}</span>
               <span className="min-w-0 flex-1 truncate font-semibold text-slate-800" title={Object.entries(p.info).map(([k, v]) => `${k}: ${v}`).join(' · ')}>{p.label}</span>
+              {/* El promedio por acierto es lo único que separa "acertó más" de "fue más rápido"
+                  cuando dos puntajes se cruzan: es la pregunta que hacen los alumnos al ver el
+                  podio, y aquí el profesor tiene la respuesta a mano. */}
+              {p.avg_speed != null && <span className="text-[11px] tabular-nums text-slate-400" title="Segundos promedio por acierto">{p.avg_speed}s</span>}
               <span className="text-xs text-slate-400">{p.correct}✓</span>
               <strong className="tabular-nums text-rex-deep">{p.score}</strong>
             </li>
           ))}
         </ol>
+
+        {(state.awards?.length ?? 0) > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Menciones</p>
+            <ul className="grid gap-1.5">
+              {state.awards!.map((a) => (
+                <li key={a.key} className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs">
+                  <span className="text-base" aria-hidden>{a.badge}</span>
+                  <span className="min-w-0 flex-1">
+                    <strong className="block truncate text-slate-800">{a.title}</strong>
+                    <span className="block truncate text-slate-400">{a.emoji} {a.label} · {a.detail}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </aside>
     </section>
   );

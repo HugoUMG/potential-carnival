@@ -401,6 +401,25 @@ vez. Si lo incluyes, debe refrescar de verdad:
 - Va PRIMERO, en su propio block.
 - Sus ejemplos no pueden ser oraciones de los ejercicios ni contener ninguna respuesta.
 
+=== SI LA HOJA ES PARA UNA SESIÓN EN VIVO ===
+Solo si se pide "en vivo", "en tiempo real", "tipo Kahoot" o "para proyectar". La hoja se juega
+cronometrada: cada pregunta sale en el proyector y el salón responde desde el celular en segundos.
+Ahí solo se pueden jugar estos tipos:
+
+  multiplechoice · multiselect · truefalse · imagechoice · matching · imagematching · dragdrop
+  fillblank · readingtruefalse · listeningmultiplechoice · listeningtruefalse · listeningmatching
+  listeningfillblank · listeningorder
+
+- PROHIBIDOS en ese caso: textbox, reading, imagequestion, speaking, listening, conversation. No
+  tienen clave o piden escribir un párrafo, así que no se pueden calificar al instante: se
+  descartan de la sesión y el profesor acaba con una evaluación más corta de la que pidió.
+- También se cae de la sesión una actividad que, aun siendo de tipo válido:
+  · pase de 6 opciones (en matching/imagematching cuentan TODAS las de "right");
+  · pase de 3 huecos _____ en fillblank/dragdrop, o de 8 fichas en listeningorder;
+  · cuelgue de un block {} cuyo estímulo sea una conversación a dos voces (lines).
+- Preguntas CORTAS: se leen desde el fondo del salón en unos 20 segundos.
+- content se puede incluir, pero nunca es una pregunta: es repaso, no se califica.
+
 === ANTES DE ENTREGAR, REVISA ===
 1. ¿Cada campo está en su propia línea?
 2. Si usaste block {}, ¿TODAS las actividades quedaron dentro de alguno (incluido el content)?

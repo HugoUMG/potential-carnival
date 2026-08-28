@@ -665,6 +665,164 @@ solo en los 8 casos.
 apaga el destello explícitamente (no solo confía en que el `setTimeout` dispare). Cubre el caso
 límite de una pregunta que se revela o se salta antes de que el timer de 900ms llegue a correr.
 
+## 🟢 ADR-30 — El puntaje en vivo se enseña desglosado, no se simplifica a "aciertos"
+
+**Contexto.** Un profesor proyectó el marcador final y el salón se le echó encima: el segundo lugar
+tenía **18 respuestas correctas** y el primero **17**, pero el primero ganaba por 900 puntos. La
+fórmula (`_points`) es 500 por acertar + hasta 500 por rapidez, así que el resultado era correcto —
+pero la pantalla solo enseñaba el total, y un total que mezcla dos cosas no se puede defender
+delante de treinta adolescentes.
+
+**Decisión.** Se mantiene la fórmula y se rompe la opacidad: `_points()` devuelve las dos mitades
+por separado, el alumno ve `+500 por acertar +320 por rapidez` junto a su ✓, el marcador lleva una
+línea fija que dice que acertar más no siempre gana, y al terminar se reparten **menciones**
+nombradas (*El mentalista* al que más acertó, *El más veloz del Oeste* al mejor promedio, *La mente
+maestra* al que gana las dos). Cada alumno se lleva una mención como mucho.
+
+**Alternativas descartadas.**
+
+- *Quitar el bono de velocidad y ordenar por aciertos.* Es lo que pedía la intuición, y es peor: con
+  cincuenta alumnos y diez preguntas, media clase empata en el primer puesto. El bono existe para
+  desempatar (ver el comentario de `_points`), no por gamificación gratuita.
+- *Enseñar la fórmula en la pantalla.* "500 + 500·(1 − t/T)" no explica nada a un alumno de
+  secundaria. Un nombre propio para lo que cada uno hizo mejor sí.
+- *Ordenar el marcador por aciertos y enseñar el puntaje como dato secundario.* Cambia qué significa
+  ganar a mitad del curso, con sesiones ya corridas y notas ya guardadas.
+
+**Consecuencia.** El `roster` del profesor lleva `avg_speed` (segundos promedio por acierto): es lo
+único que separa "acertó más" de "fue más rápido" cuando dos puntajes se cruzan, y el profesor es
+quien recibe la pregunta. Las menciones solo cuentan los aciertos para la velocidad — contestar
+rapidísimo y mal no es ser rápido, y sin ese filtro el premio se lo lleva quien toca el primer botón
+que ve.
+
+## 🟢 ADR-31 — El historial de sesiones en vivo se reconstruye de las entregas, sin tabla nueva
+
+**Contexto.** Hacía falta un panel de sesiones en vivo pasadas. El estado de `live.py` vive en
+memoria y se pierde al reiniciar el proceso (ADR-25), así que ahí no hay historial que leer.
+
+**Decisión.** `GET /live/history` reagrupa las filas de `worksheet_responses` por el código que ya
+va dentro del `guest_token` (`live:{code}:{pid}`, que `finish` escribe desde el primer día). Cero
+tablas, cero migraciones, cero datos nuevos que guardar.
+
+**Alternativas descartadas.**
+
+- *Una tabla `live_sessions`.* Duplicaría información que ya está en `worksheet_responses` y abriría
+  la puerta a que las dos se contradigan (una sesión registrada cuyas entregas alguien borró).
+- *Persistir la sesión en memoria antes de morir.* Requiere un hook de apagado en el que no se puede
+  confiar: Render mata el proceso, y un `finish` que ya guardó lo importante hace el resto inútil.
+
+**Consecuencia.** El agrupado se hace en Python, no en SQL: partir el token dentro de la query
+pediría `split_part` en Postgres y `substr`/`instr` en SQLite — dos dialectos para lo que aquí es un
+`for`. El techo conocido: el `LIMIT` va sobre **filas**, no sobre sesiones. Y una sesión en curso no
+aparece en el historial hasta que se termina, que es exactamente lo correcto: hasta entonces está en
+`GET /live/sessions`.
+
+## 🟢 ADR-32 — `matching` en vivo es una opción múltiple por fila, no un tablero que se arrastra
+
+**Contexto.** `matching` se descartó de la sesión en vivo con este motivo: *"el problema no es el
+código sino el dedo: emparejar con prisa en pantalla chica frustra más de lo que enseña"*. Es cierto
+**de la mecánica del renderer normal**, que empareja trazando líneas. Al revisar el catálogo completo
+apareció que `_build_answer_details` (`main.py`) **nunca calificó `matching` como un todo**: emite un
+detalle por fila, con `activity_id = f"{id}:{index}"`, `prompt = left[i]` y `correct_answer =
+right[i]`. La unidad de calificación siempre fue una pregunta de opción múltiple.
+
+**Decisión.** En vivo se explota fila a fila: enunciado `left[i]`, opciones = todas las `right`,
+clave `right[i]`. Son los mismos botones que ya pinta el resto de tipos, con cero UI nueva, y el
+"problema del dedo" desaparece igual que desapareció con `truefalse`. `imagematching` va idéntico,
+con la imagen como enunciado. `dragdrop` de un hueco entra por el mismo razonamiento: su `bank` ya
+está validado por el parser para contener todas las respuestas, así que **es** un `multiplechoice`.
+
+**Alternativas descartadas.**
+
+- *Portar el tablero de líneas al celular.* Es la lectura literal de la objeción original y lleva a
+  construir una mecánica táctil nueva para un problema que la explosión disuelve.
+- *Dejarlo fuera.* Habría descartado los tres tipos con mejor relación valor/coste del catálogo por
+  una objeción que no aplicaba al modelo de datos real.
+
+**Consecuencia.** Las opciones se **barajan de forma determinista** con `random.Random(activity.id)`:
+sin barajar, la clave de la fila `i` cae en la posición `i` (fila 1 → primer botón…) y la actividad
+se resuelve sin leerla. La semilla es fija para que el orden no cambie entre polls —el cliente
+pregunta cada segundo— y para que un test pueda comprobarlo. Y aparece un tope, `MAX_LIVE_OPTIONS`
+(6): un `matching` de ocho columnas son ocho botones con `OPTION_COLORS` de cuatro entradas, o sea
+dos azules; se descarta entero y se reporta, porque recortar perdería la clave la mitad de las veces.
+
+## 🟢 ADR-33 — El audio en vivo suena solo en la pantalla, con llave, y detiene el cronómetro
+
+**Contexto.** Los cinco tipos `listening*` no entraban a la sesión en vivo por dos problemas que
+parecían de UI y son de arquitectura.
+
+**Decisión — dónde suena.** Solo en la **pantalla proyectada**, nunca en los celulares.
+Reproducir en 50 teléfonos no sirve: van desfasados unos de otros, y son 50 peticiones a `/tts`
+por pregunta desde la IP del salón, que con `_rate_limit(limit=300)` es un 429 a la sexta pregunta.
+Proyectado es **una** petición por pregunta.
+
+**Decisión — cómo llega sin filtrarse.** `audio_text` es la transcripción literal de lo que hay
+que escuchar, y el alumno y la pantalla polean el **mismo** endpoint público (`GET /live/{code}`):
+cualquier campo que se añada ahí para que la pantalla reproduzca el audio se lo regala también al
+celular. Por eso el estado público solo lleva `has_audio: bool`, y el mp3 se sirve aparte en
+`GET /live/{code}/audio?k={screen_key}`, con una llave que solo viaja en `host_state()`.
+
+**Decisión — cuándo arranca el reloj.** Fase nueva `listening`: la pregunta se lanza, suena y se
+proyecta con las respuestas **cerradas**; el cronómetro empieza cuando el profesor pulsa *Abrir
+respuestas*. Sin ella, el bono de rapidez de `_points` premia a quien toca un botón antes de oír
+—500 puntos por adivinar a ciegas— y castiga a quien escucha la pregunta entera.
+
+**Alternativas descartadas.**
+
+- *Mandar la URL de `/tts?text=…` a la pantalla.* Lleva el texto en el query string: lo filtra
+  igual, y encima lo deja en el historial del navegador.
+- *Cronómetro corriendo mientras suena, con tiempos por defecto más largos.* No arregla el
+  incentivo, solo lo diluye: sigue ganando quien contesta sin escuchar.
+- *Sin cronómetro para los tipos con audio.* Simple y justo, pero se pierde el desempate por
+  velocidad justo en las preguntas donde más gente empata.
+- *Servir el audio detrás del JWT del profesor.* La pantalla suele abrirse en el PC del proyector,
+  donde nadie ha iniciado sesión.
+
+**Consecuencia.** La pantalla necesita un **gesto de desbloqueo** ("Activar el audio"): ningún
+navegador reproduce sonido sin una interacción previa en esa pestaña, y sin el botón el primer
+`play()` de la clase falla dejando al salón mirando una pantalla muda. Se pide una vez, en la sala
+de espera, cuando no hay prisa. La llave viaja en la URL de proyección, así que un profesor que
+proyecte con la barra de direcciones visible la enseña: es del mismo orden que enseñar el código de
+sesión, y quien quisiera usarla tendría que teclear un token de 11 caracteres para oír un audio que
+está sonando por los altavoces.
+
+## 🟢 ADR-34 — El polling se espacia por fase, no se optimiza la lógica de la sesión
+
+**Contexto.** El backend corre en el plan **gratuito** de Render: 0.1 CPU y 512 MB. Con 50 alumnos
+poleando cada segundo son ~52 peticiones/segundo sostenidas, y había que saber si aguantaba.
+
+**Medición** (`live.py` es lógica pura, así que se puede cronometrar sin levantar la app):
+
+| Parte de una petición | Coste | % |
+|---|---|---|
+| `public_state()` + `json.dumps()` | 0,027 ms | **0,6 %** |
+| Pila HTTP/ASGI | ~4,4 ms | **99,4 %** |
+
+RAM: 0,06 MB por sesión de 50 alumnos, 0,30 MB con 300 — irrelevante frente a 512 MB. Y el **tipo**
+de actividad no cambia nada por poll (0,018 ms sea `multiplechoice`, escucha o lectura): la
+explosión y la extracción ocurren **una vez**, al abrir la sesión.
+
+**Decisión.** No se optimiza nada de `live.py`: sería pulir el 0,6%. Se reduce el número de
+peticiones espaciando el poll **por fase** — 2s en `lobby`, 5s en `ended`, 1s en el resto. El
+desperdicio no está en el juego sino en la sala de espera (cincuenta celulares preguntando cada
+segundo mientras el profesor monta el proyector) y en la pantalla de resultados. Medido sobre una
+sesión modelo: **31% menos peticiones**, y más si esas dos pantallas se quedan puestas.
+
+**Alternativas descartadas.**
+
+- *Subir el intervalo base a 2s para todo.* Ahorra más, pero el retraso se siente justo donde
+  importa: al lanzar una pregunta y al revelarla.
+- *Reprogramar el `setInterval` en cada cambio de fase.* Obliga a meter el estado en las
+  dependencias del efecto, que es exactamente lo que provocó el bug de ADR-29. El temporizador
+  late siempre a 1s y una compuerta decide si toca pedir; la fase vive en un `ref`.
+- *WebSockets.* Sigue siendo la salida correcta por encima de ~100 alumnos simultáneos (ADR-25),
+  pero es una infraestructura entera para un problema que un `if` resuelve a este tamaño.
+
+**Consecuencia.** El riesgo real del plan gratuito **no es la CPU**: es que la sesión vive en
+memoria (ADR-25) y un reinicio del proceso la borra. UptimeRobot evita el spin-down por
+inactividad, pero **un redeploy a media clase pierde la sesión en curso** — las notas solo
+sobreviven si ya se pulsó *Terminar y guardar*.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

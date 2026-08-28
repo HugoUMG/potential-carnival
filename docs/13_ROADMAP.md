@@ -165,21 +165,97 @@ nueva; wake lock para que no se apague la pantalla; `finish` deja las entregas e
 e `imagechoice`. Lo que la hoja tenga y no se pueda jugar **se reporta por tipo** en el panel, antes
 de abrir la sesión y en el temario.
 
-**Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
+**Segunda pasada de UX (agosto 2026).** Salió de mirar una sesión real corriendo en un salón:
 
+- **El puntaje se explica.** Desglose `+500 por acertar / +N por rapidez` junto al ✓, nota fija en el
+  marcador y **menciones** al terminar (*El mentalista*, *El más veloz del Oeste*, *La mente
+  maestra*, *El imparable*, *El francotirador*, *El incansable*). El detonante: 18 correctas
+  perdiendo contra 17 sin ninguna explicación en pantalla (ADR-30).
+- **La espera se anima.** El ✅ estático dejaba al alumno mirando una pantalla muerta con el
+  cronómetro corriendo por detrás, sin poder distinguir "enviado" de "colgado". Ahora el dino
+  cabecea dentro de un anillo que gira, con el conteo de cuántos van respondiendo.
+- **Avatar y reacciones.** 20 emojis para elegir personaje (solo antes de empezar: a mitad de
+  pregunta distraería al salón) y 5 emojis lanzables en los tiempos muertos, que suben flotando en
+  la pantalla del alumno **y** en la proyectada. Listas cerradas a propósito: no es un chat, y lo
+  que se elija acaba proyectado en la pared.
+- **Arrancar sin bajar hasta el fondo.** Con ~50 hojas en producción, el tiempo por pregunta y el
+  botón de inicio vivían al final de la página: se elegía la hoja 40 y había que bajar a ciegas.
+  Ahora van **dentro** de la tarjeta seleccionada, con buscador arriba.
+- **Historial de sesiones pasadas** en el panel, reconstruido de las entregas ya guardadas sin tabla
+  nueva (ADR-31).
+- **Fondo de la pantalla proyectada.** `bg-ink` plano (gris pardo) → gradiente de marca; en un cañón
+  de proyección el plano se veía sucio.
+
+**Ampliación del catálogo, fase 1 (agosto 2026).** De 4 tipos jugables a **7**:
+
+- **`matching` e `imagematching`**, explotados en una pregunta de opción múltiple **por fila**. La
+  objeción original ("emparejar con el dedo frustra") describía la mecánica de líneas del renderer,
+  no el modelo de datos: `_build_answer_details` ya calificaba fila a fila (ADR-32).
+- **`dragdrop` de un solo hueco**, usando su `bank` como opciones. Con varios huecos hace falta la
+  mecánica de fichas, que es la fase 2.
+- **Tope de 6 opciones** por pregunta y **`question.input`** (mecánica de respuesta) separado de
+  `question.type`, para que los tipos que faltan sean entradas de 10 líneas y no ramas nuevas en
+  tres archivos.
+- **Arreglado: el estímulo del `block {}` se perdía en silencio.** Una hoja con una lectura arriba y
+  preguntas debajo (ADR-24) ya se jugaba en vivo, y el alumno recibía las preguntas **sin el texto
+  del que hablan**. Las que cuelgan de un bloque con audio ahora se descartan y se reportan, en vez
+  de servirse mudas.
+
+**Ampliación del catálogo, fase 2 — teclado (agosto 2026).** De 7 tipos a **8**:
+
+- **`fillblank`** y **`dragdrop` de varios huecos**, con una sola mecánica (`input: "blanks"`): con
+  banco se tocan fichas, sin banco se teclea. **Tocar, no arrastrar** — en pantalla chica y contra
+  reloj, arrastrar frustra más de lo que enseña y tocar hace lo mismo.
+- Tope de 3 huecos, y el panel **sugiere 45s** cuando la hoja trae preguntas de escribir: con 20s
+  se castiga a quien teclea despacio, no a quien no sabe.
+- La revelación con huecos enseña la **oración resuelta** (en el celular, además, lo que puso el
+  alumno). Sin eso quedaba en blanco: `option_counts` viene vacío cuando no hay opciones.
+
+**Ampliación del catálogo, fase 3 — audio (agosto 2026).** De 8 tipos a **13**:
+
+- **`listeningmultiplechoice`, `listeningtruefalse`, `listeningmatching`, `listeningfillblank` y
+  `listeningorder`**, más la mecánica `order` (fichas que se tocan en orden).
+- **Subfase `listening`** (ADR-33): la pregunta suena con las respuestas cerradas y el cronómetro
+  parado; lo arranca el profesor con *Abrir respuestas*. Es lo único que impide que el bono de
+  rapidez premie a quien contesta antes de oír.
+- **El audio suena solo en la pantalla proyectada**, servido con llave para que la transcripción
+  no viaje nunca al celular del alumno. La pantalla pide un gesto de desbloqueo una vez.
+- **El audio del `block {}` se hereda**: una `multiplechoice` colgada de un bloque con `audio_text`
+  es ahora una pregunta de escucha. Los bloques de conversación (`lines`) siguen fuera.
+
+**Ampliación del catálogo, fase 4 — lectura (agosto 2026).** De 13 tipos a **14**: `readingtruefalse`,
+que manda su `content` con cada enunciado. **No** usa la subfase de la fase 3, y se evaluó y se
+descartó hacerlo: el audio es efímero y por eso necesita la pausa antes de arrancar el reloj, pero el
+texto se queda en pantalla y se lee mientras se responde. El panel sugiere más tiempo, como con las
+de teclado.
+
+**Lo que quedó fuera a propósito** (no hacía falta para un salón de 50, y cada uno tiene su coste):
+- **`listening` (el tipo) y `conversation`.** Los dos son respuesta de texto libre con clave, y
+  `_build_answer_details` los compara exacto **a sabiendas de que casi siempre falla**, dejando que
+  la IA los rescate después (por eso están en `_AI_RESCUABLE`). En vivo no hay IA: el ✓/✗ instantáneo
+  sería injustamente duro. Hace falta decidir si puntúan con comparación exacta (avisando al profesor
+  de usar respuestas de una palabra) o si entran sin puntaje y los califica la IA al terminar.
+  `conversation` además son ~40 segundos de audio para **una** pregunta: rinde mucho más como
+  estímulo de bloque con varias `multiplechoice` colgando, que es para lo que se diseñó ADR-24.
+- **Los de respuesta abierta** (`textbox`, `imagequestion`, `reading`): sin correcto/incorrecto no
+  hay puntos ni marcador, y en una sesión cronometrada eso rompe el ritmo. Meta realista: **15 de 21**.
+- **`speaking`, definitivamente fuera.** No es criterio, es aritmética: `/public/transcribe` limita a
+  60 peticiones por IP y minuto, y un salón entero comparte la IP del WiFi — 50 alumnos respondiendo
+  una pregunta hablada dejan sin responder a los últimos, con la clase mirando. Además 50 micrófonos
+  abiertos graban el ruido de los otros 49. Haría falta una cola por participante y un modo de
+  turnos, que es otro juego.
 - **WebSockets.** El salto correcto si la latencia llega a notarse o si las sesiones crecen a cientos
   de participantes. Ver los tres techos del ADR-25.
 - **Equipos y modos de juego.** Individual y ya.
-- **`fillblank` en vivo.** Es viable (~60 líneas: input + envío), pero teclear en celular contra reloj
-  castiga al que escribe lento y un typo vale cero — la calificación es exacta. Si se añade, subir el
-  tiempo por pregunta.
-- **`matching` y `dragdrop`.** El problema no es el código sino el dedo: emparejar o arrastrar con
-  prisa en pantalla chica frustra más de lo que enseña.
+- ~~**`fillblank` en vivo.**~~ Hecho en la fase 2, con fichas o teclado y 45s sugeridos. El typo
+  sigue valiendo cero: la calificación es exacta, como en la hoja.
+- ~~**`matching` y `dragdrop`.**~~ Hecho en las fases 1 y 2. La objeción ("el problema es el dedo")
+  describía la mecánica de líneas del renderer, no el modelo de datos (ADR-32).
 - **`textbox` (Open Answer).** No encaja: no tiene clave, lo califica la IA en diferido. Sin
   correcto/incorrecto no hay puntos ni marcador. Haría falta otro modo (nube de respuestas sin
   puntaje), que es otra función.
-- **`listeningmultiplechoice`.** Calificaría igual que un MC, pero habría que decidir quién reproduce
-  el audio: 50 celulares desfasados no sirven, tendría que sonar solo en la pantalla proyectada.
+- ~~**`listeningmultiplechoice`.**~~ Hecho en la fase 3, junto con los otros cuatro `listening*`.
+  La intuición era correcta: suena **solo** en la pantalla proyectada (ADR-33).
 - **Reanudar una sesión tras un reinicio del backend.** Hoy se pierde la sesión en curso; las notas
   no, si se llegó a pulsar *Terminar y guardar*.
 - ~~**Código QR para entrar.**~~ Hecho: la sala de espera proyecta el QR junto al código (ADR-27).

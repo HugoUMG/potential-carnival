@@ -838,6 +838,29 @@ This sheet will be PRINTED ON PAPER. There is no audio and no microphone on pape
   "Drag and Drop". Use: escribe / completa / circula / une con una línea / marca."""
 
 
+_LIVE_MODE = """
+
+=== LIVE SESSION (only if the teacher asks for one) ===
+If the teacher's request mentions a LIVE / real-time / projected / Kahoot-style evaluation (in
+Spanish: "en vivo", "en tiempo real", "tipo Kahoot", "para proyectar"), the sheet will be played
+in a timed session: each question goes up on a projector and the whole class answers from their
+phones in seconds. Only these types can be played there:
+
+  multiplechoice, multiselect, truefalse, imagechoice, matching, imagematching, dragdrop,
+  fillblank, readingtruefalse, listeningmultiplechoice, listeningtruefalse, listeningmatching,
+  listeningfillblank, listeningorder
+
+- FORBIDDEN in that case: textbox, reading, imagequestion, speaking, listening, conversation.
+  They have no key or need typing a paragraph, so they CANNOT be scored on the spot — they are
+  dropped from the session and the teacher ends up with a shorter evaluation than they asked for.
+- EXTRA LIMITS that also drop an activity from a live session:
+  · more than 6 options (matching/imagematching count ALL of `right` as options);
+  · more than 3 blanks `_____` in fillblank/dragdrop, or more than 8 tiles in listeningorder;
+  · sitting inside a `block {}` whose stimulus is a two-voice conversation (`lines`).
+- Keep questions SHORT: they are read from the back of a classroom in about 20 seconds.
+- `content` is allowed in the sheet but is never a question: it is review material, not scored."""
+
+
 def generate_worksheet_script(prompt: str, printable: bool = False, image_bank: list[dict] | None = None) -> tuple[str, str]:
     """Devuelve (script, etiqueta_del_proveedor).
 
@@ -850,7 +873,12 @@ def generate_worksheet_script(prompt: str, printable: bool = False, image_bank: 
     DEBEN usar una URL del banco, eligiendo imágenes acordes al tema y redactando las oraciones
     según la descripción de cada una.
     """
-    system = _WORKSHEET_SYSTEM
+    # `_LIVE_MODE` va SIEMPRE, no detrás de un flag: no hay casilla de "en vivo" en el editor,
+    # el profesor lo pide con palabras ("hazme una evaluación para jugar en vivo") y el bloque se
+    # activa solo. `_PRINTABLE_MODE` sí es un flag porque tiene una casilla y un filtro duro
+    # (`strip_non_printable`) detrás; aquí el filtro es `live.activity_questions()`, que ya
+    # descarta y REPORTA en el panel — esto solo evita llegar tarde a esa noticia.
+    system = _WORKSHEET_SYSTEM + _LIVE_MODE
     if printable:
         system += _PRINTABLE_MODE
     if image_bank:

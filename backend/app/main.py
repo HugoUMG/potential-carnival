@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import os
 import re
+import secrets
 import time
 
 import httpx
@@ -28,6 +29,7 @@ from .models import (
     ClassroomWorksheetAssignment,
     GoogleAuthRequest,
     LiveAnswer,
+    LiveEmoji,
     LiveJoin,
     LiveOpenQuestion,
     LiveSessionCreate,
@@ -504,6 +506,15 @@ def _tts_params(voice: str, rate: str) -> dict:
     return params
 
 
+async def _synth_mp3(text: str, voice: str, rate: str) -> list[bytes]:
+    """Sintetiza y devuelve el mp3 entero en trozos. Extraído de `/tts` para que la sesión en
+    vivo reproduzca su audio sin duplicar el manejo de errores ni la validación de la voz."""
+    _check_voice_exists(voice)
+    import edge_tts
+    communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))
+    return [chunk["data"] async for chunk in communicate.stream() if chunk["type"] == "audio"]
+
+
 @app.get("/tts")
 async def tts(
     request: Request,
@@ -517,13 +528,7 @@ async def tts(
     _rate_limit(request, limit=300)
     voice = _tts_voice(voice)
     try:
-        _check_voice_exists(voice)
-        import edge_tts
-        communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))
-        chunks: list[bytes] = []
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                chunks.append(chunk["data"])
+        chunks = await _synth_mp3(text, voice, rate)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -1285,18 +1290,23 @@ def _live_error(_: Request, exc: live.LiveError) -> JSONResponse:
 def create_live_session(payload: LiveSessionCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
     """Abre una sesión en vivo a partir de una hoja propia. Devuelve el código para proyectar."""
     worksheet = require_worksheet_manager(payload.worksheet_id, current_user)
-    activities = worksheet.json_content.iter_activities()
+    content = worksheet.json_content
+    activities = content.iter_activities()
+    # Los bloques van APARTE porque `iter_activities()` los aplana y tira el `BlockData` entero:
+    # sin esto, una hoja con una lectura arriba y varias preguntas debajo (ADR-24) mandaba al
+    # alumno las preguntas sin el texto del que hablan.
+    blocks = content.blocks
     session = live.create_session(
         worksheet_id=worksheet.id,
         worksheet_title=worksheet.title,
         owner_id=current_user.id,
         info_fields=worksheet.json_content.info_fields,
-        questions=live.extract_questions(activities),
+        questions=live.extract_questions(activities, blocks),
         duration=payload.duration,
         instant_feedback=payload.instant_feedback,
         # Lo que la hoja tiene y en vivo no se puede jugar. Viaja al panel para que descartarlo
         # sea visible, en vez de que la sesión salga más corta sin explicación.
-        skipped=live.summarize(activities)["skipped"],
+        skipped=live.summarize(activities, blocks)["skipped"],
     )
     return session.host_state()
 
@@ -1306,6 +1316,15 @@ def create_live_session(payload: LiveSessionCreate, current_user: PublicUser = D
 @app.get("/live/sessions")
 def list_live_sessions(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict[str, Any]]:
     return live.list_sessions(current_user.id, current_user.role == UserRole.admin)
+
+
+# También antes de `/live/{code}`, por el mismo motivo que `/live/sessions`.
+@app.get("/live/history")
+def live_history(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict[str, Any]]:
+    """Sesiones en vivo ya terminadas. Sale de las entregas que guarda `finish`, no de la
+    memoria: una sesión sobrevive al reinicio del proceso aquí, en `list_sessions` no."""
+    owner = None if current_user.role == UserRole.admin else current_user.id
+    return repository.live_session_history(owner)
 
 
 @app.get("/live/{code}")
@@ -1321,7 +1340,7 @@ def live_state(code: str, pid: str | None = None) -> dict[str, Any]:
 def live_join(code: str, payload: LiveJoin) -> dict[str, Any]:
     """Entra a la sesión con los campos `info {}` de la hoja (Carné, Nombre…), todos obligatorios."""
     session = live.get_session(code)
-    participant = session.join(payload.info)
+    participant = session.join(payload.info, payload.emoji)
     return {"pid": participant.pid, "label": participant.label, **session.public_state(pid=participant.pid)}
 
 
@@ -1330,6 +1349,58 @@ def live_answer(code: str, payload: LiveAnswer) -> dict[str, Any]:
     session = live.get_session(code)
     result = session.submit(payload.pid, payload.answer)
     return {**result, **session.public_state(pid=payload.pid)}
+
+
+@app.post("/live/{code}/react")
+def live_react(code: str, payload: LiveEmoji) -> dict[str, Any]:
+    """Lanza uno de los cinco emojis de `live.REACTIONS`. No es un chat, a propósito: lo que se
+    manda aquí acaba proyectado en la pared del salón."""
+    session = live.get_session(code)
+    session.react(payload.pid, payload.emoji)
+    return session.public_state(pid=payload.pid)
+
+
+@app.post("/live/{code}/avatar")
+def live_avatar(code: str, payload: LiveEmoji) -> dict[str, Any]:
+    """Cambia el avatar del alumno. Solo en la sala de espera o al terminar (ver `set_avatar`)."""
+    session = live.get_session(code)
+    session.set_avatar(payload.pid, payload.emoji)
+    return session.public_state(pid=payload.pid)
+
+
+@app.get("/live/{code}/audio")
+async def live_audio(code: str, request: Request, k: str = "") -> StreamingResponse:
+    """El mp3 de la pregunta abierta, para la PANTALLA PROYECTADA. Sin JWT pero con llave.
+
+    Por qué una llave y no el estado de siempre: el alumno y la pantalla polean el MISMO
+    endpoint (`GET /live/{code}`), así que cualquier cosa que se mande a la pantalla por ahí
+    llega también al celular — y `audio_text` es la transcripción literal de lo que hay que
+    escuchar. Con `screen_key` (que solo viaja en `host_state()`, detrás del JWT del profesor)
+    el audio se sirve sin que el texto salga nunca en un payload público.
+
+    Se sintetiza a demanda en vez de mandar la URL de `/tts?text=…`, que llevaría el texto en el
+    query string y volvería a filtrarlo por el historial del navegador.
+    """
+    _rate_limit(request, limit=120)  # la pantalla pide uno por pregunta; la llave hace el resto
+    session = live.get_session(code)
+    if not secrets.compare_digest(k, session.screen_key):
+        raise HTTPException(status_code=403, detail="Esta pantalla no puede reproducir el audio")
+    question = session.current()
+    if question is None or not question.audio_text:
+        raise HTTPException(status_code=404, detail="Esta pregunta no tiene audio")
+    # Mismo mapeo que el renderer de la hoja (`resolveVoice`): el alias 'male'/'female' del DSL
+    # se traduce a la voz curada, un nombre literal pasa tal cual. Así el audio en vivo suena
+    # igual que el de la hoja normal, que es lo que el profesor ya escuchó al crearla.
+    voice = _tts_voice(_resolve_conversation_voice(question.voice, "en-US-AndrewNeural"))
+    try:
+        chunks = await _synth_mp3(question.audio_text, voice, question.rate or DEFAULT_TTS_RATE)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="No se pudo generar el audio.") from exc
+    # `no-store`: el mp3 ES la respuesta de la pregunta. Que se quede en la caché del navegador
+    # de la pantalla no aporta nada y lo deja recuperable después de la sesión.
+    return StreamingResponse(iter(chunks), media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/live/{code}/host")
@@ -1341,6 +1412,18 @@ def live_host_state(code: str, current_user: PublicUser = Depends(require_teache
 def live_next_question(code: str, payload: LiveOpenQuestion = LiveOpenQuestion(), current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
     session = live.owned_session(code, current_user.id, current_user.role == UserRole.admin)
     session.open_next(payload.duration)
+    return session.host_state()
+
+
+@app.post("/live/{code}/answers")
+def live_open_answers(code: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Cierra la escucha y arranca el cronómetro (fase `listening` → `question`).
+
+    Es el paso que impide que el bono de rapidez premie a quien toca un botón antes de oír el
+    audio: mientras suena, los botones del alumno están cerrados y el reloj no ha empezado.
+    """
+    session = live.owned_session(code, current_user.id, current_user.role == UserRole.admin)
+    session.open_answers()
     return session.host_state()
 
 

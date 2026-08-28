@@ -253,8 +253,11 @@ El estado vive **en memoria** (`backend/app/live.py`), no en la base.
 ```
 POST   /live/sessions                 — Abrir sesión desde una hoja propia → código de 5 letras   (profesor)
 GET    /live/sessions                 — Sesiones abiertas propias (recuperar tras recargar)       (profesor)
+GET    /live/history                  — Sesiones YA TERMINADAS con su podio (sale de la BD)       (profesor)
 GET    /live/{code}/host              — Estado del panel: marcador completo + temario             (dueño)
 POST   /live/{code}/next              — Lanzar la siguiente pregunta (body opcional: `duration`)  (dueño)
+POST   /live/{code}/answers           — Cerrar la escucha y arrancar el cronómetro               (dueño)
+GET    /live/{code}/audio?k=…         — mp3 de la pregunta abierta, para la PANTALLA          (llave)
 POST   /live/{code}/reveal            — Cerrar la pregunta antes de tiempo y revelar              (dueño)
 POST   /live/{code}/finish            — Terminar y GUARDAR una entrega por alumno                 (dueño)
 DELETE /live/{code}                   — Cerrar y descartar la sesión                              (dueño)
@@ -262,19 +265,79 @@ DELETE /live/{code}                   — Cerrar y descartar la sesión         
 GET    /live/{code}?pid=…             — Estado de la sesión (lo que polean alumno y pantalla)     (sin JWT)
 POST   /live/{code}/join              — Entrar con los campos `info {}` de la hoja → `pid`        (sin JWT)
 POST   /live/{code}/answer            — Enviar respuesta a la pregunta abierta                    (sin JWT)
+POST   /live/{code}/react             — Lanzar uno de los 5 emojis de `REACTIONS`                 (sin JWT)
+POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `ended`)             (sin JWT)
 ```
 
-- **Cuatro tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse` e
-  `imagechoice`. Son los que tienen opciones tocables y calificación instantánea; el resto necesita
-  teclado o califica en diferido. Una hoja sin ninguno devuelve **422** al abrir la sesión.
-- **Una actividad no es siempre una pregunta.** Un `truefalse` con cinco enunciados son **cinco**
-  preguntas en vivo, numeradas `{activity_id}:{índice}` — la misma convención que usa
-  `_build_answer_details` para esos enunciados, de modo que lo que guarda `finish` encaja con lo que
-  Revisión ya sabe leer. `imagechoice` se califica por el TEXTO de la opción (ADR-20) y arrastra sus
-  `option_images`, rellenadas a la longitud de `options`.
+- **Catorce tipos jugables** (`LIVE_TYPES`): `multiplechoice`, `multiselect`, `truefalse`,
+  `imagechoice`, `matching`, `imagematching`, `dragdrop`, `fillblank`, `listeningmultiplechoice`,
+  `listeningtruefalse`, `listeningmatching`, `listeningfillblank`, `listeningorder` y
+  `readingtruefalse`. Son los que se responden desde el celular y se califican solos; el resto
+  califica en diferido. Una hoja sin ninguno devuelve **422** al abrir la sesión.
+- **La lectura NO pasa por la subfase, el audio sí**, y la diferencia no es de comodidad: el audio
+  es **efímero** —no se puede volver a oír mientras el reloj corre, de ahí la pausa— y el texto se
+  queda en pantalla, así que se lee mientras se responde. `readingtruefalse` manda su `content` en
+  `question.passage`, con **cada** enunciado: el alumno responde el tercero varios minutos después
+  de que se proyectara el primero. Mismo trato que los textos de un `block {}`.
+- **Subfase `listening`** (ADR-33). Una pregunta con audio nace ahí: se proyecta y suena, pero los
+  botones del alumno están **cerrados** y el cronómetro **no ha arrancado**. Lo cierra el profesor
+  con `POST /live/{code}/answers`, y ahí empieza a contar. Sin esa subfase, el bono de rapidez de
+  `_points` premia a quien toca un botón antes de oír: 500 puntos por adivinar a ciegas, y el que
+  escucha la pregunta entera pierde por escucharla. Las preguntas **sin** audio no pasan por aquí.
+- **El audio suena SOLO en la pantalla proyectada, y su texto no viaja nunca.** `public_state()`
+  manda `has_audio: bool` y nada más; el mp3 se pide a `GET /live/{code}/audio?k={screen_key}`.
+  La llave se genera al crear la sesión y viaja **solo en `host_state()`** (detrás del JWT); el
+  panel la mete en la URL de proyección. Es necesario porque el alumno y la pantalla polean el
+  MISMO endpoint público: sin una llave aparte, cualquier forma de mandar el audio a la pantalla
+  se lo manda también al celular, y `audio_text` es la transcripción literal — la regla 41 rota
+  por otra puerta. Lo cubre un test. Reproducir en 50 celulares además no serviría: van
+  desfasados y son 50 peticiones a `/tts` por pregunta desde la IP del salón (429 asegurado).
+- **El audio del `block {}` se hereda.** Una `multiplechoice` normal colgada de un bloque con
+  `audio_text` es, en vivo, una pregunta de escucha. Los bloques de **conversación** (`lines`, dos
+  voces) siguen descartándose y reportándose: sintetizarlos es concatenar un mp3 por turno.
+- **`listeningorder`** usa `input: "order"` (fichas que se tocan en orden). Compara con `==` y no
+  con `>=`: ahí sobrar una ficha **sí** es un error, al revés que en los huecos, donde lo que
+  sobra es un campo vacío del cliente.
+- **`fillblank` y `dragdrop` comparten mecánica** (`input: "blanks"`) y solo cambia de dónde sale
+  la palabra: con `options` (el `bank`) se tocan **fichas**, sin ellas se **teclea**. Nada de
+  arrastrar — en pantalla chica y contra reloj, tocar hace lo mismo sin frustrar. La respuesta es
+  una lista **POSICIONAL**, un elemento por hueco, comparada como en `_build_answer_details`
+  (`strip`+`lower`, y `len(dado) >= len(clave)`). Un `dragdrop` de **un** hueco con banco no usa
+  esta mecánica: es un `multiplechoice` disfrazado y se juega con los botones de siempre.
+  **Ojo:** `multi` y `blanks` llegan las dos con lista y se comparan al revés (conjunto vs.
+  posición), por eso `is_correct` ramifica por `input` y no por `type`.
+- **Tope de `MAX_LIVE_BLANKS` (3) huecos** y hace falta al menos uno: el hueco es lo que se pinta
+  como campo, así que un `fillblank` sin `_____` (que el parser sí admite) no es jugable.
+- **`activity_questions()` es la única autoridad** sobre qué entra. `extract_questions` la recorre y
+  `summarize` la usa para contar lo descartado, así que las dos respuestas no pueden contradecirse.
+  Antes eran dos criterios distintos y una actividad de tipo jugable que no diera ninguna pregunta
+  (sin clave, con demasiadas opciones) desaparecía sin contarse ni como jugada ni como descartada.
+- **Una actividad no es siempre una pregunta.** Un `truefalse` de cinco enunciados son **cinco**
+  preguntas y un `matching` de cuatro filas son **cuatro**, numeradas `{activity_id}:{índice}` — la
+  misma convención que usa `_build_answer_details` para esos tipos, de modo que lo que guarda
+  `finish` encaja con lo que Revisión ya sabe leer.
+- **`matching` e `imagematching` se juegan como opción múltiple por fila**, no como un tablero que
+  se arrastra: enunciado = `left[i]`, opciones = todas las `right`, clave = `right[i]`. La unidad de
+  calificación ya era esa en `_build_answer_details`; en vivo son los mismos botones (ADR-32). Las
+  opciones se **barajan de forma determinista** por `activity.id`: sin barajar, la clave de la fila
+  `i` cae siempre en el botón `i` y el juego se resuelve sin leer.
+- **Tope de `MAX_LIVE_OPTIONS` (6) opciones por pregunta.** `OPTION_COLORS` cicla cada cuatro: con
+  siete hay dos azules y el color deja de identificar desde el fondo del salón. Lo que pasa del tope
+  se descarta **entero** y se reporta — recortar perdería la clave la mitad de las veces.
+- **`question.input` es la MECÁNICA de respuesta** (`choice` / `multi`), separada de `question.type`.
+  El cliente pinta mirando `input`; `type` se queda para la etiqueta y el color. Con 21 tipos,
+  ramificar por tipo son 21 ramas repartidas en tres archivos y la certeza de que alguna se olvida.
+- **El estímulo del `block {}` llega a la pregunta** (`question.passage`). `iter_activities()`
+  aplana los bloques y tira el `BlockData`, así que hasta agosto de 2026 una hoja con una lectura
+  arriba y preguntas debajo (ADR-24) mandaba al alumno las preguntas **sin el texto del que
+  hablan** — bien formadas, pero sobre la nada. `create_live_session` pasa ahora `content.blocks`
+  aparte. Las actividades que cuelgan de un bloque con **audio** se descartan y se reportan: una
+  pregunta sobre un audio que nadie ha oído no es jugable, y servirla muda es fallar en silencio.
 - **Lo descartado se reporta, no se pierde.** `live.summarize()` cuenta por tipo lo que la hoja tiene
   y en vivo no se puede jugar, y viaja en `host_state().skipped` para que el panel lo enseñe. Sin eso,
-  una hoja de diez actividades abriría una sesión de tres preguntas sin explicar por qué.
+  una hoja de diez actividades abriría una sesión de tres preguntas sin explicar por qué. **El conteo
+  está duplicado en `liveBreakdown()` (`LiveHostPanel.tsx`)** para no pedir una petición por hoja con
+  cincuenta en la lista; un test compara los dos y falla si se separan.
 - **La clave nunca viaja mientras la pregunta está abierta.** `public_state` añade `answer` y
   `option_counts` **solo** en fase `reveal`. Es el mismo criterio de la regla 13 y lo cubre un test.
 - **El cronómetro lo calcula el servidor** (`remaining_ms`): el celular solo lo pinta, así que cambiar
@@ -287,6 +350,28 @@ POST   /live/{code}/answer            — Enviar respuesta a la pregunta abierta
 - `finish` escribe una fila en `worksheet_responses` por alumno que haya respondido algo, con
   `guest_token = live:{code}:{pid}` y los `info {}` en `_info_N`. Aparecen en **Revisión** como
   cualquier otra entrega. Es lo único que sobrevive al reinicio del proceso.
+- **El puntaje son DOS mitades y viajan separadas.** `_points()` devuelve `(500 por acertar, hasta
+  500 por rapidez)`; `me.last_base` / `me.last_speed_bonus` las mandan al alumno **junto con el
+  ✓/✗** (antes delataría si acertó) y `roster[].avg_speed` da al profesor los segundos promedio por
+  acierto. Sin ese desglose, un marcador donde el segundo tiene más correctas que el primero no se
+  puede explicar: es exactamente la pregunta que hace el salón al ver el podio (ADR-30).
+- **Menciones al terminar** (`awards`, fase `ended` y siempre en `host_state`): *La mente maestra*
+  (más aciertos **y** más rápido), *El mentalista*, *El más veloz del Oeste*, *El imparable*,
+  *El francotirador*, *El incansable*. Cada alumno se lleva **una** como mucho — repartir las
+  cuatro entre el mismo primer lugar deja al resto del salón sin nada. Solo cuentan los aciertos
+  para la velocidad: contestar rapidísimo y mal no es ser rápido.
+- **Avatar y reacciones son listas CERRADAS** (`AVATARS`, 20; `REACTIONS`, 5), duplicadas en
+  `src/pages/LivePage.tsx` y comprobadas por un test. Lo que se elija ahí acaba proyectado en la
+  pared del salón, así que el backend no acepta cualquier cadena que llegue en el JSON. Las
+  reacciones no son un chat, a propósito: con cinco caras no hay nada que moderar. Llevan cooldown
+  de 1,5 s por alumno, viven 6 s y **no** suben `version` (son decoración, no un evento de sesión).
+- **El avatar se congela al arrancar.** `set_avatar` solo funciona en `lobby` o `ended`: cambiar de
+  cara a mitad de pregunta distrae al salón y hace irreconocible el marcador entre una y otra.
+- `lobby_roster` (solo en fase `lobby`) lleva **nombre y avatar y nada más**, cortado en 60. Sale
+  por un endpoint sin JWT: el carné no tiene por qué viajar ahí. Lo cubre un test.
+- `GET /live/history` **no** lee la memoria: reagrupa las entregas que dejó `finish` por el código
+  del `guest_token`. Por eso una sesión en curso no aparece y el historial sobrevive a un redeploy,
+  al revés que `GET /live/sessions` (ADR-31).
 - **La nota se calcula sobre las preguntas LANZADAS, no sobre las respondidas** (ADR-28). Una
   pregunta sin responder cuenta como incorrecta, con el motivo en `teacher_comment` — se ve en
   Revisión con 💬: *"No respondió a tiempo."* si ya estaba dentro cuando se lanzó, *"Pregunta

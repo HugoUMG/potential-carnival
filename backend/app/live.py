@@ -22,6 +22,7 @@ clase. Tres techos conocidos:
 
 from __future__ import annotations
 
+import random
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -38,11 +39,53 @@ from typing import Any
 # del profesor lo enseña antes de abrir la sesión. Esta lista está duplicada en
 # `src/components/LiveHostPanel.tsx` para pintar ese resumen sin una petición por hoja; si cambia
 # aquí, cambia allá — lo comprueba un test.
-LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice")
+LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice",
+              "matching", "imagematching", "dragdrop", "fillblank",
+              "listeningmultiplechoice", "listeningtruefalse", "listeningmatching",
+              "listeningfillblank", "listeningorder", "readingtruefalse")
+
+# Cuántas fichas puede tener una oración para ordenar. Armar doce fichas con el pulgar y el
+# cronómetro corriendo no es una pregunta de inglés, es una de motricidad.
+MAX_LIVE_TILES = 8
+
+# El hueco del DSL. Misma cadena que cuenta `_activity_problem` en `parser.py` y que parte el
+# renderer de la hoja: si aquí se contara distinto, la sesión pediría más o menos huecos de los
+# que el profesor escribió.
+BLANK = "_____"
+# Tope de huecos por pregunta. Rellenar cuatro campos con el pulgar y el cronómetro corriendo no
+# es una pregunta, es un castigo; y en la pantalla proyectada la oración deja de leerse.
+MAX_LIVE_BLANKS = 3
+
+# Tope de opciones de una pregunta en vivo. `OPTION_COLORS` en `LivePage.tsx` tiene CUATRO
+# entradas y cicla: con siete opciones hay dos azules, y el color deja de identificar nada desde
+# el fondo del salón — que es justo para lo que está. Una actividad que pase de aquí no se
+# recorta (perdería la respuesta correcta la mitad de las veces): se descarta entera y se
+# reporta, como todo lo demás que se queda fuera.
+MAX_LIVE_OPTIONS = 6
 
 MAX_PARTICIPANTS = 300
 MAX_SESSIONS = 50
 SESSION_TTL_SECONDS = 8 * 3600
+
+# Avatares que puede elegir el alumno. Lista CERRADA a propósito: es lo que se proyecta en la
+# pantalla del salón, así que no se acepta cualquier carácter que llegue en el JSON — un emoji
+# arbitrario (o una cadena de mil caracteres) es texto libre de un anónimo en el proyector.
+# Veinte y no más: la cuadrícula tiene que caber en un celular sin scroll y elegir tiene que
+# durar segundos, no un minuto. **Duplicada en `src/pages/LivePage.tsx`** (mismo criterio que
+# `LIVE_TYPES`); si cambia aquí, cambia allá — lo comprueba un test.
+AVATARS = (
+    "🦖", "🦕", "🐉", "🦊", "🐼", "🦁", "🐨", "🐸", "🦉", "🐙",
+    "🦈", "🐝", "🚀", "⚡", "🎸", "🎨", "⚽", "🍕", "👑", "🤖",
+)
+DEFAULT_AVATAR = "🦖"
+
+# Emojis que un alumno puede lanzar en los tiempos muertos. Cinco, no un chat: en una pantalla
+# proyectada delante de la clase, texto libre de un anónimo es un problema de moderación que
+# nadie va a poder atender en medio de una evaluación. Con cinco caras no hay nada que moderar.
+REACTIONS = ("👍", "😂", "😮", "🔥", "😭")
+REACTION_COOLDOWN = 1.5   # segundos entre reacciones del MISMO alumno: evita el spam de uno solo
+REACTION_TTL = 6.0        # cuánto viaja una reacción en el estado antes de caerse sola
+MAX_REACTIONS = 40        # cota del buffer: 50 alumnos tocando a la vez no lo hacen crecer sin fin
 # Sin I/O/0/1: se dicta en voz alta y se teclea en un celular, no hay margen para confundir.
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 5
@@ -72,26 +115,69 @@ class LiveQuestion:
     question: str
     options: list[str]
     answer: str | list[str]
-    image: str | None = None  # imagechoice: imagen del enunciado
+    image: str | None = None  # imagechoice / imagematching: imagen del enunciado
     option_images: list[str] | None = None  # imagechoice: URL por opción, PARALELA a `options`
+    # MECÁNICA de respuesta, separada del tipo del DSL. El cliente decide qué pinta mirando
+    # esto, no `type`: con 21 tipos, ramificar por tipo son 21 ramas repartidas en tres archivos
+    # y la certeza de que alguna se olvida. Cinco mecánicas cubren el catálogo entero
+    # ("choice", "multi", y más adelante "text", "blanks", "order"); `type` se queda solo para
+    # la etiqueta y el color.
+    input: str = "choice"
+    # ── Audio ────────────────────────────────────────────────────────────────
+    # El texto que se sintetiza NUNCA sale en `public_state()`: el alumno y la pantalla polean
+    # el MISMO endpoint sin autenticación, así que publicarlo aquí sería regalar la
+    # transcripción del audio a cualquiera que abra las herramientas del navegador — la regla 41
+    # rota por otra puerta. Al cliente solo le llega `has_audio`; el mp3 se pide aparte, con la
+    # llave de pantalla (`LiveSession.screen_key`), que solo viaja en `host_state()`.
+    audio_text: str | None = None
+    voice: str | None = None
+    rate: str | None = None
+    # Texto compartido sobre el que pregunta la actividad (el `text` de un `block {}`). Se pinta
+    # arriba del enunciado. Sin esto, una hoja con una lectura y cinco preguntas debajo mandaba
+    # al alumno las preguntas SIN el texto del que hablan.
+    passage: str | None = None
 
     def is_correct(self, given: Any) -> bool:
-        """Misma semántica que `_build_answer_details` en `main.py`: `multiselect` exige que el
-        CONJUNTO elegido coincida exactamente; el resto compara texto sin distinguir mayúsculas.
+        """Misma semántica que `_build_answer_details` en `main.py`. Se ramifica por MECÁNICA
+        (`input`), no por tipo, porque dos mecánicas distintas usan una lista de respuestas y la
+        comparan de forma opuesta:
 
-        `truefalse` cae en la comparación de texto porque llega ya convertido a las opciones
-        "True"/"False" — las mismas cadenas que guarda el renderer normal, así que la entrega que
-        deja `finish` es indistinguible de una hecha en la hoja.
+          · `multi` (multiselect): el CONJUNTO elegido debe coincidir exactamente, sin importar
+            el orden en que se tocaron las opciones;
+          · `blanks` (fillblank, dragdrop): comparación POSICIONAL, hueco por hueco. Aquí el
+            orden es justo lo que se está calificando.
 
-        ponytail: seis líneas duplicadas en vez de importar el calificador de `main.py`, que
-        arrastraría el `.env` de producción al test. Si un día cambia el criterio de estos
-        tipos, hay que tocar los dos sitios — por eso el test cubre los casos que se
-        desincronizarían primero.
+        El resto compara texto sin distinguir mayúsculas. `truefalse` cae ahí porque llega ya
+        convertido a las opciones "True"/"False" — las mismas cadenas que guarda el renderer
+        normal, así que la entrega que deja `finish` es indistinguible de una hecha en la hoja.
+
+        ponytail: unas líneas duplicadas en vez de importar el calificador de `main.py`, que
+        arrastraría el `.env` de producción al test (ADR-26). El umbral que fija esa decisión
+        para sacar un módulo compartido es un TERCER SITIO que lo necesite, y siguen siendo dos.
+        Precio: si cambia el criterio de estos tipos hay que tocar los dos — por eso cada
+        mecánica nueva trae su test, y el descuadre sale en rojo y no en el salón.
         """
-        if self.type == "multiselect":
+        if self.input == "multi":
             correct = {_norm(a) for a in (self.answer if isinstance(self.answer, list) else [self.answer])}
             chosen = {_norm(a) for a in (given if isinstance(given, list) else ([given] if given else []))}
             return bool(correct) and chosen == correct
+        if self.input == "order":
+            # Orden EXACTO, con `==` y no `>=`: aquí sobrar una ficha sí es un error (`main.py`
+            # usa el mismo criterio para `listeningorder`). En los huecos no, porque el que
+            # sobra es un campo vacío del cliente, no una palabra que el alumno haya puesto.
+            correct_order = self.answer if isinstance(self.answer, list) else [self.answer]
+            chosen_order = given if isinstance(given, list) else [given]
+            return len(chosen_order) == len(correct_order) and all(
+                _norm(chosen_order[i]) == _norm(c) for i, c in enumerate(correct_order)
+            )
+        if self.input == "blanks":
+            correct_list = self.answer if isinstance(self.answer, list) else [self.answer]
+            chosen_list = given if isinstance(given, list) else [given]
+            # `>=` y no `==`, igual que `main.py`: al alumno le sobra un campo vacío en el
+            # cliente antes que faltarle uno, y lo que se califica son los huecos que hay clave.
+            return len(chosen_list) >= len(correct_list) and all(
+                _norm(chosen_list[i]) == _norm(c) for i, c in enumerate(correct_list)
+            )
         return _norm(given) == _norm(self.answer)
 
     def correct_label(self) -> str:
@@ -103,10 +189,29 @@ class Participant:
     pid: str
     info: dict[str, str]  # {"Carné": "2021-001", "Nombre": "Ana"} — las claves son los info_fields
     label: str
+    emoji: str = DEFAULT_AVATAR
     score: int = 0
     correct: int = 0
     answers: dict[str, Any] = field(default_factory=dict)  # question_id -> respuesta enviada
     joined_at: float = field(default_factory=time.monotonic)
+    # Segundos tardados en las preguntas ACERTADAS y cuántas son. Es lo que permite premiar al
+    # más rápido sin confundirlo con el que más acierta: el puntaje mezcla las dos cosas (500
+    # por acertar + hasta 500 por rapidez) y por eso, mirando solo el puntaje, no se puede saber
+    # cuál de las dos ganó — que es exactamente la pregunta que hacen los alumnos al ver el
+    # marcador. Solo cuentan los aciertos: contestar rapidísimo y mal no es ser rápido.
+    speed_sum: float = 0.0
+    speed_n: int = 0
+    streak: int = 0
+    best_streak: int = 0
+    # Desglose de la ÚLTIMA respuesta, para poder enseñar "500 + 320" en vez de un 820 sin origen.
+    last_base: int = 0
+    last_speed_bonus: int = 0
+    last_reaction_at: float = 0.0
+
+    def avg_speed(self) -> float | None:
+        """Segundos promedio por acierto. `None` si no acertó ninguna: sin aciertos no hay
+        velocidad que medir (y un 0.0 lo haría ganar el premio al más rápido)."""
+        return self.speed_sum / self.speed_n if self.speed_n else None
 
 
 @dataclass
@@ -130,6 +235,14 @@ class LiveSession:
     version: int = 0  # sube en cada cambio; el cliente lo usa para saber "pasó algo"
     participants: dict[str, Participant] = field(default_factory=dict)
     created_at: float = field(default_factory=time.monotonic)
+    # Llave del audio proyectado. Viaja SOLO en `host_state()` (el panel la mete en la URL de la
+    # pantalla); con ella se pide el mp3 en `/live/{code}/audio`. Existe porque el alumno y la
+    # pantalla polean el MISMO endpoint público: sin una llave aparte, cualquier forma de mandar
+    # el audio a la pantalla se lo manda también al celular, y con él la transcripción.
+    screen_key: str = field(default_factory=lambda: secrets.token_urlsafe(8))
+    # Reacciones recientes, las últimas primero. NO suben `version`: son decoración, y hacer que
+    # cuenten como "pasó algo" mezclaría un emoji con lanzar una pregunta.
+    reactions: list[dict[str, Any]] = field(default_factory=list)
 
     # ── Estado ────────────────────────────────────────────────────────────────
 
@@ -147,16 +260,26 @@ class LiveSession:
         return max(0, int(left * 1000))
 
     def phase(self) -> str:
-        """lobby → question → reveal → … → ended.
+        """lobby → [listening] → question → reveal → … → ended.
 
         El tiempo agotado pasa solo a `reveal` (una pregunta abierta con el cronómetro en cero
         sería un limbo), pero LANZAR la siguiente siempre es decisión del profesor.
+
+        `listening` es la subfase de las preguntas con audio: se proyecta y suena, pero los
+        botones del alumno están cerrados y el cronómetro **no ha arrancado**. Sin ella, el bono
+        de rapidez de `_points` premiaría a quien toca un botón antes de oír el audio: 500 puntos
+        por adivinar a ciegas, y el que escucha la pregunta entera pierde por escucharla. El
+        cronómetro arranca cuando el profesor pulsa "Abrir respuestas" (`open_answers`).
         """
         if self.index < 0:
             return "lobby"
         if self.index >= len(self.questions):
             return "ended"
-        if self.revealed or self.remaining_ms() == 0:
+        if self.revealed:
+            return "reveal"
+        if self.opened_at is None:
+            return "listening"  # lanzada pero sin respuestas abiertas todavía
+        if self.remaining_ms() == 0:
             return "reveal"
         return "question"
 
@@ -170,6 +293,73 @@ class LiveSession:
         # Empate a puntos → gana quien lleva más aciertos; si aún empatan, quien entró antes.
         return sorted(self.participants.values(), key=lambda p: (-p.score, -p.correct, p.joined_at))
 
+    def awards(self) -> list[dict[str, Any]]:
+        """Menciones del final: quién fue el más rápido, quién el que más acertó, etc.
+
+        Existen porque el marcador solo enseña el TOTAL, y el total mezcla aciertos con rapidez
+        (`_points`). Cuando el segundo lugar tiene más respuestas correctas que el primero, el
+        podio a secas parece injusto; nombrar en voz alta lo que cada uno hizo mejor lo explica
+        sin tener que enseñar la fórmula.
+
+        Cada alumno se lleva UNA mención como mucho, en el orden en que se otorgan aquí: repartir
+        cuatro títulos entre el mismo primer lugar deja al resto del salón sin nada, que es justo
+        lo contrario de para lo que sirven.
+        """
+        launched = len(self.question_opened_at)
+        pool = [p for p in self.ranking() if p.answers]
+        if not pool:
+            return []
+
+        taken: set[str] = set()
+        out: list[dict[str, Any]] = []
+
+        def add(key: str, badge: str, title: str, subtitle: str, who: Participant | None, detail: str) -> None:
+            if who is None or who.pid in taken:
+                return
+            taken.add(who.pid)
+            out.append({"key": key, "badge": badge, "title": title, "subtitle": subtitle,
+                        "label": who.label, "emoji": who.emoji, "detail": detail})
+
+        sharpest = max(pool, key=lambda p: (p.correct, p.score))
+        quick = [p for p in pool if p.speed_n]
+        # Empate al milisegundo → gana quien tiene más puntos. Sin el desempate, el ganador
+        # dependería del orden del dict, que no es un criterio que se pueda explicar a nadie.
+        fastest = min(quick, key=lambda p: (p.avg_speed() or 0.0, -p.score)) if quick else None
+
+        def secs(p: Participant) -> str:
+            return f"{p.avg_speed():.1f}s por acierto"
+
+        if sharpest.correct and fastest is sharpest:
+            add("mente_maestra", "🧠", "La mente maestra", "Más aciertos Y el más rápido del salón",
+                sharpest, f"{sharpest.correct} de {launched} · {secs(sharpest)}")
+        else:
+            if sharpest.correct:
+                add("mentalista", "🔮", "El mentalista", "Nadie acertó más preguntas",
+                    sharpest, f"{sharpest.correct} de {launched} correctas")
+            if fastest is not None:
+                add("veloz", "🤠", "El más veloz del Oeste", "El dedo más rápido en acertar",
+                    fastest, secs(fastest))
+
+        streaks = [p for p in pool if p.best_streak >= 3]
+        if streaks:
+            champ = max(streaks, key=lambda p: (p.best_streak, p.score))
+            add("imparable", "🔥", "El imparable", "La racha más larga sin fallar",
+                champ, f"{champ.best_streak} seguidas")
+
+        snipers = [p for p in pool if len(p.answers) >= 3 and p.correct / len(p.answers) >= 0.6]
+        if snipers:
+            champ = max(snipers, key=lambda p: (p.correct / len(p.answers), p.correct))
+            add("francotirador", "🎯", "El francotirador", "La mejor puntería: casi no falla",
+                champ, f"{round(100 * champ.correct / len(champ.answers))}% de acierto")
+
+        if launched >= 3:
+            complete = [p for p in pool if len(p.answers) == launched]
+            if complete:
+                add("incansable", "💪", "El incansable", "No dejó ni una sola sin responder",
+                    max(complete, key=lambda p: p.score), f"{launched} de {launched} respondidas")
+
+        return out
+
     # ── Acciones del profesor ─────────────────────────────────────────────────
 
     def open_next(self, duration: int | None = None) -> None:
@@ -178,9 +368,22 @@ class LiveSession:
         if duration is not None:
             self.duration = max(0, min(600, duration))
         self.index += 1
-        self.opened_at = time.monotonic()
-        self.question_opened_at[self.questions[self.index].id] = self.opened_at
+        question = self.questions[self.index]
+        # Con audio, la pregunta nace en `listening`: se proyecta y suena con las respuestas
+        # cerradas, y el cronómetro no arranca hasta `open_answers`. Sin audio, como siempre.
+        self.opened_at = None if question.audio_text else time.monotonic()
+        # Se marca al LANZAR, no al abrir respuestas: quien entra durante la escucha sí vivió la
+        # pregunta, y esto es lo que `snapshot()` usa para distinguir "no llegó a tiempo" de "se
+        # conectó después". Medirlo desde `open_answers` regalaría la pregunta al que entra tarde.
+        self.question_opened_at[question.id] = time.monotonic()
         self.revealed = False
+        self.version += 1
+
+    def open_answers(self) -> None:
+        """Cierra la escucha y arranca el cronómetro. Solo tiene sentido en fase `listening`."""
+        if self.phase() != "listening":
+            raise LiveError("Las respuestas ya están abiertas")
+        self.opened_at = time.monotonic()
         self.version += 1
 
     def reveal(self) -> None:
@@ -196,7 +399,7 @@ class LiveSession:
 
     # ── Acciones del alumno ───────────────────────────────────────────────────
 
-    def join(self, info: dict[str, str]) -> Participant:
+    def join(self, info: dict[str, str], emoji: str | None = None) -> Participant:
         """Registra a un alumno. Los campos obligatorios son los `info {}` de la propia hoja
         (Carné, Nombre…): la hoja decide qué se pide, no este módulo.
 
@@ -209,6 +412,8 @@ class LiveSession:
         if missing:
             raise LiveError(f"Falta completar: {', '.join(missing)}", status=422)
 
+        avatar = emoji if emoji in AVATARS else DEFAULT_AVATAR
+
         key_field = self.info_fields[0] if self.info_fields else None
         if key_field:
             key = _norm(clean[key_field])
@@ -216,12 +421,14 @@ class LiveSession:
                 if _norm(existing.info.get(key_field)) == key:
                     existing.info = clean
                     existing.label = self._label(clean)
+                    if emoji in AVATARS:
+                        existing.emoji = avatar
                     return existing
 
         if len(self.participants) >= MAX_PARTICIPANTS:
             raise LiveError("La sesión está llena", status=409)
 
-        participant = Participant(pid=secrets.token_urlsafe(9), info=clean, label=self._label(clean))
+        participant = Participant(pid=secrets.token_urlsafe(9), info=clean, label=self._label(clean), emoji=avatar)
         self.participants[participant.pid] = participant
         self.version += 1
         return participant
@@ -247,23 +454,72 @@ class LiveSession:
         elapsed = time.monotonic() - (self.opened_at or time.monotonic())
         correct = question.is_correct(answer)
         participant.answers[question.id] = answer
-        points = self._points(elapsed) if correct else 0
+        base, bonus = self._points(elapsed) if correct else (0, 0)
+        participant.last_base, participant.last_speed_bonus = base, bonus
         if correct:
             participant.correct += 1
-            participant.score += points
+            participant.score += base + bonus
+            participant.speed_sum += elapsed
+            participant.speed_n += 1
+            participant.streak += 1
+            participant.best_streak = max(participant.best_streak, participant.streak)
+        else:
+            participant.streak = 0
         self.version += 1
 
         result: dict[str, Any] = {"registered": True}
         if self.instant_feedback:
-            result |= {"correct": correct, "points": points}
+            result |= {"correct": correct, "points": base + bonus, "base": base, "speed_bonus": bonus}
         return result
 
-    def _points(self, elapsed: float) -> int:
-        """500 por acertar + hasta 500 por rapidez. Con 50 personas el conteo de aciertos a secas
-        deja veinte empatadas en primer lugar; el bono de velocidad desempata solo."""
+    def _points(self, elapsed: float) -> tuple[int, int]:
+        """(500 por acertar, hasta 500 por rapidez). Con 50 personas el conteo de aciertos a secas
+        deja veinte empatadas en primer lugar; el bono de velocidad desempata solo.
+
+        Devuelve las DOS mitades por separado, no el total: sin el desglose, dos alumnos con
+        distinto número de aciertos y puntajes cruzados (más aciertos, menos puntos) no tienen
+        forma de saber por qué, y el marcador parece arbitrario. Es la pregunta que hacen en
+        cuanto ven el podio.
+        """
         if not self.duration:
-            return 1000
-        return round(500 + 500 * max(0.0, 1 - elapsed / self.duration))
+            return 500, 500  # sin cronómetro no hay rapidez que medir: todos cobran el bono entero
+        return 500, round(500 * max(0.0, 1 - elapsed / self.duration))
+
+    def react(self, pid: str, emoji: str) -> None:
+        """Lanza un emoji al aire. No es un chat (ver `REACTIONS`): cinco caras y nada más."""
+        participant = self.participants.get(pid)
+        if participant is None:
+            raise LiveError("No estás en esta sesión", status=404)
+        if emoji not in REACTIONS:
+            raise LiveError("Ese emoji no está disponible", status=422)
+        now = time.monotonic()
+        if now - participant.last_reaction_at < REACTION_COOLDOWN:
+            return  # silencioso: al alumno que toca rápido no se le enseña un error, se le ignora
+        participant.last_reaction_at = now
+        self.reactions.append({"emoji": emoji, "label": participant.label, "at": now})
+        del self.reactions[:-MAX_REACTIONS]
+
+    def recent_reactions(self) -> list[dict[str, Any]]:
+        now = time.monotonic()
+        self.reactions = [r for r in self.reactions if now - r["at"] < REACTION_TTL]
+        # `age_ms` en vez de `at`: el cliente no comparte el reloj monotónico del servidor, y con
+        # la edad puede animar el emoji desde donde va sin necesidad de sincronizar nada.
+        return [{"emoji": r["emoji"], "label": r["label"], "age_ms": int((now - r["at"]) * 1000)} for r in self.reactions]
+
+    def set_avatar(self, pid: str, emoji: str) -> Participant:
+        """Cambia el avatar. Solo ANTES de que arranque la evaluación (o ya terminada): a mitad
+        de una pregunta, un alumno que cambia de cara en la pantalla proyectada es una distracción
+        para todo el salón, y el marcador dejaría de ser reconocible entre pregunta y pregunta."""
+        participant = self.participants.get(pid)
+        if participant is None:
+            raise LiveError("No estás en esta sesión", status=404)
+        if self.phase() not in {"lobby", "ended"}:
+            raise LiveError("Solo puedes cambiar tu avatar antes de que empiece la evaluación")
+        if emoji not in AVATARS:
+            raise LiveError("Ese avatar no está disponible", status=422)
+        participant.emoji = emoji
+        self.version += 1
+        return participant
 
     # ── Lo que ven los clientes ───────────────────────────────────────────────
 
@@ -288,17 +544,23 @@ class LiveSession:
             "duration": self.duration,
             "remaining_ms": self.remaining_ms(),
             "info_fields": self.info_fields,
+            "reactions": self.recent_reactions(),
         }
 
-        if question is not None and phase in {"question", "reveal"}:
+        if question is not None and phase in {"listening", "question", "reveal"}:
             state["question"] = {
                 "id": question.id,
                 "type": question.type,
+                "input": question.input,
+                # Solo el booleano. El texto que se sintetiza NO viaja por aquí: este endpoint
+                # es público y lo poleа el celular del alumno igual que la pantalla.
+                "has_audio": bool(question.audio_text),
                 "question": question.question,
                 "options": question.options,
                 "number": self.index + 1,
                 "image": question.image,
                 "option_images": question.option_images,
+                "passage": question.passage,
             }
 
         if phase == "reveal" and question is not None:
@@ -308,9 +570,21 @@ class LiveSession:
 
         if phase in {"reveal", "ended"}:
             state["leaderboard"] = [
-                {"label": p.label, "score": p.score, "correct": p.correct}
+                {"label": p.label, "emoji": p.emoji, "score": p.score, "correct": p.correct}
                 for p in self.ranking()[:top]
             ]
+
+        if phase == "lobby":
+            # Quién ha entrado, para la pantalla de espera. Solo el nombre y el avatar: el resto
+            # del `info {}` (el carné) NO viaja a un endpoint público. Se corta en 60 porque es
+            # lo que cabe en una proyección; el contador de arriba ya da el total real.
+            state["lobby_roster"] = [
+                {"label": p.label, "emoji": p.emoji}
+                for p in sorted(self.participants.values(), key=lambda p: p.joined_at)[:60]
+            ]
+
+        if phase == "ended":
+            state["awards"] = self.awards()
 
         if pid:
             state["me"] = self._me(pid, question, phase)
@@ -334,16 +608,20 @@ class LiveSession:
         ranking = self.ranking()
         me: dict[str, Any] = {
             "label": participant.label,
+            "emoji": participant.emoji,
             "score": participant.score,
             "correct_total": participant.correct,
             "rank": next((i + 1 for i, p in enumerate(ranking) if p.pid == pid), None),
             "answered": question is not None and question.id in participant.answers,
             "answer": participant.answers.get(question.id) if question else None,
+            "can_change_avatar": phase in {"lobby", "ended"},
         }
         # El ✓/✗ se guarda hasta el reveal (comportamiento Kahoot): así el primero en responder
         # no le canta la respuesta al de al lado. `instant_feedback` lo adelanta al toque.
         if question is not None and me["answered"] and (phase == "reveal" or self.instant_feedback):
             me["correct"] = question.is_correct(participant.answers[question.id])
+            # El desglose solo viaja con el ✓/✗: enseñarlo antes delataría si acertó.
+            me |= {"last_base": participant.last_base, "last_speed_bonus": participant.last_speed_bonus}
         return me
 
     def host_state(self) -> dict[str, Any]:
@@ -352,10 +630,23 @@ class LiveSession:
         state["questions"] = [{"number": i + 1, "question": q.question, "type": q.type} for i, q in enumerate(self.questions)]
         state["skipped"] = self.skipped
         state["roster"] = [
-            {"label": p.label, "info": p.info, "score": p.score, "correct": p.correct}
+            {
+                "label": p.label,
+                "emoji": p.emoji,
+                "info": p.info,
+                "score": p.score,
+                "correct": p.correct,
+                # El promedio por acierto es lo único que separa "acertó más" de "fue más rápido"
+                # cuando dos puntajes se cruzan. El profesor es quien recibe la pregunta.
+                "avg_speed": round(p.avg_speed(), 1) if p.avg_speed() is not None else None,
+            }
             for p in self.ranking()
         ]
         state["instant_feedback"] = self.instant_feedback
+        state["awards"] = self.awards()
+        # Solo aquí: `host_state` va detrás del JWT del profesor. Si esto se colara en
+        # `public_state`, el celular del alumno podría pedir el mp3 y sacar la transcripción.
+        state["screen_key"] = self.screen_key
         return state
 
     def snapshot(self) -> list[dict[str, Any]]:
@@ -422,70 +713,303 @@ _sessions: dict[str, LiveSession] = {}
 TRUE_FALSE_OPTIONS = ["True", "False"]
 
 
-def extract_questions(activities: list[Any]) -> list[LiveQuestion]:
-    """Se queda con las actividades del DSL que sirven en vivo, en el orden de la hoja.
+def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQuestion]:
+    """Las preguntas en vivo que da UNA actividad. Lista vacía = no se puede jugar.
 
-    Una actividad no es siempre una pregunta: un `truefalse` con cinco enunciados son CINCO
-    preguntas en vivo. Se numeran `{activity_id}:{índice}`, la misma convención que usa
-    `_build_answer_details` para esos enunciados, de modo que la entrega que guarda `finish`
-    encaja con lo que Revisión ya sabe leer.
+    Es la única autoridad sobre qué entra y qué no: `extract_questions` la recorre y `summarize`
+    la usa para contar lo descartado. Antes eran dos criterios distintos (una lista de tipos y
+    un recorrido aparte), y bastaba que una actividad de tipo jugable no diera ninguna pregunta
+    —sin clave, con demasiadas opciones— para que desapareciera sin contarse ni como jugada ni
+    como descartada. El fallo silencioso de la regla 3, otra vez.
+
+    Sobre la explosión: una actividad no es siempre una pregunta. Un `truefalse` de cinco
+    enunciados son CINCO preguntas, y un `matching` de cuatro filas son CUATRO. Se numeran
+    `{activity_id}:{índice}`, la misma convención que usa `_build_answer_details` en `main.py`
+    para esos mismos tipos, de modo que la entrega que guarda `finish` encaja con lo que
+    Revisión ya sabe leer.
     """
-    questions: list[LiveQuestion] = []
-    for activity in activities:
-        kind = getattr(activity, "type", None)
-        if kind not in LIVE_TYPES:
-            continue
+    kind = getattr(activity, "type", None)
+    if kind not in LIVE_TYPES:
+        return []
 
-        if kind == "truefalse":
-            for index, statement in enumerate(getattr(activity, "statements", None) or []):
-                text = (statement.get("text") or "").strip()
-                if not text or statement.get("answer") is None:
-                    continue
-                questions.append(LiveQuestion(
-                    id=f"{activity.id}:{index}",
-                    type="truefalse",
-                    question=text,
-                    options=list(TRUE_FALSE_OPTIONS),
-                    # Las mismas cadenas que guarda el renderer de la hoja ('true'/'false'),
-                    # comparadas sin distinguir mayúsculas.
-                    answer="True" if statement["answer"] else "False",
-                ))
-            continue
+    audio = getattr(activity, "audio_text", None) or None
+    voice = getattr(activity, "voice", None)
+    rate = getattr(activity, "rate", None)
 
-        options = list(getattr(activity, "options", None) or [])
-        answer = getattr(activity, "answer", None)
-        if len(options) < 2 or not answer:
-            continue  # sin opciones o sin clave no se puede jugar ni calificar
-        images = list(getattr(activity, "option_images", None) or []) if kind == "imagechoice" else []
-        questions.append(LiveQuestion(
+    def build(**kwargs: Any) -> LiveQuestion:
+        kwargs.setdefault("audio_text", audio)
+        return LiveQuestion(passage=passage, voice=voice, rate=rate, **kwargs)
+
+    # ── Audio ────────────────────────────────────────────────────────────────
+    # Los cinco tipos `listening*` son los de arriba con un audio delante. Todos exigen
+    # `audio_text`: sin él, la pregunta es incontestable (y el parser ya lo valida, pero una
+    # hoja vieja o editada a mano puede llegar sin él).
+
+    if kind == "listeningmatching":
+        # Un audio POR PAR: se oye una frase y se elige con qué empareja. De todos los tipos de
+        # audio es el que mejor funciona en vivo — el audio es corto y se repite por pregunta.
+        pairs = [p for p in (getattr(activity, "pairs", None) or []) if p.get("audio_text") and p.get("match")]
+        options = list(getattr(activity, "options", None) or []) or [p["match"] for p in pairs]
+        if len(pairs) < 1 or not (2 <= len(options) <= MAX_LIVE_OPTIONS):
+            return []
+        shuffled = list(options)
+        random.Random(f"{activity.id}:live").shuffle(shuffled)
+        return [
+            build(
+                id=f"{activity.id}:{index}",
+                type=kind,
+                # Mismo texto que usa `_build_answer_details` para este tipo: sin el enunciado,
+                # el temario del profesor y Revisión mostrarían filas en blanco.
+                question=f"Audio {index + 1}",
+                options=shuffled,
+                answer=pair["match"],
+                audio_text=pair["audio_text"],
+            )
+            for index, pair in enumerate(pairs)
+        ]
+
+    if kind == "listeningtruefalse":
+        statements = [
+            s for s in (getattr(activity, "statements", None) or [])
+            if (s.get("text") or "").strip() and s.get("answer") is not None
+        ]
+        if not audio or not statements:
+            return []
+        # El MISMO audio en cada enunciado: se vuelve a poder oír en cada pregunta, que es lo
+        # que hace falta cuando son cinco enunciados sobre una grabación de veinte segundos.
+        return [
+            build(
+                id=f"{activity.id}:{index}",
+                type=kind,
+                question=statement["text"].strip(),
+                options=list(TRUE_FALSE_OPTIONS),
+                answer="True" if statement["answer"] else "False",
+            )
+            for index, statement in enumerate(statements)
+        ]
+
+    if kind == "listeningorder":
+        tiles = [str(t) for t in (getattr(activity, "answer", None) or []) if str(t).strip()]
+        if not audio or not (2 <= len(tiles) <= MAX_LIVE_TILES):
+            return []
+        bank = list(getattr(activity, "bank", None) or tiles)
+        shuffled = list(bank)
+        random.Random(f"{activity.id}:live").shuffle(shuffled)
+        return [build(
             id=activity.id,
             type=kind,
-            question=getattr(activity, "question", None) or getattr(activity, "prompt", None) or "",
-            options=options,
-            answer=answer,
-            image=getattr(activity, "image", None) if kind == "imagechoice" else None,
-            # Se rellena a la longitud de `options`: una URL de menos dejaría la opción sin
-            # imagen, no descuadrada.
-            option_images=(images + [""] * len(options))[:len(options)] if images else None,
-        ))
-    return questions
+            question=str(getattr(activity, "prompt", None) or "Ordena la oración que escuchaste"),
+            options=shuffled,
+            answer=tiles,
+            input="order",
+        )]
+
+    if kind == "listeningmultiplechoice" and not audio:
+        return []
+    if kind == "listeningfillblank" and not audio:
+        return []
+
+    # `readingtruefalse` es un `truefalse` con un texto encima. NO usa la subfase de escucha, y
+    # la diferencia no es de comodidad: el audio es EFÍMERO —no se puede volver a oír mientras
+    # el reloj corre, por eso necesita una pausa antes de arrancarlo— y el texto se queda en
+    # pantalla, así que se lee mientras se responde. Es el mismo trato que ya reciben los textos
+    # de un `block {}`. Lo que sí hace falta es más tiempo, y el panel lo sugiere.
+    if kind == "readingtruefalse":
+        content = (getattr(activity, "content", None) or "").strip()
+        statements = [
+            s for s in (getattr(activity, "statements", None) or [])
+            if (s.get("text") or "").strip() and s.get("answer") is not None
+        ]
+        if not content or not statements:
+            return []
+        return [
+            LiveQuestion(
+                id=f"{activity.id}:{index}",
+                type=kind,
+                question=statement["text"].strip(),
+                options=list(TRUE_FALSE_OPTIONS),
+                answer="True" if statement["answer"] else "False",
+                # El texto de la actividad gana al del bloque: es más específico. Un
+                # `readingtruefalse` dentro de un bloque con lectura es raro, pero si pasa, el
+                # alumno tiene que ver el que la pregunta cita.
+                passage=content,
+            )
+            for index, statement in enumerate(statements)
+        ]
+
+    if kind == "truefalse":
+        out = []
+        for index, statement in enumerate(getattr(activity, "statements", None) or []):
+            text = (statement.get("text") or "").strip()
+            if not text or statement.get("answer") is None:
+                continue
+            out.append(build(
+                id=f"{activity.id}:{index}",
+                type="truefalse",
+                question=text,
+                options=list(TRUE_FALSE_OPTIONS),
+                # Las mismas cadenas que guarda el renderer de la hoja ('true'/'false'),
+                # comparadas sin distinguir mayúsculas.
+                answer="True" if statement["answer"] else "False",
+            ))
+        return out
+
+    # `matching` e `imagematching`: una pregunta POR FILA, no un tablero que se arrastra.
+    # El renderer normal se juega con líneas y por eso se descartó en vivo la primera vez, pero
+    # `_build_answer_details` (main.py) ya califica estos tipos fila a fila — o sea que la
+    # unidad de calificación YA ES una opción múltiple: enunciado = `left[i]`, opciones = todas
+    # las `right`, clave = `right[i]`. En vivo son los mismos botones que el resto y el problema
+    # del dedo desaparece, igual que desapareció con `truefalse`.
+    if kind in {"matching", "imagematching"}:
+        left = list(getattr(activity, "left", None) or [])
+        right = list(getattr(activity, "right", None) or [])
+        images = list(getattr(activity, "left_images", None) or [])
+        if len(left) < 2 or len(right) < len(left) or len(right) > MAX_LIVE_OPTIONS:
+            return []
+        # Barajado DETERMINISTA por actividad: sin él la clave de la fila `i` cae siempre en la
+        # posición `i` (fila 1 → primer botón, fila 2 → segundo…) y el juego se resuelve sin
+        # leer nada. La semilla es el id de la actividad para que el orden sea el mismo en toda
+        # la sesión y reproducible en un test; `random` aquí es cosmético, no criptográfico.
+        options = list(right)
+        random.Random(f"{activity.id}:live").shuffle(options)
+        return [
+            build(
+                id=f"{activity.id}:{index}",
+                type=kind,
+                question=str(label),
+                options=options,
+                answer=right[index],
+                # `imagematching` pregunta POR la imagen: es el enunciado, no una opción.
+                image=images[index] if kind == "imagematching" and index < len(images) else None,
+            )
+            for index, label in enumerate(left)
+        ]
+
+    # `dragdrop` y `fillblank`: una oración con huecos `_____`. Los dos son la misma pregunta en
+    # vivo y solo cambia de dónde sale la respuesta — `dragdrop` trae `bank` (se toca una ficha)
+    # y `fillblank` no (se teclea). Por eso comparten `input="blanks"`: el cliente decide fichas
+    # o teclado mirando si vienen `options`, sin una rama por tipo.
+    #
+    # El de UN hueco con banco es, además, un `multiplechoice` disfrazado: el parser ya valida
+    # que el `bank` contenga todas las respuestas, así que se juega con los botones de siempre.
+    if kind in {"dragdrop", "fillblank", "listeningfillblank"}:
+        text = str(getattr(activity, "text", None) or "")
+        answers = [a for a in (getattr(activity, "answer", None) or []) if str(a).strip()]
+        bank = list(getattr(activity, "bank", None) or [])
+        blanks = text.count(BLANK)
+        # Sin huecos no hay dónde escribir, y con más claves que huecos la oración no cuadra.
+        # `fillblank` admite `blanks == 0` en el parser (la clave puede ir suelta), pero en vivo
+        # se necesita el hueco para pintar el campo: sin él, no es jugable.
+        if not (1 <= blanks <= MAX_LIVE_BLANKS) or len(answers) < blanks:
+            return []
+        answers = answers[:blanks]
+
+        if blanks == 1 and 2 <= len(bank) <= MAX_LIVE_OPTIONS:
+            return [build(id=activity.id, type=kind, question=text, options=bank, answer=answers[0])]
+
+        return [build(
+            id=activity.id,
+            type=kind,
+            question=text,
+            # Con banco, las fichas son las opciones; sin banco se teclea y no hay ninguna.
+            options=bank if bank else [],
+            answer=answers,
+            input="blanks",
+        )]
+
+    options = list(getattr(activity, "options", None) or [])
+    answer = getattr(activity, "answer", None)
+    if not (2 <= len(options) <= MAX_LIVE_OPTIONS) or not answer:
+        return []  # sin opciones, sin clave o con demasiadas: no se puede jugar ni calificar
+    images = list(getattr(activity, "option_images", None) or []) if kind == "imagechoice" else []
+    return [build(
+        id=activity.id,
+        type=kind,
+        question=getattr(activity, "question", None) or getattr(activity, "prompt", None) or "",
+        options=options,
+        answer=answer,
+        input="multi" if kind == "multiselect" else "choice",
+        image=getattr(activity, "image", None) if kind == "imagechoice" else None,
+        # Se rellena a la longitud de `options`: una URL de menos dejaría la opción sin
+        # imagen, no descuadrada.
+        option_images=(images + [""] * len(options))[:len(options)] if images else None,
+    )]
 
 
-def summarize(activities: list[Any]) -> dict[str, Any]:
+@dataclass(slots=True)
+class _BlockContext:
+    """Lo que un `block {}` aporta a cada actividad que cuelga de él.
+
+    `WorksheetJson.iter_activities()` aplana los bloques y tira el `BlockData` entero
+    (`models.py`), así que hasta agosto de 2026 una hoja con una lectura arriba y cinco preguntas
+    debajo (ADR-24) se jugaba en vivo mandando las preguntas SIN el texto del que hablan. Nadie se
+    enteraba: llegaban bien formadas, solo que sobre la nada.
+    """
+    passages: dict[str, str] = field(default_factory=dict)
+    audios: dict[str, tuple[str, str | None, str | None]] = field(default_factory=dict)
+    # Bloques de CONVERSACIÓN (`lines`, dos voces). Siguen mudos: sintetizarlos es concatenar un
+    # mp3 por turno (`/tts/conversation`), no una llamada. Se descartan y se reportan, en vez de
+    # preguntar por un diálogo que nadie ha oído.
+    muted: set[str] = field(default_factory=set)
+
+
+def _block_context(blocks: list[Any] | None) -> _BlockContext:
+    context = _BlockContext()
+    for block in blocks or []:
+        text = (getattr(block, "text", None) or "").strip()
+        audio = (getattr(block, "audio_text", None) or "").strip()
+        lines = getattr(block, "lines", None)
+        for activity in getattr(block, "activities", None) or []:
+            if text:
+                context.passages[activity.id] = text
+            if audio:
+                context.audios[activity.id] = (audio, getattr(block, "voice", None), getattr(block, "rate", None))
+            elif lines:
+                context.muted.add(activity.id)
+    return context
+
+
+def extract_questions(activities: list[Any], blocks: list[Any] | None = None) -> list[LiveQuestion]:
+    """Las preguntas jugables de la hoja, en su orden. `blocks` aporta el estímulo compartido."""
+    context = _block_context(blocks)
+    out: list[LiveQuestion] = []
+    for activity in activities:
+        if activity.id in context.muted:
+            continue
+        questions = activity_questions(activity, context.passages.get(activity.id))
+        # El audio del BLOQUE se hereda: una `multiplechoice` normal colgada de un bloque con
+        # `audio_text` es, en vivo, una pregunta de escucha. Solo si la actividad no trae el suyo.
+        if (audio := context.audios.get(activity.id)) is not None:
+            for question in questions:
+                if not question.audio_text:
+                    question.audio_text, question.voice, question.rate = audio
+        out.extend(questions)
+    return out
+
+
+def summarize(activities: list[Any], blocks: list[Any] | None = None) -> dict[str, Any]:
     """Cuántas preguntas jugables da la hoja y qué se queda fuera, por tipo.
 
     Existe para que descartar una actividad sea VISIBLE. Sin esto, un profesor con una hoja de
     diez actividades abre una sesión de tres preguntas y no hay nada que le diga por qué — el
     fallo silencioso que este proyecto ya se ha comido varias veces (ver 12_RULES).
     """
+    context = _block_context(blocks)
     skipped: dict[str, int] = {}
+    playable = 0
     for activity in activities:
         kind = getattr(activity, "type", None)
-        if kind in LIVE_TYPES or kind == "content":
-            continue  # `content` es material de repaso, no una actividad que se descarte
-        skipped[kind] = skipped.get(kind, 0) + 1
+        if kind == "content":
+            continue  # material de repaso, no una actividad que se descarte
+        # Se cuenta por lo que la actividad DA, no por su tipo: un `matching` de ocho columnas
+        # es de tipo jugable y aun así no entra, y eso tiene que verse.
+        count = 0 if activity.id in context.muted else len(activity_questions(activity))
+        if count:
+            playable += count
+        else:
+            skipped[kind] = skipped.get(kind, 0) + 1
     return {
-        "playable": len(extract_questions(activities)),
+        "playable": playable,
         "skipped": [{"type": k, "count": v} for k, v in sorted(skipped.items())],
     }
 
@@ -523,7 +1047,8 @@ def create_session(
     if not questions:
         raise LiveError(
             "Esta hoja no tiene ninguna actividad que se pueda responder en vivo. Sirven: opción "
-            "múltiple, selección múltiple, verdadero/falso e imagen + opción múltiple.",
+            "múltiple, selección múltiple, verdadero/falso, imagen + opción múltiple, "
+            "emparejar, emparejar imágenes y arrastrar de un solo hueco.",
             status=422,
         )
     _evict()

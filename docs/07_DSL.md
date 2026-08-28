@@ -2670,6 +2670,26 @@ worksheet {
 Todos aceptan además `instructions` (opcional). `voice` (`male`/`female`) y `rate`
 (`very slow`/`slow`/`normal`) solo aplican a `listening*`.
 
+### Cuáles se pueden jugar en una sesión EN VIVO
+
+De los 21 tipos, **14** se pueden responder en una sesión cronometrada (`LIVE_TYPES` en
+`backend/app/live.py`, que es la lista canónica). Los otros 7 se descartan y el panel del profesor
+lo reporta por tipo antes de abrir la sesión — pero **más vale no generarlos** si la hoja se va a
+proyectar, por eso los prompts de generación llevan la lista.
+
+| Sirve en vivo | No sirve | Por qué no |
+|---------------|----------|------------|
+| `multiplechoice`, `multiselect`, `truefalse`, `imagechoice` | `textbox`, `imagequestion` | Respuesta abierta sin clave: la califica la IA en diferido, así que no hay ✓/✗ ni puntos |
+| `matching`, `imagematching` (una pregunta **por fila**, ADR-32) | `reading` | Igual, y además son N preguntas abiertas sobre un texto |
+| `dragdrop`, `fillblank` (mecánica de huecos) | `listening`, `conversation` | Texto libre que `_build_answer_details` compara exacto **a sabiendas de que casi siempre falla**, dejando que la IA lo rescate. En vivo no hay IA |
+| `readingtruefalse` (el texto viaja con cada enunciado) | `speaking` | `/public/transcribe` limita por IP y un salón comparte la del WiFi: 50 alumnos = 429 (ADR-33) |
+| Los cinco `listening*` restantes (subfase de escucha, ADR-33) | `content` | Es material de repaso, no una pregunta |
+
+Una actividad de tipo válido **también** se cae de la sesión si pasa de `MAX_LIVE_OPTIONS` (6)
+opciones, de `MAX_LIVE_BLANKS` (3) huecos, de `MAX_LIVE_TILES` (8) fichas, o si cuelga de un
+`block {}` con estímulo de conversación a dos voces. Se cuenta por lo que la actividad **da**, no
+por su tipo: `live.activity_questions()` es la autoridad.
+
 ---
 
 ## 12. Dónde se documenta el DSL (mantener sincronizado)
