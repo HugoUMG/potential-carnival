@@ -948,12 +948,16 @@ export function LivePage() {
         {/* ── Revelación ── */}
         {question && revealed && (
           <>
-            <div className={`live-pop rounded-3xl p-8 text-center text-white shadow-lg ${me?.correct ? 'bg-rex' : answered ? 'bg-red-500' : 'bg-slate-500'}`}>
-              <p className="text-6xl">{me?.correct ? '🎉' : answered ? '😕' : '⏱️'}</p>
+            {/* Encuesta (`scored === false`): no hay ✓/✗ ni respuesta correcta que anunciar.
+                Votar no puntúa, así que el marco verde/rojo diría algo falso. */}
+            <div className={`live-pop rounded-3xl p-8 text-center text-white shadow-lg ${question.scored === false ? 'bg-slate-700' : me?.correct ? 'bg-rex' : answered ? 'bg-red-500' : 'bg-slate-500'}`}>
+              <p className="text-6xl">{question.scored === false ? '📊' : me?.correct ? '🎉' : answered ? '😕' : '⏱️'}</p>
               <h1 className="mt-3 text-2xl font-black">
-                {me?.correct ? '¡Correcta!' : answered ? 'Incorrecta' : 'Sin responder'}
+                {question.scored === false ? (answered ? 'Voto registrado' : 'Sin votar') : me?.correct ? '¡Correcta!' : answered ? 'Incorrecta' : 'Sin responder'}
               </h1>
-              <p className="mt-1 text-sm text-white/90">Respuesta correcta: <strong>{state.answer_label}</strong></p>
+              {question.scored === false
+                ? <p className="mt-1 text-sm text-white/90">Encuesta: aquí no hay respuesta correcta. Miren cómo votó el grupo.</p>
+                : <p className="mt-1 text-sm text-white/90">Respuesta correcta: <strong>{state.answer_label}</strong></p>}
               {/* El desglose de ESTA pregunta. Sin él, el puntaje sube en saltos que no se
                   parecen a nada y el marcador final parece decidido a dedo. */}
               {me?.correct && me.last_base != null && (
@@ -998,16 +1002,16 @@ export function LivePage() {
             ) : (
             <div className="grid gap-2">
               {question.options.map((option, i) => {
-                const isCorrect = correctSet.has(option.toLowerCase());
+                const isCorrect = question.scored !== false && correctSet.has(option.toLowerCase());
                 const isMine = mine.has(option.toLowerCase());
                 const image = question.option_images?.[i] || null;
                 return (
-                  <div key={option} className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 font-semibold ${isCorrect ? 'border-rex bg-rex-light text-rex-deep' : isMine ? 'border-red-300 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500'}`}>
+                  <div key={option} className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 font-semibold ${isCorrect ? 'border-rex bg-rex-light text-rex-deep' : isMine ? (question.scored === false ? 'border-slate-400 bg-slate-100 text-slate-700' : 'border-red-300 bg-red-50 text-red-700') : 'border-slate-200 bg-white text-slate-500'}`}>
                     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs text-white ${colorFor(i, question.type).chip}`}>{colorFor(i, question.type).label}</span>
                     {image && <img className="h-10 w-10 shrink-0 rounded-lg object-cover" src={image} alt="" />}
                     <span className="min-w-0 flex-1">{option}</span>
                     {isCorrect && <Check size={20} />}
-                    {isMine && !isCorrect && <X size={20} />}
+                    {isMine && !isCorrect && question.scored !== false && <X size={20} />}
                     <span className="text-xs tabular-nums text-slate-400">{state.option_counts?.[i] ?? 0}</span>
                   </div>
                 );
@@ -1265,13 +1269,15 @@ export function LiveScreenPage() {
             ) : (
               <>
                 <h1 className="text-3xl font-black leading-tight"><RichText text={question.question} /></h1>
-                <p className="mt-2 text-lg text-rex">Respuesta: <strong>{state.answer_label}</strong></p>
+                {question.scored === false
+                  ? <p className="mt-2 text-lg text-white/70">Encuesta · así votó el grupo</p>
+                  : <p className="mt-2 text-lg text-rex">Respuesta: <strong>{state.answer_label}</strong></p>}
               </>
             )}
             <div className="mt-6 grid gap-3">
               {question.options.map((option, i) => {
                 const count = state.option_counts?.[i] ?? 0;
-                const isCorrect = (Array.isArray(state.answer) ? state.answer : [state.answer]).some((a) => String(a).toLowerCase() === option.toLowerCase());
+                const isCorrect = question.scored !== false && (Array.isArray(state.answer) ? state.answer : [state.answer]).some((a) => String(a).toLowerCase() === option.toLowerCase());
                 const image = question.option_images?.[i] || null;
                 return (
                   <div key={option} className={`overflow-hidden rounded-2xl border-2 ${isCorrect ? 'border-rex' : 'border-white/15'}`}>

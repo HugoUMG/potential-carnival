@@ -71,6 +71,7 @@ function PrintActivity({ activity, n }: { activity: WorksheetActivity; n: number
       );
 
     case 'multiplechoice':
+    case 'poll':
     case 'multiselect':
     case 'imagechoice': {
       const multi = a.type === 'multiselect';

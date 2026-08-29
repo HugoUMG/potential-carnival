@@ -39,7 +39,7 @@ from typing import Any
 # del profesor lo enseña antes de abrir la sesión. Esta lista está duplicada en
 # `src/components/LiveHostPanel.tsx` para pintar ese resumen sin una petición por hoja; si cambia
 # aquí, cambia allá — lo comprueba un test.
-LIVE_TYPES = ("multiplechoice", "multiselect", "truefalse", "imagechoice",
+LIVE_TYPES = ("multiplechoice", "multiselect", "poll", "truefalse", "imagechoice",
               "matching", "imagematching", "dragdrop", "fillblank",
               "listeningmultiplechoice", "listeningtruefalse", "listeningmatching",
               "listeningfillblank", "listeningorder", "readingtruefalse")
@@ -123,6 +123,11 @@ class LiveQuestion:
     # ("choice", "multi", y más adelante "text", "blanks", "order"); `type` se queda solo para
     # la etiqueta y el color.
     input: str = "choice"
+    # ¿Cuenta para la nota? `poll` es lo único que llega con False: una encuesta de opinión no
+    # tiene clave, así que no da puntos, no rompe la racha, no entra al snapshot y en el reveal
+    # solo se proyecta el reparto de votos. Es un booleano y no otro `input` porque la mecánica
+    # de respuesta es la misma de siempre (botones); lo que cambia es la calificación.
+    scored: bool = True
     # ── Audio ────────────────────────────────────────────────────────────────
     # El texto que se sintetiza NUNCA sale en `public_state()`: el alumno y la pantalla polean
     # el MISMO endpoint sin autenticación, así que publicarlo aquí sería regalar la
@@ -157,6 +162,8 @@ class LiveQuestion:
         Precio: si cambia el criterio de estos tipos hay que tocar los dos — por eso cada
         mecánica nueva trae su test, y el descuadre sale en rojo y no en el salón.
         """
+        if not self.scored:
+            return False  # encuesta: no hay respuesta correcta que acertar
         if self.input == "multi":
             correct = {_norm(a) for a in (self.answer if isinstance(self.answer, list) else [self.answer])}
             chosen = {_norm(a) for a in (given if isinstance(given, list) else ([given] if given else []))}
@@ -454,6 +461,10 @@ class LiveSession:
         elapsed = time.monotonic() - (self.opened_at or time.monotonic())
         correct = question.is_correct(answer)
         participant.answers[question.id] = answer
+        if not question.scored:
+            # Votar no puntúa NI rompe la racha: quien va acertando no debe perderla por opinar.
+            self.version += 1
+            return {"registered": True}
         base, bonus = self._points(elapsed) if correct else (0, 0)
         participant.last_base, participant.last_speed_bonus = base, bonus
         if correct:
@@ -552,6 +563,7 @@ class LiveSession:
                 "id": question.id,
                 "type": question.type,
                 "input": question.input,
+                "scored": question.scored,
                 # Solo el booleano. El texto que se sintetiza NO viaja por aquí: este endpoint
                 # es público y lo poleа el celular del alumno igual que la pantalla.
                 "has_audio": bool(question.audio_text),
@@ -564,8 +576,9 @@ class LiveSession:
             }
 
         if phase == "reveal" and question is not None:
-            state["answer"] = question.answer
-            state["answer_label"] = question.correct_label()
+            if question.scored:
+                state["answer"] = question.answer
+                state["answer_label"] = question.correct_label()
             state["option_counts"] = self._option_counts(question)
 
         if phase in {"reveal", "ended"}:
@@ -618,7 +631,7 @@ class LiveSession:
         }
         # El ✓/✗ se guarda hasta el reveal (comportamiento Kahoot): así el primero en responder
         # no le canta la respuesta al de al lado. `instant_feedback` lo adelanta al toque.
-        if question is not None and me["answered"] and (phase == "reveal" or self.instant_feedback):
+        if question is not None and question.scored and me["answered"] and (phase == "reveal" or self.instant_feedback):
             me["correct"] = question.is_correct(participant.answers[question.id])
             # El desglose solo viaja con el ✓/✗: enseñarlo antes delataría si acertó.
             me |= {"last_base": participant.last_base, "last_speed_bonus": participant.last_speed_bonus}
@@ -671,6 +684,8 @@ class LiveSession:
         for participant in self.ranking():
             rows: list[tuple[LiveQuestion, Any, str, str]] = []
             for q in self.questions:
+                if not q.scored:
+                    continue  # una encuesta no se califica: ni acierto ni fallo en Revisión
                 opened_at = self.question_opened_at.get(q.id)
                 if opened_at is None:
                     continue
@@ -915,6 +930,19 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
             options=bank if bank else [],
             answer=answers,
             input="blanks",
+        )]
+
+    if kind == "poll":
+        options = list(getattr(activity, "options", None) or [])
+        if not (2 <= len(options) <= MAX_LIVE_OPTIONS):
+            return []
+        return [build(
+            id=activity.id,
+            type=kind,
+            question=getattr(activity, "question", None) or "",
+            options=options,
+            answer="",
+            scored=False,
         )]
 
     options = list(getattr(activity, "options", None) or [])

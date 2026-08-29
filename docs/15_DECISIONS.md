@@ -823,6 +823,29 @@ memoria (ADR-25) y un reinicio del proceso la borra. UptimeRobot evita el spin-d
 inactividad, pero **un redeploy a media clase pierde la sesión en curso** — las notas solo
 sobreviven si ya se pulsó *Terminar y guardar*.
 
+## 🟢 ADR-35 — La encuesta es un TIPO (`poll`), no una `multiplechoice` sin clave
+
+**Decisión.** Una pregunta de opinión sin respuesta correcta se escribe como un tipo propio,
+`poll`, y viaja en vivo con `LiveQuestion.scored = False`.
+
+**Motivo.** El resto del sistema entiende "sin clave" de dos maneras y ninguna sirve aquí:
+`content` es material que no se responde, y `pending` significa *que lo califique la IA*. Una
+encuesta se responde y no se califica **nunca** — un estado que no existía. Dejarla como una
+`multiplechoice` sin `answer` la habría hecho caer en las validaciones que ya existen ("nadie puede
+acertar") y en el reveal habría anunciado una respuesta correcta vacía.
+
+**Alternativas descartadas.**
+- *Un flag `graded: false` sobre `multiplechoice`.* Un campo booleano en el DSL que cambia la
+  semántica del tipo se olvida al leer una hoja ajena; un nombre de tipo, no.
+- *Un `input` nuevo.* `input` es la MECÁNICA (botones, huecos, fichas) y la de la encuesta es la de
+  siempre. Lo que cambia es la calificación, y eso es un booleano aparte.
+- *Estado `poll` en `AnswerDetail`.* Habría que pintarlo en Revisión, en el resumen y en la IA
+  calificadora. La encuesta se lee en el reparto en vivo; el voto se guarda pero no se muestra.
+
+**Consecuencias.** El voto queda en `answers_json` y **no** se ve en Revisión. Si algún día hace
+falta leer los votos de una hoja **asignada** (no jugada en vivo), ahí es donde hay que añadir un
+estado nuevo — está marcado con un `ponytail:` en `_build_answer_details`.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

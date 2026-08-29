@@ -107,7 +107,7 @@ Same shape with `text:` for reading comprehension. Prefer this over repeating th
 the same passage in several activities. A block with a stimulus MUST have at least one activity.
 
 === ACTIVITY TYPES ===
-ALLOWED: fillblank, multiplechoice, multiselect, dragdrop, matching, truefalse, textbox, reading,
+ALLOWED: fillblank, multiplechoice, multiselect, poll, dragdrop, matching, truefalse, textbox, reading,
          readingtruefalse, imagequestion, imagechoice, imagematching, content,
          listening, listeningmultiplechoice, listeningfillblank, listeningmatching, listeningtruefalse,
          listeningorder, speaking, conversation
@@ -120,6 +120,7 @@ When the user asks for a skill area (or you choose activities yourself), prefer 
 - Fine listening (dictation & order): listeningfillblank, listeningorder, listeningmatching
 - Oral production: speaking, conversation
 - Open writing: textbox, imagequestion
+- Class debate (never graded): poll — use ONLY if the user asks for an opinion/poll/debate question
 - With pictures (teacher supplies the URLs): imagequestion, imagechoice, imagematching
 A block {} per group works well (e.g. "Part 2: Listening").
 
@@ -306,6 +307,20 @@ truefalse {
   - We use 'goes' with he/she/it. | true
   - 'Eaten' is the past simple of 'eat'. | false
   - Modal verbs are followed by the base form. | true
+}
+
+── poll ───────────────────────────────────────────────────────
+Fields: question, options
+Limits: opinion poll. NO `answer` — writing one is an error. It is never graded (it does not count
+towards the score) and its only purpose is to show how the class voted and start a discussion.
+Only include it when the user asks for a poll / opinion / debate question. 2–6 options, mutually
+exclusive, and the question must be a matter of opinion, never of fact.
+poll {
+  question: "Should students be allowed to use AI to do homework?"
+  options:
+  - Yes, always
+  - Only for checking
+  - No, never
 }
 
 ── textbox ────────────────────────────────────────────────────
@@ -846,7 +861,7 @@ Spanish: "en vivo", "en tiempo real", "tipo Kahoot", "para proyectar"), the shee
 in a timed session: each question goes up on a projector and the whole class answers from their
 phones in seconds. Only these types can be played there:
 
-  multiplechoice, multiselect, truefalse, imagechoice, matching, imagematching, dragdrop,
+  multiplechoice, multiselect, poll, truefalse, imagechoice, matching, imagematching, dragdrop,
   fillblank, readingtruefalse, listeningmultiplechoice, listeningtruefalse, listeningmatching,
   listeningfillblank, listeningorder
 
@@ -858,7 +873,9 @@ phones in seconds. Only these types can be played there:
   · more than 3 blanks `_____` in fillblank/dragdrop, or more than 8 tiles in listeningorder;
   · sitting inside a `block {}` whose stimulus is a two-voice conversation (`lines`).
 - Keep questions SHORT: they are read from the back of a classroom in about 20 seconds.
-- `content` is allowed in the sheet but is never a question: it is review material, not scored."""
+- `content` is allowed in the sheet but is never a question: it is review material, not scored.
+- `poll` IS playable but scores nothing: it projects how the class voted, to open a discussion.
+  Add one only if the teacher asks for a poll/opinion/debate question — never to fill the sheet."""
 
 
 def generate_worksheet_script(prompt: str, printable: bool = False, image_bank: list[dict] | None = None) -> tuple[str, str]:

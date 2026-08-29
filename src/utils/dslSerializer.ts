@@ -24,7 +24,7 @@ export interface VisualLine {
 }
 
 export type VisualActivityType =
-  | 'fillblank' | 'multiplechoice' | 'multiselect' | 'dragdrop' | 'matching' | 'textbox' | 'truefalse'
+  | 'fillblank' | 'multiplechoice' | 'multiselect' | 'poll' | 'dragdrop' | 'matching' | 'textbox' | 'truefalse'
   | 'listening' | 'listeningfillblank' | 'listeningmultiplechoice'
   | 'listeningmatching' | 'listeningtruefalse' | 'listeningorder' | 'conversation'
   | 'reading' | 'readingtruefalse' | 'imagequestion' | 'imagechoice' | 'imagematching' | 'speaking' | 'content';
@@ -148,6 +148,15 @@ function serializeActivity(act: VisualActivity, indent: string): string[] {
       validOpts.forEach((o) => lines.push(`${indent}  - ${o}`));
     }
     if (act.correctOption.trim()) lines.push(`${indent}  answer: "${esc(act.correctOption)}"`);
+
+  } else if (act.type === 'poll') {
+    // Encuesta: pregunta y opciones, sin `answer` (no hay respuesta correcta).
+    if (act.question.trim()) lines.push(`${indent}  question: "${esc(act.question)}"`);
+    const validOpts = act.options.filter((o) => o.trim());
+    if (validOpts.length > 0) {
+      lines.push(`${indent}  options:`);
+      validOpts.forEach((o) => lines.push(`${indent}  - ${o}`));
+    }
 
   } else if (act.type === 'multiselect') {
     if (act.question.trim()) lines.push(`${indent}  question: "${esc(act.question)}"`);
@@ -448,6 +457,8 @@ export function toWorksheetActivity(act: VisualActivity): WorksheetActivity {
     }
     case 'multiplechoice':
       return { ...base, type: 'multiplechoice', question: act.question, options, answer: act.correctOption };
+    case 'poll':
+      return { ...base, type: 'poll', question: act.question, options };
     case 'multiselect':
       return { ...base, type: 'multiselect', question: act.question, options, answer: act.correctOptions.filter((o) => o.trim()) };
     case 'dragdrop':
@@ -546,6 +557,8 @@ export function emptyActivity(type: VisualActivityType): VisualActivity {
       return { ...BASE_ACTIVITY, id, type, text: 'She _____ happy yesterday.', answer: 'was' };
     case 'multiplechoice':
       return { ...BASE_ACTIVITY, id, type, question: 'Choose the correct answer.', options: ['am', 'is', 'are'], correctOption: 'am' };
+    case 'poll':
+      return { ...BASE_ACTIVITY, id, type, question: 'What do you think?', options: ['I agree', 'It depends', 'I disagree'] };
     case 'multiselect':
       return { ...BASE_ACTIVITY, id, type, question: 'Select ALL correct options.', options: ['runs', 'running', 'eats', 'eaten'], correctOptions: ['runs', 'eats'] };
     case 'dragdrop':

@@ -19,6 +19,7 @@ import type {
   ContentActivity,
   MatchingActivity,
   MultipleChoiceActivity,
+  PollActivity,
   MultiSelectActivity,
   DragDropActivity,
   SpeakingActivity,
@@ -106,7 +107,7 @@ function FillBlankRenderer({ activity, value, readonly, onChange }: ActivityRend
   );
 }
 
-function MultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultipleChoiceActivity | ImageChoiceActivity>) {
+function MultipleChoiceRenderer({ activity, value, readonly, onChange }: ActivityRendererProps<MultipleChoiceActivity | ImageChoiceActivity | PollActivity>) {
   const options = useMemo(() => shuffledByHash(activity.options, activity.id), [activity.id, activity.options]);
   // `imagechoice`: la imagen de cada opción va en una lista PARALELA a `options`, así que se busca
   // por el índice ORIGINAL (las opciones se barajan en pantalla).
@@ -1056,6 +1057,14 @@ export const activityRegistry = {
     description: 'The student chooses one correct option.',
     icon: '✅',
     create: () => ({ id: nextId('multiplechoice'), type: 'multiplechoice', question: 'Choose the correct answer.', options: ['am', 'is', 'are'], answer: 'am' }),
+    Renderer: MultipleChoiceRenderer,
+  },
+  poll: {
+    type: 'poll',
+    label: 'Encuesta (sin nota)',
+    description: 'Opinion poll: no right answer, no score. Live shows how the class voted.',
+    icon: '📊',
+    create: () => ({ id: nextId('poll'), type: 'poll', question: 'What do you think?', options: ['I agree', 'It depends', 'I disagree'] }),
     Renderer: MultipleChoiceRenderer,
   },
   multiselect: {

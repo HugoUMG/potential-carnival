@@ -14,7 +14,7 @@ import { SandboxedHtml } from './SandboxedHtml';
 import {
   AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2, Copy, Eye,
   GripVertical, Library, List, Loader2, Pencil, PlusCircle, Save, Trash2, ToggleLeft, Upload,
-  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText,
+  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText, BarChart3,
 } from 'lucide-react';
 import { subirImagen } from '../services/api';
 import { VOICE_OPTIONS } from '../utils/voicePreference';
@@ -22,7 +22,7 @@ import { ImagePickerModal } from './ImagePicker';
 import { AiGradingControls } from './AiGradingControls';
 import { activityRegistry } from './activityRegistry';
 import { BlockStimulus } from './WorksheetRenderer';
-import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock, ActivityRendererProps } from '../types';
+import type { Worksheet, WorksheetActivity, FillBlankActivity, MultipleChoiceActivity, MultiSelectActivity, PollActivity, DragDropActivity, MatchingActivity, TextBoxActivity, TrueFalseActivity, ReadingTrueFalseActivity, SpeakingActivity, ActivityBlock, ActivityRendererProps } from '../types';
 import {
   serializeToScript, toWorksheetActivity, emptyActivity, emptyBlock, emptyState,
   type VisualActivity, type VisualBlock, type VisualState, type VisualStatement, type VisualPair, type VisualLine, type VisualActivityType,
@@ -31,7 +31,7 @@ import {
 // ── Constantes de tipos ───────────────────────────────────────────────────────
 
 const VISUAL_TYPES: VisualActivityType[] = [
-  'fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse',
+  'fillblank', 'multiplechoice', 'multiselect', 'poll', 'dragdrop', 'matching', 'textbox', 'truefalse',
   'listening', 'listeningfillblank', 'listeningmultiplechoice',
   'listeningmatching', 'listeningtruefalse', 'listeningorder', 'conversation',
   'reading', 'readingtruefalse', 'imagequestion', 'imagechoice', 'imagematching', 'speaking', 'content',
@@ -47,6 +47,7 @@ const TYPE_META: Record<VisualActivityType, { icon: React.ReactNode; color: stri
   fillblank:              { icon: <AlignLeft size={14} />,    color: 'text-rex-deep',    bg: 'bg-rex/10 border-rex/30' },
   multiplechoice:         { icon: <CheckSquare size={14} />,  color: 'text-spike-dark',  bg: 'bg-spike/10 border-spike/30' },
   multiselect:            { icon: <ListChecks size={14} />,   color: 'text-rex-deep',     bg: 'bg-rex/10 border-rex/30' },
+  poll:                   { icon: <BarChart3 size={14} />,    color: 'text-violet-700',  bg: 'bg-violet-50 border-violet-200' },
   dragdrop:               { icon: <Move size={14} />,         color: 'text-pink-700',    bg: 'bg-pink-50 border-pink-200' },
   matching:               { icon: <Columns2 size={14} />,     color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200' },
   textbox:                { icon: <List size={14} />,         color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200' },
@@ -72,7 +73,7 @@ const typeLabel = (type: VisualActivityType) => activityRegistry[type].label;
 
 // Grupos para el picker de actividades
 const TYPE_GROUPS: { label: string; types: VisualActivityType[] }[] = [
-  { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'multiselect', 'dragdrop', 'matching', 'textbox', 'truefalse'] },
+  { label: 'Básicas', types: ['fillblank', 'multiplechoice', 'multiselect', 'poll', 'dragdrop', 'matching', 'textbox', 'truefalse'] },
   { label: 'Listening', types: ['listening', 'listeningfillblank', 'listeningmultiplechoice', 'listeningmatching', 'listeningtruefalse', 'listeningorder', 'conversation'] },
   { label: 'Imagen', types: ['imagequestion', 'imagechoice', 'imagematching'] },
   { label: 'Otras', types: ['reading', 'readingtruefalse', 'speaking', 'content'] },
@@ -118,6 +119,10 @@ function activityToVisual(act: WorksheetActivity): VisualActivity | null {
     const mc = act as MultipleChoiceActivity;
     const correct = Array.isArray(mc.answer) ? mc.answer[0] : (mc.answer ?? '');
     return { ...base, question: mc.question, options: [...mc.options], correctOption: correct };
+  }
+  if (act.type === 'poll') {
+    const p = act as PollActivity;
+    return { ...base, question: p.question, options: [...p.options] };
   }
   if (act.type === 'multiselect') {
     const ms = act as MultiSelectActivity;
@@ -871,6 +876,32 @@ function ImageMatchingEditor({ act, onChange }: { act: VisualActivity; onChange:
   );
 }
 
+/** Encuesta: pregunta y opciones, sin clave. No hay nada que marcar — es justo el punto. */
+function PollEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
+  return (
+    <div className="grid gap-4">
+      <label className="block"><FieldLabel>Pregunta</FieldLabel><TextInput value={act.question} onChange={(v) => onChange({ ...act, question: v })} placeholder="¿Qué opinas?" /></label>
+      <div>
+        <FieldLabel>Opciones</FieldLabel>
+        <p className="mb-2 text-xs text-slate-400">No se marca ninguna: la encuesta no tiene respuesta correcta ni puntúa. En vivo se proyecta cómo votó la clase.</p>
+        <div className="grid gap-2">
+          {act.options.map((opt, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
+                value={opt}
+                onChange={(e) => { const next = [...act.options]; next[i] = e.target.value; onChange({ ...act, options: next }); }} />
+              <button type="button" className="rounded-xl border border-red-100 p-2 text-red-400 transition hover:bg-red-50"
+                onClick={() => onChange({ ...act, options: act.options.filter((_, j) => j !== i) })}><Trash2 size={14} /></button>
+            </div>
+          ))}
+          <button type="button" className="flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500 transition hover:border-rex hover:text-rex"
+            onClick={() => onChange({ ...act, options: [...act.options, ''] })}><PlusCircle size={14} /> Agregar opción</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MultiSelectEditor({ act, onChange }: { act: VisualActivity; onChange: (a: VisualActivity) => void }) {
   const toggleCorrect = (opt: string) => {
     const set = act.correctOptions.includes(opt) ? act.correctOptions.filter((o) => o !== opt) : [...act.correctOptions, opt];
@@ -961,6 +992,7 @@ function TypeEditor({ act, onChange }: { act: VisualActivity; onChange: (a: Visu
     case 'fillblank':              return <FillBlankEditor act={act} onChange={onChange} />;
     case 'multiplechoice':         return <MultipleChoiceEditor act={act} onChange={onChange} />;
     case 'multiselect':            return <MultiSelectEditor act={act} onChange={onChange} />;
+    case 'poll':                   return <PollEditor act={act} onChange={onChange} />;
     case 'dragdrop':               return <DragDropEditor act={act} onChange={onChange} />;
     case 'matching':               return <MatchingEditor act={act} onChange={onChange} />;
     case 'textbox':                return <TextboxEditor act={act} onChange={onChange} />;

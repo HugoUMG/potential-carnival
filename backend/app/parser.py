@@ -9,6 +9,7 @@ SUPPORTED_BLOCKS = {
     "fillblank",
     "multiplechoice",
     "multiselect",
+    "poll",
     "dragdrop",
     "textbox",
     "matching",
@@ -446,6 +447,12 @@ def parse_activity(activity_type: str, body: str) -> ActivityData:
         return ActivityData(**common, text=_get_scalar(body, "text"), answer=answer, bank=_get_list(body, "bank"))
     if activity_type == "multiplechoice":
         return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_answer(body))
+    if activity_type == "poll":
+        # Encuesta de opinión: sin `answer` a propósito. No se califica en ningún sitio; en vivo
+        # sirve para proyectar el reparto de votos y abrir el debate.
+        # `answer` se lee SOLO para que el validador lo rechace: ignorarlo aquí lo borraría en
+        # silencio y el profesor creería que su encuesta se califica (regla 3).
+        return ActivityData(**common, question=_get_scalar(body, "question"), options=_get_list(body, "options"), answer=_get_answer(body))
     if activity_type == "multiselect":
         answer = _get_answer(body)
         if not isinstance(answer, list):
@@ -581,6 +588,13 @@ def _activity_problem(a: ActivityData) -> str | None:
         if t == "imagechoice" and len(a.option_images or []) > len(options):
             # Al revés sí vale: una lista más corta deja esas opciones como texto.
             return f"'option_images' trae {len(a.option_images or [])} imágenes para {len(options)} opciones"
+    elif t == "poll":
+        if not a.question:
+            return "falta 'question'"
+        if len(options) < 2:
+            return "necesita al menos 2 'options'"
+        if answers:
+            return "una encuesta no lleva 'answer': no hay respuesta correcta que marcar"
     elif t == "multiselect":
         if not a.question:
             return "falta 'question'"

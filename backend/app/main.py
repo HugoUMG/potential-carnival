@@ -1756,8 +1756,13 @@ def _build_answer_details(worksheet: Worksheet, answers: dict[str, Any]) -> list
     details: list[AnswerDetail] = []
     block_contexts = _block_contexts(worksheet)
     for activity in worksheet.json_content.iter_activities():
-        if activity.type == "content":
-            continue  # bloque informativo: no se responde ni califica (no entra al score)
+        if activity.type in {"content", "poll"}:
+            # `content` no se responde; `poll` sí, pero es opinión: no hay clave, así que no entra
+            # al score NI a `pending` (pending significa "que lo califique la IA").
+            # ponytail: el voto se guarda en answers_json pero no se pinta en Revisión; el sitio
+            # donde se leen los votos es el reparto en vivo. Si hace falta verlos en una hoja
+            # asignada, ahí es donde hay que añadir un estado nuevo.
+            continue
         student_answer = answers.get(activity.id)
         prompt = activity.text or activity.question or activity.prompt or activity.title or activity.type
         # Qué escuchó el alumno. La IA lo necesita para juzgar una respuesta abierta a un audio:
