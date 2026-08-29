@@ -4,6 +4,7 @@ export type ActivityType =
   | 'fillblank'
   | 'multiplechoice'
   | 'multiselect'
+  | 'poll'
   | 'dragdrop'
   | 'textbox'
   | 'matching'
@@ -49,6 +50,14 @@ export interface MultipleChoiceActivity extends BaseActivity {
   question: string;
   options: string[];
   answer: string | string[];
+}
+
+/** Encuesta de opinión: sin `answer` a propósito. No se califica en ningún sitio; en vivo el
+ *  reveal proyecta el reparto de votos para abrir el debate. */
+export interface PollActivity extends BaseActivity {
+  type: 'poll';
+  question: string;
+  options: string[];
 }
 
 export interface MultiSelectActivity extends BaseActivity {
@@ -182,6 +191,7 @@ export type WorksheetActivity =
   | FillBlankActivity
   | MultipleChoiceActivity
   | MultiSelectActivity
+  | PollActivity
   | DragDropActivity
   | TextBoxActivity
   | MatchingActivity

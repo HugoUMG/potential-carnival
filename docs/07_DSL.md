@@ -25,6 +25,7 @@
    - [truefalse](#412-truefalse)
    - [readingtruefalse](#413-readingtruefalse)
    - [multiselect](#414-multiselect)
+   - [poll](#414b-poll)
    - [dragdrop](#415-dragdrop)
    - [speaking](#416-speaking)
    - [listeningorder](#417-listeningorder)
@@ -1723,6 +1724,43 @@ Respuesta del alumno: `{ "activity-uuid": ["runs", "eats"] }`
 
 ---
 
+### 4.14b poll
+
+**Descripción:** **Encuesta de opinión.** Se responde como un `multiplechoice` (una opción), pero
+**no tiene clave**: no hay respuesta correcta, no puntúa y no entra a la nota en ningún sitio. En
+una sesión en vivo el *reveal* proyecta el **reparto de votos** en vez de una respuesta correcta;
+es lo que se usa para abrir un debate después.
+
+**Cuándo usar:** temperatura del grupo antes de un tema, pregunta de opinión para discutir, votación
+rápida. Nunca para evaluar.
+
+**Calificación:** **ninguna.** No suma, no resta y no queda ni como "pendiente" (eso significa "lo
+califica la IA"). El voto se guarda en la entrega pero no se pinta en Revisión: el sitio donde se
+leen los votos es el reparto en vivo.
+
+| Campo | Tipo | Obligatorio | Descripción |
+|-------|------|-------------|-------------|
+| `question` | string | Sí | La pregunta de opinión |
+| `options` | list | Sí | Mínimo 2 (máx. 6 si se va a jugar en vivo) |
+| `answer` | — | **Prohibido** | Escribirlo es un error de validación, no se ignora en silencio |
+
+```
+poll {
+  question: "Should students be allowed to use AI to do homework?"
+  options:
+  - Yes, always
+  - Only for checking
+  - No, never
+}
+```
+
+**Límite pedagógico:** la pregunta tiene que ser de **opinión**, no de hecho. Una pregunta con
+respuesta verdadera disfrazada de encuesta enseña que da igual lo que se conteste.
+
+Respuesta del alumno: `{ "activity-uuid": "Only for checking" }`
+
+---
+
 ### 4.15 dragdrop
 
 **Descripción:** Oración con huecos `_____` + banco de palabras arrastrables. Se puede arrastrar o **tocar** una palabra para colocarla en el siguiente hueco vacío (click-to-place). Tocar un hueco lleno lo vacía.
@@ -2176,6 +2214,7 @@ la hoja.
 | multiplechoice | Auto exacta | 1 por actividad | No — se elige con clic |
 | listeningmultiplechoice | Auto exacta | 1 por actividad | No |
 | multiselect | Auto por conjunto exacto | 1 por actividad | No |
+| poll | **Ninguna** (encuesta de opinión) | 1 por actividad | No |
 | dragdrop | Auto exacta posicional | 1 por actividad | No |
 | matching | Auto posicional | 1 por par (left[i] ↔ right[i]) | **Sí** — por par |
 | listeningmatching | Auto posicional | 1 por par | No |
@@ -2647,6 +2686,7 @@ worksheet {
 | fillblank | ✓* | — | — | ✓ | — | — | — | — | — | — | — | — | — | |
 | multiplechoice | — | ✓ | ✓ | ✓ | — | — | — | — | — | — | — | — | — | |
 | multiselect | — | ✓ | ✓ | ✓‡ | — | — | — | — | — | — | — | — | — | |
+| poll | — | ✓ | ✓ | ✗ | — | — | — | — | — | — | — | — | — | sin clave |
 | dragdrop | ✓* | — | — | ✓‡ | — | — | — | — | — | — | — | — | — | `bank` |
 | textbox | — | — | — | — | ✓ | — | — | — | — | — | — | — | — | |
 | matching | — | — | — | — | — | ✓ | — | — | — | — | — | — | — | |
@@ -2679,7 +2719,7 @@ proyectar, por eso los prompts de generación llevan la lista.
 
 | Sirve en vivo | No sirve | Por qué no |
 |---------------|----------|------------|
-| `multiplechoice`, `multiselect`, `truefalse`, `imagechoice` | `textbox`, `imagequestion` | Respuesta abierta sin clave: la califica la IA en diferido, así que no hay ✓/✗ ni puntos |
+| `multiplechoice`, `multiselect`, `poll` (sin puntos), `truefalse`, `imagechoice` | `textbox`, `imagequestion` | Respuesta abierta sin clave: la califica la IA en diferido, así que no hay ✓/✗ ni puntos |
 | `matching`, `imagematching` (una pregunta **por fila**, ADR-32) | `reading` | Igual, y además son N preguntas abiertas sobre un texto |
 | `dragdrop`, `fillblank` (mecánica de huecos) | `listening`, `conversation` | Texto libre que `_build_answer_details` compara exacto **a sabiendas de que casi siempre falla**, dejando que la IA lo rescate. En vivo no hay IA |
 | `readingtruefalse` (el texto viaja con cada enunciado) | `speaking` | `/public/transcribe` limita por IP y un salón comparte la del WiFi: 50 alumnos = 429 (ADR-33) |

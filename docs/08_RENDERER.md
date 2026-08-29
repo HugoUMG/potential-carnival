@@ -86,6 +86,9 @@ par toma un color. La columna derecha se baraja con `shuffledByHash` (determiní
 ambas columnas tienen **celdas de la misma altura** (`min-h-[6.5rem]` = el alto de la miniatura
 `h-20`), así la palabra crece hasta igualar el tamaño de su imagen y las filas quedan alineadas.
 
+**`poll`** — usa el mismo renderer que `multiplechoice` (radios). No tiene clave: no se califica ni
+se marca ✓/✗ en ningún sitio. En vivo, el *reveal* pinta el reparto de votos sin opción correcta.
+
 **`multiplechoice` / `multiselect` / `dragdrop`** — la app **baraja las opciones al mostrarlas**, así
 que la posición en el DSL no delata nada. Lo mismo hace `listeningmatching` con su `options`.
 

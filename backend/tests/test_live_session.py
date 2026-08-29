@@ -131,7 +131,7 @@ def test_solo_entran_los_tipos_jugables_en_vivo():
 
     assert [q.type for q in questions] == ["multiplechoice", "multiselect"]
     assert set(LIVE_TYPES) == {
-        "multiplechoice", "multiselect", "truefalse", "imagechoice",
+        "multiplechoice", "multiselect", "poll", "truefalse", "imagechoice",
         "matching", "imagematching", "dragdrop", "fillblank",
         "listeningmultiplechoice", "listeningtruefalse", "listeningmatching",
         "listeningfillblank", "listeningorder", "readingtruefalse",
@@ -964,3 +964,52 @@ def test_los_prompts_de_generacion_conocen_el_catalogo_en_vivo():
     # un tipo que no aparece en ningún lado, el modelo lo usa igual.
     for tipo in ("textbox", "reading", "imagequestion", "speaking", "conversation", "listening"):
         assert tipo in en_interno and tipo in en_copiable, f"{tipo} debería estar listado como prohibido"
+
+
+POLL_SCRIPT = """worksheet {
+title: "Debate"
+
+info {
+  fields:
+  - Nombre
+}
+
+poll {
+  question: "¿Sirve la IA para estudiar?"
+  options:
+  - Sí
+  - Depende
+  - No
+}
+}"""
+
+
+def _poll_session():
+    data = parse_worksheet_script(POLL_SCRIPT)
+    return create_session(
+        worksheet_id="ws-poll",
+        worksheet_title=data.title,
+        owner_id="prof-1",
+        info_fields=data.info_fields,
+        questions=extract_questions(data.activities),
+    )
+
+
+def test_la_encuesta_no_puntua_pero_si_cuenta_los_votos():
+    """Votar no da puntos, no marca ✓/✗, no rompe la racha y no entra a Revisión. Lo único que
+    deja es el reparto que se proyecta para abrir el debate."""
+    session = _poll_session()
+    session.open_next()
+    ana = session.join({"Nombre": "Ana"})
+    beto = session.join({"Nombre": "Beto"})
+    session.submit(ana.pid, "Sí")
+    session.submit(beto.pid, "Sí")
+    session.reveal()
+
+    estado = session.public_state(pid=ana.pid)
+    assert estado["question"]["scored"] is False
+    assert estado["option_counts"] == [2, 0, 0]
+    assert "answer" not in estado and "answer_label" not in estado
+    assert "correct" not in estado["me"]
+    assert (ana.score, ana.correct) == (0, 0)
+    assert session.snapshot()[0]["details"] == []

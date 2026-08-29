@@ -327,6 +327,10 @@ POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `
 - **`question.input` es la MECÁNICA de respuesta** (`choice` / `multi`), separada de `question.type`.
   El cliente pinta mirando `input`; `type` se queda para la etiqueta y el color. Con 21 tipos,
   ramificar por tipo son 21 ramas repartidas en tres archivos y la certeza de que alguna se olvida.
+- **`question.scored` distingue la encuesta.** Solo `poll` llega con `false`: no da puntos, no rompe
+  la racha, no marca ✓/✗ y no entra a `snapshot()` (Revisión). En `reveal` llega `option_counts`
+  pero **no** `answer` ni `answer_label` — no hay respuesta correcta que anunciar. Es un booleano y
+  no otro `input` porque la mecánica de respuesta es la de siempre; lo que cambia es la calificación.
 - **El estímulo del `block {}` llega a la pregunta** (`question.passage`). `iter_activities()`
   aplana los bloques y tira el `BlockData`, así que hasta agosto de 2026 una hoja con una lectura
   arriba y preguntas debajo (ADR-24) mandaba al alumno las preguntas **sin el texto del que

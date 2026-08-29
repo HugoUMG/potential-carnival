@@ -308,6 +308,8 @@ function normalizeActivity(activity: BackendActivity): WorksheetActivity {
       return withInstructions({ id: activity.id, type: 'fillblank', text: activity.text ?? '', answer: activity.answer ?? '' }, activity);
     case 'multiplechoice':
       return withInstructions({ id: activity.id, type: 'multiplechoice', question: activity.question ?? '', options: activity.options ?? [], answer: activity.answer ?? '' }, activity);
+    case 'poll':
+      return withInstructions({ id: activity.id, type: 'poll', question: activity.question ?? '', options: activity.options ?? [] }, activity);
     case 'multiselect':
       return withInstructions({ id: activity.id, type: 'multiselect', question: activity.question ?? '', options: activity.options ?? [], answer: Array.isArray(activity.answer) ? activity.answer : (activity.answer ? [activity.answer] : []) }, activity);
     case 'dragdrop':
@@ -807,6 +809,9 @@ export interface LiveState {
      *  `blanks`: la oración lleva huecos `_____`; con `options` se tocan fichas, sin ellas se
      *  teclea. La respuesta es una lista POSICIONAL, un elemento por hueco. */
     input: 'choice' | 'multi' | 'blanks' | 'order';
+    /** `false` solo en `poll`: encuesta de opinión. No da puntos ni ✓/✗ y en el reveal llega el
+     *  reparto de votos (`option_counts`) pero NO `answer`/`answer_label`. */
+    scored?: boolean;
     /** Si la pregunta lleva audio. El TEXTO que se sintetiza NO viaja nunca por aquí: este
      *  endpoint es público y lo polea el celular del alumno igual que la pantalla, así que
      *  mandarlo sería regalar la transcripción. El mp3 se pide en `/live/{code}/audio` con la

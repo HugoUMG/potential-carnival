@@ -22,7 +22,7 @@ import type { Worksheet } from '../types';
  *  duplicada aquí para pintar el resumen de abajo sin una petición por hoja, y hay un test que
  *  falla si las dos se desincronizan (`test_live_session.py`). */
 const LIVE_TYPES = new Set([
-  'multiplechoice', 'multiselect', 'truefalse', 'imagechoice', 'matching', 'imagematching',
+  'multiplechoice', 'multiselect', 'poll', 'truefalse', 'imagechoice', 'matching', 'imagematching',
   'dragdrop', 'fillblank', 'listeningmultiplechoice', 'listeningtruefalse', 'listeningmatching',
   'listeningfillblank', 'listeningorder', 'readingtruefalse',
 ]);
@@ -78,8 +78,10 @@ function questionCount(activity: Worksheet['activities'][number]): number {
     const answers = (Array.isArray(activity.answer) ? activity.answer : [activity.answer]).filter((a) => String(a ?? '').trim());
     return blanks >= 1 && blanks <= MAX_LIVE_BLANKS && answers.length >= blanks ? 1 : 0;
   }
-  const answer = 'answer' in activity ? activity.answer : undefined;
   const options = 'options' in activity ? activity.options ?? [] : [];
+  // La encuesta no lleva clave a propósito: solo se le exige tener opciones jugables.
+  if (activity.type === 'poll') return within(options.length) ? 1 : 0;
+  const answer = 'answer' in activity ? activity.answer : undefined;
   return within(options.length) && answer && answer.length ? 1 : 0;
 }
 

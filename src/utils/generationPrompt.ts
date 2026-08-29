@@ -180,6 +180,18 @@ truefalse {
   - We plays basketball. | false
 }
 
+# poll — ENCUESTA de opinión. NO lleva "answer" (escribirlo es un error) y NO se califica ni suma
+#        a la nota. Sirve para ver cómo votó el grupo y abrir un debate.
+# Límites: solo si el usuario pide encuesta/opinión/debate. 2–6 opciones excluyentes y una pregunta
+#          que sea de OPINIÓN, nunca de hecho.
+poll {
+  question: "Should students be allowed to use AI to do homework?"
+  options:
+  - Yes, always
+  - Only for checking
+  - No, never
+}
+
 # textbox — respuesta abierta larga. Sin clave: la califica la IA.
 # Límites: di exactamente qué producir (cuántas oraciones y qué estructura), o no se puede calificar.
 textbox {
@@ -406,9 +418,12 @@ Solo si se pide "en vivo", "en tiempo real", "tipo Kahoot" o "para proyectar". L
 cronometrada: cada pregunta sale en el proyector y el salón responde desde el celular en segundos.
 Ahí solo se pueden jugar estos tipos:
 
-  multiplechoice · multiselect · truefalse · imagechoice · matching · imagematching · dragdrop
-  fillblank · readingtruefalse · listeningmultiplechoice · listeningtruefalse · listeningmatching
-  listeningfillblank · listeningorder
+  multiplechoice · multiselect · poll · truefalse · imagechoice · matching · imagematching
+  dragdrop · fillblank · readingtruefalse · listeningmultiplechoice · listeningtruefalse
+  listeningmatching · listeningfillblank · listeningorder
+
+  (poll se juega pero NO puntúa: proyecta cómo votó el grupo para abrir debate. Inclúyelo solo si
+  se pide encuesta/opinión/debate.)
 
 - PROHIBIDOS en ese caso: textbox, reading, imagequestion, speaking, listening, conversation. No
   tienen clave o piden escribir un párrafo, así que no se pueden calificar al instante: se

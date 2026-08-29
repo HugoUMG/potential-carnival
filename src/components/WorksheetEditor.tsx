@@ -49,6 +49,7 @@ const ACTIVITIES: [string, string][] = [
   ['Listening Fill', 'listeningfillblank'], ['Listen & Order', 'listeningorder'], ['Listening Matching', 'listeningmatching'],
   ['Speaking', 'speaking'], ['Conversation', 'conversation'],
   ['Escritura libre', 'textbox'], ['Image Question', 'imagequestion'],
+  ['Encuesta (sin nota)', 'poll'],
 ];
 // Grupos por objetivo pedagógico: un clic activa todo el set (misma taxonomía que conoce la IA del backend).
 const ACTIVITY_GROUPS: { label: string; icon: string; types: string[] }[] = [
@@ -58,6 +59,7 @@ const ACTIVITY_GROUPS: { label: string; icon: string; types: string[] }[] = [
   { label: 'Escucha fina', icon: '🎼', types: ['listeningfillblank', 'listeningorder', 'listeningmatching'] },
   { label: 'Producción oral', icon: '🗣️', types: ['speaking', 'conversation'] },
   { label: 'Escritura abierta', icon: '✍️', types: ['textbox', 'imagequestion'] },
+  { label: 'Debate (sin nota)', icon: '📊', types: ['poll'] },
   // Las tres necesitan URLs que pega el profesor: la IA nunca las inventa.
   { label: 'Con imágenes', icon: '🖼️', types: ['imagequestion', 'imagechoice', 'imagematching'] },
 ];

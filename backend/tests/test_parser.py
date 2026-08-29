@@ -236,6 +236,13 @@ ALL_TYPES = '''worksheet {
       - eats
       answer: ["runs", "eats"]
     }
+    poll {
+      question: "Should students use AI for homework?"
+      options:
+      - Yes
+      - Only sometimes
+      - No
+    }
     dragdrop {
       text: "She _____ to school every day."
       answer:
@@ -474,3 +481,25 @@ def test_conversacion_sin_voces_deja_none():
     conv = ws.activities[0]
     assert conv.male_voice is None
     assert conv.female_voice is None
+
+
+POLL_OK = """question: "¿Sirve la IA en clase?"
+options:
+- Sí
+- No"""
+
+
+def test_la_encuesta_no_admite_answer():
+    """Una encuesta con `answer` es una contradicción: alguien la escribió creyendo que se
+    califica, y el alumno recibiría una pregunta de opinión marcada como fallada."""
+    from backend.app.parser import _activity_problem, parse_activity
+
+    ok = parse_activity("poll", POLL_OK)
+    assert _activity_problem(ok) is None
+    assert ok.answer is None
+
+    con_clave = parse_activity("poll", POLL_OK + '\nanswer: "Sí"')
+    assert "no lleva 'answer'" in (_activity_problem(con_clave) or "")
+
+    sin_opciones = parse_activity("poll", 'question: "¿Sirve?"')
+    assert "2 'options'" in (_activity_problem(sin_opciones) or "")
