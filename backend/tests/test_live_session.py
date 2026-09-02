@@ -1013,3 +1013,16 @@ def test_la_encuesta_no_puntua_pero_si_cuenta_los_votos():
     assert "correct" not in estado["me"]
     assert (ana.score, ana.correct) == (0, 0)
     assert session.snapshot()[0]["details"] == []
+
+
+def test_fillblank_con_clave_en_cadena_no_se_parte_en_letras():
+    """`answer: "May"` (un solo hueco) llega como CADENA, no como lista. Recorrerla la partía en
+    letras: la sesión pedía "M" y daba por mala la palabra entera."""
+    actividad = _actividad(
+        'worksheet {\n  title: T\n  fillblank {\n    text: "_____ I use your pen?"\n    answer: "May"\n  }\n}',
+        "fillblank",
+    )
+    (pregunta,) = activity_questions(actividad)
+
+    assert pregunta.answer == ["May"]
+    assert pregunta.is_correct(["may"])

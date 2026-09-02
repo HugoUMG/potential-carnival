@@ -306,6 +306,9 @@ POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `
   esta mecánica: es un `multiplechoice` disfrazado y se juega con los botones de siempre.
   **Ojo:** `multi` y `blanks` llegan las dos con lista y se comparan al revés (conjunto vs.
   posición), por eso `is_correct` ramifica por `input` y no por `type`.
+- **La clave de un hueco puede venir como cadena** (`answer: "May"`) o como lista. `_answer_list`
+  la normaliza: recorrer la cadena la partía en LETRAS y la sesión pedía `"M"`, marcando mal a
+  quien escribía la palabra entera. Igual en `listeningorder`, donde una cadena parecía N fichas.
 - **Tope de `MAX_LIVE_BLANKS` (3) huecos** y hace falta al menos uno: el hueco es lo que se pinta
   como campo, así que un `fillblank` sin `_____` (que el parser sí admite) no es jugable.
 - **`activity_questions()` es la única autoridad** sobre qué entra. `extract_questions` la recorre y
@@ -321,6 +324,10 @@ POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `
   calificación ya era esa en `_build_answer_details`; en vivo son los mismos botones (ADR-32). Las
   opciones se **barajan de forma determinista** por `activity.id`: sin barajar, la clave de la fila
   `i` cae siempre en el botón `i` y el juego se resuelve sin leer.
+- **En vivo las opciones NO se barajan** (salvo `matching`/`imagematching`, que barajan por
+  `activity.id`): salen en el orden en que las escribió el profesor o la IA. Por eso quien redacta
+  la hoja debe **repartir la respuesta correcta entre las posiciones**; diez preguntas con la clave
+  en la primera opción se juegan sin leer.
 - **Tope de `MAX_LIVE_OPTIONS` (6) opciones por pregunta.** `OPTION_COLORS` cicla cada cuatro: con
   siete hay dos azules y el color deja de identificar desde el fondo del salón. Lo que pasa del tope
   se descarta **entero** y se reporta — recortar perdería la clave la mitad de las veces.

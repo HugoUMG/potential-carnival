@@ -728,6 +728,19 @@ _sessions: dict[str, LiveSession] = {}
 TRUE_FALSE_OPTIONS = ["True", "False"]
 
 
+def _answer_list(activity: Any) -> list[str]:
+    """La clave de una actividad como lista: una entrada por hueco o por ficha.
+
+    `answer` llega como cadena cuando hay un solo hueco (`answer: "May"`) y como lista cuando hay
+    varios. Recorrer la cadena la parte en LETRAS: un `fillblank` con clave "May" se jugaba
+    pidiendo "M" y daba por mala la palabra entera.
+    """
+    raw = getattr(activity, "answer", None) or []
+    if isinstance(raw, str):
+        raw = [raw]
+    return [str(a) for a in raw if str(a).strip()]
+
+
 def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQuestion]:
     """Las preguntas en vivo que da UNA actividad. Lista vacía = no se puede jugar.
 
@@ -804,7 +817,7 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
         ]
 
     if kind == "listeningorder":
-        tiles = [str(t) for t in (getattr(activity, "answer", None) or []) if str(t).strip()]
+        tiles = _answer_list(activity)
         if not audio or not (2 <= len(tiles) <= MAX_LIVE_TILES):
             return []
         bank = list(getattr(activity, "bank", None) or tiles)
@@ -909,7 +922,7 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
     # que el `bank` contenga todas las respuestas, así que se juega con los botones de siempre.
     if kind in {"dragdrop", "fillblank", "listeningfillblank"}:
         text = str(getattr(activity, "text", None) or "")
-        answers = [a for a in (getattr(activity, "answer", None) or []) if str(a).strip()]
+        answers = _answer_list(activity)
         bank = list(getattr(activity, "bank", None) or [])
         blanks = text.count(BLANK)
         # Sin huecos no hay dónde escribir, y con más claves que huecos la oración no cuadra.

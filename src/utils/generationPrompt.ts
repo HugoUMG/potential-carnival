@@ -432,6 +432,9 @@ Ahí solo se pueden jugar estos tipos:
   · pase de 6 opciones (en matching/imagematching cuentan TODAS las de "right");
   · pase de 3 huecos _____ en fillblank/dragdrop, o de 8 fichas en listeningorder;
   · cuelgue de un block {} cuyo estímulo sea una conversación a dos voces (lines).
+- BARAJA TÚ la clave: las opciones salen en el orden en que las escribes, el juego NO las baraja.
+  Reparte la respuesta correcta entre las posiciones 1-4 a lo largo de la hoja; si va siempre
+  primera, el salón acierta sin leer.
 - Preguntas CORTAS: se leen desde el fondo del salón en unos 20 segundos.
 - content se puede incluir, pero nunca es una pregunta: es repaso, no se califica.
 

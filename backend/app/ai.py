@@ -872,6 +872,9 @@ phones in seconds. Only these types can be played there:
   · more than 6 options (matching/imagematching count ALL of `right` as options);
   · more than 3 blanks `_____` in fillblank/dragdrop, or more than 8 tiles in listeningorder;
   · sitting inside a `block {}` whose stimulus is a two-voice conversation (`lines`).
+- MIX THE KEY: options are shown in the order you write them, they are NOT shuffled. Spread the
+  correct option across positions 1-4 over the sheet — never leave it first (or always last) in
+  every question, or the class scores without reading.
 - Keep questions SHORT: they are read from the back of a classroom in about 20 seconds.
 - `content` is allowed in the sheet but is never a question: it is review material, not scored.
 - `poll` IS playable but scores nothing: it projects how the class voted, to open a discussion.
