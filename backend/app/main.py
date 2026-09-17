@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
 from .ai import ai_grade_activities, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
-from .database import initialize_database
+from .database import get_connection, initialize_database
 from . import live
 from .models import (
     AiGenerateRequest,
@@ -122,6 +122,9 @@ def startup() -> None:
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, str]:
+    # UptimeRobot pega aquí cada 5 min: la consulta evita que Aiven apague la base por "sin uso"
+    with get_connection() as connection:
+        connection.execute("SELECT 1")
     return {"estado": "correcto"}
 
 

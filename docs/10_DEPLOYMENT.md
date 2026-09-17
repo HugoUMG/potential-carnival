@@ -113,6 +113,10 @@ El frontend se sirve como estático con un rewrite `/*` → `/index.html` (SPA).
 
 - **El backend no se apaga**: un monitor de **UptimeRobot** lo mantiene despierto pegándole a
   `/health`. No hay cold start de 15 minutos.
+- **La base tampoco**: `/health` ejecuta `SELECT 1` para que Aiven vea actividad. El plan free
+  apaga el servicio si no ve consultas durante ~una semana y hay que encenderlo a mano desde su
+  consola; mantener la conexión abierta (pool) no cuenta como uso. Si aun así se apaga, la
+  alternativa es Neon (scale-to-zero que se reanuda solo; requiere `check=` en el pool).
 - **La lentitud percibida es la base**, no el arranque: Aiven añade unos segundos en la primera
   consulta. Por eso toda pantalla que dependa de la primera query muestra spinner. Al optimizar,
   atacar carga de BD (pool, N+1, caché), no el arranque del servicio.
