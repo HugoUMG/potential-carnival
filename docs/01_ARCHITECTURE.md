@@ -15,7 +15,7 @@ Cómo encajan las piezas. Sin detalles de implementación (esos van en `02`–`0
    accounts.google.com                                        PostgreSQL (Aiven)
                                                               SQLite (desarrollo)
                                                                        │
-                                          edge-tts (TTS) ──────────────┤
+                                          ElevenLabs / edge-tts (TTS) ─┤
                                           Gemini / Groq (IA) ──────────┤
                                           Groq Whisper (speaking) ─────┘
 ```
@@ -65,8 +65,8 @@ Las **secciones del portal son rutas**, no estado: la pestaña activa se deriva 
 - El JWT viaja en `Authorization: Bearer`. Los endpoints `/public/*` **no llevan JWT**: los usan el
   modo invitado y el enlace directo.
 - CORS se controla con `FRONTEND_ORIGINS`.
-- El audio no viaja como archivo: el navegador pide `GET /tts?text=…` y recibe un `audio/mpeg` en
-  streaming.
+- El audio no viaja como archivo: el navegador pide `GET /tts?text=…` y recibe un `audio/mpeg`.
+  Con ElevenLabs el mp3 se guarda en la tabla `tts_cache` y se sintetiza una sola vez por texto.
 
 ## Flujo de una hoja, de punta a punta
 

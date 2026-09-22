@@ -127,3 +127,11 @@ CREATE TABLE IF NOT EXISTS teacher_images (
 );
 
 CREATE INDEX IF NOT EXISTS idx_teacher_images_teacher_id ON teacher_images(teacher_id);
+
+-- Audio ya sintetizado por ElevenLabs (clave = sha256 de modelo|voz|velocidad|texto). El plan
+-- gratuito son 10 000 créditos al mes: cada mp3 se paga una vez, no una por alumno y reproducción.
+CREATE TABLE IF NOT EXISTS tts_cache (
+  cache_key  TEXT PRIMARY KEY,
+  audio      BLOB NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

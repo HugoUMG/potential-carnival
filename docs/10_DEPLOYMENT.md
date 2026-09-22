@@ -64,6 +64,9 @@ Sin `DATABASE_URL` el backend usa SQLite en `data/worksheet_builder.db`. Con ell
 | `GOOGLE_CLIENT_ID` | Sí | Client ID de OAuth (Web). **Sin ella `/auth/google` responde 503** |
 | `GEMINI_API_KEY` | No | Gemini para generar y calificar |
 | `GROQ_API_KEY` | No | Fallback de IA **y transcripción Whisper** de `speaking` |
+| `ELEVENLABS_API_KEY` | No | Voces de ElevenLabs para todo el TTS (`/tts`, `/tts/conversation`, audio en vivo, prueba de audio). Sin ella, o si ElevenLabs falla, edge-tts. **Plan gratuito: 10 000 créditos/mes, solo uso no comercial y con atribución** (está en el pie del sitio). Se saca de elevenlabs.io → Developers → API Keys; la clave necesita los permisos **Text to Speech** y **Voices: Read** (sin el segundo, `GET /v2/voices` responde 401 `missing_permissions` y todo cae a edge-tts) |
+| `ELEVENLABS_MODEL` | No | Default `eleven_multilingual_v2` (1 crédito/carácter, la mejor dicción). `eleven_flash_v2_5` gasta la mitad |
+| `ELEVENLABS_VOICES` | No | Qué voz de la cuenta sustituye a cada nombre de edge-tts, p. ej. `en-US-AndrewNeural=Brian,en-US-AriaNeural=Matilda`. Sin ella se eligen por etiquetas (género, acento, edad, uso educativo) |
 | `GEMINI_MODEL` | No | Default `gemini-3.1-flash-lite` |
 | `DB_POOL_MAX` | No | Tamaño máximo del pool de Postgres (default 5) |
 | `CLOUDINARY_CLOUD_NAME` | No | Subida de imágenes. Sin las tres, `/uploads/signature` responde 503 |

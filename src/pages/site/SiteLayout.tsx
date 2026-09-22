@@ -99,6 +99,7 @@ export function SiteLayout() {
           <Link to="/login" className="transition hover:text-site-fg/80">Entrar</Link>
         </div>
         <p className="mt-4">MyDinoEnglish · hojas de trabajo de inglés, interactivas y calificadas.</p>
+        <p className="mt-1">Voces generadas con <a href="https://elevenlabs.io" className="underline transition hover:text-site-fg/80">ElevenLabs</a>.</p>
       </footer>
     </div>
   );

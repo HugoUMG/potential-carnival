@@ -21,6 +21,9 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      # Voces de ElevenLabs (opcional; sin ella, edge-tts).
+      - key: ELEVENLABS_API_KEY
+        sync: false
       # Client ID de OAuth (Web) de Google: valida el claim "aud" del ID token.
       - key: GOOGLE_CLIENT_ID
         sync: false

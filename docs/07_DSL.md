@@ -1894,7 +1894,9 @@ voz curada correspondiente (se puede cruzar a propósito, p. ej. `male_voice: fe
 literal pasa tal cual y llega al SSML validado contra inyección (`_tts_voice`) y contra el listado
 real del endpoint de edge-tts (`_check_voice_exists`). Para diálogos entre niños las voces son
 **siempre Ana y Roger** — las únicas infantiles de la lista curada: `en-US-AnaNeural` (niña) y
-`en-US-RogerNeural` (niño, al que el backend le sube el tono +35Hz para que suene a niño). Otras
+`en-US-RogerNeural` (niño, al que el backend le sube el tono +35Hz para que suene a niño; con
+ElevenLabs, que no trae voces de niño, los dos caen a la voz **joven** de su género — para un niño de
+verdad, añadir una voz infantil de la Voice Library a My Voices y escribir su `voice_id`). Otras
 voces infantiles del catálogo de Azure (`en-US-MichelleNeural`, `en-GB-MaisieNeural`,
 `en-GB-LibbyNeural`) solo se pueden usar por nombre literal en el DSL y el endpoint de Edge no
 sirve todas (p. ej. `en-GB-OliverNeural` falla la síntesis). El constructor visual ofrece las 8
@@ -2779,6 +2781,13 @@ desconocido se pasa tal cual como nombre de voz edge-tts, así que las ~47 voces
 disponibles escribiéndolas literalmente (`voice: en-GB-SoniaNeural`, `voice: en-AU-NatashaNeural`).
 Solo aplica a listening (otros tipos lo ignoran).
 
+Los nombres son siempre los de edge-tts aunque el audio lo ponga **ElevenLabs** (producción, con
+`ELEVENLABS_API_KEY`): el backend traduce cada nombre a la voz de ElevenLabs equivalente por género,
+acento y edad (`_eleven_voice_for`, [05_API](05_API.md#audio-tts)). También se acepta un **`voice_id`
+de ElevenLabs literal** (20 caracteres alfanuméricos, p. ej. `voice: pNInz6obpgDQGcFmaJgB`) para
+fijar una voz concreta de la cuenta; si el audio cae a edge-tts, ese id suena con la voz por
+defecto. La IA no lo usa: no puede inventar ids.
+
 Sirve para evitar el desajuste "voz masculina lee la oración pero la pregunta dice *she*".
 
 ### Velocidad por actividad (`rate`)
@@ -2791,8 +2800,9 @@ español (`muy lento`, `lento`, `normal`). El parser lo normaliza a `±NN%` (`_n
 ser una de las ~47 voces de edge-tts, pero un `rate: slowly` solo puede ser una errata, y tragárselo
 en silencio dejaría al profesor creyendo que la hoja va lenta cuando no lo está.
 
-No es el `playbackRate` del navegador: edge-tts **regenera** el audio a esa velocidad, con
-articulación y pausas limpias, en vez de estirar una onda ya grabada.
+No es el `playbackRate` del navegador: el motor **regenera** el audio a esa velocidad, con
+articulación y pausas limpias, en vez de estirar una onda ya grabada. En ElevenLabs es
+`voice_settings.speed` = 1 + NN/100, acotado a [0.7, 1.2]: `very slow` (-35%) se queda en 0.7.
 
 El `rate` del DSL es la velocidad **de partida**; el alumno puede seguir bajándola con el selector
 del reproductor. Es la diferencia con `voice`, que sí queda fijo: la voz es una decisión de

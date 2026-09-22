@@ -846,6 +846,63 @@ acertar") y en el reveal habría anunciado una respuesta correcta vacía.
 falta leer los votos de una hoja **asignada** (no jugada en vivo), ahí es donde hay que añadir un
 estado nuevo — está marcado con un `ponytail:` en `_build_answer_details`.
 
+## 🟢 ADR-36 — El TTS es ElevenLabs con caché en la base y edge-tts de respaldo, sin ids de voz fijos
+
+**Decisión.** Con `ELEVENLABS_API_KEY` todo el audio lo sintetiza ElevenLabs a través de una única
+función (`_synth_mp3`), cada mp3 se guarda en la tabla `tts_cache` y, si ElevenLabs falla en
+cualquier turno, la pista entera se rehace con edge-tts. La voz de ElevenLabs se elige en tiempo de
+ejecución entre las de la cuenta (`GET /v2/voices`) por etiquetas de género, acento y edad, a partir
+del nombre de edge-tts que ya usaban el DSL, el selector y las hojas guardadas.
+
+**Motivo.** Las voces de edge-tts no se entendían en clase ni en «Muy lento», y en una plataforma
+de *listening* eso es el producto. ElevenLabs sí se entiende, pero el plan gratuito son 10 000
+créditos al mes (un carácter, un crédito): sin caché no habría durado una clase, porque
+`AudioPlayer` descarga cada audio de la hoja al montarse y 30 alumnos son 30 síntesis del mismo
+texto. Con caché, el texto se paga una vez y los ~5 000 caracteres al mes de hojas nuevas caben.
+
+**Alternativas descartadas.**
+- *Caché en memoria (`lru_cache`).* Se vacía en cada deploy y cada reinicio de Render, y el
+  siguiente día de clase vuelve a pagar toda la hoja. La base ya está, es persistente y compartida,
+  y 10 000 caracteres son ~10 MB de mp3 al mes.
+- *Ids de voz de ElevenLabs escritos en el código* (`Rachel = 21m00…`). Las voces por defecto de
+  ElevenLabs caducan el 31-12-2026 y las reemplazan otras: un mapa fijo se rompía en tres meses y
+  caería a edge-tts en silencio. Elegir por etiquetas sobrevive al cambio y a que el profesor añada
+  voces a su cuenta; un `voice_id` literal en el DSL sigue siendo la vía para una voz concreta.
+- *Cambiar los nombres de voz del DSL y del selector a los de ElevenLabs.* Habría que migrar las
+  hojas guardadas y romper el modo sin clave (desarrollo local, cuota agotada). Los nombres de
+  edge-tts quedan como identificador estable y ElevenLabs pone la equivalente.
+- *Precalentar la caché al guardar la hoja.* Cada guardado de un borrador habría pagado textos que
+  luego cambian. La caché en la primera reproducción (y en «Probar el audio», que ya sintetiza todo)
+  paga solo lo que se oye.
+- *Mezclar motores en una conversación* (los turnos que ElevenLabs sí hizo + edge para el que
+  falló). Los mp3 son de 44,1 kHz y 24 kHz; concatenados en crudo el navegador se traba. Si falla
+  uno, va todo por edge; lo ya sintetizado queda en caché para la próxima.
+- *Un semáforo por clave (o un `dict` de futuros) contra la avalancha del primer play.* Un
+  semáforo global de **1** más una segunda mirada a la caché tras conseguir turno resuelve lo
+  mismo con dos líneas; el coste es que las síntesis nuevas van en fila (una conversación de 8
+  turnos ya iba en fila) y una consulta extra por fallo de caché. Se probó primero con 2 turnos —lo
+  que admite el plan gratuito— y dos peticiones simultáneas del mismo texto lo pagaron dos veces.
+- *Ids de voz elegidos a mano (o solo por género y acento).* Elegir solo por género/acento/edad le
+  dio a Roger (niño) "Harry - Fierce Warrior", un personaje de dibujos. El `use_case` de la voz
+  desempata (educativa primero, nunca `characters_animation`) sin pesar más que el acento, y
+  `ELEVENLABS_VOICES` deja fijar una voz concreta por nombre cuando el oído del profesor no
+  coincide con las etiquetas.
+- *Elegir la voz por su descripción o por el preview oficial.* Se intentó medir la claridad con
+  Whisper sobre los previews (cada voz lee una frase distinta) y el resultado no se sostuvo: Alice
+  pasó de segunda a última y Eric de penúltimo a tercero al repetirlo con la misma frase. Lo que sí
+  discriminó fue la **prueba controlada**: misma frase en las 18 voces adultas con los ajustes de la
+  plataforma, juzgada por Gemini a ciegas en dos órdenes distintos (las notas coincidieron en las
+  voces buenas), por el ritmo real y, con poco peso, por Whisper. Las 18 se transcriben perfectas,
+  así que "inteligible" no separa nada; separan el ritmo (120–167 palabras/min al 85 %) y la
+  articulación que oye un juez. Costó ~3 100 créditos una sola vez y está en `ELEVENLABS_VOICES`.
+
+**Consecuencias.** `tts_cache` solo crece (sin expiración: si algún día molesta, borrar por
+`created_at`). Ana y Roger, las voces de niño, con ElevenLabs suenan a adulto joven (regla 33). Un
+alumno que cambia de velocidad pide otra síntesis (la clave incluye `speed`). El plan gratuito es
+solo para uso no comercial y exige atribución: está en el pie del sitio público. El log de Render
+dice `[tts] ElevenLabs falló…` con el cuerpo de la respuesta cuando se degrada a edge: ahí se ve
+`quota_exceeded` antes de que alguien se pregunte por qué las voces volvieron a no entenderse.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

@@ -9,7 +9,7 @@ import time
 import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.security import OAuth2PasswordBearer
 
 from .ai import ai_grade_activities, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
@@ -445,31 +445,43 @@ def delete_my_image(image_id: str, current_user: PublicUser = Depends(require_te
 
 
 # ── TTS ───────────────────────────────────────────────────────────────────────
-# `rate` hace que edge-tts RE-SINTETICE más lento (articulación y pausas limpias). No es el
+# Dos motores. Con `ELEVENLABS_API_KEY` las voces son de ElevenLabs (las de edge-tts no se
+# entendían ni en lento); sin ella, o si ElevenLabs falla (cuota agotada, red), edge-tts como
+# siempre. Lo de ElevenLabs se guarda en `tts_cache`: el plan gratuito son 10 000 créditos al mes
+# y cada mp3 se paga UNA vez, no una por alumno y reproducción.
+# `rate` hace que el motor RE-SINTETICE más lento (articulación y pausas limpias). No es el
 # playbackRate del navegador, que estira la onda y enseña una articulación que no existe.
 DEFAULT_TTS_RATE = "-15%"
 _RATE_RE = re.compile(r"^[+-]\d{1,2}%$")
 _VOICE_RE = re.compile(r"^[A-Za-z0-9-]{5,48}$")
+_ELEVEN_ID_RE = re.compile(r"^[A-Za-z0-9]{20}$")  # un voice_id de ElevenLabs escrito tal cual en el DSL
 
-# Las voces en inglés que expone el endpoint público de edge-tts (47, `edge-tts --list-voices`).
-# Es la ÚLTIMA PALABRA sobre si una voz existe: `en-GB-OliverNeural` está en el catálogo de Azure
-# pero el endpoint de Edge no la sirve (NoAudioReceived). Un nombre literal del DSL que no esté
-# aquí se rechaza con un mensaje claro, en vez de un 500 críptico o un Andrew silencioso.
-_EDGE_EN_VOICES = frozenset({
-    "en-AU-WilliamMultilingualNeural", "en-AU-NatashaNeural", "en-CA-ClaraNeural",
-    "en-CA-LiamNeural", "en-HK-YanNeural", "en-HK-SamNeural", "en-IN-NeerjaExpressiveNeural",
-    "en-IN-NeerjaNeural", "en-IN-PrabhatNeural", "en-IE-ConnorNeural", "en-IE-EmilyNeural",
-    "en-KE-AsiliaNeural", "en-KE-ChilembaNeural", "en-NZ-MitchellNeural", "en-NZ-MollyNeural",
-    "en-NG-AbeoNeural", "en-NG-EzinneNeural", "en-PH-JamesNeural", "en-PH-RosaNeural",
-    "en-US-AvaNeural", "en-US-AndrewNeural", "en-US-EmmaNeural", "en-US-BrianNeural",
-    "en-SG-LunaNeural", "en-SG-WayneNeural", "en-ZA-LeahNeural", "en-ZA-LukeNeural",
-    "en-TZ-ElimuNeural", "en-TZ-ImaniNeural", "en-GB-LibbyNeural", "en-GB-MaisieNeural",
-    "en-GB-RyanNeural", "en-GB-SoniaNeural", "en-GB-ThomasNeural", "en-US-AnaNeural",
-    "en-US-AndrewMultilingualNeural", "en-US-AriaNeural", "en-US-AvaMultilingualNeural",
-    "en-US-BrianMultilingualNeural", "en-US-ChristopherNeural", "en-US-EmmaMultilingualNeural",
-    "en-US-EricNeural", "en-US-GuyNeural", "en-US-JennyNeural", "en-US-MichelleNeural",
-    "en-US-RogerNeural", "en-US-SteffanNeural",
-})
+# Las voces en inglés que expone el endpoint público de edge-tts (47, `edge-tts --list-voices`),
+# con su género, que es lo que decide qué voz de ElevenLabs las sustituye. Es la ÚLTIMA PALABRA
+# sobre si una voz existe: `en-GB-OliverNeural` está en el catálogo de Azure pero el endpoint de
+# Edge no la sirve (NoAudioReceived). Un nombre literal del DSL que no esté aquí se rechaza con un
+# mensaje claro, en vez de un 500 críptico o un Andrew silencioso.
+_EDGE_EN_VOICES: dict[str, str] = {
+    **dict.fromkeys((
+        "en-AU-WilliamMultilingualNeural", "en-CA-LiamNeural", "en-HK-SamNeural", "en-IN-PrabhatNeural",
+        "en-IE-ConnorNeural", "en-KE-ChilembaNeural", "en-NZ-MitchellNeural", "en-NG-AbeoNeural",
+        "en-PH-JamesNeural", "en-US-AndrewNeural", "en-US-BrianNeural", "en-SG-WayneNeural",
+        "en-ZA-LukeNeural", "en-TZ-ElimuNeural", "en-GB-RyanNeural", "en-GB-ThomasNeural",
+        "en-US-AndrewMultilingualNeural", "en-US-BrianMultilingualNeural", "en-US-ChristopherNeural",
+        "en-US-EricNeural", "en-US-GuyNeural", "en-US-RogerNeural", "en-US-SteffanNeural",
+    ), "male"),
+    **dict.fromkeys((
+        "en-AU-NatashaNeural", "en-CA-ClaraNeural", "en-HK-YanNeural", "en-IN-NeerjaExpressiveNeural",
+        "en-IN-NeerjaNeural", "en-IE-EmilyNeural", "en-KE-AsiliaNeural", "en-NZ-MollyNeural",
+        "en-NG-EzinneNeural", "en-PH-RosaNeural", "en-US-AvaNeural", "en-US-EmmaNeural",
+        "en-SG-LunaNeural", "en-ZA-LeahNeural", "en-TZ-ImaniNeural", "en-GB-LibbyNeural",
+        "en-GB-MaisieNeural", "en-GB-SoniaNeural", "en-US-AnaNeural", "en-US-AriaNeural",
+        "en-US-AvaMultilingualNeural", "en-US-EmmaMultilingualNeural", "en-US-JennyNeural",
+        "en-US-MichelleNeural",
+    ), "female"),
+}
+# Región del nombre edge (`en-GB-…`) → etiqueta `accent` de ElevenLabs. Lo que no esté, americano.
+_ACCENTS = {"GB": "british", "AU": "australian", "IE": "irish", "IN": "indian"}
 
 # Voz de niño en edge-tts solo hay una (`en-US-RogerNeural`) y suena más a adulto joven que a niño.
 # Subirle el tono lo acerca a una voz infantil (a Ana no le hace falta). Ajuste empírico: +35Hz.
@@ -509,13 +521,129 @@ def _tts_params(voice: str, rate: str) -> dict:
     return params
 
 
-async def _synth_mp3(text: str, voice: str, rate: str) -> list[bytes]:
-    """Sintetiza y devuelve el mp3 entero en trozos. Extraído de `/tts` para que la sesión en
-    vivo reproduzca su audio sin duplicar el manejo de errores ni la validación de la voz."""
-    _check_voice_exists(voice)
+def _conversation_parts(lines: list[dict], male: str, female: str) -> list[tuple[str, str]]:
+    """Turnos de un diálogo → (texto, voz), cada uno con la voz de SU hablante (`speaker` que
+    empieza por 'f' = femenina). Los turnos vacíos no suenan."""
+    parts: list[tuple[str, str]] = []
+    for line in lines:
+        text = (line.get("text") or "").strip()
+        if text:
+            parts.append((text, female if (line.get("speaker") or "").strip().lower().startswith("f") else male))
+    return parts
+
+
+async def _edge_synth(text: str, voice: str, rate: str) -> bytes:
+    if _ELEVEN_ID_RE.match(voice):  # un voice_id de ElevenLabs fijado en el DSL: edge no lo conoce
+        voice = "en-US-AndrewNeural"
     import edge_tts
     communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))
-    return [chunk["data"] async for chunk in communicate.stream() if chunk["type"] == "audio"]
+    return b"".join([chunk["data"] async for chunk in communicate.stream() if chunk["type"] == "audio"])
+
+
+# ── ElevenLabs ────────────────────────────────────────────────────────────────
+_eleven_voices: list[dict] | None = None  # las voces de la cuenta; se consultan una vez por proceso
+# Una síntesis a la vez. El plan gratuito admite 2, pero con 2 turnos dos alumnos que piden el MISMO
+# texto a la vez lo pagaban dos veces (probado). Con 1, el segundo lo encuentra en caché.
+# ponytail: semáforo global; si la cola de síntesis nueva molesta, un lock por clave y 2 turnos.
+_eleven_slots = asyncio.Semaphore(1)
+# `use_case` de la voz: desempata a favor de la educativa y nunca un personaje de dibujos (a Roger
+# le tocaba "Harry - Fierce Warrior"). Pesa menos que el acento: quien pide británica quiere británica.
+_USE_CASE_RANK = {"informative_educational": 2, "narrative_story": 1, "conversational": 1, "characters_animation": -3}
+
+
+def _eleven_headers() -> dict[str, str]:
+    return {"xi-api-key": os.environ["ELEVENLABS_API_KEY"]}
+
+
+def _eleven_pinned(edge_name: str) -> str | None:
+    """`ELEVENLABS_VOICES="en-US-AndrewNeural=Brian,en-US-RogerNeural=Will"`: la voz de la cuenta (su
+    nombre, lo que va antes del ' - ', o su voice_id) que sustituye a cada nombre de edge-tts. Para
+    cambiar una voz por defecto sin tocar código. Lo que no esté aquí se elige por etiquetas."""
+    for pair in os.getenv("ELEVENLABS_VOICES", "").split(","):
+        edge, sep, wanted = pair.partition("=")
+        if sep and edge.strip() == edge_name and wanted.strip():
+            return wanted.strip()
+    return None
+
+
+def _eleven_speed(rate: str) -> float:
+    """`-15%` → 0.85. ElevenLabs acota `speed` a [0.7, 1.2]: «Muy lento» (-35%) se queda en 0.7."""
+    return round(min(1.2, max(0.7, 1 + int(_tts_rate(rate).rstrip("%")) / 100)), 2)
+
+
+async def _eleven_voice_for(edge_name: str) -> str:
+    """La voz de ElevenLabs que sustituye a una de edge-tts: la fijada en `ELEVENLABS_VOICES` si la
+    hay; si no, mismo género, mismo acento si lo hay, uso educativo antes que otros,
+    y joven para las infantiles (ElevenLabs no trae voces de niño: para una de verdad, añadirla a
+    My Voices desde la Voice Library y escribir su `voice_id` en el DSL). Se elige entre las voces
+    de la cuenta (`GET /v2/voices`) por sus etiquetas y no por ids fijos: las voces por defecto
+    caducan el 31-12-2026 y las reemplazan otras."""
+    global _eleven_voices
+    if not _eleven_voices:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get("https://api.elevenlabs.io/v2/voices", params={"page_size": 100}, headers=_eleven_headers())
+        response.raise_for_status()
+        _eleven_voices = response.json().get("voices") or []
+        if not _eleven_voices:
+            raise ValueError("La cuenta de ElevenLabs no tiene voces")
+    if wanted := _eleven_pinned(edge_name):
+        for voice in _eleven_voices:
+            if wanted in (voice.get("voice_id"), voice.get("name", "").split(" - ")[0].strip()):
+                return voice["voice_id"]
+        print(f"[tts] ELEVENLABS_VOICES: no hay ninguna voz '{wanted}' en la cuenta; se elige por etiquetas")
+    gender = _EDGE_EN_VOICES.get(edge_name, "male")
+    accent = _ACCENTS.get(edge_name[3:5], "american")
+    age = "young" if edge_name in ("en-US-AnaNeural", "en-US-RogerNeural") else "middle_aged"
+
+    def score(voice: dict) -> int:
+        labels = {k: str(v).lower().replace("-", "_") for k, v in (voice.get("labels") or {}).items()}
+        return (8 * (labels.get("gender") == gender) + 4 * (labels.get("accent") == accent) + 2 * (labels.get("age") == age)
+                + _USE_CASE_RANK.get(labels.get("use_case", ""), 0))
+
+    # `max` devuelve el primero de los empatados: ordenadas por nombre, la elección es estable.
+    return max(sorted(_eleven_voices, key=lambda v: v.get("name", "")), key=score)["voice_id"]
+
+
+async def _eleven_synth(text: str, voice: str, rate: str) -> bytes:
+    text = text.strip()
+    voice_id = voice if _ELEVEN_ID_RE.match(voice) else await _eleven_voice_for(voice)
+    speed = _eleven_speed(rate)
+    model = os.getenv("ELEVENLABS_MODEL", "eleven_multilingual_v2")
+    key = hashlib.sha256(f"{model}|{voice_id}|{speed}|{text}".encode()).hexdigest()
+    if cached := await asyncio.to_thread(repository.get_tts_audio, key):
+        return cached
+    async with _eleven_slots:
+        # Segunda mirada ya con el turno: 30 alumnos que abren la hoja a la vez piden el mismo mp3
+        # 30 veces. Así lo paga el primero y los demás lo encuentran hecho.
+        if cached := await asyncio.to_thread(repository.get_tts_audio, key):
+            return cached
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+                params={"output_format": "mp3_44100_128"},
+                headers=_eleven_headers(),
+                json={"text": text, "model_id": model, "voice_settings": {"stability": 0.5, "similarity_boost": 0.75, "speed": speed}},
+            )
+        response.raise_for_status()
+        await asyncio.to_thread(repository.put_tts_audio, key, response.content)
+        return response.content
+
+
+async def _synth_mp3(parts: list[tuple[str, str]], rate: str) -> bytes:
+    """Sintetiza cada (texto, voz) y concatena los mp3 en una sola pista. ElevenLabs si hay clave;
+    si falla CUALQUIER turno, la pista entera se rehace con edge-tts: mezclar mp3 de los dos
+    motores (44,1 kHz y 24 kHz) en una pista se traba en el navegador. Los turnos que ElevenLabs
+    sí hizo quedan en caché, así que no se pagan otra vez."""
+    for _, voice in parts:
+        if not _ELEVEN_ID_RE.match(voice):
+            _check_voice_exists(voice)
+    if os.getenv("ELEVENLABS_API_KEY"):
+        try:
+            return b"".join([await _eleven_synth(text, voice, rate) for text, voice in parts])
+        except Exception as exc:  # cuota, red, voz borrada: se degrada, no se calla
+            body = getattr(getattr(exc, "response", None), "text", "")[:200]
+            print(f"[tts] ElevenLabs falló, se usa edge-tts: {exc!r} {body}")
+    return b"".join([await _edge_synth(text, voice, rate) for text, voice in parts])
 
 
 @app.get("/tts")
@@ -524,19 +652,18 @@ async def tts(
     text: str = Query(min_length=1, max_length=2000),
     voice: str = "en-US-AndrewNeural",
     rate: str = DEFAULT_TTS_RATE,
-) -> StreamingResponse:
+) -> Response:
     # Público a la fuerza: el front lo usa como `src` de un <audio>, que no manda cabeceras.
     # El coste se acota por los dos lados — `max_length` limita lo que cuesta UNA petición
-    # (edge-tts sintetiza el mp3 entero en RAM antes de responder) y el rate limit, cuántas.
+    # (el mp3 entero se sintetiza en RAM antes de responder) y el rate limit, cuántas.
     _rate_limit(request, limit=300)
-    voice = _tts_voice(voice)
     try:
-        chunks = await _synth_mp3(text, voice, rate)
+        mp3 = await _synth_mp3([(text, _tts_voice(voice))], rate)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
-    return StreamingResponse(iter(chunks), media_type="audio/mpeg")
+    return Response(content=mp3, media_type="audio/mpeg")
 
 
 @app.get("/tts/conversation")
@@ -546,39 +673,22 @@ async def tts_conversation(
     male: str = "en-US-AndrewNeural",
     female: str = "en-US-AriaNeural",
     rate: str = DEFAULT_TTS_RATE,
-) -> StreamingResponse:
+) -> Response:
     _rate_limit(request, limit=300)
-    male = _tts_voice(male)
-    female = _tts_voice(female)
-    # `lines`: una por renglón, formato `speaker|texto` (speaker que empieza con 'f' = femenina).
-    # Se sintetiza cada turno con su voz y se concatenan los MP3 en una sola pista.
+    # `lines`: una por renglón, formato `speaker|texto`. Cada turno con su voz, MP3 concatenados.
     # ponytail: concatenación cruda de frames MP3 (suena bien para habla). Si se necesita
     #           una pausa marcada entre turnos, intercalar un MP3 de silencio corto.
+    turns = [{"speaker": speaker, "text": text} for speaker, sep, text in (raw.partition("|") for raw in lines.split("\n")) if sep]
+    parts = _conversation_parts(turns, _tts_voice(male), _tts_voice(female))
+    if not parts:
+        raise HTTPException(status_code=400, detail="Sin líneas de audio válidas")
     try:
-        _check_voice_exists(male)
-        _check_voice_exists(female)
-        import edge_tts
-        chunks: list[bytes] = []
-        for raw in lines.split("\n"):
-            raw = raw.strip()
-            if not raw or "|" not in raw:
-                continue
-            speaker, text = raw.split("|", 1)
-            text = text.strip()
-            if not text:
-                continue
-            voice = female if speaker.strip().lower().startswith("f") else male
-            communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    chunks.append(chunk["data"])
-        if not chunks:
-            raise ValueError("Sin líneas de audio válidas")
+        mp3 = await _synth_mp3(parts, rate)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
-    return StreamingResponse(iter(chunks), media_type="audio/mpeg")
+    return Response(content=mp3, media_type="audio/mpeg")
 
 
 @app.post("/worksheets/audio-check")
@@ -610,15 +720,20 @@ async def audio_check(payload: AiReviewRequest, current_user: PublicUser = Depen
 
     results: list[dict[str, Any]] = []
     for tipo, fuente, texto in items:
+        # Con la voz y la velocidad que el alumno va a oír (las del DSL, o las por defecto): con
+        # ElevenLabs cada síntesis cuesta créditos, y así la prueba deja en caché justo los mp3 que
+        # la hoja va a pedir después, en vez de pagar una versión con otra voz que nadie oirá.
+        rate = getattr(fuente, "rate", None) or DEFAULT_TTS_RATE
         try:
             if tipo == "conversation":
                 # Cada turno se sintetiza con la voz de SU hablante (igual que /tts/conversation):
                 # si el profesor no fijó `male_voice`/`female_voice`, la curada de su género.
                 male_v = _resolve_conversation_voice(getattr(fuente, "male_voice", None), "en-US-AndrewNeural")
                 female_v = _resolve_conversation_voice(getattr(fuente, "female_voice", None), "en-US-AriaNeural")
-                mp3 = await _synthesize_lines(fuente.lines, male_v, female_v)
+                mp3 = await _synth_mp3(_conversation_parts(fuente.lines, male_v, female_v), rate)
             else:
-                mp3 = await _synthesize(texto, "en-US-AndrewNeural")
+                voice = _tts_voice(_resolve_conversation_voice(getattr(fuente, "voice", None), "en-US-AndrewNeural"))
+                mp3 = await _synth_mp3([(texto, voice)], rate)
             heard = (await asyncio.to_thread(ai_transcribe, mp3, "check.mp3", "audio/mpeg")).strip()
         except Exception as exc:  # una actividad que falle no tumba el informe entero
             results.append({"type": tipo, "text": texto, "heard": "", "ok": False, "error": str(exc)[:120]})
@@ -654,17 +769,6 @@ def _audible_text(activity: Any) -> str:
     return (activity.audio_text or "").strip()
 
 
-async def _synthesize(text: str, voice: str) -> bytes:
-    _check_voice_exists(voice)
-    import edge_tts
-    communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, DEFAULT_TTS_RATE))
-    chunks: list[bytes] = []
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            chunks.append(chunk["data"])
-    return b"".join(chunks)
-
-
 def _resolve_conversation_voice(voice: str | None, gender_default: str) -> str:
     """`male_voice`/`female_voice` del DSL → nombre de voz edge-tts, igual que `resolveVoice` en el
     front: el alias 'male'/'female' se traduce a la voz curada de ese género; un nombre literal se
@@ -672,23 +776,6 @@ def _resolve_conversation_voice(voice: str | None, gender_default: str) -> str:
     if not voice:
         return gender_default
     return {"male": "en-US-AndrewNeural", "female": "en-US-AriaNeural"}.get(voice, voice)
-
-
-async def _synthesize_lines(lines: list[dict], male_voice: str, female_voice: str) -> bytes:
-    """Sintetiza una conversación turno a turno —cada uno con la voz de su hablante— y concatena
-    los MP3 en una sola pista. Es lo mismo que hace GET /tts/conversation, sin pasar por red."""
-    _check_voice_exists(male_voice)
-    _check_voice_exists(female_voice)
-    import edge_tts
-    chunks: list[bytes] = []
-    for line in lines:
-        speaker = (line.get("speaker") or "").strip().lower()
-        voice = female_voice if speaker.startswith("f") else male_voice
-        communicate = edge_tts.Communicate((line.get("text") or "").strip(), voice, **_tts_params(voice, DEFAULT_TTS_RATE))
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                chunks.append(chunk["data"])
-    return b"".join(chunks)
 
 
 def _same_words(said: str, heard: str) -> bool:
@@ -1372,7 +1459,7 @@ def live_avatar(code: str, payload: LiveEmoji) -> dict[str, Any]:
 
 
 @app.get("/live/{code}/audio")
-async def live_audio(code: str, request: Request, k: str = "") -> StreamingResponse:
+async def live_audio(code: str, request: Request, k: str = "") -> Response:
     """El mp3 de la pregunta abierta, para la PANTALLA PROYECTADA. Sin JWT pero con llave.
 
     Por qué una llave y no el estado de siempre: el alumno y la pantalla polean el MISMO
@@ -1396,14 +1483,14 @@ async def live_audio(code: str, request: Request, k: str = "") -> StreamingRespo
     # igual que el de la hoja normal, que es lo que el profesor ya escuchó al crearla.
     voice = _tts_voice(_resolve_conversation_voice(question.voice, "en-US-AndrewNeural"))
     try:
-        chunks = await _synth_mp3(question.audio_text, voice, question.rate or DEFAULT_TTS_RATE)
+        mp3 = await _synth_mp3([(question.audio_text, voice)], question.rate or DEFAULT_TTS_RATE)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="No se pudo generar el audio.") from exc
     # `no-store`: el mp3 ES la respuesta de la pregunta. Que se quede en la caché del navegador
     # de la pantalla no aporta nada y lo deja recuperable después de la sesión.
-    return StreamingResponse(iter(chunks), media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
+    return Response(content=mp3, media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/live/{code}/host")

@@ -210,36 +210,81 @@ La biblioteca **gratuita** (`src/data/image-library.json`) es estática y no pas
 ## Audio (TTS)
 
 ```
-GET    /tts?text=…&voice=…&rate=…            — Sintetiza una oración → audio/mpeg en streaming
+GET    /tts?text=…&voice=…&rate=…            — Sintetiza una oración → audio/mpeg
 GET    /tts/conversation?lines=…&male=…&female=…&rate=… — Diálogo con voces m/f alternadas, MP3 concatenado
 ```
 
-`voice`: cualquiera de las ~47 voces en inglés de edge-tts (`edge-tts --list-voices`). Por defecto
-`en-US-AndrewNeural`; `/tts/conversation` toma `male` y `female` por separado (`en-US-AndrewNeural` /
-`en-US-AriaNeural`). El selector del reproductor ofrece 8 curadas (6 adultas + las infantiles Ana ♀
-y Roger ♂ — `voicePreference.ts`). **Las únicas voces de niño de la plataforma son Ana y Roger**:
-en conversaciones y listening, un diálogo entre niños se hace con `en-US-AnaNeural` (niña) y
-`en-US-RogerNeural` (niño). Roger es el único niño que sirve el endpoint de edge-tts, por eso el
-backend le sube el tono `+35Hz` (`_VOICE_PITCH`) para que suene a niño. Otras infantiles del
-catálogo de Azure (Michelle, Maisie, Libby…) solo por nombre literal en el DSL, y el endpoint de
-Edge no sirve todas (p. ej. `en-GB-OliverNeural`). Un nombre literal que no esté en las 47 voces en
-inglés del endpoint se rechaza con un 400 y un mensaje claro (`_check_voice_exists`), en vez de un 500.
-Las voces de la conversación las pone el DSL (`male_voice`/`female_voice` en `conversation {}` o en
-el `lines:` de un bloque): el front las manda aquí ya resueltas a nombre edge-tts; si la actividad no
-las fija, el endpoint usa las curadas de cada género.
+**Dos motores, una función.** Todo el audio de la plataforma (`/tts`, `/tts/conversation`,
+`/live/{code}/audio` y la prueba de audio) pasa por `_synth_mp3(parts, rate)`, que recibe una lista de
+`(texto, voz)` y devuelve una sola pista MP3:
+
+1. Con `ELEVENLABS_API_KEY` → **ElevenLabs** (`POST /v1/text-to-speech/{voice_id}`, modelo
+   `ELEVENLABS_MODEL`, default `eleven_multilingual_v2`, `mp3_44100_128`). El mp3 se guarda en la
+   tabla **`tts_cache`** con clave `sha256(modelo|voice_id|speed|texto)`: el plan gratuito son
+   10 000 créditos al mes y un carácter es un crédito, así que **cada texto se paga una vez**, no
+   una por alumno y reproducción. La caché se mira dos veces: antes de esperar turno y ya con él
+   (`_eleven_slots`, semáforo de **1**), para que 30 alumnos que abren la hoja a la vez no pidan el
+   mismo mp3 30 veces. Con 2 turnos —lo que admite el plan gratuito— se probó que dos alumnos
+   simultáneos pagaban el mismo texto dos veces; con 1, el segundo ya lo encuentra en caché.
+2. Sin clave, o si ElevenLabs falla en **cualquier** turno (cuota agotada, red, voz borrada) →
+   **edge-tts** para la pista **entera**, con un `print("[tts] ElevenLabs falló…")` en el log de
+   Render que incluye el cuerpo de la respuesta (ahí se lee `quota_exceeded`). No se mezclan
+   motores en una pista: 44,1 kHz y 24 kHz concatenados se traban en el navegador. Los turnos que
+   ElevenLabs sí hizo quedan en caché y no se vuelven a pagar.
+
+`voice`: se sigue nombrando con las **voces de edge-tts** (cualquiera de las ~47 en inglés,
+`edge-tts --list-voices`); por defecto `en-US-AndrewNeural`, y `/tts/conversation` toma `male` y
+`female` por separado (`en-US-AndrewNeural` / `en-US-AriaNeural`). Con ElevenLabs, `_eleven_voice_for`
+traduce ese nombre a la voz de la cuenta que mejor case por **etiquetas** (`GET /v2/voices`, una vez
+por proceso): género (`_EDGE_EN_VOICES` guarda el de las 47), acento (`en-GB-` → british, `en-AU-` →
+australian, `en-IE-` → irish, `en-IN-` → indian, el resto american), edad (`young` para Ana y Roger,
+`middle_aged` para el resto) y `use_case` (educativa antes que narración/conversación antes que redes
+sociales, y nunca `characters_animation`: a Roger le tocaba "Harry - Fierce Warrior"); pesos 8/4/2/±,
+así el acento manda sobre el uso y los empates se rompen por orden alfabético. Con las 21 voces por
+defecto de septiembre de 2026 salen: Andrew → Chris, Aria → Bella, Ryan → Daniel, Sonia → Alice,
+Natasha → Alice (no hay australiana), Ana → Jessica, Roger → Will. **`ELEVENLABS_VOICES`**
+(`en-US-AndrewNeural=Adam,en-US-AriaNeural=Sarah`: nombre de la voz en la cuenta, lo que va antes
+del " - ", o su `voice_id`) fija la sustitución de una voz concreta sin tocar código; lo que no esté
+ahí, o no exista en la cuenta, sigue las etiquetas. **En producción se usa esta variable**, no las
+etiquetas: la prueba controlada del 2026-09-21 (la misma frase de 171 caracteres en las 18 voces
+adultas, velocidad 0.85, juzgada por Gemini a ciegas en dos órdenes distintos, por el ritmo real en
+palabras/min y por la confianza de Whisper) dio `en-US-AndrewNeural=Adam,en-US-AriaNeural=Sarah,
+en-GB-SoniaNeural=Lily,en-AU-NatashaNeural=Lily,en-US-AnaNeural=Laura,en-US-RogerNeural=Liam`
+(Ryan → Daniel sale solo). Brian, la elección "obvia" por su descripción de narrador, quedó la última. No hay ids fijos a propósito: las voces por
+defecto de ElevenLabs **caducan el 31-12-2026** y las reemplazan otras. Un **`voice_id` de ElevenLabs literal** (20 caracteres alfanuméricos, `_ELEVEN_ID_RE`) también
+vale en `voice`/`male`/`female`: es la manera de usar una voz concreta —por ejemplo una infantil de
+la Voice Library añadida a My Voices, porque ElevenLabs no trae voces de niño—; si toca edge-tts,
+suena Andrew en su lugar. El selector del reproductor ofrece 8 curadas (6 adultas + las infantiles
+Ana ♀ y Roger ♂ — `voicePreference.ts`). **Las únicas voces de niño de la plataforma son Ana y
+Roger**: en conversaciones y listening, un diálogo entre niños se hace con `en-US-AnaNeural` (niña)
+y `en-US-RogerNeural` (niño). En edge-tts Roger es el único niño que sirve el endpoint, por eso el
+backend le sube el tono `+35Hz` (`_VOICE_PITCH`); en ElevenLabs los dos caen a la voz **joven** de
+su género. Un nombre literal que no esté en las 47 voces en inglés del endpoint de edge se rechaza
+con un **400** y un mensaje claro (`_check_voice_exists`) **antes** de intentar nada, con o sin
+ElevenLabs. Las voces de la conversación las pone el DSL (`male_voice`/`female_voice` en
+`conversation {}` o en el `lines:` de un bloque): el front las manda aquí ya resueltas; si la
+actividad no las fija, el endpoint usa las curadas de cada género.
 
 `rate`: velocidad de **síntesis**, formato `±NN%` (el DSL la escribe como `very slow`/`slow`/
 `normal` y el parser la normaliza a esta forma). Por defecto **`-15%`**: el alumno es principiante
-y edge-tts vuelve a generar el audio más lento con articulación y pausas limpias, que es distinto de
-estirar la onda con el `playbackRate` del navegador. `rate` y `voice` acaban dentro del SSML que
-edge-tts manda a Microsoft, así que se validan (`_tts_rate` / `_tts_voice`) y lo que no encaje cae al
-valor por defecto.
+y el motor vuelve a generar el audio más lento con articulación y pausas limpias, que es distinto de
+estirar la onda con el `playbackRate` del navegador. En ElevenLabs se traduce a `voice_settings.speed`
+= 1 + NN/100 acotado a **[0.7, 1.2]** (`_eleven_speed`): `-35%` (Muy lento) se queda en 0.7. `rate` y
+`voice` acaban dentro del SSML que edge-tts manda a Microsoft, así que se validan (`_tts_rate` /
+`_tts_voice`) y lo que no encaje cae al valor por defecto.
 `/tts/conversation` concatena frames MP3 en crudo; si hiciera falta una pausa marcada entre turnos,
 habría que intercalar un MP3 de silencio.
 
 **Topes** (los dos son públicos a la fuerza: el front los usa como `src` de un `<audio>`, que no
 manda cabeceras): `text` ≤ 2000 caracteres, `lines` ≤ 8000 → **422**. Más de **300 peticiones por
 minuto y por IP** → **429**.
+
+**Qué gasta créditos** (solo con ElevenLabs y solo en fallo de caché): la primera reproducción de
+cada texto con cada `rate` (el alumno que cambia a «Muy lento» pide otra síntesis), cada pregunta
+con audio la primera vez que se lanza en vivo, y **cada clic en "Probar el audio"** de una hoja que
+cambió (la prueba sintetiza todo lo audible **con la voz y la velocidad del DSL de cada actividad**,
+así que lo que sintetiza queda en caché y es exactamente lo que la hoja pedirá después: la prueba
+precalienta la hoja sin pagar versiones que nadie oirá). La caché no expira: ~10 000 caracteres son unos 10 MB de mp3 al mes.
 
 > ⚠️ La URL del TTS lleva el texto en claro, así que **filtra la respuesta de los listening**. Es un
 > caso particular del problema descrito en [el plan de fuga de respuestas](plans/PLAN-fuga-de-respuestas.md).

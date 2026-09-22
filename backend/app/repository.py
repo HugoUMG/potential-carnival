@@ -1433,4 +1433,21 @@ class WorksheetRepository:
         )
 
 
+    # ─── Caché de audio TTS (ElevenLabs) ────────────────────────────────────
+
+    def get_tts_audio(self, key: str) -> bytes | None:
+        with get_connection() as connection:
+            row = connection.execute(f"SELECT audio FROM tts_cache WHERE cache_key = {self._placeholder}", (key,)).fetchone()
+        return bytes(row["audio"]) if row else None  # psycopg devuelve memoryview
+
+    def put_tts_audio(self, key: str, audio: bytes) -> None:
+        # Dos alumnos pueden llegar a la vez con el mismo mp3: el segundo INSERT no es un error.
+        if get_database_backend() == "postgresql":
+            insert = "INSERT INTO tts_cache (cache_key, audio) VALUES (%s, %s) ON CONFLICT (cache_key) DO NOTHING"
+        else:
+            insert = "INSERT OR IGNORE INTO tts_cache (cache_key, audio) VALUES (?, ?)"
+        with get_connection() as connection:
+            connection.execute(insert, (key, audio))
+
+
 repository = WorksheetRepository()

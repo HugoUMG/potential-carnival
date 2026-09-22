@@ -81,7 +81,14 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
 33. **En conversaciones y listening, las únicas voces de niño son Ana y Roger**
     (`en-US-AnaNeural` niña / `en-US-RogerNeural` niño). Otras infantiles del catálogo de Azure no se
     ofrecen en los selectores; en el DSL solo por nombre literal, y el endpoint de Edge no sirve
-    todas (p. ej. `en-GB-OliverNeural` falla).
+    todas (p. ej. `en-GB-OliverNeural` falla). Con ElevenLabs (que no trae voces de niño) Ana y
+    Roger suenan con la voz **joven** de su género; una infantil de verdad se fija por `voice_id`.
+47. **Toda síntesis con ElevenLabs pasa por `tts_cache` y por `_synth_mp3`.** Nunca llamar a la
+    API de ElevenLabs desde otro sitio ni saltarse la caché: el plan gratuito son 10 000 créditos al
+    mes y `AudioPlayer` descarga cada audio de la hoja al montarse, así que una sola clase que
+    reproduce sin caché se lleva el cupo del mes. Y nunca mezclar mp3 de ElevenLabs y de edge-tts en
+    una misma pista (44,1 kHz y 24 kHz concatenados se traban): si falla un turno, la pista entera va
+    por edge.
 
 Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas).
 

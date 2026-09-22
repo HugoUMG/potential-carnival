@@ -30,8 +30,8 @@ dice cuál sería el primer corte sensato si algún día se parte.
 fastapi · uvicorn[standard] · pydantic>=2.8
 python-jose[cryptography]      JWT
 psycopg[binary] · psycopg_pool PostgreSQL
-edge-tts                       TTS
-httpx                          Gemini, Groq y validación del ID token de Google
+edge-tts                       TTS de respaldo (y el único sin ELEVENLABS_API_KEY)
+httpx                          ElevenLabs (TTS), Gemini, Groq y validación del ID token de Google
 python-multipart               subida de audio (speaking)
 pytest
 ```

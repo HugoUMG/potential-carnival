@@ -78,6 +78,10 @@ reader_access_logs (id, reader_id → users, reader_name, accessed_at)
 -- Biblioteca de imágenes personal del profesor (coexiste con la gratuita, que es
 -- src/data/image-library.json estático, no una tabla)
 teacher_images (id, teacher_id → users, public_id, url, created_at)
+
+-- Caché de audio de ElevenLabs. cache_key = sha256(modelo|voice_id|speed|texto);
+-- audio es BYTEA (BLOB en SQLite). Solo crece: no hay expiración (ver 05_API §Audio)
+tts_cache (cache_key PK, audio, created_at)
 ```
 
 ### Convenciones
