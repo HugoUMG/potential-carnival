@@ -305,12 +305,27 @@ def test_el_visto_bueno_se_guarda_hasta_el_reveal():
     canta la respuesta al de al lado."""
     session = _session()
     ana = session.join({"Carné": "1", "Nombre": "Ana"})
+    session.join({"Carné": "2", "Nombre": "Beto"})  # falta alguien: la pregunta sigue abierta
     session.open_next()
     session.submit(ana.pid, "Ciudad de Guatemala")
 
     assert "correct" not in session.public_state(pid=ana.pid)["me"]
     session.reveal()
     assert session.public_state(pid=ana.pid)["me"]["correct"] is True
+
+
+def test_si_todos_responden_se_revela_sin_esperar_el_cronometro():
+    """Como Kahoot: con todo el salón ya contestado, esperar el resto del tiempo solo alarga la clase."""
+    session = _session(duration=60)
+    ana = session.join({"Carné": "1", "Nombre": "Ana"})
+    beto = session.join({"Carné": "2", "Nombre": "Beto"})
+    session.open_next()
+
+    session.submit(ana.pid, "Ciudad de Guatemala")
+    assert session.phase() == "question"
+    session.submit(beto.pid, "Antigua")
+    assert session.phase() == "reveal"
+    assert session.public_state()["answer"] == "Ciudad de Guatemala"
 
 
 def test_solo_el_dueno_controla_su_sesion():

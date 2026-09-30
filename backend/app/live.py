@@ -270,7 +270,7 @@ class LiveSession:
         """lobby → [listening] → question → reveal → … → ended.
 
         El tiempo agotado pasa solo a `reveal` (una pregunta abierta con el cronómetro en cero
-        sería un limbo), pero LANZAR la siguiente siempre es decisión del profesor.
+        sería un limbo), igual que cuando ya respondieron todos (`submit`), pero LANZAR la siguiente siempre es decisión del profesor.
 
         `listening` es la subfase de las preguntas con audio: se proyecta y suena, pero los
         botones del alumno están cerrados y el cronómetro **no ha arrancado**. Sin ella, el bono
@@ -461,6 +461,9 @@ class LiveSession:
         elapsed = time.monotonic() - (self.opened_at or time.monotonic())
         correct = question.is_correct(answer)
         participant.answers[question.id] = answer
+        # Como Kahoot: si ya respondieron todos, se revela sin esperar a que se agote el tiempo.
+        if self.answered_count() >= len(self.participants):
+            self.revealed = True
         if not question.scored:
             # Votar no puntúa NI rompe la racha: quien va acertando no debe perderla por opinar.
             self.version += 1

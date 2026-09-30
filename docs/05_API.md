@@ -397,7 +397,8 @@ POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `
 - **La clave nunca viaja mientras la pregunta está abierta.** `public_state` añade `answer` y
   `option_counts` **solo** en fase `reveal`. Es el mismo criterio de la regla 13 y lo cubre un test.
 - **El cronómetro lo calcula el servidor** (`remaining_ms`): el celular solo lo pinta, así que cambiar
-  la hora del teléfono no lo adelanta. Al llegar a cero la fase pasa sola a `reveal`; **lanzar** la
+  la hora del teléfono no lo adelanta. Al llegar a cero la fase pasa sola a `reveal`, y también en
+  cuanto **todos** los participantes han respondido (como Kahoot, sin esperar el resto del tiempo); **lanzar** la
   siguiente pregunta siempre es una acción explícita del profesor.
 - **Ninguno pasa por `_rate_limit`**, a propósito: el límite es por IP y un salón entero comparte la
   del WiFi. Ver la regla 17 en [12_RULES](12_RULES.md#backend).
