@@ -337,7 +337,7 @@ def test_el_que_se_desconecto_no_frena_el_reveal():
     session.submit(ana.pid, "Ciudad de Guatemala")
     assert session.public_state()["phase"] == "question"  # Ido sigue conectado: se le espera
 
-    ido.last_seen = time.monotonic() - 11
+    ido.last_seen = time.monotonic() - 26
     assert session.public_state()["phase"] == "reveal"
 
 

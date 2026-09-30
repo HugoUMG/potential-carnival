@@ -399,7 +399,7 @@ POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `
 - **El cronómetro lo calcula el servidor** (`remaining_ms`): el celular solo lo pinta, así que cambiar
   la hora del teléfono no lo adelanta. Al llegar a cero la fase pasa sola a `reveal`, y también en
   cuanto **todos** los participantes conectados han respondido (como Kahoot, sin esperar el resto del
-  tiempo). "Conectado" = su celular poleó `GET /live/{code}?pid=` en los últimos 10 s (`OFFLINE_AFTER`);
+  tiempo). "Conectado" = su celular poleó `GET /live/{code}?pid=` en los últimos 25 s (`OFFLINE_AFTER`);
   quien cerró la pestaña no frena el reveal. **Lanzar** la
   siguiente pregunta siempre es una acción explícita del profesor.
 - **Ninguno pasa por `_rate_limit`**, a propósito: el límite es por IP y un salón entero comparte la

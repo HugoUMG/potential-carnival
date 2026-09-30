@@ -84,8 +84,8 @@ DEFAULT_AVATAR = "🦖"
 # nadie va a poder atender en medio de una evaluación. Con cinco caras no hay nada que moderar.
 REACTIONS = ("👍", "😂", "😮", "🔥", "😭")
 # Sin poll en este tiempo, el alumno cuenta como desconectado y no se le espera para revelar. El
-# celular polea cada 1s; 10s aguantan una red lenta o el free tier de Render sin falsos positivos.
-OFFLINE_AFTER = 10.0
+# celular polea cada 1s; 25s aguantan pantalla bloqueada breve o red lenta sin falsos positivos.
+OFFLINE_AFTER = 25.0
 REACTION_COOLDOWN = 1.5   # segundos entre reacciones del MISMO alumno: evita el spam de uno solo
 REACTION_TTL = 6.0        # cuánto viaja una reacción en el estado antes de caerse sola
 MAX_REACTIONS = 40        # cota del buffer: 50 alumnos tocando a la vez no lo hacen crecer sin fin
