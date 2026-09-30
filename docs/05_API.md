@@ -398,7 +398,9 @@ POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `
   `option_counts` **solo** en fase `reveal`. Es el mismo criterio de la regla 13 y lo cubre un test.
 - **El cronómetro lo calcula el servidor** (`remaining_ms`): el celular solo lo pinta, así que cambiar
   la hora del teléfono no lo adelanta. Al llegar a cero la fase pasa sola a `reveal`, y también en
-  cuanto **todos** los participantes han respondido (como Kahoot, sin esperar el resto del tiempo); **lanzar** la
+  cuanto **todos** los participantes conectados han respondido (como Kahoot, sin esperar el resto del
+  tiempo). "Conectado" = su celular poleó `GET /live/{code}?pid=` en los últimos 10 s (`OFFLINE_AFTER`);
+  quien cerró la pestaña no frena el reveal. **Lanzar** la
   siguiente pregunta siempre es una acción explícita del profesor.
 - **Ninguno pasa por `_rate_limit`**, a propósito: el límite es por IP y un salón entero comparte la
   del WiFi. Ver la regla 17 en [12_RULES](12_RULES.md#backend).

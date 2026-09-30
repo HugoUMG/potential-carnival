@@ -83,6 +83,9 @@ DEFAULT_AVATAR = "🦖"
 # proyectada delante de la clase, texto libre de un anónimo es un problema de moderación que
 # nadie va a poder atender en medio de una evaluación. Con cinco caras no hay nada que moderar.
 REACTIONS = ("👍", "😂", "😮", "🔥", "😭")
+# Sin poll en este tiempo, el alumno cuenta como desconectado y no se le espera para revelar. El
+# celular polea cada 1s; 10s aguantan una red lenta o el free tier de Render sin falsos positivos.
+OFFLINE_AFTER = 10.0
 REACTION_COOLDOWN = 1.5   # segundos entre reacciones del MISMO alumno: evita el spam de uno solo
 REACTION_TTL = 6.0        # cuánto viaja una reacción en el estado antes de caerse sola
 MAX_REACTIONS = 40        # cota del buffer: 50 alumnos tocando a la vez no lo hacen crecer sin fin
@@ -214,6 +217,7 @@ class Participant:
     last_base: int = 0
     last_speed_bonus: int = 0
     last_reaction_at: float = 0.0
+    last_seen: float = field(default_factory=time.monotonic)  # último poll con su pid
 
     def avg_speed(self) -> float | None:
         """Segundos promedio por acierto. `None` si no acertó ninguna: sin aciertos no hay
@@ -461,9 +465,8 @@ class LiveSession:
         elapsed = time.monotonic() - (self.opened_at or time.monotonic())
         correct = question.is_correct(answer)
         participant.answers[question.id] = answer
-        # Como Kahoot: si ya respondieron todos, se revela sin esperar a que se agote el tiempo.
-        if self.answered_count() >= len(self.participants):
-            self.revealed = True
+        participant.last_seen = time.monotonic()
+        self._reveal_if_all_answered()
         if not question.scored:
             # Votar no puntúa NI rompe la racha: quien va acertando no debe perderla por opinar.
             self.version += 1
@@ -485,6 +488,24 @@ class LiveSession:
         if self.instant_feedback:
             result |= {"correct": correct, "points": base + bonus, "base": base, "speed_bonus": bonus}
         return result
+
+    def _reveal_if_all_answered(self) -> None:
+        """Como Kahoot: si ya respondieron todos los conectados, se revela sin esperar el cronómetro.
+
+        Se llama al responder Y en cada poll: si el último que faltaba cierra la pestaña, nadie
+        vuelve a responder y solo el paso del tiempo (visto desde un poll) lo saca de la cuenta.
+        """
+        question = self.current()
+        if question is None or self.phase() != "question":
+            return
+        now = time.monotonic()
+        pending = [p for p in self.participants.values()
+                   if question.id not in p.answers and now - p.last_seen < OFFLINE_AFTER]
+        # Sin ninguna respuesta no se revela: con todo el salón desconectado (o vacío) la pregunta
+        # se quedaría cerrada en cuanto se lanza.
+        if not pending and self.answered_count():
+            self.revealed = True
+            self.version += 1
 
     def _points(self, elapsed: float) -> tuple[int, int]:
         """(500 por acertar, hasta 500 por rapidez). Con 50 personas el conteo de aciertos a secas
@@ -544,6 +565,9 @@ class LiveSession:
         payload no la lleva: quien abra las herramientas del navegador ve exactamente lo mismo
         que quien mira la pantalla.
         """
+        if pid and pid in self.participants:
+            self.participants[pid].last_seen = time.monotonic()
+        self._reveal_if_all_answered()
         phase = self.phase()
         question = self.current()
         state: dict[str, Any] = {

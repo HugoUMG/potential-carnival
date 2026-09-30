@@ -328,6 +328,19 @@ def test_si_todos_responden_se_revela_sin_esperar_el_cronometro():
     assert session.public_state()["answer"] == "Ciudad de Guatemala"
 
 
+def test_el_que_se_desconecto_no_frena_el_reveal():
+    """Un celular que dejó de polear (cerró la pestaña, se quedó sin datos) no se espera."""
+    session = _session(duration=60)
+    ana = session.join({"Carné": "1", "Nombre": "Ana"})
+    ido = session.join({"Carné": "2", "Nombre": "Ido"})
+    session.open_next()
+    session.submit(ana.pid, "Ciudad de Guatemala")
+    assert session.public_state()["phase"] == "question"  # Ido sigue conectado: se le espera
+
+    ido.last_seen = time.monotonic() - 11
+    assert session.public_state()["phase"] == "reveal"
+
+
 def test_solo_el_dueno_controla_su_sesion():
     session = _session()
     assert get_session(session.code.lower()) is session  # el código se teclea como salga
