@@ -241,6 +241,25 @@ class WorksheetResponse(BaseModel):
     guest_token: str | None = None
 
 
+class ReinforcementArea(BaseModel):
+    topic: str
+    mistakes: list[str] = Field(default_factory=list)
+    explanation: str = ""
+
+
+class ReinforcementQuestion(BaseModel):
+    question: str
+    options: list[str]
+    answer: int  # índice de la opción correcta; es práctica, no nota: viaja al cliente a propósito
+    explanation: str = ""
+
+
+class ReinforcementPlan(BaseModel):
+    intro: str = ""
+    areas: list[ReinforcementArea]
+    quiz: list[ReinforcementQuestion] = Field(default_factory=list)
+
+
 class LiveSessionCreate(BaseModel):
     worksheet_id: str
     duration: int = Field(default=20, ge=0, le=600)  # 0 = sin límite, la cierra el profesor

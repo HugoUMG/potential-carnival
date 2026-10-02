@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import ai_grade_activities, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import get_connection, initialize_database
 from . import live
 from .models import (
@@ -37,6 +37,7 @@ from .models import (
     LoginResponse,
     PasswordUpdate,
     PublicUser,
+    ReinforcementPlan,
     ReaderCreate,
     StudentActivity,
     StudentCreate,
@@ -1342,6 +1343,31 @@ def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
         guest_token=payload.guest_token,
     )
     return repository.add_response(response)
+
+
+# Debajo de esta nota se ofrece plan de reforzamiento (la misma frontera que `moodForScore`: <75 = "le falta mejorar").
+REINFORCEMENT_MAX_SCORE = 75
+
+
+@app.post("/public/responses/{response_id}/reinforcement", response_model=ReinforcementPlan)
+def reinforcement_plan(response_id: str, request: Request) -> ReinforcementPlan:
+    """Plan de reforzamiento para una respuesta con nota mala o regular: qué falló, explicación y
+    un quiz corto. Los fallos se leen DE LA BD, no del cliente. Solo respuestas de invitado/enlace
+    directo: las de un alumno registrado no se exponen por una ruta pública."""
+    _rate_limit(request, limit=20)  # cada llamada cuesta IA
+    response = repository.get_response(response_id)
+    if not response or not response.guest_token:
+        raise HTTPException(status_code=404, detail="Respuesta no encontrada")
+    if response.score is None or response.score >= REINFORCEMENT_MAX_SCORE:
+        raise HTTPException(status_code=409, detail="Esta nota no necesita plan de reforzamiento")
+    failed = [d for d in response.details if d.status == "incorrect"]
+    if not failed:
+        raise HTTPException(status_code=409, detail="No hay respuestas incorrectas que reforzar")
+    worksheet = repository.get_worksheet(response.worksheet_id)
+    try:
+        return ReinforcementPlan(**generate_reinforcement_plan(worksheet.title if worksheet else "", failed))
+    except Exception:
+        raise HTTPException(status_code=503, detail="No se pudo generar el plan ahora. Intenta de nuevo en un momento.")
 
 
 @app.get("/public/responses", response_model=list[WorksheetResponse])

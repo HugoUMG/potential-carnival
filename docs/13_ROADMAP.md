@@ -262,6 +262,13 @@ de teclado.
 
 ## Cerrado recientemente
 
+### Plan de reforzamiento en el enlace directo (octubre 2026)
+
+- Con nota < 75 y alguna incorrecta, los resultados de `/w/:id` terminan con un plan generado por IA:
+  qué falló (agrupado por tema), explicación y una mini evaluación de 3-5 preguntas nuevas.
+- Pendiente si se pide: que el profesor vea el plan (hoy no se guarda en la base) y llevarlo al
+  portal del alumno registrado.
+
 ### Revisión QA de los 19 tipos (julio 2026)
 
 - Round-trip de `listeningmatching`: `_parse_pairs` acepta `pair {}` **y** la lista `pairs:` que emite

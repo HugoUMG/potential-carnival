@@ -451,11 +451,19 @@ GET    /public/worksheets/{id}                — Hoja publicada por id (enlace 
 POST   /public/guest-sessions                 — Registrar acceso de invitado
 POST   /public/responses                      — Enviar respuestas como invitado
 GET    /public/responses?guest_token=…        — Respuestas calificadas del invitado
+POST   /public/responses/{id}/reinforcement   — Plan de reforzamiento (IA) si la nota es < 75
 POST   /public/transcribe                     — Audio (speaking) → texto vía Groq Whisper (máx 4 MB)
 GET    /public/vocabulary/{id}                — Lista de vocabulario por id (enlace /v/:vocabId)
 GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
 ```
 
+- `POST /public/responses/{id}/reinforcement` → `ReinforcementPlan` (`intro`, `areas[]` con
+  `topic`/`mistakes`/`explanation`, `quiz[]` con `question`/`options`/`answer`/`explanation`). Lee
+  los fallos **de la BD**, no del cliente. 404 si la respuesta no existe o **no es de invitado**
+  (las de un alumno registrado no salen por ruta pública); 409 si la nota es ≥ 75
+  (`REINFORCEMENT_MAX_SCORE`), es `null` o no hay incorrectas; 503 si la IA falla. Rate limit 20/min
+  por IP. El `answer` del quiz viaja al cliente a propósito: es práctica nueva, no la clave de la hoja
+  (no choca con la regla 13). No se guarda en la base: el frontend lo cachea en `dw_result_{id}`.
 - Identifican al invitado por `guest_token`. En el modo `/guest` es determinístico (aula + nombre);
   en el enlace directo `/w/:id` cada envío usa uno **nuevo**, para que cada entrega sea independiente.
 - El límite de intentos del enlace directo es **por dispositivo** (`dw_count_{id}` en `localStorage`),

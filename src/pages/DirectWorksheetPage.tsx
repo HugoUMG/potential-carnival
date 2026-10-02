@@ -5,8 +5,9 @@ import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { LoadingScreen, LoadingOverlay } from '../components/LoadingScreen';
 import { SubmitConfirmModal, missingNameLabel, type SubmitPrompt } from '../components/SubmitConfirmModal';
 import RexMascot from '../components/RexMascot';
+import { ReinforcementPlan } from '../components/ReinforcementPlan';
 import { moodForScore } from '../utils/scoreMood';
-import { getPublicWorksheet, submitDirectResponse, type DetalleRespuesta } from '../services/api';
+import { getPublicWorksheet, submitDirectResponse, type DetalleRespuesta, type PlanReforzamiento } from '../services/api';
 import { toggleTheme, useTheme } from '../utils/theme';
 import type { StudentAnswer, StudentAnswers, Worksheet } from '../types';
 
@@ -56,7 +57,8 @@ function answerText(v: unknown): string {
   return String(v);
 }
 
-interface Result { details: DetalleRespuesta[]; score: number | null; correct: number; incorrect: number; pending: number; answers: StudentAnswers; }
+// id y plan son opcionales: los resultados guardados antes del plan de reforzamiento no los traen.
+interface Result { id?: string; plan?: PlanReforzamiento; details: DetalleRespuesta[]; score: number | null; correct: number; incorrect: number; pending: number; answers: StudentAnswers; }
 
 export function DirectWorksheetPage() {
   const { worksheetId } = useParams<{ worksheetId: string }>();
@@ -110,7 +112,7 @@ export function DirectWorksheetPage() {
       const response = await submitDirectResponse(worksheetId, nameFromAnswers(answers), crypto.randomUUID(), answers);
       const incorrect = response.details.filter((d) => d.status === 'incorrect').length;
       const pending = response.details.filter((d) => d.status === 'pending').length;
-      const r: Result = { details: response.details, score: response.score, correct: response.correct_count, incorrect, pending, answers };
+      const r: Result = { id: response.id, details: response.details, score: response.score, correct: response.correct_count, incorrect, pending, answers };
       const newCount = attemptsUsed + 1;
       localStorage.setItem(`dw_count_${worksheetId}`, String(newCount));
       localStorage.setItem(`dw_result_${worksheetId}`, JSON.stringify(r));
@@ -123,6 +125,16 @@ export function DirectWorksheetPage() {
       setSubmitting(false);
     }
   }
+
+  /** Guarda el plan junto al resultado: al recargar la página no se vuelve a pedir a la IA. */
+  const savePlan = useCallback((plan: PlanReforzamiento) => {
+    setResult((cur) => {
+      if (!cur) return cur;
+      const next = { ...cur, plan };
+      if (worksheetId) localStorage.setItem(`dw_result_${worksheetId}`, JSON.stringify(next));
+      return next;
+    });
+  }, [worksheetId]);
 
   function retry() {
     setResult(null);
@@ -181,6 +193,11 @@ export function DirectWorksheetPage() {
               ))}
             </div>
           </div>
+
+          {/* Mismo umbral que el backend (REINFORCEMENT_MAX_SCORE) y que moodForScore. */}
+          {result.id && result.score !== null && result.score < 75 && result.incorrect > 0 && (
+            <ReinforcementPlan responseId={result.id} plan={result.plan} onLoaded={savePlan} />
+          )}
 
           {canAttempt && (
             <div className="mt-6 flex justify-center">

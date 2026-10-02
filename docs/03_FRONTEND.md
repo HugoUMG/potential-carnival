@@ -253,7 +253,11 @@ Tailwind que la pantalla ya usa** (`.bg-white`, `.text-slate-500`, `.bg-rex-ligh
   alumno entra sin login, sin menú y sin que le pidan el nombre — lo captura el `info {}` de la propia
   hoja (`nameFromAnswers` toma el primer `_info_*`; si no hay, "Sin nombre"). Cada envío usa un
   `guest_token` **nuevo**. Respeta `max_attempts` **por dispositivo** con el contador
-  `dw_count_{id}` en `localStorage`.
+  `dw_count_{id}` en `localStorage`. Si la nota es < 75 y hay incorrectas, al final de los
+  resultados aparece `ReinforcementPlan`: lo pide solo una vez a
+  `POST /public/responses/{id}/reinforcement` y lo guarda dentro de `dw_result_{id}` (recargar no
+  vuelve a pagar la IA). El quiz se corrige en el cliente: es práctica, no cuenta para la nota.
+  Solo en el enlace directo; el portal del alumno registrado no lo tiene (ADR-07).
 - **Portal del alumno:** pestañas Activas / Calificadas / Vocabulario / Perfil. El perfil ya muestra
   información personal, sus aulas, el historial de notas y el cambio de contraseña propio.
 - **Biblioteca de imágenes (`ImageLibraryPage`):** sub-pestañas **Gratuita** (el JSON estático de

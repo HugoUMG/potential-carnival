@@ -1175,6 +1175,81 @@ def summarize_worksheet_performance(worksheet_title: str, activities: list[dict]
         return ""
 
 
+_REINFORCEMENT_SYSTEM = """Eres un profesor de inglés que ayuda a un alumno hispanohablante que sacó una
+nota baja en una hoja de trabajo. Recibes SOLO los ítems que falló: la pregunta, lo que respondió y
+la respuesta correcta. Arma un plan de reforzamiento corto y amable.
+
+Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
+{
+  "intro": "1-2 frases en español, ánimo + qué va a repasar",
+  "areas": [
+    {
+      "topic": "nombre corto del tema en español (ej. 'Pasado simple de verbos irregulares')",
+      "mistakes": ["en español: qué respondió vs. qué era correcto, citando sus palabras"],
+      "explanation": "explicación en español, 2-4 frases, con la regla y 1-2 ejemplos en inglés"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "pregunta NUEVA en inglés sobre esos temas",
+      "options": ["A", "B", "C"],
+      "answer": 0,
+      "explanation": "en español, por qué esa es la correcta"
+    }
+  ]
+}
+
+Reglas:
+- Agrupa los errores por tema: 1 a 4 áreas. No inventes errores que no estén en la lista.
+- "quiz": entre 3 y 5 preguntas de opción múltiple (3 o 4 opciones), solo de los temas de "areas".
+- Las preguntas del quiz NO copian las de la hoja: usa oraciones nuevas para que practique la regla.
+- "answer" es el índice (desde 0) de la opción correcta; varía su posición entre preguntas.
+- Distractores plausibles y del mismo tipo que la respuesta correcta.
+- Si un error parece de escritura (typo), dilo en "mistakes" sin dramatizar."""
+
+
+def generate_reinforcement_plan(worksheet_title: str, failed: list[Any]) -> dict:
+    """Plan de reforzamiento a partir de los AnswerDetail incorrectos de una respuesta.
+    Devuelve {"intro", "areas", "quiz"} ya saneado; lanza si la IA falla o no da nada usable."""
+    items = [
+        {
+            "type": d.activity_type,
+            "question": str(d.prompt)[:300],
+            "student_answer": _serialize(d.student_answer),
+            "correct_answer": _serialize(d.correct_answer),
+        }
+        for d in failed[:15]  # ponytail: tope de tokens; con más de 15 fallos el plan ya cubre los temas
+    ]
+    user_prompt = f'Hoja: "{worksheet_title}"\n\nÍtems fallados:\n{json.dumps(items, ensure_ascii=False, indent=2)}'
+    raw, _ = _ai_call(_REINFORCEMENT_SYSTEM, user_prompt, prefer_fast=True)
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1].removeprefix("json")
+    data = json.loads(raw)
+
+    areas = [
+        {
+            "topic": str(a.get("topic", "")).strip(),
+            "mistakes": [str(m) for m in a.get("mistakes") or [] if str(m).strip()],
+            "explanation": str(a.get("explanation", "")).strip(),
+        }
+        for a in data.get("areas") or []
+        if isinstance(a, dict) and a.get("topic")
+    ]
+    quiz = []
+    for q in data.get("quiz") or []:
+        if not isinstance(q, dict):
+            continue
+        options = [str(o) for o in q.get("options") or []]
+        answer = q.get("answer")
+        # Una pregunta con la clave fuera de rango no se puede responder bien: se descarta.
+        if q.get("question") and 2 <= len(options) <= 5 and isinstance(answer, int) and 0 <= answer < len(options):
+            quiz.append({"question": str(q["question"]), "options": options, "answer": answer, "explanation": str(q.get("explanation", ""))})
+    if not areas:
+        raise ValueError("La IA no devolvió áreas de reforzamiento")
+    return {"intro": str(data.get("intro", "")).strip(), "areas": areas, "quiz": quiz}
+
+
 _VOCAB_SYSTEM = """You generate English vocabulary lists for Spanish-speaking students.
 
 Output ONLY CSV. No markdown, no fences, no explanation, no header row.

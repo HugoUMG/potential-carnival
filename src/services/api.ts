@@ -495,6 +495,17 @@ export async function submitDirectResponse(worksheetId: string, studentName: str
   return request<RespuestaEstudiante>('/public/responses', { method: 'POST', body: JSON.stringify({ worksheet_id: worksheetId, student_name: studentName, guest_token: guestToken, answers_json: answers }) });
 }
 
+export interface PlanReforzamiento {
+  intro: string;
+  areas: { topic: string; mistakes: string[]; explanation: string }[];
+  quiz: { question: string; options: string[]; answer: number; explanation: string }[];
+}
+
+/** Plan de reforzamiento (IA) para una respuesta de enlace directo con nota < 75. */
+export async function getReinforcementPlan(responseId: string): Promise<PlanReforzamiento> {
+  return request<PlanReforzamiento>(`/public/responses/${responseId}/reinforcement`, { method: 'POST' });
+}
+
 export async function listStudentResponses(studentId: string): Promise<RespuestaEstudiante[]> {
   return request<RespuestaEstudiante[]>(`/students/${studentId}/responses`);
 }
