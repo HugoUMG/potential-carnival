@@ -742,7 +742,11 @@ está validado por el parser para contener todas las respuestas, así que **es**
 **Consecuencia.** Las opciones se **barajan de forma determinista** con `random.Random(activity.id)`:
 sin barajar, la clave de la fila `i` cae en la posición `i` (fila 1 → primer botón…) y la actividad
 se resuelve sin leerla. La semilla es fija para que el orden no cambie entre polls —el cliente
-pregunta cada segundo— y para que un test pueda comprobarlo. Y aparece un tope, `MAX_LIVE_OPTIONS`
+pregunta cada segundo— y para que un test pueda comprobarlo. El mismo argumento vale para la
+opción múltiple normal (el profesor escribe la clave primero), así que desde entonces se barajan
+también `multiplechoice`, `multiselect`, `imagechoice` (en pareja con `option_images`),
+`listeningmultiplechoice` y el `bank` de los huecos; `poll` no, porque su orden puede ser una escala.
+Y aparece un tope, `MAX_LIVE_OPTIONS`
 (6): un `matching` de ocho columnas son ocho botones con `OPTION_COLORS` de cuatro entradas, o sea
 dos azules; se descarta entero y se reporta, porque recortar perdería la clave la mitad de las veces.
 

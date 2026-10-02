@@ -369,10 +369,14 @@ POST   /live/{code}/avatar            — Cambiar el avatar (solo en `lobby` o `
   calificación ya era esa en `_build_answer_details`; en vivo son los mismos botones (ADR-32). Las
   opciones se **barajan de forma determinista** por `activity.id`: sin barajar, la clave de la fila
   `i` cae siempre en el botón `i` y el juego se resuelve sin leer.
-- **En vivo las opciones NO se barajan** (salvo `matching`/`imagematching`, que barajan por
-  `activity.id`): salen en el orden en que las escribió el profesor o la IA. Por eso quien redacta
-  la hoja debe **repartir la respuesta correcta entre las posiciones**; diez preguntas con la clave
-  en la primera opción se juegan sin leer.
+- **En vivo las opciones se barajan** con la misma semilla determinista que `matching`
+  (`random.Random(f"{activity.id}:live")`): `multiplechoice`, `multiselect`, `imagechoice`,
+  `listeningmultiplechoice` y el `bank` de `dragdrop`/`fillblank`/`listeningfillblank`. El profesor
+  suele escribir la clave como primera opción y, sin barajar, el juego se resolvía sin leer. El
+  orden es estable entre polls; la clave es el **texto** de la opción, así que la calificación no
+  cambia. `imagechoice` baraja el índice para que `option_images` siga en pareja con su opción.
+  **No** se barajan `poll` (sin clave; el orden puede ser una escala) ni `truefalse` (`True`/`False`
+  fijo). Como en cualquier barajado aleatorio, con pocas opciones a veces queda el orden original.
 - **Tope de `MAX_LIVE_OPTIONS` (6) opciones por pregunta.** `OPTION_COLORS` cicla cada cuatro: con
   siete hay dos azules y el color deja de identificar desde el fondo del salón. Lo que pasa del tope
   se descarta **entero** y se reporta — recortar perdería la clave la mitad de las veces.

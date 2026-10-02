@@ -169,7 +169,9 @@ def test_imagechoice_se_califica_por_texto_y_arrastra_sus_imagenes():
     q = next(q for q in extract_questions(parse_worksheet_script(SCRIPT_MIXTO).activities) if q.type == "imagechoice")
 
     assert q.is_correct("apple") and not q.is_correct("banana")
-    assert q.option_images == ["https://example.test/apple.png", "https://example.test/banana.png"]
+    assert dict(zip(q.options, q.option_images)) == {
+        "apple": "https://example.test/apple.png", "banana": "https://example.test/banana.png",
+    }
     assert len(q.option_images) == len(q.options)  # paralelas o el alumno ve la imagen equivocada
 
 
@@ -611,6 +613,44 @@ def test_las_opciones_de_un_matching_no_salen_en_el_orden_de_la_clave():
     assert len({tuple(q.options) for q in preguntas}) == 1
 
 
+def test_la_clave_escrita_primero_no_queda_siempre_en_el_primer_boton():
+    """El profesor suele escribir la respuesta correcta como primera opción: sin barajar, el juego
+    se resuelve tocando siempre el primer botón. Mismo barajado determinista que `matching`."""
+    def mc(i, tipo="multiplechoice"):
+        class _Mc:
+            id, type = f"q{i}", tipo
+            question, options, answer = "Pick.", ["key", "x", "y", "z"], "key"
+        return _Mc()
+
+    primeras = [activity_questions(mc(i))[0] for i in range(20)]
+    # (1) Estable entre llamadas: el cliente polea cada segundo y el orden no puede bailar.
+    assert all(activity_questions(mc(i))[0].options == q.options for i, q in enumerate(primeras))
+    # (2) La clave no cae siempre primera, y se sigue calificando por texto.
+    assert any(q.options[0] != "key" for q in primeras)
+    assert all(sorted(q.options) == ["key", "x", "y", "z"] and q.is_correct("key") for q in primeras)
+
+    # El `poll` NO se baraja: no hay clave y el orden puede ser una escala.
+    class _Poll:
+        id, type, question, options = "p1", "poll", "¿Qué tal?", ["1", "2", "3", "4", "5"]
+    assert activity_questions(_Poll())[0].options == ["1", "2", "3", "4", "5"]
+
+
+def test_imagechoice_baraja_cada_imagen_junto_a_su_opcion():
+    """Barajar `options` sin `option_images` pintaría la manzana con el texto "banana"."""
+    pares = {f"o{i}": f"https://example.test/{i}.png" for i in range(5)}
+
+    class _Img:
+        type, question, image, answer = "imagechoice", "Which?", None, "o0"
+        options, option_images = list(pares), list(pares.values())
+
+    preguntas = []
+    for i in range(10):
+        _Img.id = f"img{i}"
+        preguntas.append(activity_questions(_Img())[0])
+    assert any(q.options != list(pares) for q in preguntas)  # sí se barajó
+    assert all(dict(zip(q.options, q.option_images)) == pares for q in preguntas)
+
+
 def test_un_matching_con_demasiadas_columnas_se_descarta_entero():
     """Los colores de las opciones ciclan cada cuatro: con ocho, dos son azules y el color deja
     de identificar desde el fondo del salón. No se recorta (perdería la clave la mitad de las
@@ -636,7 +676,7 @@ def test_el_dragdrop_de_un_hueco_se_juega_con_los_botones_de_siempre():
         text, answer = "I _____ very _____.", ["am", "tired"]
 
     uno = activity_questions(_Uno())[0]
-    assert (uno.input, uno.options, uno.answer) == ("choice", ["am", "is", "are"], "am")
+    assert (uno.input, sorted(uno.options), uno.answer) == ("choice", ["am", "are", "is"], "am")
 
     varios = activity_questions(_Varios())[0]
     # Misma mecánica que `fillblank`, pero con fichas: la lista es POSICIONAL, hueco por hueco.
@@ -757,7 +797,7 @@ def test_el_dragdrop_de_varios_huecos_lleva_el_bank_como_fichas():
         "I _____ very _____.", ("am", "tired"), bank=["am", "is", "tired", "happy"], tipo="dragdrop",
     ))[0]
 
-    assert (pregunta.input, pregunta.options) == ("blanks", ["am", "is", "tired", "happy"])
+    assert (pregunta.input, sorted(pregunta.options)) == ("blanks", ["am", "happy", "is", "tired"])
 
 
 def test_una_pregunta_de_huecos_no_filtra_la_clave_mientras_esta_abierta():

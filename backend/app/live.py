@@ -958,6 +958,8 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
         if not (1 <= blanks <= MAX_LIVE_BLANKS) or len(answers) < blanks:
             return []
         answers = answers[:blanks]
+        # Barajado como el de `matching`: quien redacta suele poner la clave primero en el banco.
+        random.Random(f"{activity.id}:live").shuffle(bank)
 
         if blanks == 1 and 2 <= len(bank) <= MAX_LIVE_OPTIONS:
             return [build(id=activity.id, type=kind, question=text, options=bank, answer=answers[0])]
@@ -973,6 +975,7 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
         )]
 
     if kind == "poll":
+        # Sin barajar: no hay clave que delatar y el orden puede ser intencional (una escala).
         options = list(getattr(activity, "options", None) or [])
         if not (2 <= len(options) <= MAX_LIVE_OPTIONS):
             return []
@@ -990,6 +993,16 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
     if not (2 <= len(options) <= MAX_LIVE_OPTIONS) or not answer:
         return []  # sin opciones, sin clave o con demasiadas: no se puede jugar ni calificar
     images = list(getattr(activity, "option_images", None) or []) if kind == "imagechoice" else []
+    # Se rellena a la longitud de `options`: una URL de menos dejaría la opción sin imagen, no
+    # descuadrada.
+    images = (images + [""] * len(options))[:len(options)] if images else []
+    # Barajado DETERMINISTA, como `matching`: el profesor suele escribir la clave primero y sin
+    # barajar el juego se resuelve sin leer. Se baraja el ÍNDICE para que `option_images` siga
+    # en pareja con su opción. La clave es texto, así que no cambia.
+    order = list(range(len(options)))
+    random.Random(f"{activity.id}:live").shuffle(order)
+    options = [options[i] for i in order]
+    images = [images[i] for i in order] if images else []
     return [build(
         id=activity.id,
         type=kind,
@@ -998,9 +1011,7 @@ def activity_questions(activity: Any, passage: str | None = None) -> list[LiveQu
         answer=answer,
         input="multi" if kind == "multiselect" else "choice",
         image=getattr(activity, "image", None) if kind == "imagechoice" else None,
-        # Se rellena a la longitud de `options`: una URL de menos dejaría la opción sin
-        # imagen, no descuadrada.
-        option_images=(images + [""] * len(options))[:len(options)] if images else None,
+        option_images=images or None,
     )]
 
 
