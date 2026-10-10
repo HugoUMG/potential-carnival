@@ -101,7 +101,10 @@ histórico: **la base de producción está en Aiven**, y `DATABASE_URL` apunta a
 uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
 ```
 
-El frontend se sirve como estático con un rewrite `/*` → `/index.html` (SPA).
+El frontend se sirve como estático con un rewrite `/*` → `/index.html` (SPA). El rewrite solo
+actúa cuando no existe un archivo en esa ruta: por eso `/mascot/…`, `/assets/…` y los juegos de
+`public/jugar/*.html` se sirven tal cual. Un enlace a un juego **sin** `.html` cae en la SPA y
+termina en `/` (ver [03_FRONTEND](03_FRONTEND.md#juegos-juegos--publicjugar)).
 
 ### Orden de despliegue
 

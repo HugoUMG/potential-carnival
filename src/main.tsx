@@ -16,6 +16,7 @@ import { HomePage } from './pages/site/HomePage';
 import { AboutPage } from './pages/site/AboutPage';
 import { ActivitiesPage } from './pages/site/ActivitiesPage';
 import { LearnPage } from './pages/site/LearnPage';
+import { GamesPage } from './pages/site/GamesPage';
 import { DevShots } from './pages/DevShots';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 import { initTheme } from './utils/theme';
@@ -37,6 +38,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/acerca" element={<AboutPage />} />
           <Route path="/actividades" element={<ActivitiesPage />} />
           <Route path="/aprende" element={<LearnPage />} />
+          {/* Catálogo; cada juego es un HTML estático en public/jugar/ (ADR-37). */}
+          <Route path="/juegos" element={<GamesPage />} />
         </Route>
 
         <Route path="/login" element={<LoginPage />} />

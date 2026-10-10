@@ -154,6 +154,10 @@ tras comparar la transcripción.
 **SKIN de cristal / tema oscuro** — Capas puramente CSS: ningún componente sabe que existen. El tema
 vive en el atributo `data-theme` del `<html>`.
 
+**Juego** — Página de práctica de `/juegos` (tarjetas, chat, ruleta, corcho…). Es un HTML estático
+de `public/jugar/`, fuera de React y sin backend; el catálogo es `GAMES` en `src/data/games.ts`
+(ADR-37). No confundir con la **sesión en vivo**, que sí pasa por el backend.
+
 **ZzFX** — Sintetizador de efectos de sonido por código (`utils/sfx.ts`): blips de clic y sonidos de
 las animaciones de envío, sin ningún archivo de audio.
 

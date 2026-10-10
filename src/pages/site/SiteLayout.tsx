@@ -8,6 +8,7 @@ const NAV = [
   { to: '/acerca', label: 'Acerca de', end: false },
   { to: '/actividades', label: 'Actividades', end: false },
   { to: '/aprende', label: 'Aprende', end: false },
+  { to: '/juegos', label: 'Juegos', end: false },
 ];
 
 function roleRoute(role: string): string {
@@ -27,8 +28,10 @@ export function SiteLayout() {
     // app.css hacen el resto, aquí y en el resto de la app.
     <div className="site">
       <header className="sticky top-0 z-50 border-b border-site-fg/10 bg-site-bg/70 backdrop-blur-xl">
-        {/* En móvil los enlaces bajan a una segunda fila; desde sm van en línea. */}
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+        {/* Hasta xl los enlaces bajan a una segunda fila; desde xl van en línea. Logo + 5 enlaces +
+            los botones de invitado miden ~1200 px: en una fila desde sm el menú se encogía hasta
+            quedar invisible en tablet y cortaba "Juegos" en laptop. xl:max-w-7xl les da ese ancho. */}
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 xl:max-w-7xl">
           <Link to="/" className="flex shrink-0 items-center gap-2.5">
             <img
               src="/mascot/rex-logo.svg"
@@ -44,7 +47,7 @@ export function SiteLayout() {
           </Link>
 
           {/* min-w-0: sin esto el flex item no baja de su contenido y desborda. */}
-          <nav className="order-last -mx-1 flex w-full min-w-0 items-center gap-1 overflow-x-auto px-1 text-sm [scrollbar-width:none] sm:order-none sm:w-auto sm:flex-1">
+          <nav className="order-last -mx-1 flex w-full min-w-0 items-center gap-1 overflow-x-auto px-1 text-sm [scrollbar-width:none] xl:order-none xl:w-auto xl:flex-1">
             {NAV.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className="site-nav-link whitespace-nowrap">
                 {item.label}
@@ -52,7 +55,7 @@ export function SiteLayout() {
             ))}
           </nav>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2 sm:ml-0">
+          <div className="ml-auto flex shrink-0 items-center gap-2 xl:ml-0">
             <button
               type="button"
               className="site-theme-toggle"

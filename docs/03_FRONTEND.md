@@ -7,6 +7,8 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 | Ruta | Componente | Acceso |
 |------|-----------|--------|
 | `/`, `/acerca`, `/actividades`, `/aprende` | `SiteLayout` + páginas del sitio | público |
+| `/juegos` | `SiteLayout` + `GamesPage` (catálogo de juegos) | público |
+| `/jugar/*.html` | **No es React**: HTML estático de `public/jugar/` (ver [Juegos](#juegos-juegos--publicjugar)) | público |
 | `/login` | `LoginPage` | público |
 | `/registro` | `RegisterPage` | público — **solo crea profesores, solo con Google** |
 | `/teacher/:section?` | `App` (modo teacher) | teacher, admin |
@@ -22,6 +24,32 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 | `/__shots` | `DevShots` | solo en `import.meta.env.DEV` |
 
 `ProtectedRoute` envuelve los portales autenticados. Cualquier otra ruta redirige a `/`.
+
+## Juegos (`/juegos` + `public/jugar/`)
+
+Juegos de conversación para clase o casa (tarjetas, chat, ruleta, corcho…). **Cada juego es un
+archivo HTML autocontenido en `public/jugar/`**, no un componente React (ADR-37 en
+[15_DECISIONS](15_DECISIONS.md)): no llama al backend, no pide sesión y guarda el progreso del alumno
+en su propio `localStorage`.
+
+- **Catálogo:** `src/data/games.ts` (`GAMES`). `GamesPage` lo pinta con botón Jugar, Copiar enlace,
+  QR para proyectar (`qrcode.react`, fondo blanco fijo) y un acceso directo por modo.
+- **Añadir un juego:** copiar su `.html` a `public/jugar/` y agregar su entrada a `GAMES`. Nada más.
+- **El enlace lleva `.html`.** Sin la extensión no existe el archivo y el rewrite `/*` de Render lo
+  manda a la SPA, que redirige a `/`.
+- **Pestaña por ancla:** `/jugar/b1-speaking.html#ruleta` abre esa pestaña (`#cards`, `#chat`,
+  `#ruleta`, `#corcho`). Son los `hash` de `GAMES[].modes`.
+- **Tema:** el HTML lee `site-theme` de `localStorage` (el mismo de `utils/theme.ts`) para abrir en
+  claro u oscuro igual que el sitio; sin valor guardado sigue al sistema.
+- **Responsive:** en celular es una app de una pantalla con pestañas abajo; desde 900 px las pestañas
+  pasan a una columna a la izquierda. El botón "Juegos" del encabezado vuelve a `/juegos`.
+- **Cuidado con los nombres de clase** dentro de un juego: es un solo `<style>`. El botón de volver
+  se llamó `.back` y heredó el `rotateY(180deg)` de la cara trasera de las tarjetas (flecha al revés).
+
+Con "Juegos" el menú del sitio tiene cinco enlaces: `SiteLayout` los manda a una segunda fila hasta
+`xl` y ensancha el encabezado a `max-w-7xl` desde ahí. Con los botones de invitado (Crear cuenta,
+Vocabulario, Entrar) una sola fila no cabe en `max-w-6xl`: antes el menú se encogía hasta 18 px en
+tablet y cortaba el último enlace en laptop.
 
 ## Las secciones son rutas, no estado
 

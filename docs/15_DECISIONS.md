@@ -907,6 +907,30 @@ solo para uso no comercial y exige atribución: está en el pie del sitio públi
 dice `[tts] ElevenLabs falló…` con el cuerpo de la respuesta cuando se degrada a edge: ahí se ve
 `quota_exceeded` antes de que alguien se pregunte por qué las voces volvieron a no entenderse.
 
+## 🟢 ADR-37 — Los juegos son HTML estático en `public/jugar/`, no componentes React
+
+**Decisión.** Cada juego de `/juegos` es un archivo HTML autocontenido (su CSS y su JS dentro) en
+`public/jugar/`. La SPA solo pone el catálogo (`GamesPage` + `src/data/games.ts`).
+
+**Motivo.** Un juego no toca nada de la plataforma: no llama a la API, no pide sesión, no califica y
+su progreso es del alumno (su `localStorage`). Como HTML suelto se diseña y se prueba fuera de la app
+(nació como un Artifact y como hojas imprimibles), se comparte con un enlace o un QR y no pesa en el
+bundle de la SPA, que ya pasa de 800 kB. Añadir uno es copiar un archivo y una entrada en `GAMES`.
+
+**Alternativas descartadas.**
+- *Portarlos a componentes React.* Reescribir cada juego (tarjetas 3D, ruleta SVG, chat) por cero
+  ganancia funcional, y cada juego nuevo exigiría otra vez el port.
+- *Meterlos en un `iframe` dentro de una ruta de la SPA.* El juego es una app de una pantalla con
+  su propia barra de pestañas: dentro del marco del sitio quedaría con doble scroll y doble menú en
+  celular, justo donde más se usa.
+- *Alojarlos fuera (Artifact, GitHub Pages).* Funciona, pero el enlace no es del dominio de la
+  plataforma y no lo controla el profesor.
+
+**Consecuencias.** Los juegos no comparten estilos con la SPA: repiten a mano las variables de tema
+(claro/oscuro con `data-theme` y la clave `site-theme`). La ruta lleva `.html` (ver
+[10_DEPLOYMENT](10_DEPLOYMENT.md)). Si algún día un juego necesita guardar resultados en la base,
+deja de cumplir la premisa: ahí sí hay que pasarlo por `api.ts` (regla 25) y probablemente a React.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:
