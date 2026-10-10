@@ -26,8 +26,9 @@ DSL propio y obtiene una hoja interactiva con:
 
 En producción, con datos reales, desplegado en Render + Aiven. Funcionan los 21 tipos de actividad,
 el sistema de aulas, la calificación IA, el modo invitado, el enlace directo, la impresión en papel,
-el portal de vocabulario y la **evaluación en tiempo real** (sesión sincrona estilo Kahoot que el
-profesor orquesta pregunta por pregunta).
+el portal de vocabulario, la **evaluación en tiempo real** (sesión sincrona estilo Kahoot que el
+profesor orquesta pregunta por pregunta) y los **juegos de práctica**: sets de preguntas generados
+con IA que se juegan en 16 juegos por enlace (`/j/:id`), con audio y significado de cada palabra.
 
 **El flujo vivo es el enlace directo `/w/:worksheetId`.** Las aulas y los alumnos registrados
 funcionan y se mantienen, pero hoy no son lo que más se usa en producción: fueron la primera fase del

@@ -180,6 +180,24 @@ GET    /readers/{id}/vocabulary
 POST   /reader/log-session                    — Registra el acceso de un lector
 ```
 
+## Juegos de práctica (ADR-38)
+
+```
+GET    /game-sets                             — Sets del profesor (el admin ve todos)
+POST   /game-sets                             — Crear set (GameSetPayload) → GameSet
+POST   /game-sets/ai-generate                 — Tema → preguntas con IA. NO guarda
+PUT    /game-sets/{id}                        — Editar (solo el dueño o el admin; 403 si no)
+DELETE /game-sets/{id}                        — Borrar (solo el dueño o el admin)
+```
+
+- `GameSetPayload` = `title`, `topic`, `level`, `featured` y `questions[]` (`text`, `translation`,
+  `hint`, `tag`, `emoji`). Entre **4 y 60** preguntas con texto (422 en español si no); las vacías se
+  descartan antes de contar.
+- `POST /game-sets/ai-generate` recibe `{topic, level, focus, count}` (`count` 4–40, `focus` =
+  enfoque gramatical opcional) y devuelve `{title, questions, provider}`. 502 si la IA falla.
+- **Crear y editar disparan el diccionario en segundo plano** (`BackgroundTasks`): las palabras del
+  set que no estén en `word_meanings` se le piden a la IA (`define_words`). El profesor no espera.
+
 ## Imágenes (subida)
 
 ```
@@ -210,9 +228,14 @@ La biblioteca **gratuita** (`src/data/image-library.json`) es estática y no pas
 ## Audio (TTS)
 
 ```
-GET    /tts?text=…&voice=…&rate=…            — Sintetiza una oración → audio/mpeg
+GET    /tts?text=…&voice=…&rate=…&engine=…   — Sintetiza una oración → audio/mpeg (`engine=edge`: solo edge-tts)
 GET    /tts/conversation?lines=…&male=…&female=…&rate=… — Diálogo con voces m/f alternadas, MP3 concatenado
 ```
+
+**`engine=edge`** lo usan los juegos (ADR-38): pregunta, versión lenta y cada palabra tocada suenan
+siempre con edge-tts, que es gratis, y responden con `Cache-Control: public, max-age=604800` para que
+el navegador no vuelva a pedir la misma palabra. Así una clase tocando palabras no gasta el cupo de
+ElevenLabs, que queda para las hojas. Por dentro es `_synth_mp3(..., edge_only=True)`.
 
 **Dos motores, una función.** Todo el audio de la plataforma (`/tts`, `/tts/conversation`,
 `/live/{code}/audio` y la prueba de audio) pasa por `_synth_mp3(parts, rate)`, que recibe una lista de
@@ -455,7 +478,15 @@ POST   /public/responses/{id}/reinforcement   — Plan de reforzamiento (IA) si 
 POST   /public/transcribe                     — Audio (speaking) → texto vía Groq Whisper (máx 4 MB)
 GET    /public/vocabulary/{id}                — Lista de vocabulario por id (enlace /v/:vocabId)
 GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
+GET    /public/game-sets                      — Sets destacados (`featured`) para /juegos → GameSetSummary[]
+GET    /public/game-sets/{id}                 — Set por id (enlace /j/:id) → PublicGameSet con `glossary`
 ```
+
+- `GET /public/game-sets/{id}` es una URL-capability como `/public/vocabulary/{id}`: el UUID no se
+  adivina y no hay nada secreto (un juego no tiene clave de respuestas). Trae `glossary` con los
+  significados **ya hechos** de las palabras del set; no llama a la IA en la petición. Si faltan
+  palabras, programa otro intento en segundo plano, **una vez por proceso y palabra**
+  (`_words_attempted`), para que una palabra que la IA no sabe definir no cueste una llamada por visita.
 
 - `POST /public/responses/{id}/reinforcement` → `ReinforcementPlan` (`intro`, `areas[]` con
   `topic`/`mistakes`/`explanation`, `quiz[]` con `question`/`options`/`answer`/`explanation`). Lee

@@ -7,8 +7,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 | Ruta | Componente | Acceso |
 |------|-----------|--------|
 | `/`, `/acerca`, `/actividades`, `/aprende` | `SiteLayout` + páginas del sitio | público |
-| `/juegos` | `SiteLayout` + `GamesPage` (catálogo de juegos) | público |
-| `/jugar/*.html` | **No es React**: HTML estático de `public/jugar/` (ver [Juegos](#juegos-juegos--publicjugar)) | público |
+| `/juegos` | `SiteLayout` + `GamesPage` (sets destacados + qué hace cada juego) | público |
 | `/login` | `LoginPage` | público |
 | `/registro` | `RegisterPage` | público — **solo crea profesores, solo con Google** |
 | `/teacher/:section?` | `App` (modo teacher) | teacher, admin |
@@ -17,6 +16,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 | `/reader` | `ReaderPortal` | reader |
 | `/vocab` | `VocabPublicPage` | público |
 | `/v/:vocabId` | `VocabDirectPage` | público (enlace directo a una lista) |
+| `/j/:setId` | `GamePage` → `GamePlayer` | público (enlace directo a un set de juegos; `#ruleta` abre ese juego) |
 | `/w/:worksheetId` | `DirectWorksheetPage` | público (enlace directo a una hoja) |
 | `/guest` | `GuestPage` | público — **sin entradas en la UI**, solo por URL |
 | `/en-vivo/:code` | `LivePage` | público (alumno en una sesión en tiempo real) |
@@ -25,26 +25,37 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 
 `ProtectedRoute` envuelve los portales autenticados. Cualquier otra ruta redirige a `/`.
 
-## Juegos (`/juegos` + `public/jugar/`)
+## Juegos de práctica (`/juegos`, `/j/:setId`, sección `juegos`)
 
-Juegos de conversación para clase o casa (tarjetas, chat, ruleta, corcho…). **Cada juego es un
-archivo HTML autocontenido en `public/jugar/`**, no un componente React (ADR-37 en
-[15_DECISIONS](15_DECISIONS.md)): no llama al backend, no pide sesión y guarda el progreso del alumno
-en su propio `localStorage`.
+Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji) que se
+juega con **16 juegos** (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
+no hay que escribir nada distinto por juego.
 
-- **Catálogo:** `src/data/games.ts` (`GAMES`). `GamesPage` lo pinta con botón Jugar, Copiar enlace,
-  QR para proyectar (`qrcode.react`, fondo blanco fijo) y un acceso directo por modo.
-- **Añadir un juego:** copiar su `.html` a `public/jugar/` y agregar su entrada a `GAMES`. Nada más.
-- **El enlace lleva `.html`.** Sin la extensión no existe el archivo y el rewrite `/*` de Render lo
-  manda a la SPA, que redirige a `/`.
-- **Pestaña por ancla:** `/jugar/b1-speaking.html#ruleta` abre esa pestaña (`#cards`, `#chat`,
-  `#ruleta`, `#corcho`). Son los `hash` de `GAMES[].modes`.
-- **Tema:** el HTML lee `site-theme` de `localStorage` (el mismo de `utils/theme.ts`) para abrir en
-  claro u oscuro igual que el sitio; sin valor guardado sigue al sistema.
-- **Responsive:** en celular es una app de una pantalla con pestañas abajo; desde 900 px las pestañas
-  pasan a una columna a la izquierda. El botón "Juegos" del encabezado vuelve a `/juegos`.
-- **Cuidado con los nombres de clase** dentro de un juego: es un solo `<style>`. El botón de volver
-  se llamó `.back` y heredó el `rotateY(180deg)` de la cara trasera de las tarjetas (flecha al revés).
+- **Profesor:** sección `juegos` del portal → `GameSetsManager`. Lista de sets (Jugar, Copiar enlace,
+  QR, Editar, Borrar con segundo toque) y editor: título, tema, nivel, "mostrar en /juegos"
+  (`featured`), **Generar con IA** (tema + enfoque gramatical opcional + cantidad; agrega a la lista,
+  no guarda), **Pegar mis preguntas** (`pregunta | traducción | pista` por línea) y el ejemplo B1
+  de `src/data/sampleGameSet.ts`. Guarda con 4–60 preguntas.
+- **Alumno:** `/j/:setId` (`GamePage`) pide el set por `getPublicGameSet` y monta `GamePlayer`: inicio
+  con los juegos agrupados por habilidad; en PC (≥ 900 px) una barra lateral; el juego abierto vive en
+  el hash (`#ordena`), así que se comparte por enlace y el "atrás" del celular vuelve al inicio.
+  Si el diccionario aún no está completo (la IA corre en segundo plano al guardar), lo vuelve a pedir
+  **una vez** a los 20 s.
+- **Motor:** `src/games/`. `registry.ts` (`GAMES`: id, nombre, habilidad, color, `purpose`, `howTo`,
+  componente — lo leen el reproductor, el catálogo y el panel), `util.ts` (contexto, `tokenize`,
+  `matchWords`, azar, `speak`), `ui.tsx` (`Say`, `Speak`, `WordPopover`, `Sheet`, `Countdown`,
+  `Finish`), un archivo por habilidad (`speaking`, `listening`, `structure`, `meaning`) y
+  `games.css`, todo colgado de `.dg` para no chocar con Tailwind. Modo oscuro solo con variables
+  bajo `:root[data-theme='dark'] .dg` (regla 23).
+- **Palabras tocables (estilo Duolingo):** `<Say text>` parte el texto con `tokenize` y cada palabra
+  es un botón que abre `WordPopover`: la pronuncia y muestra `lemma` y significados del `glossary`.
+  **La regex de `tokenize` es la misma que `_WORD_RE` del backend**; si cambia una, cambia la otra.
+- **Audio:** `speak(text, slow)` → `gameAudioUrl` (`api.ts`) → `/tts?…&engine=edge`. Siempre
+  edge-tts: un juego no gasta créditos de ElevenLabs. 🔊 = `-10%`, 🐢 = `-40%`.
+- **Añadir un juego:** un componente que recibe `{ questions }` (`GameProps`) y una entrada en
+  `GAMES`. El catálogo, el panel y la barra lateral lo pintan solos.
+- **Pronuncia** usa la Web Speech API del navegador (Chrome, Edge, Safari; Firefox no): sin ella,
+  avisa y deja escuchar el modelo. No manda audio al backend.
 
 Con "Juegos" el menú del sitio tiene cinco enlaces: `SiteLayout` los manda a una segunda fila hasta
 `xl` y ensancha el encabezado a `max-w-7xl` desde ahí. Con los botones de invitado (Crear cuenta,
@@ -55,7 +66,7 @@ tablet y cortaba el último enlace en laptop.
 
 ```tsx
 const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas', 'envivo',
-  'aulas', 'estudiantes', 'profesores', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes'];
+  'aulas', 'estudiantes', 'profesores', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes', 'juegos'];
 const STUDENT_TABS: StudentTab[] = ['activas', 'calificadas', 'vocabulario', 'perfil'];
 
 const adminMenu = TEACHER_SECTIONS.includes(section as TeacherMenu) ? section : 'crear';

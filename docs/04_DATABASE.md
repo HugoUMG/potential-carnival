@@ -82,6 +82,14 @@ teacher_images (id, teacher_id → users, public_id, url, created_at)
 -- Caché de audio de ElevenLabs. cache_key = sha256(modelo|voice_id|speed|texto);
 -- audio es BYTEA (BLOB en SQLite). Solo crece: no hay expiración (ver 05_API §Audio)
 tts_cache (cache_key PK, audio, created_at)
+
+-- Juegos de práctica (ADR-38). questions es JSON: [{text, translation, hint, tag, emoji}].
+-- featured = sale en el catálogo público /juegos; sin eso, solo por enlace /j/:id
+game_sets (id, title, topic, level, created_by → users, created_at, questions, featured)
+
+-- Diccionario de los juegos: significados por palabra hechos por IA, COMPARTIDOS por todos los
+-- sets (cada palabra se le pide a la IA una sola vez). data = {word, lemma, senses[{pos, meanings}]}
+word_meanings (word PK, data, created_at)
 ```
 
 ### Convenciones

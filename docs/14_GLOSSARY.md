@@ -154,9 +154,16 @@ tras comparar la transcripción.
 **SKIN de cristal / tema oscuro** — Capas puramente CSS: ningún componente sabe que existen. El tema
 vive en el atributo `data-theme` del `<html>`.
 
-**Juego** — Página de práctica de `/juegos` (tarjetas, chat, ruleta, corcho…). Es un HTML estático
-de `public/jugar/`, fuera de React y sin backend; el catálogo es `GAMES` en `src/data/games.ts`
-(ADR-37). No confundir con la **sesión en vivo**, que sí pasa por el backend.
+**Set de juegos** — Lista de preguntas (`game_sets`) que se juega en `/j/:setId` con los 16 juegos
+(ADR-38). Lo crea el profesor en la sección **Juegos**, con IA o pegando preguntas. No confundir con
+la **sesión en vivo** (Kahoot), que juega una hoja de trabajo calificada.
+
+**Juego** — Cada una de las 16 formas de jugar un set (tarjetas, ruleta, bingo, dictado…). Vive en
+`GAMES` (`src/games/registry.ts`) con su habilidad, su propósito y cómo usarlo en clase.
+
+**Glosario de un set (`glossary`)** — Los significados de las palabras del set, sacados de
+`word_meanings` (hechos por IA una vez por palabra). Es lo que muestra `WordPopover` al tocar una
+palabra.
 
 **ZzFX** — Sintetizador de efectos de sonido por código (`utils/sfx.ts`): blips de clic y sonidos de
 las animaciones de envío, sin ningún archivo de audio.

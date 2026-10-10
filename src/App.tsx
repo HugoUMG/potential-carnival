@@ -11,6 +11,7 @@ import { WorksheetPrint } from './components/WorksheetPrint';
 import { VocabularyManager, VocabularyViewer } from './components/VocabularyViewer';
 import { ImageLibraryPage } from './pages/ImageLibraryPage';
 import { LiveHostPanel } from './components/LiveHostPanel';
+import { GameSetsManager } from './components/GameSetsManager';
 import { RichText } from './components/RichText';
 import RexMascot from './components/RexMascot';
 import { moodForScore } from './utils/scoreMood';
@@ -167,7 +168,7 @@ function timeAgo(iso: string): string {
 }
 
 /** Secciones del portal docente que existen como URL propia (/teacher/revision, …). */
-const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas', 'envivo', 'aulas', 'estudiantes', 'profesores', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes'];
+const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas', 'envivo', 'aulas', 'estudiantes', 'profesores', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes', 'juegos'];
 type StudentTab = 'activas' | 'calificadas' | 'vocabulario' | 'perfil';
 const STUDENT_TABS: StudentTab[] = ['activas', 'calificadas', 'vocabulario', 'perfil'];
 
@@ -2006,6 +2007,8 @@ export default function App() {
         {adminMenu === 'imagenes' && <ImageLibraryPage />}
 
         {adminMenu === 'envivo' && <LiveHostPanel worksheets={worksheets} />}
+
+        {adminMenu === 'juegos' && <GameSetsManager />}
       </div>
       {sessionModal && (
         <div className="fixed inset-0 z-50 overflow-auto bg-slate-900/60 p-6" onClick={() => setSessionModal(null)}>

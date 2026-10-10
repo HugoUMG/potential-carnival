@@ -1,7 +1,7 @@
-import { Activity, BarChart3, BookOpenCheck, ClipboardCheck, Database, FolderArchive, LogOut, PlusCircle, Radio, School, UserCog, UserPlus, UserRoundCheck, Users } from 'lucide-react';
+import { Activity, BarChart3, BookOpenCheck, ClipboardCheck, Database, FolderArchive, Gamepad2, LogOut, PlusCircle, Radio, School, UserCog, UserPlus, UserRoundCheck, Users } from 'lucide-react';
 import type { UsuarioSesion } from '../services/api';
 
-export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'archivadas' | 'envivo' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'invitados' | 'actividad' | 'vocabulario' | 'imagenes';
+export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'archivadas' | 'envivo' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'invitados' | 'actividad' | 'vocabulario' | 'imagenes' | 'juegos';
 
 interface TeacherDashboardProps {
   user: UsuarioSesion;
@@ -30,7 +30,10 @@ const GROUPS: { label: string; items: { id: TeacherMenu; label: string; icon: ty
   },
   {
     label: 'En clase',
-    items: [{ id: 'envivo', label: 'Evaluación en vivo', icon: Radio }],
+    items: [
+      { id: 'envivo', label: 'Evaluación en vivo', icon: Radio },
+      { id: 'juegos', label: 'Juegos', icon: Gamepad2 },
+    ],
   },
   {
     label: 'Mis grupos',

@@ -907,7 +907,11 @@ solo para uso no comercial y exige atribución: está en el pie del sitio públi
 dice `[tts] ElevenLabs falló…` con el cuerpo de la respuesta cuando se degrada a edge: ahí se ve
 `quota_exceeded` antes de que alguien se pregunte por qué las voces volvieron a no entenderse.
 
-## 🟢 ADR-37 — Los juegos son HTML estático en `public/jugar/`, no componentes React
+## 🟢 ADR-37 — Los juegos son HTML estático en `public/jugar/` (reemplazada por ADR-38)
+
+> **Reemplazada por ADR-38.** Duró lo que tardó en existir el generador: en cuanto un juego necesitó
+> las preguntas de la base, su audio y su diccionario, se cumplió la condición que esta misma decisión
+> dejó escrita en sus consecuencias. Se conserva por el razonamiento.
 
 **Decisión.** Cada juego de `/juegos` es un archivo HTML autocontenido (su CSS y su JS dentro) en
 `public/jugar/`. La SPA solo pone el catálogo (`GamesPage` + `src/data/games.ts`).
@@ -930,6 +934,41 @@ bundle de la SPA, que ya pasa de 800 kB. Añadir uno es copiar un archivo y una 
 (claro/oscuro con `data-theme` y la clave `site-theme`). La ruta lleva `.html` (ver
 [10_DEPLOYMENT](10_DEPLOYMENT.md)). Si algún día un juego necesita guardar resultados en la base,
 deja de cumplir la premisa: ahí sí hay que pasarlo por `api.ts` (regla 25) y probablemente a React.
+
+## 🟢 ADR-38 — Juegos: un set de preguntas, 16 juegos en React, diccionario por palabra compartido
+
+**Decisión.** El profesor crea **sets** (`game_sets`): solo preguntas con traducción, pista, subtema
+y emoji. Los 16 juegos son componentes React de `src/games/` que derivan su mecánica de esos campos
+(ordenar las palabras, ocultar una, dictarla, emparejarla con su traducción…). Se juegan en `/j/:id`
+sin cuenta. El significado de cada palabra lo hace la IA **una vez por palabra** y se guarda en
+`word_meanings`, compartido por todos los sets. El audio de los juegos es siempre edge-tts.
+
+**Motivo.** El profesor tiene que poder hacer un juego de cualquier tema en un par de minutos. Si
+cada juego pidiera su propio contenido (pares para el memorama, palabras para el ahorcado, distractores
+para completar), el generador serían 16 formularios. Con un único formato, la IA genera una lista y
+todo lo demás sale solo; los distractores de "Completa" son de la misma familia gramatical (auxiliares
+con auxiliares, wh-words con wh-words), que es justo lo que se practica.
+
+**Alternativas descartadas.**
+- *Seguir con HTML estático (ADR-37) leyendo la API.* El backend vive en otro dominio de Render y su
+  URL solo la conoce el build de Vite (`VITE_API_URL`); además la regla 25 pide que todo HTTP pase por
+  `api.ts`.
+- *Significados por pregunta dentro del set.* Cada set repetiría "would", "you", "what"… y pagaría a
+  la IA por ellos otra vez. Por palabra y global, la tabla converge: cuantos más sets, menos llamadas.
+- *Pedir el significado a la IA al tocar la palabra.* Sería un endpoint público que gasta IA con
+  cualquier texto que alguien le mande. Así, la IA solo define palabras de sets que guardó un profesor
+  autenticado, y el público solo lee.
+- *Audio con `speechSynthesis` del navegador.* Gratis y sin red, pero cada celular trae otra voz (y
+  algunos ninguna en inglés). edge-tts suena igual en todos y ya está en el backend.
+- *ElevenLabs para los juegos.* Una clase tocando palabras se comería los 10 000 créditos del mes
+  (regla 47). Por eso `engine=edge`.
+
+**Consecuencias.** `tokenize` (`src/games/util.ts`) y `_WORD_RE` (`main.py`) tienen que partir el
+texto igual; si divergen, hay palabras que se pueden tocar y nunca tienen significado. El diccionario
+se llena en segundo plano: un set recién guardado puede abrirse un momento sin significados (la página
+los vuelve a pedir a los 20 s). Una palabra que la IA no logra definir se reintenta al guardar de nuevo
+el set, no en cada visita (`_words_attempted`). Los juegos no guardan resultados en la base: si algún
+día cuentan para la nota, necesitarán sus endpoints y pasar por `api.ts`.
 
 ## Cómo añadir una decisión
 

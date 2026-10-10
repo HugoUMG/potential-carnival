@@ -135,3 +135,27 @@ CREATE TABLE IF NOT EXISTS tts_cache (
   audio      BLOB NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Juegos de práctica (ADR-38): un set de preguntas que se juega en /j/:id con todos los juegos.
+-- `featured` = aparece en el catálogo público /juegos; sin eso, solo por enlace directo.
+CREATE TABLE IF NOT EXISTS game_sets (
+  id         TEXT PRIMARY KEY,
+  title      TEXT NOT NULL,
+  topic      TEXT NOT NULL DEFAULT '',
+  level      TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  questions  TEXT NOT NULL DEFAULT '[]',
+  featured   INTEGER NOT NULL DEFAULT 0,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_sets_created_by ON game_sets(created_by);
+
+-- Diccionario de los juegos: significados de cada palabra hechos por IA, compartidos por todos los
+-- sets. Una palabra se le pide a la IA una sola vez en la vida de la base.
+CREATE TABLE IF NOT EXISTS word_meanings (
+  word       TEXT PRIMARY KEY,
+  data       TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

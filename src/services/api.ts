@@ -1,4 +1,4 @@
-import type { ActivityBlock, ActivityType, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
+import type { ActivityBlock, ActivityType, GameQuestion, GameSet, GameSetDraft, GameSetSummary, PublicGameSet, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const AUTH_STORAGE_KEY = 'worksheet_auth_session';
@@ -1007,4 +1007,41 @@ export function terminarSesionEnVivo(code: string): Promise<LiveHostState> {
 
 export function cerrarSesionEnVivo(code: string): Promise<void> {
   return request<void>(`/live/${encodeURIComponent(code)}`, { method: 'DELETE' });
+}
+
+// ─── Juegos de práctica (ADR-38) ───────────────────────────────────────────
+
+export function listGameSets(): Promise<GameSet[]> {
+  return request<GameSet[]>('/game-sets');
+}
+
+export function createGameSet(draft: GameSetDraft): Promise<GameSet> {
+  return request<GameSet>('/game-sets', { method: 'POST', body: JSON.stringify(draft) });
+}
+
+export function updateGameSet(id: string, draft: GameSetDraft): Promise<GameSet> {
+  return request<GameSet>(`/game-sets/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(draft) });
+}
+
+export function deleteGameSet(id: string): Promise<void> {
+  return request<void>(`/game-sets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+/** Tema → preguntas con IA. No guarda nada: el profesor las revisa en el editor. */
+export function generateGameQuestions(topic: string, level: string, focus: string, count: number): Promise<{ title: string; questions: GameQuestion[]; provider: string }> {
+  return request('/game-sets/ai-generate', { method: 'POST', body: JSON.stringify({ topic, level, focus, count }) });
+}
+
+export function listFeaturedGameSets(): Promise<GameSetSummary[]> {
+  return request<GameSetSummary[]>('/public/game-sets');
+}
+
+export function getPublicGameSet(id: string): Promise<PublicGameSet> {
+  return request<PublicGameSet>(`/public/game-sets/${encodeURIComponent(id)}`);
+}
+
+/** URL del audio de una pregunta o palabra para un <audio>. Siempre edge-tts (gratis): los juegos
+ *  no gastan créditos de ElevenLabs. `slow` = el botón de la tortuga. */
+export function gameAudioUrl(text: string, slow = false): string {
+  return `${API_BASE_URL}/tts?text=${encodeURIComponent(text)}&voice=en-US-AndrewNeural&rate=${slow ? '-40%25' : '-10%25'}&engine=edge`;
 }

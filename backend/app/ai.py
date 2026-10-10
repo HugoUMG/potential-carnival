@@ -1282,6 +1282,110 @@ def generate_vocabulary_csv(prompt: str) -> tuple[str, str]:
     return raw.strip(), provider
 
 
+# ── Juegos de práctica (ADR-38) ────────────────────────────────────────────────
+
+_GAME_SYSTEM = """You write English questions for Spanish-speaking learners. They are played in
+speaking games: flip cards, a spinning wheel, a chat, dictation, word-order puzzles, bingo.
+
+Output ONLY valid JSON, no markdown:
+{"title": "short English title, max 5 words",
+ "questions": [{"text": "...", "translation": "...", "hint": "...", "tag": "...", "emoji": "..."}]}
+
+Rules:
+- "text": ONE natural English question the student answers out loud, ending with "?". Max 14 words.
+  Match the level: A1/A2 short and concrete; B1 experiences, plans and opinions; B2/C1 abstract,
+  hypothetical and debatable.
+- If a grammar focus is given, EVERY question must use it correctly (focus "Wh- + would" →
+  "Where would you like to travel?"). Without a focus, mix tenses naturally.
+- Vary the question words (what, where, when, why, how, which, who, how often…). Avoid yes/no
+  questions unless the focus asks for them. No two questions that differ by one word.
+- "translation": natural Latin American Spanish, with ¿ and ?.
+- "hint": the start of a good answer in English, ending with "…" ("I would like to travel to…").
+- "tag": 1-2 word English sub-topic ("Travel", "Free time"). Use 3-6 different tags in the set.
+- "emoji": exactly ONE emoji that illustrates the question.
+- Return EXACTLY the requested number of questions."""
+
+
+def generate_game_questions(topic: str, level: str, focus: str, count: int) -> tuple[dict, str]:
+    """Tema → {"title", "questions"} para un set de juegos. NO guarda nada. Devuelve (datos, proveedor)."""
+    user = f"Topic: {topic}\nLevel: {level or 'B1'}\nNumber of questions: {count}"
+    if focus.strip():
+        user += f"\nGrammar focus: {focus.strip()}"
+    raw, provider = _ai_call(_GAME_SYSTEM, user)
+    data = _json_from_ai(raw)
+    questions = []
+    seen: set[str] = set()
+    for q in data.get("questions") or []:
+        text = str(q.get("text", "")).strip() if isinstance(q, dict) else ""
+        if not text or text.lower() in seen:
+            continue
+        seen.add(text.lower())
+        questions.append({
+            "text": text[:300],
+            "translation": str(q.get("translation", "")).strip()[:300],
+            "hint": str(q.get("hint", "")).strip()[:200],
+            "tag": str(q.get("tag", "")).strip()[:40],
+            "emoji": str(q.get("emoji", "")).strip()[:16],
+        })
+    if not questions:
+        raise ValueError("La IA no devolvió preguntas")
+    return {"title": str(data.get("title", "")).strip()[:120], "questions": questions[:count]}, provider
+
+
+_WORDS_SYSTEM = """You are an English→Spanish learner's dictionary, like the word hints of Duolingo.
+For EACH English word you receive, give all its common meanings in Spanish, grouped by part of speech.
+
+Output ONLY valid JSON, no markdown:
+{"words": [{"word": "would", "lemma": "will",
+            "senses": [{"pos": "verbo auxiliar", "meanings": ["-ría (condicional)", "solía", "querría (cortesía)"]}]}]}
+
+Rules:
+- "word": exactly as received (lowercase). Return every word of the list, once.
+- "lemma": the base form when the word is inflected (went → go, children → child, better → good);
+  otherwise "".
+- "pos" in Spanish, one of: sustantivo, verbo, verbo auxiliar, adjetivo, adverbio, pronombre,
+  preposición, conjunción, determinante, interjección, contracción, nombre propio.
+- 1 to 4 senses per word, most common first; 1 to 4 short Spanish meanings per sense.
+- Contractions (what's, you've, don't): pos "contracción" and the expansion as meaning
+  ("what is / what has")."""
+
+# ponytail: 80 palabras por llamada — cabe de sobra en la salida del modelo; un set típico (20
+# preguntas) tiene ~120 palabras distintas, así que son 2 llamadas una sola vez.
+_WORDS_PER_CALL = 80
+
+
+def define_words(words: list[str]) -> list[dict]:
+    """Significados por palabra hechos por IA. Devuelve [{"word", "lemma", "senses"}] solo con las
+    palabras pedidas que la IA definió bien; lo que falte se volverá a pedir en otro guardado."""
+    wanted = set(words)
+    result: list[dict] = []
+    for start in range(0, len(words), _WORDS_PER_CALL):
+        chunk = words[start:start + _WORDS_PER_CALL]
+        raw, _ = _ai_call(_WORDS_SYSTEM, "Words:\n" + "\n".join(chunk), prefer_fast=True)
+        for item in _json_from_ai(raw).get("words") or []:
+            if not isinstance(item, dict):
+                continue
+            word = str(item.get("word", "")).strip().lower()
+            senses = [
+                {"pos": str(s.get("pos", "")).strip()[:40], "meanings": [str(m).strip()[:80] for m in s.get("meanings") or [] if str(m).strip()][:4]}
+                for s in item.get("senses") or [] if isinstance(s, dict)
+            ]
+            senses = [s for s in senses if s["meanings"]][:4]
+            if word in wanted and senses:
+                wanted.discard(word)  # una sola entrada por palabra aunque la IA la repita
+                result.append({"word": word, "lemma": str(item.get("lemma", "")).strip().lower()[:40], "senses": senses})
+    return result
+
+
+def _json_from_ai(raw: str) -> dict:
+    """El JSON que devuelve la IA, sin los fences de markdown que a veces agrega pese al prompt."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1].removeprefix("json")
+    data = json.loads(raw)
+    return data if isinstance(data, dict) else {}
+
+
 def transcribe_audio(audio: bytes, filename: str, content_type: str) -> str:
     """Transcribe audio a texto con Groq Whisper. Lanza si no hay clave o falla."""
     key = os.getenv("GROQ_API_KEY", "")

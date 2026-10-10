@@ -408,3 +408,68 @@ class TeacherImage(BaseModel):
 class TeacherImageCreate(BaseModel):
     public_id: str
     url: str
+
+
+# ─── Juegos de práctica (ADR-38) ────────────────────────────────────────────
+
+class GameQuestion(BaseModel):
+    """Una pregunta de un set. TODOS los juegos salen de estos campos: el texto en inglés y su
+    traducción bastan para ordenar, completar, dictar, emparejar, etc."""
+    text: str = Field(min_length=1, max_length=300)
+    translation: str = Field(default="", max_length=300)
+    hint: str = Field(default="", max_length=200)  # inicio de una buena respuesta ("I would like to…")
+    tag: str = Field(default="", max_length=40)    # subtema corto ("Travel")
+    emoji: str = Field(default="", max_length=16)
+
+
+class GameSetPayload(BaseModel):
+    """Cuerpo de crear y de editar: el profesor siempre manda el set entero."""
+    title: str = Field(min_length=1, max_length=120)
+    topic: str = Field(default="", max_length=300)
+    level: str = Field(default="", max_length=10)
+    featured: bool = False
+    questions: list[GameQuestion] = Field(default_factory=list)
+
+
+class GameSet(GameSetPayload):
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    created_by: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class GameSetSummary(BaseModel):
+    """Tarjeta del catálogo público: sin preguntas ni dueño."""
+    id: str
+    title: str
+    topic: str
+    level: str
+    question_count: int
+
+
+class WordSense(BaseModel):
+    pos: str  # categoría gramatical en español ("verbo auxiliar")
+    meanings: list[str]
+
+
+class WordMeaning(BaseModel):
+    word: str
+    lemma: str = ""  # forma base si la palabra es una flexión (went → go)
+    senses: list[WordSense] = Field(default_factory=list)
+
+
+class PublicGameSet(BaseModel):
+    """Lo que recibe el alumno en /j/:id. `glossary` trae los significados ya hechos de las
+    palabras del set; una palabra que la IA aún no definió simplemente no está."""
+    id: str
+    title: str
+    topic: str
+    level: str
+    questions: list[GameQuestion]
+    glossary: dict[str, WordMeaning] = Field(default_factory=dict)
+
+
+class GameAiRequest(BaseModel):
+    topic: str = Field(min_length=2, max_length=300)
+    level: str = Field(default="B1", max_length=10)
+    focus: str = Field(default="", max_length=200)  # enfoque gramatical opcional ("Wh- + would")
+    count: int = Field(default=20, ge=4, le=40)

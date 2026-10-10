@@ -7,12 +7,12 @@ import secrets
 import time
 
 import httpx
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import ai_grade_activities, define_words, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import get_connection, initialize_database
 from . import live
 from .models import (
@@ -27,7 +27,14 @@ from .models import (
     ClassroomStudentAssignment,
     ClassroomVisibilityUpdate,
     ClassroomWorksheetAssignment,
+    GameAiRequest,
+    GameQuestion,
+    GameSet,
+    GameSetPayload,
+    GameSetSummary,
     GoogleAuthRequest,
+    PublicGameSet,
+    WordMeaning,
     LiveAnswer,
     LiveEmoji,
     LiveJoin,
@@ -630,15 +637,15 @@ async def _eleven_synth(text: str, voice: str, rate: str) -> bytes:
         return response.content
 
 
-async def _synth_mp3(parts: list[tuple[str, str]], rate: str) -> bytes:
+async def _synth_mp3(parts: list[tuple[str, str]], rate: str, edge_only: bool = False) -> bytes:
     """Sintetiza cada (texto, voz) y concatena los mp3 en una sola pista. ElevenLabs si hay clave;
     si falla CUALQUIER turno, la pista entera se rehace con edge-tts: mezclar mp3 de los dos
     motores (44,1 kHz y 24 kHz) en una pista se traba en el navegador. Los turnos que ElevenLabs
-    sí hizo quedan en caché, así que no se pagan otra vez."""
+    sí hizo quedan en caché, así que no se pagan otra vez. `edge_only` salta ElevenLabs."""
     for _, voice in parts:
         if not _ELEVEN_ID_RE.match(voice):
             _check_voice_exists(voice)
-    if os.getenv("ELEVENLABS_API_KEY"):
+    if os.getenv("ELEVENLABS_API_KEY") and not edge_only:
         try:
             return b"".join([await _eleven_synth(text, voice, rate) for text, voice in parts])
         except Exception as exc:  # cuota, red, voz borrada: se degrada, no se calla
@@ -653,18 +660,24 @@ async def tts(
     text: str = Query(min_length=1, max_length=2000),
     voice: str = "en-US-AndrewNeural",
     rate: str = DEFAULT_TTS_RATE,
+    engine: str = "auto",
 ) -> Response:
     # Público a la fuerza: el front lo usa como `src` de un <audio>, que no manda cabeceras.
     # El coste se acota por los dos lados — `max_length` limita lo que cuesta UNA petición
     # (el mp3 entero se sintetiza en RAM antes de responder) y el rate limit, cuántas.
     _rate_limit(request, limit=300)
+    # `engine=edge`: los juegos (ADR-38) suenan siempre con edge-tts, que es gratis. Una palabra que
+    # 30 alumnos tocan en clase no gasta créditos de ElevenLabs, que se quedan para las hojas.
+    # Con `Cache-Control` el navegador no la vuelve a pedir al tocarla otra vez.
+    edge_only = engine == "edge"
     try:
-        mp3 = await _synth_mp3([(text, _tts_voice(voice))], rate)
+        mp3 = await _synth_mp3([(text, _tts_voice(voice))], rate, edge_only=edge_only)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
-    return Response(content=mp3, media_type="audio/mpeg")
+    headers = {"Cache-Control": "public, max-age=604800"} if edge_only else None
+    return Response(content=mp3, media_type="audio/mpeg", headers=headers)
 
 
 @app.get("/tts/conversation")
@@ -1759,6 +1772,127 @@ def list_vocabulary_classrooms(list_id: str, _: PublicUser = Depends(require_tea
 def list_student_vocabulary(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[VocabularyList]:
     require_student_owner_or_staff(student_id, current_user)
     return repository.list_student_vocabulary(student_id)
+
+
+# ── Juegos de práctica (ADR-38) ───────────────────────────────────────────────
+
+# El front parte el texto con la MISMA regex (`src/games/words.ts`): si cambia una, cambia la otra,
+# o el alumno toca palabras que nunca tendrán significado.
+_WORD_RE = re.compile(r"[a-z]+(?:'[a-z]+)*")
+_GAME_QUESTIONS_RANGE = (4, 60)
+_glossary_jobs: set[str] = set()     # sets cuyo diccionario se está pidiendo ahora mismo
+_words_attempted: set[str] = set()   # palabras que la IA ya intentó definir en este proceso
+
+
+def _set_words(questions: list[GameQuestion]) -> list[str]:
+    """Palabras distintas de un set, en minúsculas y en orden de aparición."""
+    words: dict[str, None] = {}
+    for q in questions:
+        words.update(dict.fromkeys(_WORD_RE.findall(q.text.lower().replace("’", "'"))))
+    return list(words)
+
+
+def _fill_glossary(set_id: str, missing: list[str]) -> None:
+    """Pide a la IA las palabras que aún no están en `word_meanings`. Corre en segundo plano: el
+    profesor no espera al guardar y el alumno ve los significados en cuanto existen."""
+    try:
+        repository.put_word_meanings([WordMeaning(**m) for m in define_words(missing)])
+    except Exception as exc:  # sin IA el juego funciona igual, solo sin significados
+        print(f"[juegos] no se pudo completar el diccionario del set {set_id}: {exc!r}")
+    finally:
+        _words_attempted.update(missing)
+        _glossary_jobs.discard(set_id)
+
+
+def _queue_glossary(background: BackgroundTasks, set_id: str, missing: list[str]) -> None:
+    if missing and set_id not in _glossary_jobs:
+        _glossary_jobs.add(set_id)
+        background.add_task(_fill_glossary, set_id, missing)
+
+
+def _missing_words(game_set: GameSet) -> tuple[list[str], dict[str, WordMeaning]]:
+    words = _set_words(game_set.questions)
+    known = repository.get_word_meanings(words)
+    return [w for w in words if w not in known], known
+
+
+def _clean_game_set(payload: GameSetPayload) -> GameSetPayload:
+    payload.questions = [q for q in payload.questions if q.text.strip()]
+    low, high = _GAME_QUESTIONS_RANGE
+    if not low <= len(payload.questions) <= high:
+        raise HTTPException(status_code=422, detail=f"Un juego lleva entre {low} y {high} preguntas (tiene {len(payload.questions)}).")
+    return payload
+
+
+def _own_game_set(set_id: str, user: PublicUser) -> GameSet:
+    game_set = repository.get_game_set(set_id)
+    if not game_set:
+        raise HTTPException(status_code=404, detail="Juego no encontrado")
+    if user.role == UserRole.teacher and game_set.created_by != user.id:
+        raise HTTPException(status_code=403, detail="Este juego es de otro profesor")
+    return game_set
+
+
+@app.get("/game-sets", response_model=list[GameSet])
+def list_game_sets(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[GameSet]:
+    return repository.list_game_sets(created_by=None if current_user.role == UserRole.admin else current_user.id)
+
+
+@app.post("/game-sets/ai-generate")
+def ai_generate_game_set(payload: GameAiRequest, _: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
+    """Tema → preguntas. NO guarda: el profesor las revisa en el editor y guarda."""
+    try:
+        data, provider = generate_game_questions(payload.topic.strip(), payload.level, payload.focus, payload.count)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"La IA no pudo generar las preguntas: {exc}") from exc
+    return {**data, "provider": provider}
+
+
+@app.post("/game-sets", response_model=GameSet)
+def create_game_set(payload: GameSetPayload, background: BackgroundTasks, current_user: PublicUser = Depends(require_teacher_or_admin)) -> GameSet:
+    game_set = repository.create_game_set(GameSet(**_clean_game_set(payload).model_dump(), created_by=current_user.id))
+    _queue_glossary(background, game_set.id, _missing_words(game_set)[0])
+    return game_set
+
+
+@app.put("/game-sets/{set_id}", response_model=GameSet)
+def update_game_set(set_id: str, payload: GameSetPayload, background: BackgroundTasks, current_user: PublicUser = Depends(require_teacher_or_admin)) -> GameSet:
+    _own_game_set(set_id, current_user)
+    game_set = repository.update_game_set(set_id, _clean_game_set(payload))
+    _queue_glossary(background, set_id, _missing_words(game_set)[0])
+    return game_set
+
+
+@app.delete("/game-sets/{set_id}", status_code=204)
+def delete_game_set(set_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    _own_game_set(set_id, current_user)
+    repository.delete_game_set(set_id)
+
+
+@app.get("/public/game-sets", response_model=list[GameSetSummary])
+def public_game_sets() -> list[GameSetSummary]:
+    """Catálogo de /juegos: solo los sets que el profesor marcó como destacados."""
+    return [
+        GameSetSummary(id=s.id, title=s.title, topic=s.topic, level=s.level, question_count=len(s.questions))
+        for s in repository.list_game_sets(featured_only=True)
+    ]
+
+
+@app.get("/public/game-sets/{set_id}", response_model=PublicGameSet)
+def public_game_set(set_id: str, background: BackgroundTasks) -> PublicGameSet:
+    """Un set por id, sin login: el id es un UUID no adivinable (URL-capability, como
+    /public/vocabulary). Trae el diccionario de sus palabras. Si falta alguna (la IA falló al
+    guardar), se vuelve a pedir en segundo plano — una vez por proceso, para que una palabra que
+    la IA no sabe definir no cueste una llamada en cada visita."""
+    game_set = repository.get_game_set(set_id)
+    if not game_set:
+        raise HTTPException(status_code=404, detail="Juego no disponible")
+    missing, glossary = _missing_words(game_set)
+    _queue_glossary(background, set_id, [w for w in missing if w not in _words_attempted])
+    return PublicGameSet(
+        id=game_set.id, title=game_set.title, topic=game_set.topic, level=game_set.level,
+        questions=game_set.questions, glossary=glossary,
+    )
 
 
 def _norm_answer(v: Any) -> str:

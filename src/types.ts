@@ -300,3 +300,51 @@ export interface ActivityDefinition<T extends WorksheetActivity = WorksheetActiv
   create: () => T;
   Renderer: React.ComponentType<ActivityRendererProps<T>>;
 }
+
+// ─── Juegos de práctica (ADR-38) ───────────────────────────────────────────
+
+/** Una pregunta de un set. Todos los juegos salen de estos campos. */
+export interface GameQuestion {
+  text: string;
+  translation: string;
+  hint: string;
+  tag: string;
+  emoji: string;
+}
+
+export interface GameSetDraft {
+  title: string;
+  topic: string;
+  level: string;
+  featured: boolean;
+  questions: GameQuestion[];
+}
+
+export interface GameSet extends GameSetDraft {
+  id: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface GameSetSummary {
+  id: string;
+  title: string;
+  topic: string;
+  level: string;
+  question_count: number;
+}
+
+export interface WordMeaning {
+  word: string;
+  lemma: string;
+  senses: { pos: string; meanings: string[] }[];
+}
+
+export interface PublicGameSet {
+  id: string;
+  title: string;
+  topic: string;
+  level: string;
+  questions: GameQuestion[];
+  glossary: Record<string, WordMeaning>;
+}

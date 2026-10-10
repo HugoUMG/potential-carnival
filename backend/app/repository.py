@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .database import get_connection, get_database_backend
-from .models import PublicUser, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, TeacherImage, UserRole, UserSession, Worksheet, WorksheetResponse
+from .models import GameQuestion, GameSet, GameSetPayload, PublicUser, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, TeacherImage, UserRole, UserSession, WordMeaning, Worksheet, WorksheetResponse
 from .security import hash_password, needs_password_rehash, verify_password
 
 
@@ -1448,6 +1448,88 @@ class WorksheetRepository:
             insert = "INSERT OR IGNORE INTO tts_cache (cache_key, audio) VALUES (?, ?)"
         with get_connection() as connection:
             connection.execute(insert, (key, audio))
+
+    # ─── Juegos de práctica (ADR-38) ────────────────────────────────────────
+
+    def create_game_set(self, game_set: GameSet) -> GameSet:
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO game_sets (id, title, topic, level, created_by, created_at, questions, featured) VALUES ({self._placeholders(8)})",
+                (
+                    game_set.id, game_set.title, game_set.topic, game_set.level, game_set.created_by,
+                    game_set.created_at.isoformat(), self._json_param([q.model_dump() for q in game_set.questions]),
+                    self._bool_param(game_set.featured),
+                ),
+            )
+        return game_set
+
+    def update_game_set(self, set_id: str, payload: GameSetPayload) -> GameSet | None:
+        p = self._placeholder
+        with get_connection() as connection:
+            connection.execute(
+                f"UPDATE game_sets SET title = {p}, topic = {p}, level = {p}, questions = {p}, featured = {p} WHERE id = {p}",
+                (
+                    payload.title, payload.topic, payload.level,
+                    self._json_param([q.model_dump() for q in payload.questions]), self._bool_param(payload.featured), set_id,
+                ),
+            )
+        return self.get_game_set(set_id)
+
+    def get_game_set(self, set_id: str) -> GameSet | None:
+        with get_connection() as connection:
+            row = connection.execute(f"SELECT * FROM game_sets WHERE id = {self._placeholder}", (set_id,)).fetchone()
+        return self._game_set_from_row(row) if row else None
+
+    def list_game_sets(self, created_by: str | None = None, featured_only: bool = False) -> list[GameSet]:
+        p = self._placeholder
+        where, params = [], []
+        if created_by:
+            where.append(f"created_by = {p}")
+            params.append(created_by)
+        if featured_only:
+            where.append(f"featured = {p}")
+            params.append(self._bool_param(True))
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        with get_connection() as connection:
+            rows = connection.execute(f"SELECT * FROM game_sets {clause} ORDER BY created_at DESC", tuple(params)).fetchall()
+        return [self._game_set_from_row(r) for r in rows]
+
+    def delete_game_set(self, set_id: str) -> bool:
+        with get_connection() as connection:
+            cursor = connection.execute(f"DELETE FROM game_sets WHERE id = {self._placeholder}", (set_id,))
+            return bool(cursor.rowcount)
+
+    def _game_set_from_row(self, row: object) -> GameSet:
+        data = dict(row)
+        return GameSet(
+            id=data["id"],
+            title=data["title"],
+            topic=data.get("topic") or "",
+            level=data.get("level") or "",
+            created_by=data["created_by"],
+            created_at=_parse_datetime(data["created_at"]),
+            featured=bool(data.get("featured")),
+            questions=[GameQuestion(**q) for q in _decode_json(data.get("questions"), []) or []],
+        )
+
+    def get_word_meanings(self, words: list[str]) -> dict[str, WordMeaning]:
+        if not words:
+            return {}
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT word, data FROM word_meanings WHERE word IN ({self._placeholders(len(words))})", tuple(words)
+            ).fetchall()
+        return {dict(r)["word"]: WordMeaning(**_decode_json(dict(r)["data"], {})) for r in rows}
+
+    def put_word_meanings(self, meanings: list[WordMeaning]) -> None:
+        # Dos sets que se guardan a la vez pueden definir la misma palabra: el segundo no pisa.
+        if get_database_backend() == "postgresql":
+            insert = "INSERT INTO word_meanings (word, data) VALUES (%s, %s) ON CONFLICT (word) DO NOTHING"
+        else:
+            insert = "INSERT OR IGNORE INTO word_meanings (word, data) VALUES (?, ?)"
+        with get_connection() as connection:
+            for meaning in meanings:  # regla 8: execute fila a fila, no executemany
+                connection.execute(insert, (meaning.word, self._json_param(meaning.model_dump())))
 
 
 repository = WorksheetRepository()

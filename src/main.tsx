@@ -17,6 +17,7 @@ import { AboutPage } from './pages/site/AboutPage';
 import { ActivitiesPage } from './pages/site/ActivitiesPage';
 import { LearnPage } from './pages/site/LearnPage';
 import { GamesPage } from './pages/site/GamesPage';
+import { GamePage } from './pages/GamePage';
 import { DevShots } from './pages/DevShots';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 import { initTheme } from './utils/theme';
@@ -38,7 +39,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="/acerca" element={<AboutPage />} />
           <Route path="/actividades" element={<ActivitiesPage />} />
           <Route path="/aprende" element={<LearnPage />} />
-          {/* Catálogo; cada juego es un HTML estático en public/jugar/ (ADR-37). */}
+          {/* Catálogo de los sets destacados (ADR-38). */}
           <Route path="/juegos" element={<GamesPage />} />
         </Route>
 
@@ -91,6 +92,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/en-vivo/:code" element={<LivePage />} />
         <Route path="/en-vivo/:code/pantalla" element={<LiveScreenPage />} />
         <Route path="/v/:vocabId" element={<VocabDirectPage />} />
+        {/* Juegos de práctica: un set por enlace directo, sin cuenta (ADR-38). */}
+        <Route path="/j/:setId" element={<GamePage />} />
         {/* Banco de capturas del editor para /aprende. Solo en dev: no entra al build. */}
         {import.meta.env.DEV && <Route path="/__shots" element={<DevShots />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
