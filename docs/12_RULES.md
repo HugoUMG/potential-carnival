@@ -16,6 +16,9 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
    `ALTER TABLE … ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`.
 3. **`db/schema.sql` (SQLite) y `db/schema.postgres.sql` se mantienen en paralelo.** Una tabla que
    solo esté en uno revienta en el otro entorno.
+48. **Ningún comentario de `schema.postgres.sql` lleva `;`.** El arranque en Postgres parte el archivo
+   por `;` sin entender comentarios: el resto del comentario se ejecuta como SQL y Render no arranca.
+   En SQLite no pasa (`executescript`), así que solo lo ve `test_schema_postgres.py`.
 4. **Ids siempre UUID v4**, columna `TEXT`. Nunca autoincremento.
 5. Fechas en **UTC**. Booleanos: `BOOLEAN` en Postgres, `INTEGER` 0/1 en SQLite.
 6. `due_date` es nullable — no asumir que existe.
@@ -157,4 +160,5 @@ Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas
 | Poner el reproductor de audio en `reading` | Convertía comprensión lectora en auditiva |
 | Pasar `pitch=None` explícito a `edge_tts.Communicate` | `TypeError: pitch must be str` — cayó TODO el audio del sistema (edge-tts 7.2.8) |
 | Escribir `info { - Campo }` en vez de `info { fields: - Campo }` | `_parse_info_fields` devuelve `[]` **sin error**: la hoja se guarda sin campos de identificación y no se nota |
+| Un `;` en un comentario de `schema.postgres.sql` (`… /juegos; sin eso …`) | Deploy de Render caído con `syntax error at or near "sin"`; el servicio siguió con la versión anterior |
 | Declarar `/live/{code}` antes que `/live/sessions` | FastAPI resuelve por orden: `"sessions"` entraría como código de sesión |

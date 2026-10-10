@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS tts_cache (
 );
 
 -- Juegos de práctica (ADR-38): un set de preguntas que se juega en /j/:id con todos los juegos.
--- `featured` = aparece en el catálogo público /juegos; sin eso, solo por enlace directo.
+-- `featured` = aparece en el catálogo público /juegos. Sin eso, solo por enlace directo.
 CREATE TABLE IF NOT EXISTS game_sets (
   id         TEXT PRIMARY KEY,
   title      TEXT NOT NULL,
