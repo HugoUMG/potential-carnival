@@ -978,8 +978,8 @@ nada**: `start` devuelve un `seed`, y cada `turn`/`report` reconstruye la partid
 `random.Random(f"{escenario}|{rol}|{nivel}|{seed}")` (menú, boleto, CV, el giro secreto) mientras
 el cliente reenvía el historial. Cada línea del personaje es **una** llamada con un prompt corto al
 modelo rápido de Groq (`GROQ_CHAT_MODEL`), sin el lock global (`serialize=False`), y la voz viaja **en la misma
-respuesta** (mp3 en base64): mientras la IA piensa, el servidor ya abre la conexión con edge-tts y
-sintetiza en cuanto tiene el texto. Las misiones salen 2 o 3 al azar de un repertorio de ~6 por rol, y
+respuesta**, en streaming detrás de una línea JSON: mientras la IA piensa, el servidor ya abre la
+conexión con edge-tts, y el navegador suena desde los primeros trozos (MediaSource). Las misiones salen 2 o 3 al azar de un repertorio de ~6 por rol, y
 el alumno puede quitar las misiones o la información (conversación libre). La nota es una media ponderada: la IA pone gramática,
 vocabulario y comunicación; la pronunciación sale de la **claridad de Whisper** (`speech_clarity`)
 pasada por la curva del nivel, así que la misma claridad vale menos en avanzado.
@@ -1004,6 +1004,9 @@ al navegador porque se regenera del seed.
   espera el archivo entero igual y arranca 2-3 s después de tenerlo, más otra ida y vuelta y la
   conexión a Microsoft. El texto aparecía y la voz llegaba 8-10 s después. Con la voz dentro de
   `turn` y reproducida desde memoria (`blob:`), texto y voz salen a la vez (~70 ms).
+- *La voz completa en base64 dentro del JSON.* Fue el paso intermedio: en Render edge-tts tarda hasta
+  5 s en mandar una frase entera y el turno quedaba en 6-7 s. En streaming + MediaSource suena en
+  ~1-1,5 s. Sin MediaSource (iPhone antes de iOS 17.1) se junta entero y se suena después.
 - *Abrir la conexión con edge-tts después de tener el texto.* Medido: la conexión es 0,7-2 s (picos
   de 8) y no depende del texto; sintetizar son ~0,5 s. Abrirla en paralelo con la IA esconde ese
   tiempo. Usa piezas internas de edge-tts; si una versión nueva las cambia, cae a `Communicate`.

@@ -203,16 +203,18 @@ DELETE /game-sets/{id}                        — Borrar (solo el dueño o el ad
 ```
 GET    /public/roleplay/scenarios             — Las 8 situaciones con sus 2 roles → RoleplayScenario[]
 POST   /public/roleplay/start                 — {scenario, role, level, with_info, with_missions} → RoleplayStart (seed, tarjetas, misiones, voz…)
-POST   /public/roleplay/turn                  — {scenario, role, level, seed, history, rate} → {reply, reply_es, done, audio}
+POST   /public/roleplay/turn                  — {scenario, role, level, seed, history, rate} → línea JSON {reply, reply_es, done} + mp3 por trozos
 POST   /public/roleplay/report                — Igual que turn → RoleplayReport (nota 1-10, puntajes, revisión por respuesta)
 ```
 
 - Sin estado: el servidor regenera la partida con el `seed` (tarjetas y **secreto**, que nunca sale).
   `history` = `[{who: "ai"|"user", text ≤ 600, clarity 0-100|null}]`, máx. 24 mensajes.
-- `turn` trae la **voz en la misma respuesta**: `audio` = mp3 en base64 (~60 KB) sintetizado con
-  edge-tts en cuanto la IA dio el texto, con la voz de la partida y `rate` (`^[+-]NN%$`, la del nivel
-  o más lenta). Así el texto y la voz llegan juntos; pedirla aparte a `/tts` dejaba 8-10 s entre uno y
-  otra. Si edge-tts falla o pasa de 12 s, `audio` llega vacío y el cliente la pide a `/tts`.
+- `turn` trae la **voz en la misma respuesta**, en streaming (`application/octet-stream`): primero una
+  línea JSON (`RoleplayReply` + `\n`) y después el mp3 según lo manda edge-tts, con la voz de la partida
+  y `rate` (`^[+-]NN%$`, la del nivel o más lenta). El navegador suena desde los primeros trozos. Medido
+  en Render: edge-tts tarda de 0,5 a 5 s en mandar una frase entera; esperarla completa (antes iba en
+  base64 dentro del JSON) dejaba 6-7 s por turno. Si edge-tts falla, el cuerpo trae solo el JSON y el
+  cliente la pide a `/tts`; si se queda callado 8 s, se corta.
 - `with_info: false` = **conversación libre**: `start` no da tarjetas y el personaje tampoco las ve
   (improvisa y sigue los detalles del alumno). `with_missions: false` = sin misiones. Las dos viajan
   en cada `turn`/`report` (el cliente reenvía lo que le devolvió `start`), igual que el `seed`.

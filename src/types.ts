@@ -399,7 +399,6 @@ export interface RoleplayReply {
   reply: string;
   reply_es: string;
   done: boolean;
-  audio: string; // mp3 en base64 de la línea; vacío si el servidor no pudo sintetizarla
 }
 
 export interface RoleplayTurnReview {

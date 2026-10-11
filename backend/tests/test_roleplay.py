@@ -150,8 +150,8 @@ def test_staff_notes_only_reach_the_learner_and_the_report():
 
 
 def test_el_turno_trae_la_voz_y_sin_ella_la_conversacion_sigue(monkeypatch):
-    """La voz llega en la misma respuesta que el texto; si edge-tts falla, sale el texto sin audio."""
-    import base64
+    """Una línea JSON y detrás el mp3, en la misma respuesta; si edge-tts falla, sale solo el texto."""
+    import json
     from fastapi.testclient import TestClient
     from backend.app import main
 
@@ -173,21 +173,22 @@ def test_el_turno_trae_la_voz_y_sin_ella_la_conversacion_sigue(monkeypatch):
     monkeypatch.setattr(main, "_edge_stream", stream)
     client = TestClient(main.app)  # sin `with`: no corre el arranque, no toca ninguna base
     body = {"scenario": "restaurante", "role": "customer", "level": "beginner", "seed": 3, "history": [], "rate": "-40%"}
-    r = client.post("/public/roleplay/turn", json=body).json()
-    assert r["reply"] == "Hi! What would you like?" and base64.b64decode(r["audio"]) == b"ID3-voz"
+    head, _, audio = client.post("/public/roleplay/turn", json=body).content.partition(b"\n")
+    r = json.loads(head)
+    assert r["reply"] == "Hi! What would you like?" and audio == b"ID3-voz"
     _, built = rp.session("restaurante", "customer", "beginner", 3)
     assert seen == {"text": "Hi! What would you like?", "voice": built.ai_voice, "rate": "-40%"}
     assert "voice" not in r  # solo viaja lo que declara RoleplayReply
 
     monkeypatch.setattr(main, "_edge_stream", broken)
     r = client.post("/public/roleplay/turn", json=body)
-    assert r.status_code == 200 and r.json()["audio"] == "" and r.json()["reply"]
+    head, _, audio = r.content.partition(b"\n")
+    assert r.status_code == 200 and json.loads(head)["reply"] and audio == b""
     assert client.post("/public/roleplay/turn", json={**body, "rate": "fast'><x"}).status_code == 422
 
 
 def test_la_voz_usa_la_conexion_abierta_mientras_la_ia_piensa(monkeypatch):
-    """`_edge_connect` se abre antes de que la IA conteste y `_edge_speak` arma el mp3 de los mensajes binarios."""
-    import base64
+    """`_edge_connect` se abre antes de que la IA conteste y `_edge_speak` reenvía el mp3 de los mensajes binarios."""
     from types import SimpleNamespace
 
     import aiohttp
@@ -208,15 +209,17 @@ def test_la_voz_usa_la_conexion_abierta_mientras_la_ia_piensa(monkeypatch):
         async def close(self):
             self.closed = True
 
-        def __aiter__(self):
-            async def messages():
-                yield SimpleNamespace(type=aiohttp.WSMsgType.TEXT, data="X-RequestId:1\r\nPath:turn.start\r\n\r\n{}")
-                yield binary(b"ID3")
-                yield SimpleNamespace(type=aiohttp.WSMsgType.TEXT, data="Path:audio.metadata\r\n\r\n{}")
-                yield binary(b"-voz")
-                yield SimpleNamespace(type=aiohttp.WSMsgType.TEXT, data="Path:turn.end\r\n\r\n{}")
-                yield binary(b"-nunca")
-            return messages()
+        async def receive(self, timeout=None):
+            return self.queue.pop(0)
+
+    FakeWS.queue = [
+        SimpleNamespace(type=aiohttp.WSMsgType.TEXT, data="X-RequestId:1\r\nPath:turn.start\r\n\r\n{}"),
+        binary(b"ID3"),
+        SimpleNamespace(type=aiohttp.WSMsgType.TEXT, data="Path:audio.metadata\r\n\r\n{}"),
+        binary(b"-voz"),
+        SimpleNamespace(type=aiohttp.WSMsgType.TEXT, data="Path:turn.end\r\n\r\n{}"),
+        binary(b"-nunca"),
+    ]
 
     class FakeSession:
         closed = False
@@ -237,8 +240,8 @@ def test_la_voz_usa_la_conexion_abierta_mientras_la_ia_piensa(monkeypatch):
     monkeypatch.setattr(main, "_edge_connect", connect)
     monkeypatch.setattr(main, "_edge_stream", must_not_be_used)
     body = {"scenario": "restaurante", "role": "customer", "level": "beginner", "seed": 3, "history": [], "rate": "-25%"}
-    r = TestClient(main.app).post("/public/roleplay/turn", json=body).json()
-    assert base64.b64decode(r["audio"]) == b"ID3-voz"
+    _, _, audio = TestClient(main.app).post("/public/roleplay/turn", json=body).content.partition(b"\n")
+    assert audio == b"ID3-voz"
     assert "Fish &amp; chips?" in ws.sent[0] and "rate='-25%'" in ws.sent[0]  # SSML escapado, con la velocidad
     assert ws.closed and FakeSession.closed
 

@@ -48,15 +48,78 @@ export function play(src: string): Promise<void> {
     finish = resolve;
     voice.onended = () => resolve();
     voice.onerror = () => resolve();
+    voice.onplaying = null;
     voice.src = src;
     voice.play().catch(() => resolve());
   });
 }
 
+function mediaSource(): typeof MediaSource | undefined {
+  // ManagedMediaSource = la de Safari en iPhone (iOS 17.1+); antes no hay ninguna.
+  const w = window as unknown as { ManagedMediaSource?: typeof MediaSource; MediaSource?: typeof MediaSource };
+  const MS = w.ManagedMediaSource ?? w.MediaSource;
+  return MS?.isTypeSupported('audio/mpeg') ? MS : undefined;
+}
+
 // ponytail: los blob: no se revocan (~45 KB por frase); se liberan al recargar la página.
-/** El mp3 en base64 que trae `/public/roleplay/turn` → URL que el <audio> suena al instante. */
-export const mp3Url = (base64: string): string =>
-  URL.createObjectURL(new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], { type: 'audio/mpeg' }));
+/** Suena una voz que llega por trozos (`roleplayTurn`) desde los primeros, sin esperar el mp3 entero:
+ *  edge-tts tarda de 0,5 a 5 s en mandar una frase. `onStart` avisa cuando ya suena (o cuando no va a
+ *  sonar). Resuelve al terminar con el mp3 completo (blob:) para repetirlo; `null` si otra frase o
+ *  `stopVoice()` la cortaron; `undefined` si no llegó audio (el llamador la pide a /tts). Sin
+ *  MediaSource (iPhone antes de iOS 17.1) junta el mp3 entero y después lo suena. */
+export async function playStream(chunks: AsyncIterable<Uint8Array>, onStart: () => void): Promise<string | null | undefined> {
+  const parts: Uint8Array[] = [];
+  const whole = () => (parts.length ? URL.createObjectURL(new Blob(parts as BlobPart[], { type: 'audio/mpeg' })) : undefined);
+  const MS = voice ? mediaSource() : undefined;
+  if (!voice || !MS) {
+    try {
+      for await (const c of chunks) parts.push(c);
+    } catch { /* red cortada: suena lo que llegó */ }
+    onStart();
+    const url = whole();
+    if (url) await play(url);
+    return url;
+  }
+  stopVoice();
+  let cut = false;
+  let done = () => {};
+  const ended = new Promise<void>((resolve) => { done = () => { cut = true; resolve(); }; });
+  finish = done;
+  const ms = new MS();
+  voice.onended = () => done();
+  voice.onerror = () => done();
+  voice.onplaying = onStart;
+  voice.disableRemotePlayback = true; // ManagedMediaSource solo abre así
+  voice.src = URL.createObjectURL(ms);
+  voice.play().catch(() => { onStart(); done(); });
+  let complete = true;
+  try {
+    await Promise.race([new Promise((r) => ms.addEventListener('sourceopen', r, { once: true })), ended]);
+    const sb = cut ? null : ms.addSourceBuffer('audio/mpeg');
+    for await (const c of chunks) {
+      if (cut || !sb) { complete = false; break; }
+      parts.push(c);
+      sb.appendBuffer(c as BufferSource);
+      await new Promise((r) => sb.addEventListener('updateend', r, { once: true }));
+    }
+  } catch {
+    complete = false; // red cortada o el <audio> ya es de otra frase: suena lo que llegó
+  }
+  if (ms.readyState === 'open') {
+    try { ms.endOfStream(); } catch { /* ya cerrada */ }
+  }
+  if (!parts.length) {
+    onStart();
+    if (!cut) stopVoice();
+    return undefined;
+  }
+  // Si la voz se comió lo descargado antes de que llegara el último trozo, Chrome queda en
+  // `ended` sin disparar el evento y la conversación esperaría para siempre: se mira a mano.
+  const watch = setInterval(() => { if (voice.ended) done(); }, 250);
+  await ended;
+  clearInterval(watch);
+  return complete ? whole() : null;
+}
 
 /** Dice un texto con la voz del personaje (repetir, versión lenta, informe). Se descarga entero
  *  antes de sonar: con la URL directa el <audio> esperaba igual el archivo completo y además

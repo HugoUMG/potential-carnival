@@ -1062,8 +1062,44 @@ const roleplayBody = (s: RoleplayStart, history: RoleplayMessage[], rate?: strin
   JSON.stringify({ scenario: s.scenario, role: s.role, level: s.level, seed: s.seed, rate, with_info: s.with_info, with_missions: s.with_missions, history: history.map(({ who, text, clarity }) => ({ who, text, clarity: clarity ?? null })) });
 
 /** La siguiente línea del personaje (con historial vacío, la que abre la escena). */
-export function roleplayTurn(s: RoleplayStart, history: RoleplayMessage[], rate: string): Promise<RoleplayReply> {
-  return request<RoleplayReply>('/public/roleplay/turn', { method: 'POST', body: roleplayBody(s, history, rate) });
+export async function roleplayTurn(s: RoleplayStart, history: RoleplayMessage[], rate: string):
+  Promise<{ reply: RoleplayReply; voice: AsyncGenerator<Uint8Array> }> {
+  // Una sola respuesta: primero una línea JSON con el texto y después el mp3 según lo manda edge-tts.
+  // `voice` entrega esos trozos para que suene sin esperar la frase entera.
+  const response = await fetch(`${API_BASE_URL}/public/roleplay/turn`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: roleplayBody(s, history, rate),
+  });
+  if (!response.ok || !response.body) {
+    const error = await response.json().catch(() => ({ detail: 'El personaje no respondió.' }));
+    throw new Error(formatErrorDetail(error.detail));
+  }
+  const reader = response.body.getReader();
+  let head = new Uint8Array(0);
+  let newline = -1;
+  while (newline < 0) {
+    const { done, value } = await reader.read();
+    if (done) throw new Error('El personaje no respondió.');
+    const merged = new Uint8Array(head.length + value.length);
+    merged.set(head);
+    merged.set(value, head.length);
+    head = merged;
+    newline = head.indexOf(10);
+  }
+  const reply = JSON.parse(new TextDecoder().decode(head.subarray(0, newline))) as RoleplayReply;
+  const rest = head.subarray(newline + 1);
+  async function* voice(): AsyncGenerator<Uint8Array> {
+    try {
+      if (rest.length) yield rest;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) return;
+        yield value;
+      }
+    } finally {
+      reader.cancel().catch(() => {}); // si se cortó la voz, no seguir bajándola
+    }
+  }
+  return { reply, voice: voice() };
 }
 
 export function roleplayReport(s: RoleplayStart, history: RoleplayMessage[]): Promise<RoleplayReport> {

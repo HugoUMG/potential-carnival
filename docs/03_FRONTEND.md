@@ -81,9 +81,12 @@ colgados de `.rp` en `roleplay.css` (modo oscuro solo con variables bajo `:root[
 - **`Report`**: pastel de "pétalos" en SVG (`GradePie`: cada rebanada mide su peso y su radio, el
   puntaje), Rex según la nota, misiones, consejos y la revisión respuesta por respuesta con 🔊/🐢.
 - **`media.ts`**: **un solo** `<audio>` para toda la conversación, desbloqueado con un WAV de silencio
-  en el primer toque (iPhone no deja sonar audio que no empezó con un toque). La voz de cada línea
-  llega con el texto (`audio` de `roleplayTurn` → `mp3Url` → `play`) y se guarda en el mensaje, así
-  que 🔊 la repite sin pedirla otra vez. `say()` (🐢, informe, prueba de sonido) **descarga el mp3
+  en el primer toque (iPhone no deja sonar audio que no empezó con un toque). `roleplayTurn` lee la
+  línea JSON del turno y entrega el mp3 por trozos; `playStream` los mete a un `MediaSource`
+  (`ManagedMediaSource` en iPhone) y suena desde los primeros. El texto aparece cuando la voz empieza
+  (o a los 3 s). Al terminar, el mp3 completo queda en el mensaje y 🔊 lo repite sin pedirlo otra vez.
+  Chrome a veces queda en `ended` sin disparar el evento (si la voz alcanzó lo descargado justo antes
+  del último trozo): `playStream` lo revisa cada 250 ms. `say()` (🐢, informe, prueba de sonido) **descarga el mp3
   entero** y luego lo suena: con la URL directa el `<audio>` tardaba 2-3 s más. `play`/`say`
   resuelven al terminar, al fallar **o al cortarlas** otra frase o `stopVoice()`: si no, la
   conversación se quedaba esperando para siempre. `voiceRate` = velocidad del nivel, 15 puntos menos

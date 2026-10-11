@@ -560,7 +560,6 @@ class RoleplayReply(BaseModel):
     reply: str
     reply_es: str = ""  # solo en principiante
     done: bool = False
-    audio: str = ""  # mp3 de la línea en base64; vacío si edge-tts falló (el cliente la pide a /tts)
 
 
 class RoleplayMission(BaseModel):

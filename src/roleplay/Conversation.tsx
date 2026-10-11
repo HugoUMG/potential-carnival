@@ -3,7 +3,7 @@ import { ClipboardList, Keyboard, Mic, RotateCcw, SendHorizontal, Snail, Square,
 import { roleplayTurn, transcribeWithClarity } from '../services/api';
 import type { RoleplayMessage, RoleplayStart } from '../types';
 import { Cards, Missions } from './Cards';
-import { canRecord, mp3Url, play, say, stopVoice, useRecorder, voiceRate } from './media';
+import { canRecord, play, playStream, say, stopVoice, useRecorder, voiceRate } from './media';
 
 export interface Prefs {
   en: boolean;
@@ -52,13 +52,23 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
     setPhase('thinking');
     setError('');
     try {
-      // Texto y voz llegan juntos: el texto aparece cuando ya puede sonar.
-      const r = await roleplayTurn(session, history, rate.current);
-      const audio = r.audio ? mp3Url(r.audio) : undefined;
-      setMsgs([...history, { who: 'ai', text: r.reply, es: r.reply_es, audio }]);
-      setClosing(r.done);
-      setPhase('speaking');
-      await (audio ? play(audio) : say(r.reply, session.ai_voice, rate.current));
+      const { reply: r, voice } = await roleplayTurn(session, history, rate.current);
+      const msg: Msg = { who: 'ai', text: r.reply, es: r.reply_es };
+      // El texto aparece cuando la voz empieza a sonar (o a los 3 s si tarda): juntos, no uno 8 s antes.
+      let shown = false;
+      const show = () => {
+        if (shown || id !== turn.current) return;
+        shown = true;
+        setMsgs([...history, msg]);
+        setClosing(r.done);
+        setPhase('speaking');
+      };
+      const late = setTimeout(show, 3000);
+      const audio = await playStream(voice, show);
+      clearTimeout(late);
+      show();
+      if (audio) setMsgs((all) => all.map((m) => (m === msg ? { ...m, audio } : m)));
+      else if (audio === undefined && id === turn.current) await say(r.reply, session.ai_voice, rate.current);
       if (id === turn.current) setPhase(r.done ? 'done' : 'listen');
     } catch (e) {
       failed.current = history;

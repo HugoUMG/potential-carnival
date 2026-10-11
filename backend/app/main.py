@@ -1,6 +1,5 @@
 from typing import Any
 import asyncio
-import base64
 import hashlib
 import os
 import re
@@ -590,8 +589,9 @@ async def _edge_connect():
     return session, ws
 
 
-async def _edge_speak(conn, text: str, voice: str, rate: str) -> bytes:
-    """Manda el texto por una conexión de `_edge_connect`, junta el mp3 y la cierra."""
+async def _edge_speak(conn, text: str, voice: str, rate: str):
+    """Manda el texto por una conexión de `_edge_connect` y entrega el mp3 por trozos, según llega.
+    Cierra la conexión al terminar."""
     import aiohttp
     import edge_tts
     from edge_tts import communicate as ec
@@ -599,31 +599,41 @@ async def _edge_speak(conn, text: str, voice: str, rate: str) -> bytes:
     try:
         c = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))  # valida la voz y escapa el texto
         await ws.send_str(ec.ssml_headers_plus_data(ec.connect_id(), ec.date_to_string(), ec.mkssml(c.tts_config, next(c.texts))))
-        audio = bytearray()
-        async for msg in ws:
+        sent = False
+        while True:
+            # edge a veces se queda callado: mejor cortar que dejar al alumno esperando la voz.
+            msg = await ws.receive(timeout=8)
             if msg.type == aiohttp.WSMsgType.BINARY:
                 n = int.from_bytes(msg.data[:2], "big")  # largo de las cabeceras; después viene el mp3
-                if b"Path:audio" in msg.data[2:2 + n]:
-                    audio += msg.data[2 + n:]
+                if b"Path:audio" in msg.data[2:2 + n] and msg.data[2 + n:]:
+                    sent = True
+                    yield msg.data[2 + n:]
             elif msg.type == aiohttp.WSMsgType.TEXT:
                 if "Path:turn.end" in msg.data:
                     break
             else:  # cerrada o con error
                 break
-        if not audio:
+        if not sent:
             raise RuntimeError("edge-tts no devolvió audio")
-        return bytes(audio)
     finally:
         await ws.close()
         await session.close()
 
 
-async def _turn_voice(conn: "asyncio.Task", text: str, voice: str, rate: str) -> bytes:
+async def _turn_voice(conn: "asyncio.Task", text: str, voice: str, rate: str):
+    """El mp3 por la conexión adelantada; si falla antes del primer trozo, por una conexión nueva."""
+    sent = False
     try:
-        return await _edge_speak(await conn, text, voice, rate)
+        async for chunk in _edge_speak(await conn, text, voice, rate):
+            sent = True
+            yield chunk
+        return
     except Exception as exc:
+        if sent:
+            raise
         print(f"[tts] la conexión adelantada falló, se abre otra: {exc!r}")
-        return await _edge_synth(text, voice, rate)
+    async for chunk in _edge_stream(text, voice, rate):
+        yield chunk
 
 
 async def _drop_connection(conn: "asyncio.Task") -> None:
@@ -1908,15 +1918,15 @@ def roleplay_start(payload: RoleplayStartRequest, request: Request) -> dict:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@app.post("/public/roleplay/turn", response_model=RoleplayReply)
-async def roleplay_turn(payload: RoleplayTurnRequest, request: Request) -> dict:
-    """La siguiente línea del personaje, con su voz. Con historial vacío, la que abre la escena.
+@app.post("/public/roleplay/turn")
+async def roleplay_turn(payload: RoleplayTurnRequest, request: Request) -> StreamingResponse:
+    """La siguiente línea del personaje y su voz, en UNA respuesta. Con historial vacío, la que abre la escena.
 
-    La voz viaja en la MISMA respuesta (mp3 en base64, ~60 KB): el servidor la sintetiza en cuanto
-    tiene el texto y el texto y la voz llegan juntos. Pedirla aparte a /tts desde un <audio> sumaba
-    otra ida y vuelta, y el navegador esperaba el archivo entero y aún 2-3 s más antes de sonar:
-    8-10 s entre que aparecía el texto y se oía. Si edge-tts falla o tarda, se responde sin audio y
-    el cliente la pide a /tts: la conversación no se detiene por la voz."""
+    Cuerpo: una línea JSON (`RoleplayReply`) y después el mp3 según lo manda edge-tts. El navegador
+    empieza a sonar con los primeros trozos. Medido en Render: edge-tts tarda de 0,5 a 5 s en mandar
+    una frase entera, y esperarla completa (antes iba en base64 dentro del JSON) era lo que más se
+    notaba. La conexión con edge-tts se abre mientras la IA piensa (`_edge_connect`). Si la voz falla,
+    el cuerpo trae solo el JSON y el cliente la pide a /tts: la conversación no se detiene por la voz."""
     _rate_limit(request, limit=240)
     conn = asyncio.create_task(_edge_connect())  # lo caro de la voz, mientras la IA piensa
     try:
@@ -1929,12 +1939,17 @@ async def roleplay_turn(payload: RoleplayTurnRequest, request: Request) -> dict:
         await _drop_connection(conn)
         print(f"[roleplay] la IA no respondió: {exc!r}")
         raise HTTPException(status_code=503, detail="El personaje no respondió. Intenta de nuevo.") from exc
-    try:
-        mp3 = await asyncio.wait_for(_turn_voice(conn, out["reply"], out["voice"], payload.rate), timeout=12)
-        out["audio"] = base64.b64encode(mp3).decode()
-    except Exception as exc:
-        print(f"[roleplay] sin voz en la respuesta, el cliente la pedirá a /tts: {exc!r}")
-    return out
+    head = (RoleplayReply(**out).model_dump_json() + "\n").encode()
+
+    async def body():
+        yield head
+        try:
+            async for chunk in _turn_voice(conn, out["reply"], out["voice"], payload.rate):
+                yield chunk
+        except Exception as exc:
+            print(f"[roleplay] la voz se cortó; el cliente la pedirá a /tts si no le llegó nada: {exc!r}")
+
+    return StreamingResponse(body(), media_type="application/octet-stream", headers={"Cache-Control": "no-store"})
 
 
 @app.post("/public/roleplay/report", response_model=RoleplayReport)
