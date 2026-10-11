@@ -198,6 +198,36 @@ DELETE /game-sets/{id}                        — Borrar (solo el dueño o el ad
 - **Crear y editar disparan el diccionario en segundo plano** (`BackgroundTasks`): las palabras del
   set que no estén en `word_meanings` se le piden a la IA (`define_words`). El profesor no espera.
 
+## Conversación con IA (ADR-39)
+
+```
+GET    /public/roleplay/scenarios             — Las 8 situaciones con sus 2 roles → RoleplayScenario[]
+POST   /public/roleplay/start                 — {scenario, role, level, with_info, with_missions} → RoleplayStart (seed, tarjetas, misiones, voz…)
+POST   /public/roleplay/turn                  — {scenario, role, level, seed, history, rate} → {reply, reply_es, done, audio}
+POST   /public/roleplay/report                — Igual que turn → RoleplayReport (nota 1-10, puntajes, revisión por respuesta)
+```
+
+- Sin estado: el servidor regenera la partida con el `seed` (tarjetas y **secreto**, que nunca sale).
+  `history` = `[{who: "ai"|"user", text ≤ 600, clarity 0-100|null}]`, máx. 24 mensajes.
+- `turn` trae la **voz en la misma respuesta**: `audio` = mp3 en base64 (~60 KB) sintetizado con
+  edge-tts en cuanto la IA dio el texto, con la voz de la partida y `rate` (`^[+-]NN%$`, la del nivel
+  o más lenta). Así el texto y la voz llegan juntos; pedirla aparte a `/tts` dejaba 8-10 s entre uno y
+  otra. Si edge-tts falla o pasa de 12 s, `audio` llega vacío y el cliente la pide a `/tts`.
+- `with_info: false` = **conversación libre**: `start` no da tarjetas y el personaje tampoco las ve
+  (improvisa y sigue los detalles del alumno). `with_missions: false` = sin misiones. Las dos viajan
+  en cada `turn`/`report` (el cliente reenvía lo que le devolvió `start`), igual que el `seed`.
+- La conexión con edge-tts se abre **en paralelo** con la llamada a la IA (`_edge_connect`): es lo
+  caro (0,7-2 s) y no depende del texto. Si falla, `_edge_synth` abre otra (`_turn_voice`).
+- `turn` con `history` vacío da la línea que abre la escena. `reply_es` solo en `beginner`. `done`
+  llega `true` cuando el alumno ya dio las respuestas del nivel (6/8/10): esa línea es la despedida;
+  mandar más es 422.
+- `report`: `grade` (1-10, un decimal), `scores` (`communication`, `grammar`, `vocabulary`,
+  `pronunciation` — esta `null` si todo fue escrito), `weights`, `summary_es`, `tips_es`,
+  `missions[{text, done}]` y `turns[{n, asked, said, status: ok|better|wrong, better, why_es,
+  clarity, clear}]`.
+- Errores: 422 escenario/rol/nivel inexistente o conversación terminada; 503 si la IA falla.
+  Topes por IP y minuto: `start` 120, `turn` 240, `report` 60.
+
 ## Imágenes (subida)
 
 ```
@@ -232,10 +262,12 @@ GET    /tts?text=…&voice=…&rate=…&engine=…   — Sintetiza una oración 
 GET    /tts/conversation?lines=…&male=…&female=…&rate=… — Diálogo con voces m/f alternadas, MP3 concatenado
 ```
 
-**`engine=edge`** lo usan los juegos (ADR-38): pregunta, versión lenta y cada palabra tocada suenan
-siempre con edge-tts, que es gratis, y responden con `Cache-Control: public, max-age=604800` para que
-el navegador no vuelva a pedir la misma palabra. Así una clase tocando palabras no gasta el cupo de
-ElevenLabs, que queda para las hojas. Por dentro es `_synth_mp3(..., edge_only=True)`.
+**`engine=edge`** lo usan los juegos (ADR-38) y la conversación con IA (ADR-39): suenan siempre con
+edge-tts, que es gratis, y responden con `Cache-Control: public, max-age=604800` para que el
+navegador no vuelva a pedir la misma palabra. Así una clase tocando palabras no gasta el cupo de
+ElevenLabs, que queda para las hojas. Va **en streaming** (`StreamingResponse` sobre `_edge_stream`):
+el `<audio>` empieza a sonar con el primer trozo (~1 s) en vez de esperar la frase entera. El primer
+trozo se pide antes de responder, así que una voz inexistente sigue siendo 400 y un fallo de edge 503.
 
 **Dos motores, una función.** Todo el audio de la plataforma (`/tts`, `/tts/conversation`,
 `/live/{code}/audio` y la prueba de audio) pasa por `_synth_mp3(parts, rate)`, que recibe una lista de
@@ -475,7 +507,7 @@ POST   /public/guest-sessions                 — Registrar acceso de invitado
 POST   /public/responses                      — Enviar respuestas como invitado
 GET    /public/responses?guest_token=…        — Respuestas calificadas del invitado
 POST   /public/responses/{id}/reinforcement   — Plan de reforzamiento (IA) si la nota es < 75
-POST   /public/transcribe                     — Audio (speaking) → texto vía Groq Whisper (máx 4 MB)
+POST   /public/transcribe?clarity=…           — Audio (speaking) → texto vía Groq Whisper (máx 4 MB); con `clarity=true` también la claridad 0-100
 GET    /public/vocabulary/{id}                — Lista de vocabulario por id (enlace /v/:vocabId)
 GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
 GET    /public/game-sets                      — Sets destacados (`featured`) para /juegos → GameSetSummary[]
@@ -500,8 +532,9 @@ GET    /public/game-sets/{id}                 — Set por id (enlace /j/:id) →
 - El límite de intentos del enlace directo es **por dispositivo** (`dw_count_{id}` en `localStorage`),
   coherente con el modelo suave de invitado: no hay identidad server-side.
 - **Todo lo que necesite funcionar sin login va en `/public/*`.**
-- `/public/transcribe` es el único público que cuesta **dinero** (cuota de Groq): 4 MB por petición
-  y **60 por minuto y por IP** → **429**. Ver [09_SECURITY](09_SECURITY.md#topes-en-los-endpoints-públicos).
+- `/public/transcribe` es uno de los públicos que cuestan **dinero** (cuota de Groq): 4 MB por petición
+  y **180 por minuto y por IP** → **429** (un salón conversando con la IA comparte IP). Los otros son
+  `/public/roleplay/*`, con sus propios topes. Ver [09_SECURITY](09_SECURITY.md#topes-en-los-endpoints-públicos).
 
 > ⚠️ Los cuatro endpoints que entregan una hoja al alumno (`/public/worksheets`,
 > `/public/worksheets/{id}`, `/public/classrooms/{id}/worksheets`, `/students/{id}/worksheets`)

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ArrowLeft, Check, ClipboardPaste, Copy, ExternalLink, Gamepad2, Pencil, Plus, QrCode, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardPaste, Copy, ExternalLink, Gamepad2, MessagesSquare, Pencil, Plus, QrCode, Sparkles, Star, Trash2, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { createGameSet, deleteGameSet, generateGameQuestions, listGameSets, updateGameSet } from '../services/api';
 import type { GameQuestion, GameSet, GameSetDraft } from '../types';
@@ -74,6 +74,8 @@ export function GameSetsManager() {
         </details>
       </section>
 
+      <RoleplayShare />
+
       {error && <p className="rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}
       {!sets && !error && <div className="grid place-items-center py-10"><Spinner /></div>}
       {sets && !sets.length && (
@@ -94,6 +96,38 @@ export function GameSetsManager() {
         ))}
       </div>
     </div>
+  );
+}
+
+/** La conversación con IA (ADR-39) no se configura: se comparte. Aquí está a la mano para la clase. */
+function RoleplayShare() {
+  const [qr, setQr] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const url = `${window.location.origin}/conversacion`;
+  return (
+    <section className="rounded-3xl bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-2xl bg-violet-100"><MessagesSquare size={20} className="text-violet-600" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold uppercase tracking-wide text-violet-600">Conversación con IA</p>
+          <h2 className="text-lg font-bold text-slate-900">8 role-plays por voz, con nota al final</h2>
+          <p className="text-sm text-slate-500">Para quienes se ponen nerviosos al hablar contigo: practican con un personaje de IA, sin cuenta y sin que nadie los juzgue.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a href="/conversacion" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white"><ExternalLink size={15} /> Abrir</a>
+          <SmallButton onClick={() => void navigator.clipboard.writeText(url).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 2000); }, () => setQr(true))}>
+            {copied ? <Check size={15} /> : <Copy size={15} />} {copied ? 'Copiado' : 'Copiar enlace'}
+          </SmallButton>
+          <SmallButton onClick={() => setQr((v) => !v)}><QrCode size={15} /> QR</SmallButton>
+        </div>
+      </div>
+      {qr && (
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-2xl bg-slate-50 p-3">
+          <div className="rounded-xl bg-white p-2"><QRCodeSVG value={url} size={132} level="M" /></div>
+          <p className="select-all break-all font-mono text-xs text-slate-500">{url}</p>
+        </div>
+      )}
+    </section>
   );
 }
 

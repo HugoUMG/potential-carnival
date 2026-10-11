@@ -348,3 +348,78 @@ export interface PublicGameSet {
   questions: GameQuestion[];
   glossary: Record<string, WordMeaning>;
 }
+
+// ─── Conversación con IA por role-play (ADR-39) ────────────────────────────
+
+export type RoleplayLevel = 'beginner' | 'intermediate' | 'advanced';
+
+export interface RoleplayScenario {
+  id: string;
+  emoji: string;
+  title: string;
+  description: string;
+  roles: { id: string; label: string; emoji: string }[];
+}
+
+export interface RoleplayCard {
+  kind: string;
+  title: string;
+  subtitle: string;
+  sections: { title: string; rows: { label: string; value: string; detail: string }[] }[];
+  notes: string[];
+}
+
+export interface RoleplayStart {
+  seed: number;
+  scenario: string;
+  role: string;
+  level: RoleplayLevel;
+  title: string;
+  place: string;
+  ai_name: string;
+  ai_role: string;
+  ai_emoji: string;
+  ai_voice: string;
+  rate: string;
+  max_turns: number;
+  clarity_ok: number;
+  cards: RoleplayCard[];
+  missions: string[];
+  with_info: boolean;     // false = conversación libre (sin tarjetas)
+  with_missions: boolean;
+}
+
+export interface RoleplayMessage {
+  who: 'ai' | 'user';
+  text: string;
+  clarity?: number | null;
+}
+
+export interface RoleplayReply {
+  reply: string;
+  reply_es: string;
+  done: boolean;
+  audio: string; // mp3 en base64 de la línea; vacío si el servidor no pudo sintetizarla
+}
+
+export interface RoleplayTurnReview {
+  n: number;
+  asked: string;
+  said: string;
+  status: 'ok' | 'better' | 'wrong';
+  better: string;
+  why_es: string;
+  clarity: number | null;
+  clear: boolean | null;
+}
+
+export interface RoleplayReport {
+  grade: number;
+  scores: Record<'communication' | 'grammar' | 'vocabulary' | 'pronunciation', number | null>;
+  weights: Record<string, number>;
+  summary_es: string;
+  tips_es: string[];
+  missions: { text: string; done: boolean }[];
+  turns: RoleplayTurnReview[];
+  clarity_ok: number;
+}

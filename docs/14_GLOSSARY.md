@@ -165,6 +165,25 @@ la **sesión en vivo** (Kahoot), que juega una hoja de trabajo calificada.
 `word_meanings` (hechos por IA una vez por palabra). Es lo que muestra `WordPopover` al tocar una
 palabra.
 
+**Conversación con IA (role-play)** — `/conversacion` (ADR-39): el alumno elige situación, rol y nivel
+y habla con un personaje de IA. Al final, nota del 1 al 10 y la revisión de cada respuesta. No se
+guarda nada.
+
+**Seed (de una conversación)** — Número que devuelve `/public/roleplay/start` y que reconstruye la
+partida entera (tarjetas, nombres, giro secreto). El cliente lo reenvía en cada turno; el servidor no
+guarda estado.
+
+**Tarjetas y misiones** — Lo que el alumno ve durante la conversación: el menú, el pase de abordar, el
+CV… (`cards`, en pantalla "Información para la conversación") y 2 o 3 objetivos en español
+(`missions`) elegidos al azar de un repertorio por rol. El personaje ve las mismas tarjetas, menos las
+notas ⚠ que solo conoce el rol del alumno. Las dos cosas se pueden quitar al empezar.
+
+**Conversación libre** — Role-play sin tarjetas (`with_info: false`): nadie las ve, el personaje
+improvisa los detalles y acepta los del alumno, pero sigue en la escena, su rol y su objetivo.
+
+**Claridad** — 0-100, qué tan seguro estuvo Whisper al transcribir al alumno (`speech_clarity`). Es
+la base de la nota de pronunciación, más exigente según el nivel (`clarity_ok`: 50/62/72).
+
 **ZzFX** — Sintetizador de efectos de sonido por código (`utils/sfx.ts`): blips de clic y sonidos de
 las animaciones de envío, sin ningún archivo de audio.
 

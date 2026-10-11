@@ -1,4 +1,4 @@
-import type { ActivityBlock, ActivityType, GameQuestion, GameSet, GameSetDraft, GameSetSummary, PublicGameSet, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
+import type { ActivityBlock, ActivityType, GameQuestion, GameSet, GameSetDraft, GameSetSummary, PublicGameSet, RoleplayMessage, RoleplayReply, RoleplayReport, RoleplayScenario, RoleplayStart, RoleplayLevel, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const AUTH_STORAGE_KEY = 'worksheet_auth_session';
@@ -1044,4 +1044,44 @@ export function getPublicGameSet(id: string): Promise<PublicGameSet> {
  *  no gastan créditos de ElevenLabs. `slow` = el botón de la tortuga. */
 export function gameAudioUrl(text: string, slow = false): string {
   return `${API_BASE_URL}/tts?text=${encodeURIComponent(text)}&voice=en-US-AndrewNeural&rate=${slow ? '-40%25' : '-10%25'}&engine=edge`;
+}
+
+// ─── Conversación con IA por role-play (ADR-39) ────────────────────────────
+
+export function listRoleplayScenarios(): Promise<RoleplayScenario[]> {
+  return request<RoleplayScenario[]>('/public/roleplay/scenarios');
+}
+
+export function startRoleplay(scenario: string, role: string, level: RoleplayLevel, withInfo = true, withMissions = true): Promise<RoleplayStart> {
+  return request<RoleplayStart>('/public/roleplay/start', {
+    method: 'POST', body: JSON.stringify({ scenario, role, level, with_info: withInfo, with_missions: withMissions }),
+  });
+}
+
+const roleplayBody = (s: RoleplayStart, history: RoleplayMessage[], rate?: string) =>
+  JSON.stringify({ scenario: s.scenario, role: s.role, level: s.level, seed: s.seed, rate, with_info: s.with_info, with_missions: s.with_missions, history: history.map(({ who, text, clarity }) => ({ who, text, clarity: clarity ?? null })) });
+
+/** La siguiente línea del personaje (con historial vacío, la que abre la escena). */
+export function roleplayTurn(s: RoleplayStart, history: RoleplayMessage[], rate: string): Promise<RoleplayReply> {
+  return request<RoleplayReply>('/public/roleplay/turn', { method: 'POST', body: roleplayBody(s, history, rate) });
+}
+
+export function roleplayReport(s: RoleplayStart, history: RoleplayMessage[]): Promise<RoleplayReport> {
+  return request<RoleplayReport>('/public/roleplay/report', { method: 'POST', body: roleplayBody(s, history) });
+}
+
+/** Como `transcribeAudio`, más la claridad 0-100 que mide Whisper (null si no hubo voz). */
+export async function transcribeWithClarity(blob: Blob): Promise<{ transcript: string; clarity: number | null }> {
+  const ext = blob.type.includes('mp4') ? 'mp4' : blob.type.includes('ogg') ? 'ogg' : blob.type.includes('wav') ? 'wav' : 'webm';
+  const form = new FormData();
+  form.append('file', blob, `speech.${ext}`);
+  const response = await fetch(`${API_BASE_URL}/public/transcribe?clarity=true`, { method: 'POST', body: form });
+  if (!response.ok) throw new Error('No se pudo transcribir el audio');
+  const data = await response.json() as { transcript?: string; clarity?: number | null };
+  return { transcript: data.transcript ?? '', clarity: data.clarity ?? null };
+}
+
+/** Voz del personaje: siempre edge-tts (gratis), con la voz y la velocidad de la partida. */
+export function roleplayAudioUrl(text: string, voice: string, rate: string): string {
+  return `${API_BASE_URL}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}&rate=${encodeURIComponent(rate)}&engine=edge`;
 }

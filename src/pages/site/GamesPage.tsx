@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, Copy, MonitorSmartphone, Play, QrCode, Smartphone, Users } from 'lucide-react';
+import { ArrowRight, Check, Copy, MessagesSquare, MonitorSmartphone, Play, QrCode, Smartphone, Users } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Spinner } from '../../components/LoadingScreen';
 import { GAMES, SKILLS } from '../../games/registry';
@@ -68,6 +68,16 @@ export function GamesPage() {
           enlace, sin cuenta, y cada palabra se puede tocar para ver qué significa y cómo suena.
         </p>
       </header>
+
+      <Link to="/conversacion" className="site-glass site-glass-hover mt-10 flex flex-wrap items-center gap-5 p-6 sm:p-8">
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-site-acc2/15 text-site-acc2 ring-1 ring-site-acc2/30"><MessagesSquare size={28} /></span>
+        <div className="min-w-[14rem] flex-1">
+          <p className="site-eyebrow site-neon-spike">Nuevo · Conversación con IA</p>
+          <h2 className="mt-1 text-2xl font-black tracking-tight">Habla en inglés sin miedo a equivocarte</h2>
+          <p className="mt-1 text-site-fg/65">Role-plays por voz con personajes de IA (restaurante, aeropuerto, entrevista de trabajo…), en tres niveles y con tu nota al final.</p>
+        </div>
+        <span className="site-btn site-btn-spike">Probar <ArrowRight size={16} /></span>
+      </Link>
 
       <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {!sets && !error && <div className="grid place-items-center py-10 md:col-span-2 xl:col-span-3"><Spinner /></div>}

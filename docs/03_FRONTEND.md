@@ -17,6 +17,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 | `/vocab` | `VocabPublicPage` | público |
 | `/v/:vocabId` | `VocabDirectPage` | público (enlace directo a una lista) |
 | `/j/:setId` | `GamePage` → `GamePlayer` | público (enlace directo a un set de juegos; `#ruleta` abre ese juego) |
+| `/conversacion/:scenarioId?` | `RoleplayPage` | público (conversación con IA por role-play, ADR-39) |
 | `/w/:worksheetId` | `DirectWorksheetPage` | público (enlace directo a una hoja) |
 | `/guest` | `GuestPage` | público — **sin entradas en la UI**, solo por URL |
 | `/en-vivo/:code` | `LivePage` | público (alumno en una sesión en tiempo real) |
@@ -61,6 +62,34 @@ Con "Juegos" el menú del sitio tiene cinco enlaces: `SiteLayout` los manda a un
 `xl` y ensancha el encabezado a `max-w-7xl` desde ahí. Con los botones de invitado (Crear cuenta,
 Vocabulario, Entrar) una sola fila no cabe en `max-w-6xl`: antes el menú se encogía hasta 18 px en
 tablet y cortaba el último enlace en laptop.
+
+## Conversación con IA (`/conversacion`, ADR-39)
+
+Role-plays con un personaje de IA, sin cuenta y sin guardar nada. Código en `src/roleplay/`, estilos
+colgados de `.rp` en `roleplay.css` (modo oscuro solo con variables bajo `:root[data-theme='dark'] .rp`).
+
+- **`RoleplayPage`**: `/conversacion` muestra las situaciones (`Picker`); `/conversacion/:id` abre
+  `Session`, que va por pasos: elegir rol, nivel, subtítulos y **cómo practicar** (interruptores
+  "Información para la conversación" y "Misiones"; sin la primera es conversación libre) → `SoundCheck` (probar el volumen,
+  audífonos, permiso del micrófono, vista previa de la misión) → `Conversation` → nota → `Report`.
+- **`Conversation`**: el personaje abre la escena; cada línea suena con `say()` y el alumno contesta
+  con el micrófono (`useRecorder` → `transcribeWithClarity`) o escribiendo. Puede contestar sin
+  esperar a que termine de hablar (corta la voz), salvo la despedida. Subtítulos EN/ES y voz lenta se
+  cambian en vivo; sin subtítulos cada burbuja tiene "Ver texto". Misión e "Información para la
+  conversación" (las tarjetas) en columna desde 960 px y en un panel con el botón 📋 en celular; sin
+  tarjetas ni misiones no hay panel ni botón. Desde 3 respuestas se puede terminar antes.
+- **`Report`**: pastel de "pétalos" en SVG (`GradePie`: cada rebanada mide su peso y su radio, el
+  puntaje), Rex según la nota, misiones, consejos y la revisión respuesta por respuesta con 🔊/🐢.
+- **`media.ts`**: **un solo** `<audio>` para toda la conversación, desbloqueado con un WAV de silencio
+  en el primer toque (iPhone no deja sonar audio que no empezó con un toque). La voz de cada línea
+  llega con el texto (`audio` de `roleplayTurn` → `mp3Url` → `play`) y se guarda en el mensaje, así
+  que 🔊 la repite sin pedirla otra vez. `say()` (🐢, informe, prueba de sonido) **descarga el mp3
+  entero** y luego lo suena: con la URL directa el `<audio>` tardaba 2-3 s más. `play`/`say`
+  resuelven al terminar, al fallar **o al cortarlas** otra frase o `stopVoice()`: si no, la
+  conversación se quedaba esperando para siempre. `voiceRate` = velocidad del nivel, 15 puntos menos
+  con "voz más lenta".
+- Accesos: banner en `/juegos`, pie del sitio y la sección Juegos del portal (`RoleplayShare`:
+  abrir, copiar enlace, QR).
 
 ## Las secciones son rutas, no estado
 

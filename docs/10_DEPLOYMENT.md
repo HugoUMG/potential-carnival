@@ -68,6 +68,8 @@ Sin `DATABASE_URL` el backend usa SQLite en `data/worksheet_builder.db`. Con ell
 | `ELEVENLABS_MODEL` | No | Default `eleven_multilingual_v2` (1 crédito/carácter, la mejor dicción). `eleven_flash_v2_5` gasta la mitad |
 | `ELEVENLABS_VOICES` | No | Qué voz de la cuenta sustituye a cada nombre de edge-tts, p. ej. `en-US-AndrewNeural=Brian,en-US-AriaNeural=Matilda`. Sin ella se eligen por etiquetas (género, acento, edad, uso educativo) |
 | `GEMINI_MODEL` | No | Default `gemini-3.1-flash-lite` |
+| `GROQ_MODEL` | No | Default `openai/gpt-oss-120b`. Calificar, informes y fallback. Groq retira modelos sin aviso: si desaparece, todo cae en silencio a Gemini |
+| `GROQ_CHAT_MODEL` | No | Default `qwen/qwen3.8-27b`. Solo el chat de la conversación con IA (ADR-39): prioriza la velocidad |
 | `DB_POOL_MAX` | No | Tamaño máximo del pool de Postgres (default 5) |
 | `CLOUDINARY_CLOUD_NAME` | No | Subida de imágenes. Sin las tres, `/uploads/signature` responde 503 |
 | `CLOUDINARY_API_KEY` | No | Se envía al navegador (es pública) |

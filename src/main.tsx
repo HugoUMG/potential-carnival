@@ -18,6 +18,7 @@ import { ActivitiesPage } from './pages/site/ActivitiesPage';
 import { LearnPage } from './pages/site/LearnPage';
 import { GamesPage } from './pages/site/GamesPage';
 import { GamePage } from './pages/GamePage';
+import { RoleplayPage } from './roleplay/RoleplayPage';
 import { DevShots } from './pages/DevShots';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
 import { initTheme } from './utils/theme';
@@ -94,6 +95,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/v/:vocabId" element={<VocabDirectPage />} />
         {/* Juegos de práctica: un set por enlace directo, sin cuenta (ADR-38). */}
         <Route path="/j/:setId" element={<GamePage />} />
+        {/* Conversación con IA por role-play, sin cuenta (ADR-39). */}
+        <Route path="/conversacion/:scenarioId?" element={<RoleplayPage />} />
         {/* Banco de capturas del editor para /aprende. Solo en dev: no entra al build. */}
         {import.meta.env.DEV && <Route path="/__shots" element={<DevShots />} />}
         <Route path="*" element={<Navigate to="/" replace />} />

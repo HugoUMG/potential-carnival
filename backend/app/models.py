@@ -198,7 +198,7 @@ class AnswerDetail(BaseModel):
     status: Literal["correct", "incorrect", "pending"]
     teacher_comment: str = ""
     context: str | None = None  # contexto para la IA (texto de lectura / diálogo); no se muestra al alumno
-    graded_by: str | None = None  # qué IA/modelo calificó (ej. "Groq · llama-3.3-70b"); solo lo ve el profesor
+    graded_by: str | None = None  # qué IA/modelo calificó (ej. "Groq · openai/gpt-oss-120b"); solo lo ve el profesor
 
 
 class WorksheetResponseCreate(BaseModel):
@@ -473,3 +473,118 @@ class GameAiRequest(BaseModel):
     level: str = Field(default="B1", max_length=10)
     focus: str = Field(default="", max_length=200)  # enfoque gramatical opcional ("Wh- + would")
     count: int = Field(default=20, ge=4, le=40)
+
+
+# ─── Conversación con IA por role-play (ADR-39) ─────────────────────────────
+
+RoleplayLevel = Literal["beginner", "intermediate", "advanced"]
+
+
+class RoleplayRole(BaseModel):
+    id: str
+    label: str
+    emoji: str
+
+
+class RoleplayScenario(BaseModel):
+    id: str
+    emoji: str
+    title: str
+    description: str
+    roles: list[RoleplayRole]
+
+
+class RoleplayCardRow(BaseModel):
+    label: str
+    value: str = ""
+    detail: str = ""
+
+
+class RoleplayCardSection(BaseModel):
+    title: str
+    rows: list[RoleplayCardRow]
+
+
+class RoleplayCard(BaseModel):
+    kind: str  # menu, ticket, profile, job, cv, catalog, reservation, services, patient, places
+    title: str
+    subtitle: str = ""
+    sections: list[RoleplayCardSection] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
+class RoleplayStartRequest(BaseModel):
+    scenario: str = Field(max_length=40)
+    role: str = Field(max_length=40)
+    level: RoleplayLevel
+    with_info: bool = True      # False = conversación libre: el alumno no ve tarjetas y el personaje no se ata a ellas
+    with_missions: bool = True  # False = sin misiones
+
+
+class RoleplayStart(BaseModel):
+    """Lo que el alumno ve antes de hablar. Lo secreto de la partida no viaja: el servidor lo
+    rehace del `seed` en cada turno."""
+    seed: int
+    scenario: str
+    role: str
+    level: RoleplayLevel
+    title: str
+    place: str
+    ai_name: str
+    ai_role: str
+    ai_emoji: str
+    ai_voice: str
+    rate: str
+    max_turns: int
+    clarity_ok: int  # claridad mínima del nivel: el front colorea cada respuesta en vivo
+    cards: list[RoleplayCard]
+    missions: list[str]
+    with_info: bool = True
+    with_missions: bool = True
+
+
+class RoleplayMessage(BaseModel):
+    who: Literal["ai", "user"]
+    text: str = Field(max_length=600)
+    clarity: float | None = Field(default=None, ge=0, le=100)  # solo en lo que el alumno dijo hablando
+
+
+class RoleplayTurnRequest(RoleplayStartRequest):
+    seed: int = Field(ge=0, le=2**31)
+    rate: str = Field(default="+0%", pattern=r"^[+-]\d{1,2}%$")  # velocidad de la voz (la del nivel, o más lenta)
+    # Tope duro del costo de UNA petición: el nivel más largo son 10 respuestas + 11 líneas de la IA.
+    history: list[RoleplayMessage] = Field(default_factory=list, max_length=24)
+
+
+class RoleplayReply(BaseModel):
+    reply: str
+    reply_es: str = ""  # solo en principiante
+    done: bool = False
+    audio: str = ""  # mp3 de la línea en base64; vacío si edge-tts falló (el cliente la pide a /tts)
+
+
+class RoleplayMission(BaseModel):
+    text: str
+    done: bool
+
+
+class RoleplayTurnReview(BaseModel):
+    n: int
+    asked: str
+    said: str
+    status: Literal["ok", "better", "wrong"]
+    better: str = ""
+    why_es: str = ""
+    clarity: float | None = None
+    clear: bool | None = None
+
+
+class RoleplayReport(BaseModel):
+    grade: float
+    scores: dict[str, float | None]
+    weights: dict[str, float]
+    summary_es: str
+    tips_es: list[str]
+    missions: list[RoleplayMission]
+    turns: list[RoleplayTurnReview]
+    clarity_ok: int

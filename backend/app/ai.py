@@ -1,4 +1,6 @@
+import contextlib
 import json
+import math
 import os
 import re
 import threading
@@ -9,7 +11,11 @@ import httpx
 
 # ── API endpoints ──────────────────────────────────────────────────────────────
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-_GROQ_MODEL = "llama-3.3-70b-versatile"
+# Groq retira modelos sin avisar (llama-3.3-70b-versatile desapareció en 2026 y TODA llamada a Groq
+# caía en silencio a Gemini): por eso los dos van por variable de entorno, como GEMINI_MODEL.
+_GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+# El chat de la conversación con IA (ADR-39) prioriza la velocidad: ~1 s por respuesta.
+_GROQ_CHAT_MODEL = os.getenv("GROQ_CHAT_MODEL", "qwen/qwen3.8-27b")
 _GROQ_TRANSCRIBE_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 _WHISPER_MODEL = "whisper-large-v3-turbo"
 # Un solo sitio para el modelo: la URL se arma con él. Antes estaban separados y no
@@ -725,19 +731,22 @@ def _grade_system(tolerance: int) -> str:
 
 
 # ── HTTP helpers ───────────────────────────────────────────────────────────────
-def _call_groq(system: str, user: str) -> str:
+def _call_groq(system: str, user: str, temperature: float = 0.4, json_mode: bool = False, model: str = "") -> str:
     key = os.getenv("GROQ_API_KEY", "")
     if not key:
         raise RuntimeError("GROQ_API_KEY not set")
+    body: dict[str, Any] = {
+        "model": model or _GROQ_MODEL,
+        "temperature": temperature,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+    }
+    if json_mode:  # el modelo solo puede devolver un objeto JSON válido
+        body["response_format"] = {"type": "json_object"}
     with httpx.Client(timeout=30) as client:
         resp = client.post(
             _GROQ_URL,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={
-                "model": _GROQ_MODEL,
-                "temperature": 0.4,
-                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            },
+            json=body,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -750,17 +759,20 @@ def _call_groq(system: str, user: str) -> str:
         return data["choices"][0]["message"]["content"]
 
 
-def _call_gemini(prompt: str) -> str:
+def _call_gemini(prompt: str, temperature: float = 0.4, json_mode: bool = False) -> str:
     key = os.getenv("GEMINI_API_KEY", "")
     if not key:
         raise RuntimeError("GEMINI_API_KEY not set")
+    config: dict[str, Any] = {"temperature": temperature}
+    if json_mode:
+        config["responseMimeType"] = "application/json"
     with httpx.Client(timeout=30) as client:
         resp = client.post(
             f"{_GEMINI_URL}?key={key}",
             headers={"Content-Type": "application/json"},
             json={
                 "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.4},
+                "generationConfig": config,
             },
         )
         resp.raise_for_status()
@@ -781,27 +793,40 @@ def _call_gemini(prompt: str) -> str:
 _ai_lock = threading.Lock()
 
 
-def _ai_call(system: str, user: str, prefer_fast: bool = False) -> tuple[str, str]:
+def _ai_call(system: str, user: str, prefer_fast: bool = False, temperature: float = 0.4,
+             json_mode: bool = False, serialize: bool = True, chat: bool = False) -> tuple[str, str]:
     """Llama a la IA (serializado, con reintentos). Devuelve (texto, etiqueta_del_proveedor)
     para poder mostrar qué IA/modelo respondió. prefer_fast=True usa Groq primero (más rápido,
-    ideal para calificar); por defecto Gemini primero (mejor para generar)."""
+    ideal para calificar); por defecto Gemini primero (mejor para generar).
+
+    `serialize=False` salta `_ai_lock`: lo usa la conversación con IA (ADR-39), donde cada turno
+    es una persona esperando a que le contesten. Detrás de la cola de calificaciones, 20 alumnos
+    hablando a la vez esperarían medio minuto por respuesta."""
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     providers = (["groq", "gemini"] if prefer_fast else ["gemini", "groq"])
     last_error: Exception | None = None
-    with _ai_lock:
+    with _ai_lock if serialize else contextlib.nullcontext():
         for attempt in range(2):
             for name in providers:
                 if name == "gemini" and not gemini_key:
                     continue
                 try:
                     if name == "groq":
-                        return _call_groq(system, user), f"Groq · {_GROQ_MODEL}"
-                    return _call_gemini(f"{system}\n\n{user}"), f"Gemini · {_GEMINI_MODEL}"
+                        model = _GROQ_CHAT_MODEL if chat else _GROQ_MODEL
+                        return _call_groq(system, user, temperature, json_mode, model), f"Groq · {model}"
+                    return _call_gemini(f"{system}\n\n{user}", temperature, json_mode), f"Gemini · {_GEMINI_MODEL}"
                 except Exception as exc:
                     last_error = exc
             if attempt == 0:
-                time.sleep(1.5)  # backoff antes del segundo intento
+                time.sleep(1.5 if serialize else 0.3)  # backoff antes del segundo intento
     raise last_error or RuntimeError("AI call failed")
+
+
+def ai_json(system: str, user: str, prefer_fast: bool = True, temperature: float = 0.4, serialize: bool = True, chat: bool = False) -> dict:
+    """Llamada a la IA que devuelve un objeto JSON (modo JSON del proveedor + limpieza de fences).
+    `chat=True` usa el modelo rápido de Groq (`GROQ_CHAT_MODEL`)."""
+    raw, _ = _ai_call(system, user, prefer_fast=prefer_fast, temperature=temperature, json_mode=True, serialize=serialize, chat=chat)
+    return _json_from_ai(raw)
 
 
 # ── Worksheet generation ───────────────────────────────────────────────────────
@@ -1388,6 +1413,36 @@ def _json_from_ai(raw: str) -> dict:
 
 def transcribe_audio(audio: bytes, filename: str, content_type: str) -> str:
     """Transcribe audio a texto con Groq Whisper. Lanza si no hay clave o falla."""
+    return str(_whisper(audio, filename, content_type, "json").get("text", "")).strip()
+
+
+def transcribe_with_clarity(audio: bytes, filename: str, content_type: str) -> tuple[str, float | None]:
+    """Como `transcribe_audio`, más la claridad de la pronunciación (0-100) según Whisper."""
+    data = _whisper(audio, filename, content_type, "verbose_json")
+    return str(data.get("text", "")).strip(), speech_clarity(data.get("segments") or [])
+
+
+def speech_clarity(segments: list[dict]) -> float | None:
+    """Qué tan seguro estuvo Whisper de lo que oyó, 0-100: la media de exp(avg_logprob) de cada
+    segmento, ponderada por su duración y castigada por `no_speech_prob`.
+
+    No es un examen fonético: es "qué tan bien te entendió una máquina que no te conoce", que es lo
+    que se puede medir sin un modelo de pronunciación. Habla clara da p ≈ 0.75-0.9; la que Whisper
+    adivina baja a 0.4-0.55. Se reescala de [0.35, 0.90] a [0, 100]. ponytail: escala empírica;
+    si los profesores la notan injusta, se ajustan esos dos números, no el resto."""
+    total = acc = 0.0
+    for seg in segments:
+        dur = max(0.1, float(seg.get("end", 0)) - float(seg.get("start", 0)))
+        p = math.exp(min(0.0, float(seg.get("avg_logprob", -1.0))))
+        p *= 1 - min(1.0, max(0.0, float(seg.get("no_speech_prob", 0.0))))
+        acc += p * dur
+        total += dur
+    if not total:
+        return None
+    return round(max(0.0, min(1.0, (acc / total - 0.35) / 0.55)) * 100)
+
+
+def _whisper(audio: bytes, filename: str, content_type: str, response_format: str) -> dict:
     key = os.getenv("GROQ_API_KEY", "")
     if not key:
         raise RuntimeError("GROQ_API_KEY not set")
@@ -1399,10 +1454,10 @@ def transcribe_audio(audio: bytes, filename: str, content_type: str) -> str:
                     _GROQ_TRANSCRIBE_URL,
                     headers={"Authorization": f"Bearer {key}"},
                     files={"file": (filename, audio, content_type or "audio/webm")},
-                    data={"model": _WHISPER_MODEL, "language": "en", "response_format": "json"},
+                    data={"model": _WHISPER_MODEL, "language": "en", "response_format": response_format},
                 )
                 resp.raise_for_status()
-                return str(resp.json().get("text", "")).strip()
+                return resp.json()
         except Exception as exc:
             last_error = exc
             if attempt == 0:

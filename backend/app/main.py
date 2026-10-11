@@ -1,5 +1,6 @@
 from typing import Any
 import asyncio
+import base64
 import hashlib
 import os
 import re
@@ -9,12 +10,13 @@ import time
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, define_words, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import ai_grade_activities, ai_json, define_words, transcribe_with_clarity, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import get_connection, initialize_database
 from . import live
+from . import roleplay
 from .models import (
     AiGenerateRequest,
     AiEditRequest,
@@ -34,6 +36,12 @@ from .models import (
     GameSetSummary,
     GoogleAuthRequest,
     PublicGameSet,
+    RoleplayReply,
+    RoleplayReport,
+    RoleplayScenario,
+    RoleplayStart,
+    RoleplayStartRequest,
+    RoleplayTurnRequest,
     WordMeaning,
     LiveAnswer,
     LiveEmoji,
@@ -540,12 +548,93 @@ def _conversation_parts(lines: list[dict], male: str, female: str) -> list[tuple
     return parts
 
 
-async def _edge_synth(text: str, voice: str, rate: str) -> bytes:
+async def _edge_stream(text: str, voice: str, rate: str):
+    """Los trozos de mp3 según llegan de edge-tts."""
     if _ELEVEN_ID_RE.match(voice):  # un voice_id de ElevenLabs fijado en el DSL: edge no lo conoce
         voice = "en-US-AndrewNeural"
     import edge_tts
     communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))
-    return b"".join([chunk["data"] async for chunk in communicate.stream() if chunk["type"] == "audio"])
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            yield chunk["data"]
+
+
+async def _edge_synth(text: str, voice: str, rate: str) -> bytes:
+    return b"".join([chunk async for chunk in _edge_stream(text, voice, rate)])
+
+
+# ── Voz con la conexión adelantada (conversación con IA, ADR-39) ──
+# Abrir la conexión con edge-tts es lo caro (0,7-2 s, con picos de 8) y no depende del texto;
+# sintetizar son ~0,5 s. El turno la abre MIENTRAS la IA piensa y manda el texto en cuanto lo tiene.
+# Usa piezas internas de edge-tts (las mismas que `Communicate.stream`): si una versión nueva las
+# cambia, cualquier error cae a `_edge_synth`, que abre su propia conexión. Solo se pierde la ventaja.
+
+async def _edge_connect():
+    """(sesión, websocket) de edge-tts con la configuración ya enviada, listos para un SSML."""
+    import aiohttp
+    from edge_tts import communicate as ec, constants as k
+    from edge_tts.drm import DRM
+    session = aiohttp.ClientSession(trust_env=True)
+    try:
+        ws = await session.ws_connect(
+            f"{k.WSS_URL}&ConnectionId={ec.connect_id()}&Sec-MS-GEC={DRM.generate_sec_ms_gec()}"
+            f"&Sec-MS-GEC-Version={k.SEC_MS_GEC_VERSION}",
+            compress=15, headers=DRM.headers_with_muid(k.WSS_HEADERS), ssl=ec._SSL_CTX)
+        await ws.send_str(
+            f"X-Timestamp:{ec.date_to_string()}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n"
+            '{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"true","wordBoundaryEnabled":"false"},'
+            '"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}\r\n')
+    except BaseException:
+        await session.close()
+        raise
+    return session, ws
+
+
+async def _edge_speak(conn, text: str, voice: str, rate: str) -> bytes:
+    """Manda el texto por una conexión de `_edge_connect`, junta el mp3 y la cierra."""
+    import aiohttp
+    import edge_tts
+    from edge_tts import communicate as ec
+    session, ws = conn
+    try:
+        c = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))  # valida la voz y escapa el texto
+        await ws.send_str(ec.ssml_headers_plus_data(ec.connect_id(), ec.date_to_string(), ec.mkssml(c.tts_config, next(c.texts))))
+        audio = bytearray()
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.BINARY:
+                n = int.from_bytes(msg.data[:2], "big")  # largo de las cabeceras; después viene el mp3
+                if b"Path:audio" in msg.data[2:2 + n]:
+                    audio += msg.data[2 + n:]
+            elif msg.type == aiohttp.WSMsgType.TEXT:
+                if "Path:turn.end" in msg.data:
+                    break
+            else:  # cerrada o con error
+                break
+        if not audio:
+            raise RuntimeError("edge-tts no devolvió audio")
+        return bytes(audio)
+    finally:
+        await ws.close()
+        await session.close()
+
+
+async def _turn_voice(conn: "asyncio.Task", text: str, voice: str, rate: str) -> bytes:
+    try:
+        return await _edge_speak(await conn, text, voice, rate)
+    except Exception as exc:
+        print(f"[tts] la conexión adelantada falló, se abre otra: {exc!r}")
+        return await _edge_synth(text, voice, rate)
+
+
+async def _drop_connection(conn: "asyncio.Task") -> None:
+    """Cierra una conexión adelantada que ya no se usará (la IA falló)."""
+    conn.cancel()  # si aún conectaba; si ya conectó no hace nada y se cierra abajo
+    try:
+        session, ws = await conn
+        await ws.close()
+        await session.close()
+    except BaseException:
+        pass
 
 
 # ── ElevenLabs ────────────────────────────────────────────────────────────────
@@ -666,18 +755,37 @@ async def tts(
     # El coste se acota por los dos lados — `max_length` limita lo que cuesta UNA petición
     # (el mp3 entero se sintetiza en RAM antes de responder) y el rate limit, cuántas.
     _rate_limit(request, limit=300)
-    # `engine=edge`: los juegos (ADR-38) suenan siempre con edge-tts, que es gratis. Una palabra que
-    # 30 alumnos tocan en clase no gasta créditos de ElevenLabs, que se quedan para las hojas.
-    # Con `Cache-Control` el navegador no la vuelve a pedir al tocarla otra vez.
+    # `engine=edge`: los juegos (ADR-38) y la conversación con IA (ADR-39) suenan siempre con
+    # edge-tts, que es gratis. Una palabra que 30 alumnos tocan en clase no gasta créditos de
+    # ElevenLabs, que se quedan para las hojas. Va en streaming: el <audio> empieza a sonar con el
+    # primer trozo (~1 s) en vez de esperar la frase entera (~3 s), que es lo que hace sentir la
+    # conversación en tiempo real. El primer trozo se pide ANTES de responder, para que un fallo de
+    # edge siga siendo un 503 y no un 200 cortado. Con `Cache-Control` el navegador no la vuelve a pedir.
     edge_only = engine == "edge"
+    if edge_only:
+        voice_name = _tts_voice(voice)
+        try:
+            _check_voice_exists(voice_name)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        stream = _edge_stream(text, voice_name, rate)
+        try:
+            first = await anext(stream, b"")
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
+
+        async def body():
+            yield first
+            async for chunk in stream:
+                yield chunk
+        return StreamingResponse(body(), media_type="audio/mpeg", headers={"Cache-Control": "public, max-age=604800"})
     try:
-        mp3 = await _synth_mp3([(text, _tts_voice(voice))], rate, edge_only=edge_only)
+        mp3 = await _synth_mp3([(text, _tts_voice(voice))], rate)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail="No se pudo generar audio TTS. Verifica la conexión a internet.") from exc
-    headers = {"Cache-Control": "public, max-age=604800"} if edge_only else None
-    return Response(content=mp3, media_type="audio/mpeg", headers=headers)
+    return Response(content=mp3, media_type="audio/mpeg")
 
 
 @app.get("/tts/conversation")
@@ -1602,21 +1710,27 @@ def live_close(code: str, current_user: PublicUser = Depends(require_teacher_or_
 
 
 @app.post("/public/transcribe")
-async def transcribe(request: Request, file: UploadFile = File(...)) -> dict[str, str]:
-    """Transcribe el audio del micrófono (actividad speaking) con Groq Whisper. Público.
+async def transcribe(request: Request, file: UploadFile = File(...), clarity: bool = False) -> dict[str, Any]:
+    """Transcribe el audio del micrófono (actividad speaking y conversación con IA) con Groq
+    Whisper. Público. Con `clarity=true` devuelve además la claridad 0-100 (ADR-39).
 
     Es el endpoint sin login que cuesta DINERO (cuota de Groq), así que se acota por los dos
     lados: 4 MB por petición —de sobra para una respuesta hablada; 10 MB era diez veces lo que
     hace falta— y un tope de peticiones por IP. El invitado no tiene cuenta contra la que
-    limitar, y no se le va a pedir una: el modo invitado existe para no pedirla.
+    limitar, y no se le va a pedir una: el modo invitado existe para no pedirla. El tope es por IP
+    y un salón entero comparte la del WiFi: 30 alumnos conversando con la IA hablan cada ~20 s
+    (90/min), de ahí 180.
     """
-    _rate_limit(request, limit=60)
+    _rate_limit(request, limit=180)
     audio = await file.read()
     if not audio:
         raise HTTPException(status_code=422, detail="Audio vacío")
     if len(audio) > 4 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="El audio es demasiado largo (máx 4 MB)")
     try:
+        if clarity:
+            text, score = await asyncio.to_thread(transcribe_with_clarity, audio, file.filename or "speech.webm", file.content_type or "audio/webm")
+            return {"transcript": text, "clarity": score}
         text = ai_transcribe(audio, file.filename or "speech.webm", file.content_type or "audio/webm")
     except Exception as exc:
         raise HTTPException(status_code=502, detail="No se pudo transcribir el audio") from exc
@@ -1772,6 +1886,70 @@ def list_vocabulary_classrooms(list_id: str, _: PublicUser = Depends(require_tea
 def list_student_vocabulary(student_id: str, current_user: PublicUser = Depends(get_current_user)) -> list[VocabularyList]:
     require_student_owner_or_staff(student_id, current_user)
     return repository.list_student_vocabulary(student_id)
+
+
+# ── Conversación con IA por role-play (ADR-39) ─────────────────────────────────
+# Públicos a propósito: el alumno practica sin cuenta para no sentirse juzgado. Cuestan IA, así
+# que se acotan por IP (holgado: un salón comparte la del WiFi) y por tamaño (`history` ≤ 24
+# mensajes de ≤ 600 caracteres, y el turno se niega pasado el tope del nivel). No se guarda nada.
+
+@app.get("/public/roleplay/scenarios", response_model=list[RoleplayScenario])
+def roleplay_scenarios() -> list[dict]:
+    return roleplay.public_scenarios()
+
+
+@app.post("/public/roleplay/start", response_model=RoleplayStart)
+def roleplay_start(payload: RoleplayStartRequest, request: Request) -> dict:
+    _rate_limit(request, limit=120)
+    try:
+        return roleplay.start(payload.scenario, payload.role, payload.level, secrets.randbelow(2**31),
+                              payload.with_info, payload.with_missions)
+    except roleplay.RoleplayError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/public/roleplay/turn", response_model=RoleplayReply)
+async def roleplay_turn(payload: RoleplayTurnRequest, request: Request) -> dict:
+    """La siguiente línea del personaje, con su voz. Con historial vacío, la que abre la escena.
+
+    La voz viaja en la MISMA respuesta (mp3 en base64, ~60 KB): el servidor la sintetiza en cuanto
+    tiene el texto y el texto y la voz llegan juntos. Pedirla aparte a /tts desde un <audio> sumaba
+    otra ida y vuelta, y el navegador esperaba el archivo entero y aún 2-3 s más antes de sonar:
+    8-10 s entre que aparecía el texto y se oía. Si edge-tts falla o tarda, se responde sin audio y
+    el cliente la pide a /tts: la conversación no se detiene por la voz."""
+    _rate_limit(request, limit=240)
+    conn = asyncio.create_task(_edge_connect())  # lo caro de la voz, mientras la IA piensa
+    try:
+        out = await asyncio.to_thread(roleplay.reply, payload.scenario, payload.role, payload.level, payload.seed,
+                                      [m.model_dump() for m in payload.history], ai_json, payload.with_info)
+    except roleplay.RoleplayError as exc:
+        await _drop_connection(conn)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        await _drop_connection(conn)
+        print(f"[roleplay] la IA no respondió: {exc!r}")
+        raise HTTPException(status_code=503, detail="El personaje no respondió. Intenta de nuevo.") from exc
+    try:
+        mp3 = await asyncio.wait_for(_turn_voice(conn, out["reply"], out["voice"], payload.rate), timeout=12)
+        out["audio"] = base64.b64encode(mp3).decode()
+    except Exception as exc:
+        print(f"[roleplay] sin voz en la respuesta, el cliente la pedirá a /tts: {exc!r}")
+    return out
+
+
+@app.post("/public/roleplay/report", response_model=RoleplayReport)
+def roleplay_report(payload: RoleplayTurnRequest, request: Request) -> dict:
+    """Nota del 1 al 10 y revisión de cada respuesta. La IA juzga gramática, vocabulario y
+    comunicación; la pronunciación sale de la claridad de Whisper, con la curva del nivel."""
+    _rate_limit(request, limit=60)
+    try:
+        return roleplay.report(payload.scenario, payload.role, payload.level, payload.seed,
+                               [m.model_dump() for m in payload.history], ai_json, payload.with_info, payload.with_missions)
+    except roleplay.RoleplayError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        print(f"[roleplay] no se pudo armar el informe: {exc!r}")
+        raise HTTPException(status_code=503, detail="No se pudo calcular tu nota. Intenta de nuevo.") from exc
 
 
 # ── Juegos de práctica (ADR-38) ───────────────────────────────────────────────

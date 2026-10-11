@@ -1,0 +1,158 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { roleplayAudioUrl } from '../services/api';
+import type { RoleplayLevel } from '../types';
+
+// ── Voz del personaje ─────────────────────────────────────────────────────────
+
+/** Un solo <audio> para toda la conversación. iPhone solo deja sonar audio que empezó con un toque
+ *  del usuario: se "desbloquea" una vez (prueba de sonido o botón Empezar) y después se reutiliza
+ *  cambiándole el `src`, también desde respuestas que llegan sin toque. */
+export const voice = typeof Audio !== 'undefined' ? new Audio() : null;
+
+/** WAV de silencio de 0,05 s: lo que suena al desbloquear. */
+function silentWav(): string {
+  const samples = 400;
+  const buf = new DataView(new ArrayBuffer(44 + samples * 2));
+  const text = (o: number, t: string) => [...t].forEach((c, i) => buf.setUint8(o + i, c.charCodeAt(0)));
+  text(0, 'RIFF'); buf.setUint32(4, 36 + samples * 2, true); text(8, 'WAVEfmt ');
+  buf.setUint32(16, 16, true); buf.setUint16(20, 1, true); buf.setUint16(22, 1, true);
+  buf.setUint32(24, 8000, true); buf.setUint32(28, 16000, true); buf.setUint16(32, 2, true); buf.setUint16(34, 16, true);
+  text(36, 'data'); buf.setUint32(40, samples * 2, true);
+  let binary = '';
+  new Uint8Array(buf.buffer).forEach((b) => { binary += String.fromCharCode(b); });
+  return `data:audio/wav;base64,${btoa(binary)}`;
+}
+
+export function unlockVoice(): void {
+  if (!voice || voice.dataset.unlocked) return;
+  voice.src = silentWav();
+  voice.play().then(() => { voice.dataset.unlocked = '1'; }, () => {});
+}
+
+/** Velocidad de la voz: la del nivel, 15 puntos más lenta con "voz más lenta". */
+export function voiceRate(levelRate: string, slower: boolean): string {
+  const base = Number.parseInt(levelRate, 10) || 0;
+  const value = Math.max(-50, base - (slower ? 15 : 0));
+  return `${value >= 0 ? '+' : ''}${value}%`;
+}
+
+let finish = () => {};
+let loading: AbortController | null = null;
+
+/** Reproduce `src` en el <audio> único y resuelve cuando termina, si no se pudo reproducir o si otra
+ *  frase / `stopVoice()` la corta: una promesa que nunca resuelve dejaría la conversación trabada. */
+export function play(src: string): Promise<void> {
+  stopVoice();
+  return new Promise((resolve) => {
+    if (!voice) { resolve(); return; }
+    finish = resolve;
+    voice.onended = () => resolve();
+    voice.onerror = () => resolve();
+    voice.src = src;
+    voice.play().catch(() => resolve());
+  });
+}
+
+// ponytail: los blob: no se revocan (~45 KB por frase); se liberan al recargar la página.
+/** El mp3 en base64 que trae `/public/roleplay/turn` → URL que el <audio> suena al instante. */
+export const mp3Url = (base64: string): string =>
+  URL.createObjectURL(new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], { type: 'audio/mpeg' }));
+
+/** Dice un texto con la voz del personaje (repetir, versión lenta, informe). Se descarga entero
+ *  antes de sonar: con la URL directa el <audio> esperaba igual el archivo completo y además
+ *  arrancaba 2-3 s después de tenerlo. */
+export async function say(text: string, voiceName: string, rate: string): Promise<void> {
+  stopVoice();
+  const ctrl = new AbortController();
+  loading = ctrl;
+  let src: string;
+  try {
+    const res = await fetch(roleplayAudioUrl(text, voiceName, rate), { signal: ctrl.signal });
+    if (!res.ok) return;
+    src = URL.createObjectURL(await res.blob());
+  } catch {
+    return; // cortada mientras bajaba, o sin red
+  }
+  if (loading === ctrl) await play(src);
+}
+
+export function stopVoice(): void {
+  loading?.abort();
+  loading = null;
+  voice?.pause();
+  finish();
+}
+
+// ── Micrófono ─────────────────────────────────────────────────────────────────
+
+export const canRecord = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
+
+const MAX_SECONDS = 45;
+
+/** Graba con MediaRecorder (como la actividad speaking) y mide el volumen en vivo para las barras. */
+export function useRecorder() {
+  const [recording, setRecording] = useState(false);
+  const [level, setLevel] = useState(0);
+  const [seconds, setSeconds] = useState(0);
+  const recorder = useRef<MediaRecorder | null>(null);
+  const cleanup = useRef<() => void>(() => {});
+
+  const stop = useCallback((): void => { recorder.current?.stop(); }, []);
+
+  const start = useCallback(async (): Promise<Blob | null> => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    const chunks: Blob[] = [];
+    const rec = new MediaRecorder(stream);
+    recorder.current = rec;
+
+    const ctx = new AudioContext();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const began = Date.now();
+    const timer = window.setInterval(() => {
+      analyser.getByteFrequencyData(data);
+      setLevel(Math.min(1, data.reduce((a, b) => a + b, 0) / data.length / 90));
+      const elapsed = Math.floor((Date.now() - began) / 1000);
+      setSeconds(elapsed);
+      if (elapsed >= MAX_SECONDS) rec.stop();
+    }, 100);
+    cleanup.current = () => {
+      window.clearInterval(timer);
+      stream.getTracks().forEach((t) => t.stop());
+      void ctx.close();
+      setRecording(false);
+      setLevel(0);
+    };
+
+    return new Promise((resolve) => {
+      rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      rec.onstop = () => {
+        cleanup.current();
+        const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+        resolve(blob.size ? blob : null);
+      };
+      rec.start();
+      setSeconds(0);
+      setRecording(true);
+    });
+  }, []);
+
+  // Si el alumno sale a mitad de una grabación, el micrófono se suelta.
+  useEffect(() => {
+    const release = cleanup;
+    return () => release.current();
+  }, []);
+
+  return { recording, level, seconds, start, stop };
+}
+
+export const LEVEL_INFO: Record<RoleplayLevel, { label: string; emoji: string; bullets: string[]; en: boolean; es: boolean }> = {
+  beginner: { label: 'Principiante', emoji: '🌱', en: true, es: true,
+    bullets: ['Voz lenta y clara', 'Palabras muy sencillas', 'Subtítulos en inglés y español', 'Pronunciación medida con paciencia'] },
+  intermediate: { label: 'Intermedio', emoji: '🌿', en: true, es: false,
+    bullets: ['Voz casi normal', 'Inglés del día a día', 'Subtítulos solo en inglés', 'Pronunciación más exigente'] },
+  advanced: { label: 'Avanzado', emoji: '🌳', en: false, es: false,
+    bullets: ['Voz natural y acentos del mundo', 'Expresiones y phrasal verbs', 'Sin subtítulos: solo escuchas', 'Pronunciación estricta'] },
+};

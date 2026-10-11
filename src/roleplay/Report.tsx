@@ -1,0 +1,168 @@
+import type { CSSProperties } from 'react';
+import { CheckCircle2, Lightbulb, RotateCcw, Shuffle, SlidersHorizontal, Snail, Volume2, XCircle } from 'lucide-react';
+import RexMascot from '../components/RexMascot';
+import type { RoleplayReport, RoleplayStart } from '../types';
+import { moodForScore } from '../utils/scoreMood';
+import { say, voiceRate } from './media';
+
+const CRITERIA = [
+  { key: 'communication', label: 'Comunicación', hint: 'Entendiste, respondiste al punto y mantuviste la conversación', color: '#7048E8' },
+  { key: 'grammar', label: 'Gramática', hint: 'Oraciones correctas para tu nivel', color: '#0CA678' },
+  { key: 'vocabulary', label: 'Vocabulario', hint: 'Variedad y palabras adecuadas', color: '#F08C00' },
+  { key: 'pronunciation', label: 'Pronunciación', hint: 'Qué tan claro te entendió la máquina', color: '#1C7ED6' },
+] as const;
+
+const STATUS = {
+  ok: { label: 'Bien dicho', icon: CheckCircle2 },
+  better: { label: 'Se entiende, pero suena más natural así', icon: Lightbulb },
+  wrong: { label: 'Incorrecto. Lo correcto sería', icon: XCircle },
+};
+
+const polar = (r: number, deg: number) => {
+  const a = ((deg - 90) * Math.PI) / 180;
+  return `${(r * Math.cos(a)).toFixed(2)},${(r * Math.sin(a)).toFixed(2)}`;
+};
+
+/** Rebanada de dona entre dos ángulos y dos radios. */
+function slice(a0: number, a1: number, rIn: number, rOut: number): string {
+  const large = a1 - a0 > 180 ? 1 : 0;
+  return `M${polar(rOut, a0)} A${rOut},${rOut} 0 ${large} 1 ${polar(rOut, a1)} L${polar(rIn, a1)} A${rIn},${rIn} 0 ${large} 0 ${polar(rIn, a0)} Z`;
+}
+
+/** Pastel "de pétalos": cada criterio es una rebanada del tamaño de su peso en la nota, y crece
+ *  hacia afuera según su puntaje. En el centro, la nota final. */
+function GradePie({ report }: { report: RoleplayReport }) {
+  const R_IN = 36;
+  const R_MAX = 100;
+  const used = CRITERIA.filter((c) => report.scores[c.key] !== null);
+  const total = used.reduce((sum, c) => sum + (report.weights[c.key] ?? 0), 0) || 1;
+  let angle = 0;
+  return (
+    <svg className="rp-pie" viewBox="-110 -110 220 220" role="img" aria-label={`Nota ${report.grade} de 10`}>
+      {used.map((c) => {
+        const span = ((report.weights[c.key] ?? 0) / total) * 360;
+        const a0 = angle + 1.5;
+        const a1 = angle + span - 1.5;
+        angle += span;
+        const score = report.scores[c.key] ?? 0;
+        const r = R_IN + 4 + ((R_MAX - R_IN - 4) * score) / 10;
+        return (
+          <g key={c.key}>
+            <path d={slice(a0, a1, R_IN, R_MAX)} fill={c.color} opacity="0.14" />
+            <path className="rp-petal" d={slice(a0, a1, R_IN, r)} fill={c.color} />
+          </g>
+        );
+      })}
+      <circle r={R_IN - 3} className="rp-pie-hole" />
+      <text className="rp-pie-grade" dy="6">{report.grade.toFixed(1)}</text>
+      <text className="rp-pie-of" dy="24">de 10</text>
+    </svg>
+  );
+}
+
+export function Report({ report, session, onAgain, onSetup, onOther }: {
+  report: RoleplayReport;
+  session: RoleplayStart;
+  onAgain: () => void;
+  onSetup: () => void;
+  onOther: () => void;
+}) {
+  const play = (text: string, slow = false) => void say(text, session.ai_voice, voiceRate(session.rate, slow));
+  const counts = { ok: 0, better: 0, wrong: 0 };
+  report.turns.forEach((t) => { counts[t.status] += 1; });
+
+  return (
+    <div className="rp-report">
+      <section className="rp-report-hero">
+        <div className="rp-pie-wrap">
+          <GradePie report={report} />
+          <RexMascot mood={moodForScore(report.grade * 10)} className="rp-report-rex" />
+        </div>
+        <div className="rp-report-head">
+          <p className="rp-eyebrow">{session.title} · {session.level === 'beginner' ? 'Principiante' : session.level === 'intermediate' ? 'Intermedio' : 'Avanzado'}</p>
+          <h2>{report.grade >= 9 ? '¡Increíble!' : report.grade >= 7.5 ? '¡Muy bien!' : report.grade >= 6 ? '¡Buen trabajo!' : '¡Sigue practicando!'}</h2>
+          <p>{report.summary_es}</p>
+          <div className="rp-tally">
+            <span className="ok">✓ {counts.ok} bien</span>
+            <span className="better">💡 {counts.better} mejorables</span>
+            <span className="wrong">✗ {counts.wrong} incorrectas</span>
+          </div>
+        </div>
+        <ul className="rp-legend">
+          {CRITERIA.map((c) => (
+            <li key={c.key} style={{ '--c': c.color } as CSSProperties}>
+              <span className="dot" />
+              <div>
+                <b>{c.label}</b>
+                <small>{report.scores[c.key] === null ? 'No se midió: escribiste tus respuestas' : c.hint}</small>
+              </div>
+              <strong>{report.scores[c.key] === null ? '—' : report.scores[c.key]?.toFixed(1)}</strong>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="rp-report-grid">
+        {report.missions.length > 0 && (
+          <div className="rp-box">
+            <h3>🎯 Tu misión</h3>
+            <ul className="rp-checks">
+              {report.missions.map((m, i) => <li key={i} className={m.done ? 'done' : ''}>{m.done ? '✅' : '⬜'} {m.text}</li>)}
+            </ul>
+          </div>
+        )}
+        {report.tips_es.length > 0 && (
+          <div className="rp-box">
+            <h3>💡 Para la próxima</h3>
+            <ul className="rp-tips">{report.tips_es.map((t, i) => <li key={i}>{t}</li>)}</ul>
+          </div>
+        )}
+      </section>
+
+      <section className="rp-box">
+        <h3>🗂️ Tu conversación, respuesta por respuesta</h3>
+        <ol className="rp-review">
+          {report.turns.map((t) => {
+            const Icon = STATUS[t.status].icon;
+            return (
+              <li key={t.n} className={`rp-turn ${t.status}`}>
+                {t.asked && (
+                  <p className="rp-turn-asked">
+                    <span>{session.ai_emoji} {session.ai_name}:</span> {t.asked}
+                    <button type="button" onClick={() => play(t.asked)} aria-label="Escuchar"><Volume2 size={14} /></button>
+                  </p>
+                )}
+                <p className="rp-turn-said">
+                  <span>Tú:</span> “{t.said}”
+                  {t.clarity !== null && (
+                    <em className={t.clear ? 'ok' : 'low'}>🎤 {Math.round(t.clarity)}%{t.clear ? '' : ' · poco clara para tu nivel'}</em>
+                  )}
+                </p>
+                <div className="rp-verdict">
+                  <Icon size={18} />
+                  <div>
+                    <b>{STATUS[t.status].label}</b>
+                    {t.better && (
+                      <p className="rp-better">
+                        “{t.better}”
+                        <button type="button" onClick={() => play(t.better)} aria-label="Escuchar la versión correcta"><Volume2 size={14} /></button>
+                        <button type="button" onClick={() => play(t.better, true)} aria-label="Escuchar lento"><Snail size={14} /></button>
+                      </p>
+                    )}
+                    {t.why_es && <p className="rp-why">{t.why_es}</p>}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
+      <div className="rp-report-actions">
+        <button type="button" className="rp-btn primary" onClick={onAgain}><RotateCcw size={16} /> Repetir (será distinta)</button>
+        <button type="button" className="rp-btn" onClick={onSetup}><SlidersHorizontal size={16} /> Cambiar rol o nivel</button>
+        <button type="button" className="rp-btn" onClick={onOther}><Shuffle size={16} /> Otro role-play</button>
+      </div>
+    </div>
+  );
+}

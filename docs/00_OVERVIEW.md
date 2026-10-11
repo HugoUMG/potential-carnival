@@ -49,8 +49,8 @@ Ver [13_ROADMAP](13_ROADMAP.md) para el resto.
 | Base de datos | PostgreSQL en producción (Aiven) / SQLite en desarrollo |
 | Autenticación | JWT con roles + Google Identity Services |
 | TTS | **ElevenLabs** si hay `ELEVENLABS_API_KEY` (mp3 guardado en `tts_cache`: cada audio se paga una vez), con **`edge-tts` de respaldo** si no hay clave o falla (cuota agotada). Las voces se nombran siempre con los nombres de edge-tts (8 curadas US/UK/AU: 6 adultas + infantiles Ana ♀ y Roger ♂; las ~47 en inglés valen en el DSL) y ElevenLabs pone la equivalente por género/acento; un `voice_id` de ElevenLabs literal también vale. Velocidad de síntesis; las conversaciones eligen voz por hablante con `male_voice`/`female_voice` |
-| IA | Google Gemini (`gemini-3.1-flash-lite`) con fallback a Groq (`llama-3.3-70b-versatile`) |
-| Transcripción | Groq Whisper |
+| IA | Google Gemini (`gemini-3.1-flash-lite`) con fallback a Groq (`openai/gpt-oss-120b`; el chat de la conversación con IA usa `qwen/qwen3.8-27b`) |
+| Transcripción | Groq Whisper (también la claridad de pronunciación de la conversación con IA) |
 | Deploy | Render.com — Static Site (frontend) + Web Service (backend) |
 
 ## Roles y modos de acceso

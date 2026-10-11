@@ -110,10 +110,11 @@ dinero se acotan **por los dos lados**: cuánto cuesta *una* petición y cuánta
 |----------|--------------|-----------------|
 | `GET /tts` | `text` ≤ 2000 caracteres; `voice`/`rate` validados contra inyección de SSML | 300 |
 | `GET /tts/conversation` | `lines` ≤ 8000 caracteres | 300 |
-| `POST /public/transcribe` | 4 MB de audio | 60 |
+| `POST /public/transcribe` | 4 MB de audio | 180 |
+| `POST /public/roleplay/start` / `turn` / `report` | `history` ≤ 24 mensajes de ≤ 600 caracteres | 120 / 240 / 60 |
 
-El tope de tamaño es el que más importa en `/tts`: edge-tts sintetiza el MP3 **entero en memoria**
-antes de responder, así que sin `max_length` una sola petición podía tumbar la instancia. En
+El tope de tamaño es el que más importa en `/tts`: sin `engine=edge` el MP3 se sintetiza **entero en
+memoria** antes de responder, así que sin `max_length` una sola petición podía tumbar la instancia. En
 `/public/transcribe` el que importa es el de volumen: cada llamada gasta cuota de Groq.
 
 `_rate_limit` (`main.py`) es una ventana deslizante en un dict, sin Redis ni `slowapi`. Sus dos

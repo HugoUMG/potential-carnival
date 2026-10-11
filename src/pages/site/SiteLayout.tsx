@@ -99,6 +99,7 @@ export function SiteLayout() {
             <Link key={item.to} to={item.to} className="transition hover:text-site-fg/80">{item.label}</Link>
           ))}
           <Link to="/vocab" className="transition hover:text-site-fg/80">Vocabulario</Link>
+          <Link to="/conversacion" className="transition hover:text-site-fg/80">Conversación con IA</Link>
           <Link to="/login" className="transition hover:text-site-fg/80">Entrar</Link>
         </div>
         <p className="mt-4">MyDinoEnglish · hojas de trabajo de inglés, interactivas y calificadas.</p>

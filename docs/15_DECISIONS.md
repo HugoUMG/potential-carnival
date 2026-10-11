@@ -970,6 +970,56 @@ los vuelve a pedir a los 20 s). Una palabra que la IA no logra definir se reinte
 el set, no en cada visita (`_words_attempted`). Los juegos no guardan resultados en la base: si algún
 día cuentan para la nota, necesitarán sus endpoints y pasar por `api.ts`.
 
+## 🟢 ADR-39 — Conversación con IA: partidas sin estado por seed, chat rápido y nota mixta
+
+**Decisión.** `/conversacion` (público, sin cuenta) son role-plays con un personaje de IA: 8
+situaciones (`backend/app/roleplay.py`), cada una con 2 roles y 3 niveles. El servidor **no guarda
+nada**: `start` devuelve un `seed`, y cada `turn`/`report` reconstruye la partida entera con
+`random.Random(f"{escenario}|{rol}|{nivel}|{seed}")` (menú, boleto, CV, el giro secreto) mientras
+el cliente reenvía el historial. Cada línea del personaje es **una** llamada con un prompt corto al
+modelo rápido de Groq (`GROQ_CHAT_MODEL`), sin el lock global (`serialize=False`), y la voz viaja **en la misma
+respuesta** (mp3 en base64): mientras la IA piensa, el servidor ya abre la conexión con edge-tts y
+sintetiza en cuanto tiene el texto. Las misiones salen 2 o 3 al azar de un repertorio de ~6 por rol, y
+el alumno puede quitar las misiones o la información (conversación libre). La nota es una media ponderada: la IA pone gramática,
+vocabulario y comunicación; la pronunciación sale de la **claridad de Whisper** (`speech_clarity`)
+pasada por la curva del nivel, así que la misma claridad vale menos en avanzado.
+
+**Motivo.** Los alumnos con miedo a hablar con el profesor hablan con alguien que saben que no es
+real. Para que se sienta una conversación, la respuesta tiene que sonar en ~2 s: prompt mínimo
+(solo la escena, las tarjetas y lo secreto), modelo pequeño y la voz sin una segunda petición.
+Sin estado en el servidor no hay tabla, ni limpieza, ni sesiones colgadas, y el secreto nunca viaja
+al navegador porque se regenera del seed.
+
+**Alternativas descartadas.**
+- *Guardar la partida en la base.* Una fila por alumno y turno para algo que no cuenta para la nota
+  del curso, en Aiven (latencia, regla de no tocar producción en pruebas). El seed da lo mismo gratis.
+- *Mandar el secreto al cliente y que lo reenvíe.* Cualquiera lo leería en las herramientas del
+  navegador y la escena perdería el giro.
+- *Pedir la nota de pronunciación a la IA de texto.* No oye el audio: solo vería la transcripción.
+  `avg_logprob` y `no_speech_prob` de Whisper (`verbose_json`) sí miden qué tan claro se entendió.
+- *Decirle al personaje "haz como que no sabes" las notas ⚠ del alumno-personal.* El modelo rápido
+  las soltaba igual ("¿el espagueti está agotado?"). Ahora `cards_text(..., learner_notes=False)` se
+  las quita del prompt; el informe sí las ve, para marcar como error lo que contradice las tarjetas.
+- *La voz desde un `<audio src="/tts?…">` aparte, aunque sea en streaming.* Se probó: el `<audio>`
+  espera el archivo entero igual y arranca 2-3 s después de tenerlo, más otra ida y vuelta y la
+  conexión a Microsoft. El texto aparecía y la voz llegaba 8-10 s después. Con la voz dentro de
+  `turn` y reproducida desde memoria (`blob:`), texto y voz salen a la vez (~70 ms).
+- *Abrir la conexión con edge-tts después de tener el texto.* Medido: la conexión es 0,7-2 s (picos
+  de 8) y no depende del texto; sintetizar son ~0,5 s. Abrirla en paralelo con la IA esconde ese
+  tiempo. Usa piezas internas de edge-tts; si una versión nueva las cambia, cae a `Communicate`.
+- *Conversación libre dejándole las tarjetas al personaje "de fondo".* El cliente de la IA ignoraba
+  lo que inventaba el alumno-mesero y pedía del menú que solo él veía. En libre, nadie ve tarjetas.
+- *El modelo grande para el chat.* `gpt-oss-120b` tarda más y razonaba de más ("no te entendí" ante
+  frases correctas). El grande queda para el informe, que es una sola llamada.
+
+**Consecuencias.** El seed reproduce la partida **mientras no cambien los constructores**: si se
+edita `_BUILDERS` con alumnos a media conversación, su menú cambia a mitad de escena (se nota poco y
+dura un deploy). El historial lo manda el cliente, así que un alumno puede inventarse respuestas de
+la IA: solo se engaña a sí mismo, la nota no se guarda. Los topes por IP (`turn` 240, `transcribe`
+180 por minuto) asumen un salón entero en un WiFi; con más de ~40 alumnos a la vez el límite real es
+el cupo por minuto de Groq, no el nuestro. Groq retira modelos sin aviso: por eso `GROQ_MODEL` y
+`GROQ_CHAT_MODEL` son variables (llama-3.3-70b desapareció y toda llamada caía en silencio a Gemini).
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:
