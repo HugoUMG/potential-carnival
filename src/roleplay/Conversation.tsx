@@ -15,6 +15,10 @@ export interface Prefs {
 export type Msg = RoleplayMessage & { es?: string; audio?: string };
 type Phase = 'thinking' | 'speaking' | 'listen' | 'transcribing' | 'done' | 'error';
 
+/** Con menos palabras la claridad de Whisper no dice nada (igual que `MIN_WORDS_FOR_CLARITY` del backend). */
+const MIN_WORDS_FOR_CLARITY = 3;
+const measured = (m: Msg) => m.clarity != null && m.text.trim().split(/\s+/).length >= MIN_WORDS_FOR_CLARITY;
+
 /** Respuestas mínimas antes de poder terminar y pedir la nota. */
 const MIN_TO_FINISH = 3;
 
@@ -177,7 +181,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
               <div key={i} className="rp-msg me">
                 <div className="rp-bubble">
                   <p>{m.text}</p>
-                  <span className={`rp-clarity ${m.clarity == null ? '' : m.clarity >= session.clarity_ok ? 'ok' : 'low'}`}>
+                  <span className={`rp-clarity ${!measured(m) ? '' : m.clarity! >= session.clarity_ok ? 'ok' : 'low'}`}>
                     {m.clarity == null ? '⌨️ escrito' : `🎤 claridad ${Math.round(m.clarity)}%`}
                   </span>
                 </div>

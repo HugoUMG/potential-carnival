@@ -182,7 +182,8 @@ notas ⚠ que solo conoce el rol del alumno. Las dos cosas se pueden quitar al e
 improvisa los detalles y acepta los del alumno, pero sigue en la escena, su rol y su objetivo.
 
 **Claridad** — 0-100, qué tan seguro estuvo Whisper al transcribir al alumno (`speech_clarity`). Es
-la base de la nota de pronunciación, más exigente según el nivel (`clarity_ok`: 50/62/72).
+la base de la nota de pronunciación, más exigente según el nivel (`clarity_ok`: 50/62/72). Las
+respuestas de menos de 3 palabras no cuentan: con una palabra suelta Whisper casi nunca está seguro.
 
 **ZzFX** — Sintetizador de efectos de sonido por código (`utils/sfx.ts`): blips de clic y sonidos de
 las animaciones de envío, sin ningún archivo de audio.

@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react';
 import { CheckCircle2, Lightbulb, RotateCcw, Shuffle, SlidersHorizontal, Snail, Volume2, XCircle } from 'lucide-react';
 import RexMascot from '../components/RexMascot';
-import type { RoleplayReport, RoleplayStart } from '../types';
+import type { RoleplayLevel, RoleplayReport, RoleplayStart } from '../types';
 import { moodForScore } from '../utils/scoreMood';
-import { say, voiceRate } from './media';
+import { LEVEL_INFO, say, voiceRate } from './media';
 
 const CRITERIA = [
   { key: 'communication', label: 'Comunicación', hint: 'Entendiste, respondiste al punto y mantuviste la conversación', color: '#7048E8' },
@@ -60,12 +60,13 @@ function GradePie({ report }: { report: RoleplayReport }) {
   );
 }
 
-export function Report({ report, session, onAgain, onSetup, onOther }: {
+export function Report({ report, session, onAgain, onSetup, onOther, onLevelUp }: {
   report: RoleplayReport;
   session: RoleplayStart;
   onAgain: () => void;
   onSetup: () => void;
   onOther: () => void;
+  onLevelUp: (level: RoleplayLevel) => void;
 }) {
   const play = (text: string, slow = false) => void say(text, session.ai_voice, voiceRate(session.rate, slow));
   const counts = { ok: 0, better: 0, wrong: 0 };
@@ -94,7 +95,7 @@ export function Report({ report, session, onAgain, onSetup, onOther }: {
               <span className="dot" />
               <div>
                 <b>{c.label}</b>
-                <small>{report.scores[c.key] === null ? 'No se midió: escribiste tus respuestas' : c.hint}</small>
+                <small>{report.scores[c.key] === null ? 'No se midió: respuestas escritas o muy cortas' : c.hint}</small>
               </div>
               <strong>{report.scores[c.key] === null ? '—' : report.scores[c.key]?.toFixed(1)}</strong>
             </li>
@@ -135,7 +136,7 @@ export function Report({ report, session, onAgain, onSetup, onOther }: {
                 <p className="rp-turn-said">
                   <span>Tú:</span> “{t.said}”
                   {t.clarity !== null && (
-                    <em className={t.clear ? 'ok' : 'low'}>🎤 {Math.round(t.clarity)}%{t.clear ? '' : ' · poco clara para tu nivel'}</em>
+                    <em className={t.clear === null ? '' : t.clear ? 'ok' : 'low'}>🎤 {Math.round(t.clarity)}%{t.clear === false ? ' · poco clara para tu nivel' : ''}</em>
                   )}
                 </p>
                 <div className="rp-verdict">
@@ -157,6 +158,16 @@ export function Report({ report, session, onAgain, onSetup, onOther }: {
           })}
         </ol>
       </section>
+
+      {report.next_level && (
+        <section className="rp-level-up">
+          <span aria-hidden>🚀</span>
+          <p><b>Tu inglés va por encima de este nivel.</b> ¿Probamos en {LEVEL_INFO[report.next_level].label.toLowerCase()}?</p>
+          <button type="button" className="rp-btn primary" onClick={() => onLevelUp(report.next_level!)}>
+            Probar en {LEVEL_INFO[report.next_level].label}
+          </button>
+        </section>
+      )}
 
       <div className="rp-report-actions">
         <button type="button" className="rp-btn primary" onClick={onAgain}><RotateCcw size={16} /> Repetir (será distinta)</button>

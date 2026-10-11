@@ -421,4 +421,5 @@ export interface RoleplayReport {
   missions: { text: string; done: boolean }[];
   turns: RoleplayTurnReview[];
   clarity_ok: number;
+  next_level: RoleplayLevel | null; // con nota alta: el nivel que se le propone probar
 }

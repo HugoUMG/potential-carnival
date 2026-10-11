@@ -277,3 +277,22 @@ def test_mayusculas_y_puntuacion_no_son_un_error():
     tips = rp.report("restaurante", "customer", "beginner", 1, _history("hi"),
                      _fake({"tips_es": ["Recuerda la mayúscula en I.", "Usa I'd like para pedir."]}))["tips_es"]
     assert tips == ["Usa I'd like para pedir."]
+
+
+def test_el_cierre_no_se_adelanta_y_el_personaje_contesta_primero():
+    scenario, built = rp.session("rutina", "newcomer", "beginner", 4)
+    system, user, closing = rp.turn_prompt(scenario, built, "newcomer", "beginner", _history("a", "b", "c", "d", "e"))
+    assert not closing and "Do NOT say goodbye yet" in user
+    assert "answer it FIRST" in system and "open questions" in system and "will, going to" in system
+
+
+def test_una_palabra_no_mide_la_pronunciacion_y_la_nota_alta_propone_subir():
+    history = _history("I would like a lemonade, please", clarity=90) + [{"who": "user", "text": "Bye!", "clarity": 30}]
+    ask = _fake({"turns": [], "grammar": 10, "vocabulary": 10, "communication": 10})
+    out = rp.report("restaurante", "customer", "beginner", 1, history, ask)
+    assert out["turns"][0]["clear"] is True and out["turns"][1]["clear"] is None  # "Bye!" no es "poco clara"
+    assert out["scores"]["pronunciation"] == rp.pronunciation_score([90], "beginner")
+    assert out["next_level"] == "intermediate"
+    assert rp.report("restaurante", "customer", "advanced", 1, history, ask)["next_level"] is None
+    low = _fake({"turns": [], "grammar": 4, "vocabulary": 4, "communication": 4})
+    assert rp.report("restaurante", "customer", "beginner", 1, history, low)["next_level"] is None

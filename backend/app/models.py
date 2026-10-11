@@ -587,3 +587,4 @@ class RoleplayReport(BaseModel):
     missions: list[RoleplayMission]
     turns: list[RoleplayTurnReview]
     clarity_ok: int
+    next_level: RoleplayLevel | None = None  # con nota alta: el nivel que se le propone probar

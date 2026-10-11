@@ -210,6 +210,9 @@
 .rp-legend small { color: var(--muted); font-size: 12.5px; }
 .rp-legend strong { font: 800 20px var(--f-display); color: var(--c); }
 .rp-report-grid { display: grid; gap: 16px; }
+.rp-level-up { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--surface)), var(--surface)); border: 1.5px solid var(--accent); border-radius: 22px; padding: 14px 18px; }
+.rp-level-up > span { font-size: 30px; }
+.rp-level-up p { flex: 1; min-width: 200px; }
 .rp-box { background: var(--surface); border: 1.5px solid var(--line); border-radius: 22px; padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
 .rp-box h3 { font-family: var(--f-display); font-size: 17px; }
 .rp-checks, .rp-tips { list-style: none; padding: 0; display: grid; gap: 8px; font-weight: 700; }

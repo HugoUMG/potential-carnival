@@ -225,8 +225,9 @@ POST   /public/roleplay/report                — Igual que turn → RoleplayRep
   mandar más es 422.
 - `report`: `grade` (1-10, un decimal), `scores` (`communication`, `grammar`, `vocabulary`,
   `pronunciation` — esta `null` si todo fue escrito), `weights`, `summary_es`, `tips_es`,
-  `missions[{text, done}]` y `turns[{n, asked, said, status: ok|better|wrong, better, why_es,
-  clarity, clear}]`.
+  `missions[{text, done}]`, `turns[{n, asked, said, status: ok|better|wrong, better, why_es,
+  clarity, clear}]` (`clear` es `null` en lo escrito y en respuestas de menos de 3 palabras) y
+  `next_level` (el nivel siguiente si la nota es ≥ 8.5; `null` si no, o si ya es avanzado).
 - Errores: 422 escenario/rol/nivel inexistente o conversación terminada; 503 si la IA falla.
   Topes por IP y minuto: `start` 120, `turn` 240, `report` 60.
 

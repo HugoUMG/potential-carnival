@@ -81,11 +81,11 @@ function Session({ scenario, onBack }: { scenario: RoleplayScenario; onBack: () 
   };
 
   // Cada partida es nueva: otro seed, otro menú, otro giro. "Repetir" vuelve a pedir una.
-  const begin = async () => {
+  const begin = async (l: RoleplayLevel = level) => {
     setBusy(true);
     setError('');
     try {
-      setSession(await startRoleplay(scenario.id, role, level, withInfo, withMissions));
+      setSession(await startRoleplay(scenario.id, role, l, withInfo, withMissions));
       setReport(null);
       setStep('check');
     } catch (e) {
@@ -129,7 +129,8 @@ function Session({ scenario, onBack }: { scenario: RoleplayScenario; onBack: () 
   if (step === 'report' && report && session) {
     return (
       <div className="rp-page">
-        <Report report={report} session={session} onAgain={() => void begin()} onSetup={() => setStep('setup')} onOther={onBack} />
+        <Report report={report} session={session} onAgain={() => void begin()} onSetup={() => setStep('setup')} onOther={onBack}
+          onLevelUp={(l) => { pickLevel(l); void begin(l); }} />
       </div>
     );
   }
