@@ -1,4 +1,4 @@
-import type { ActivityBlock, ActivityType, GameQuestion, GameSet, GameSetDraft, GameSetSummary, PublicGameSet, RoleplayMessage, RoleplayReply, RoleplayReport, RoleplayScenario, RoleplayStart, RoleplayLevel, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
+import type { ActivityBlock, ActivityType, GameQuestion, GameSet, GameSetDraft, GameSetSummary, PublicGameSet, RoleplayMessage, RoleplayReply, RoleplayReport, RoleplayScenario, RoleplayStart, RoleplayLevel, RoomLend, RoomMode, RoomState, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const AUTH_STORAGE_KEY = 'worksheet_auth_session';
@@ -1045,6 +1045,36 @@ export function getPublicGameSet(id: string): Promise<PublicGameSet> {
 export function gameAudioUrl(text: string, slow = false): string {
   return `${API_BASE_URL}/tts?text=${encodeURIComponent(text)}&voice=en-US-AndrewNeural&rate=${slow ? '-40%25' : '-10%25'}&engine=edge`;
 }
+
+// ─── Salas de juego (ADR-40) ───────────────────────────────────────────────
+// Públicas y sin login. El error lleva `status`: un 409 en `pushRoomState` significa que el
+// anfitrión cambió algo antes y hay que adoptar el estado del servidor.
+
+export class RoomError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
+async function roomCall<T>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}/rooms${path}`, body === undefined ? undefined : {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({ detail: 'Sala no disponible' }));
+  if (!response.ok) throw new RoomError(formatErrorDetail((data as { detail?: unknown }).detail), response.status);
+  return data as T;
+}
+
+export type RoomJoined = RoomState & { token: string; me: string };
+
+export const createRoom = (game: string, setId: string, mode: RoomMode, name: string) =>
+  roomCall<RoomJoined>('', { game, set_id: setId, mode, name });
+export const joinRoom = (code: string, name: string) =>
+  roomCall<RoomJoined>(`/${encodeURIComponent(code)}/join`, { name });
+export const getRoom = (code: string, token: string, since: number | null) =>
+  roomCall<RoomState>(`/${encodeURIComponent(code)}?token=${encodeURIComponent(token)}${since === null ? '' : `&since=${since}`}`);
+export const pushRoomState = (code: string, token: string, version: number, state: Record<string, unknown>, turn: string) =>
+  roomCall<RoomState>(`/${encodeURIComponent(code)}/state`, { token, version, state, turn });
+export const passRoomTurn = (code: string, token: string, to: string, lend?: RoomLend) =>
+  roomCall<RoomState>(`/${encodeURIComponent(code)}/turn`, { token, to, lend: lend ?? null });
 
 // ─── Conversación con IA por role-play (ADR-39) ────────────────────────────
 

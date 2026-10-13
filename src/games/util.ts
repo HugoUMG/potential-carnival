@@ -90,8 +90,18 @@ export function toggled(set: ReadonlySet<number>, value: number): Set<number> {
 
 let current: HTMLAudioElement | null = null;
 
+/** En una sala (room.tsx) decide qué navegador suena: quien mueve suena y avisa a los demás; el
+ *  resto calla aquí y suena cuando llega el aviso. Devolver `false` calla este `speak`. */
+let speakGate: ((text: string, slow: boolean) => boolean) | null = null;
+export const setSpeakGate = (gate: typeof speakGate) => { speakGate = gate; };
+
 /** Lee en voz alta. Un solo audio a la vez: tocar otra palabra corta la anterior. */
 export function speak(text: string, slow = false): void {
+  if (speakGate && !speakGate(text, slow)) return;
+  playAudio(text, slow);
+}
+
+export function playAudio(text: string, slow = false): void {
   current?.pause();
   current = new Audio(gameAudioUrl(text, slow));
   current.play().catch(() => { /* sin red o audio bloqueado: el juego sigue sin sonido */ });

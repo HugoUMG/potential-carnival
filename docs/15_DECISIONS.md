@@ -1023,6 +1023,40 @@ la IA: solo se engaña a sí mismo, la nota no se guarda. Los topes por IP (`tur
 el cupo por minuto de Groq, no el nuestro. Groq retira modelos sin aviso: por eso `GROQ_MODEL` y
 `GROQ_CHAT_MODEL` son variables (llama-3.3-70b desapareció y toda llamada caía en silencio a Gemini).
 
+## 🟢 ADR-40 — Salas de juego: blob opaco en memoria, autoridad en el cliente y `useShared`
+
+**Decisión.** Un juego de `/j/:setId` se puede jugar **en grupo** (`?sala=K7QF`). El servidor
+(`backend/app/rooms.py`) guarda por sala un **blob JSON opaco** con el estado del juego, la lista
+de jugadores y quién tiene el control (`turn`, más `lend` para el control cedido en modo
+presentador). Solo comprueba **quién escribe** y que lo haga **sobre la última versión** (409 si
+no). Las reglas de cada juego siguen en su componente: `useShared` (`src/games/roomState.ts`)
+sustituye a `useState`; dentro de una sala lee del blob y su setter **no hace nada** si este
+navegador no tiene el control. Hay dos modos: *turnos* (el control rota al terminar un turno,
+`endTurn()`) y *presentador* (solo mueve el anfitrión, que puede ceder el control un turno o sin
+límite). Igual que `/live`, el estado vive en memoria y los clientes hacen polling cada 1 s.
+
+**Motivo.** Con el setter mudo en los espectadores, los `useEffect` y `setTimeout` de los juegos
+se pueden ejecutar en todos los navegadores sin peligro, así que adaptar un juego es cambiar
+`useState` por `useShared` y llamar a `endTurn()`, sin reescribir su lógica. Con un servidor que no
+entiende ningún juego, el mismo backend sirve para los 15.
+
+**Alternativas descartadas.**
+- *Transmitir el DOM o la pantalla del anfitrión.* Sirve para mirar, pero al ceder el control quien
+  lo recibe no tendría el estado del juego para seguir.
+- *Validar las jugadas en el servidor.* Habría que reescribir en Python las reglas de 15 juegos.
+  En una clase, que alguien haga trampa desde DevTools no importa: no hay nota en juego.
+- *WebSockets.* Igual que en ADR-25: un worker y polling de 1 s alcanzan para turnos. Ruleta y
+  Dados se ven con hasta ~1 s de retraso y el dado a saltos, y es aceptable.
+- *Contrarreloj en sala.* Es una carrera de 60 s con reacción al instante; con 1 s de polling se
+  vería a saltos y por turnos no tiene sentido. Queda fuera de `ROOM_GAMES`.
+
+**Consecuencias.** Un redeploy borra las salas (no hay nota que perder). Un jugador que no hizo poll
+en 10 s cuenta como desconectado y `endTurn()` se lo salta. El polling se pausa con la pestaña
+oculta, así que quien cambia de app pierde su turno: el anfitrión puede **dar el turno** a mano. Los
+espectadores tienen el área del juego `inert`, así que tampoco abren el diccionario de palabras
+mientras miran. El audio de quien mueve viaja como `__say` en el blob y suena en todos.
+`ROOM_GAMES` (`rooms.py`) duplica el campo `room` de `GAMES` (`registry.ts`).
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

@@ -54,7 +54,21 @@ no hay que escribir nada distinto por juego.
 - **Audio:** `speak(text, slow)` → `gameAudioUrl` (`api.ts`) → `/tts?…&engine=edge`. Siempre
   edge-tts: un juego no gasta créditos de ElevenLabs. 🔊 = `-10%`, 🐢 = `-40%`.
 - **Añadir un juego:** un componente que recibe `{ questions }` (`GameProps`) y una entrada en
-  `GAMES`. El catálogo, el panel y la barra lateral lo pintan solos.
+  `GAMES`. El catálogo, el panel y la barra lateral lo pintan solos. Para que admita sala: usa
+  `useShared` en el estado que deben ver todos, llama a `endTurn()` al final de cada turno, añade
+  `room` a su entrada y su id a `ROOM_GAMES` en `rooms.py`.
+- **Salas (jugar en grupo, ADR-40):** en un juego con campo `room` en `GAMES`, el botón 👥 del
+  encabezado abre `RoomGate` (crear sala o unirse con código, con nombre). El enlace es
+  `/j/:setId?sala=K7QF#juego`; el token se guarda en `sessionStorage` (`dg-room-{code}`), así que
+  un F5 no te saca. `GamePlayer` envuelve el juego en `RoomProvider` (`room.tsx`), que hace
+  polling cada 1 s, muestra `RoomBar` (jugadores, puntos, turno, ceder o recuperar el control) y
+  deja el juego `inert` a quien no tiene el control. La lógica está en `roomState.ts`:
+  `useShared(key, init)` es `useState` sin sala; en sala lee del blob, el anfitrión escribe `init`
+  si falta (mismo reparto para todos) y **el setter no hace nada sin el control**. Las escrituras
+  se juntan en un solo `POST /state` en vuelo y un 409 adopta lo del servidor. `useRoom()` da
+  `endTurn()` (pura: `nextTurn`) y `addPoint()`. `speak()` pasa por `setSpeakGate`: quien mueve
+  suena y lo anuncia en `__say`; los demás suenan al recibirlo. Cambiar de juego saca de la sala.
+  **Hoy solo Memorama tiene `room`** (fase 1); el plan del resto está en `docs/plans/salas-juegos.md`.
 - **Pronuncia** usa la Web Speech API del navegador (Chrome, Edge, Safari; Firefox no): sin ella,
   avisa y deja escuchar el modelo. No manda audio al backend.
 

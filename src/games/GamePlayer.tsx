@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
-import type { PublicGameSet } from '../types';
+import { getRoom } from '../services/api';
+import type { PublicGameSet, RoomState } from '../types';
 import { GAMES, SKILLS } from './registry';
+import { RoomGate, RoomProvider } from './room';
+import { dropSeat, loadSeat } from './roomState';
 import { GameContext, type GameCtx } from './util';
 import { Countdown, WordPopover } from './ui';
 import './games.css';
@@ -20,10 +23,25 @@ const gameFromHash = () => {
   return GAMES.some((g) => g.id === id) ? id : null;
 };
 
+/** `?sala=K7QF` en la URL: el enlace de una sala de juego (ADR-40). */
+const roomFromUrl = () => new URLSearchParams(window.location.search).get('sala')?.trim().toUpperCase() || null;
+
 export function GamePlayer({ set }: { set: PublicGameSet }) {
   const [es, setEs] = useState(readEs);
   const [active, setActive] = useState(gameFromHash);
   const [word, setWord] = useState<{ word: string; anchor: HTMLElement } | null>(null);
+  // Sala: código (de la URL o recién creada), asiento guardado y primer estado del servidor.
+  const [roomCode, setRoomCode] = useState(roomFromUrl);
+  const [seat, setSeat] = useState(() => { const c = roomFromUrl(); return c ? loadSeat(c) : null; });
+  const [roomInit, setRoomInit] = useState<RoomState | null>(null);
+  const [roomErr, setRoomErr] = useState('');
+  const [gate, setGate] = useState(false);
+
+  const leaveRoom = useCallback(() => {
+    if (roomCode) dropSeat(roomCode);
+    setRoomCode(null); setSeat(null); setRoomInit(null); setGate(false);
+    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }, [roomCode]);
 
   useEffect(() => {
     const sync = () => { setActive(gameFromHash()); setWord(null); };
@@ -32,12 +50,39 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
     return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
   }, []);
 
+  // Con asiento guardado (F5 o enlace tras unirse en otra página), se pide el estado y se entra.
+  useEffect(() => {
+    if (!roomCode || !seat || roomInit) return;
+    let alive = true;
+    getRoom(roomCode, seat.token, null).then((r) => {
+      if (!alive) return;
+      setRoomInit(r);
+      if (gameFromHash() !== r.game) { window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${r.game}`); setActive(r.game); }
+    }, (e: unknown) => {
+      if (!alive) return;
+      setRoomErr(e instanceof Error ? e.message : 'Esa sala no existe o ya terminó');
+      leaveRoom();
+    });
+    return () => { alive = false; };
+  }, [roomCode, seat, roomInit, leaveRoom]);
+
+  const enterRoom = (s: { token: string; me: string }, r: RoomState) => {
+    window.history.replaceState(null, '', `${window.location.pathname}?sala=${r.code}${window.location.hash}`);
+    setRoomCode(r.code); setSeat(s); setRoomInit(r); setGate(false); setRoomErr('');
+  };
+
   const openWord = useCallback((w: string, anchor: HTMLElement) => setWord({ word: w, anchor }), []);
   const closeWord = useCallback(() => setWord(null), []);
   const ctx = useMemo<GameCtx>(() => ({ glossary: set.glossary, es, setId: set.id, openWord }), [set, es, openWord]);
   const game = GAMES.find((g) => g.id === active) ?? null;
+  const inRoom = Boolean(roomCode && game?.room);
 
   const open = (id: string | null) => {
+    if (roomCode && id !== active) {
+      if (!window.confirm('¿Salir de la sala de juego?')) return;
+      leaveRoom();
+    }
+    setGate(false);
     window.history.pushState(null, '', id ? `#${id}` : window.location.pathname);
     setActive(id);
     setWord(null);
@@ -63,6 +108,9 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
             <small>{game ? `${SKILLS.find((s) => s.id === game.skill)?.name} · ${set.title}` : [set.level && `Nivel ${set.level}`, `${set.questions.length} preguntas`].filter(Boolean).join(' · ')}</small>
             <h1>{game ? `${game.emoji} ${game.name}` : set.title}</h1>
           </div>
+          {game?.room && !roomCode && !gate && (
+            <button type="button" className="dg-es-btn dg-group-btn" onClick={() => setGate(true)} title="Jugar en grupo">👥</button>
+          )}
           <Countdown compact />
           <button type="button" className="dg-es-btn" aria-pressed={es} onClick={toggleEs} title={es ? 'Ocultar traducciones' : 'Mostrar traducciones'}>ES</button>
         </header>
@@ -87,7 +135,19 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
             {game ? (
               <>
                 <p className="dg-purpose">{game.purpose}</p>
-                <game.Component key={game.id} questions={set.questions} />
+                {roomErr && <p className="dg-room-error" role="alert">{roomErr}</p>}
+                {game.room && (gate || (inRoom && !seat)) ? (
+                  <RoomGate game={game.id} setId={set.id} modes={game.room} joinCode={roomCode ?? undefined}
+                    onEnter={enterRoom} onCancel={() => (roomCode ? leaveRoom() : setGate(false))} />
+                ) : inRoom && seat ? (
+                  roomInit ? (
+                    <RoomProvider key={roomInit.code} seat={seat} initial={roomInit} onLeave={leaveRoom}>
+                      <game.Component key={game.id} questions={set.questions} />
+                    </RoomProvider>
+                  ) : <p className="dg-notice">Conectando con la sala…</p>
+                ) : (
+                  <game.Component key={game.id} questions={set.questions} />
+                )}
               </>
             ) : (
               <Home set={set} onOpen={open} />

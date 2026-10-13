@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Play, X } from 'lucide-react';
 import { pick, range, sample, shuffle, speak, useGame, type GameProps } from './util';
 import { Finish, Notice, Say, Speak } from './ui';
+import { useRoom, useShared } from './roomState';
 
 /** Índices de las preguntas que tienen traducción: los tres juegos de significado viven de ella. */
 function useTranslated(questions: GameProps['questions']): number[] {
@@ -21,46 +22,49 @@ export function MemoryGame({ questions }: GameProps) {
   const usable = useTranslated(questions);
   const pairs = Math.min(6, usable.length);
   const deal = () => shuffle(sample(usable, pairs).flatMap((i): MemoryCard[] => [{ pair: i, side: 'en' }, { pair: i, side: 'es' }]));
-  const [cards, setCards] = useState(deal);
-  const [open, setOpen] = useState<number[]>([]);
-  const [matched, setMatched] = useState<Set<number>>(new Set());
-  const [moves, setMoves] = useState(0);
+  // En una sala (room.tsx) esto se comparte: todos ven las mismas cartas y solo mueve quien tiene el turno.
+  const { endTurn, addPoint } = useRoom();
+  const [cards, setCards] = useShared('cards', deal);
+  const [open, setOpen] = useShared<number[]>('open', []);
+  const [matched, setMatched] = useShared<number[]>('matched', []);
+  const [moves, setMoves] = useShared('moves', 0);
 
   useEffect(() => {
     if (open.length !== 2) return;
     const [a, b] = open.map((k) => cards[k]);
     if (a.pair === b.pair) {
-      setMatched((m) => new Set(m).add(a.pair));
+      setMatched((m) => [...m, a.pair]);
       speak(questions[a.pair].text);
+      addPoint();
       setOpen([]);
-      return;
+      return; // acertar no termina el turno: sigue el mismo jugador
     }
-    const t = window.setTimeout(() => setOpen([]), 1000);
+    const t = window.setTimeout(() => { setOpen([]); endTurn(); }, 1000);
     return () => window.clearTimeout(t);
-  }, [open, cards, questions]);
+  }, [open, cards, questions, setMatched, setOpen, addPoint, endTurn]);
 
   if (pairs < 4) return <Notice>{NEEDS_TRANSLATION}</Notice>;
-  if (matched.size === pairs) {
+  if (matched.length === pairs) {
     return (
-      <Finish score={pairs} total={pairs} onAgain={() => { setCards(deal()); setMatched(new Set()); setMoves(0); }}>
+      <Finish score={pairs} total={pairs} onAgain={() => { setCards(deal()); setMatched([]); setMoves(0); }}>
         <p className="dg-muted center">Lo lograste en <b>{moves}</b> intentos (lo mínimo posible es {pairs}).</p>
       </Finish>
     );
   }
 
   const flip = (k: number) => {
-    if (open.length === 2 || open.includes(k) || matched.has(cards[k].pair)) return;
+    if (open.length === 2 || open.includes(k) || matched.includes(cards[k].pair)) return;
     setOpen((o) => [...o, k]);
     if (open.length === 1) setMoves((m) => m + 1);
   };
   return (
     <div className="dg-memory-wrap">
-      <p className="dg-progress">{matched.size} de {pairs} pares · {moves} intentos</p>
+      <p className="dg-progress">{matched.length} de {pairs} pares · {moves} intentos</p>
       <div className="dg-memory">
         {cards.map((c, k) => {
-          const up = open.includes(k) || matched.has(c.pair);
+          const up = open.includes(k) || matched.includes(c.pair);
           return (
-            <button key={k} type="button" className={`dg-mem ${up ? 'up' : ''} ${matched.has(c.pair) ? 'matched' : ''} ${c.side}`} onClick={() => flip(k)}
+            <button key={k} type="button" className={`dg-mem ${up ? 'up' : ''} ${matched.includes(c.pair) ? 'matched' : ''} ${c.side}`} onClick={() => flip(k)}
               aria-label={up ? (c.side === 'en' ? questions[c.pair].text : questions[c.pair].translation) : 'Carta boca abajo'}>
               <span className="dg-mem-in">
                 <span className="dg-mem-back">{c.side === 'en' ? 'EN' : 'ES'}</span>

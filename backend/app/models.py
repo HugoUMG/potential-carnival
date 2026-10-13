@@ -289,6 +289,31 @@ class LiveEmoji(BaseModel):
     emoji: str
 
 
+class RoomCreate(BaseModel):
+    """Sala de juego (`rooms.py`). `rooms` valida juego, modo y nombre."""
+    game: str
+    set_id: str
+    mode: str
+    name: str
+
+
+class RoomJoin(BaseModel):
+    name: str
+
+
+class RoomPush(BaseModel):
+    token: str
+    version: int
+    state: dict[str, Any]
+    turn: str
+
+
+class RoomTurn(BaseModel):
+    token: str
+    to: str
+    lend: str | None = None
+
+
 class ClassroomCreate(BaseModel):
     name: str
 

@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import type { RoomMode } from '../types';
 import type { GameProps } from './util';
 import { BoardGame, CardsGame, ChatGame, DiceGame, PronounceGame, TeamsGame, WheelGame } from './speaking';
 import { BingoGame, DictationGame, ListenGame } from './listening';
@@ -26,7 +27,12 @@ export interface GameMeta {
   /** Cómo usarlo en clase (lo lee el profesor en /juegos y en su panel). */
   howTo: string;
   Component: ComponentType<GameProps>;
+  /** Modos de sala que admite (ADR-40). Sin el campo, no se juega en grupo. Si cambia la lista
+   *  de juegos con sala, cambia también `ROOM_GAMES` en `backend/app/rooms.py`. */
+  room?: RoomMode[];
 }
+
+const BOTH: RoomMode[] = ['turnos', 'presentador'];
 
 /** Los 16 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
 export const GAMES: GameMeta[] = [
@@ -69,7 +75,7 @@ export const GAMES: GameMeta[] = [
   { id: 'globos', name: 'Globos', emoji: '🎈', skill: 'estructura', color: '#E64980', Component: BalloonsGame,
     purpose: 'Ortografía: adivina la palabra oculta letra por letra antes de que se revienten los globos.',
     howTo: 'Proyectado y por equipos: cada equipo dice una letra por turno.' },
-  { id: 'memorama', name: 'Memorama', emoji: '🧠', skill: 'significado', color: '#1098AD', Component: MemoryGame,
+  { id: 'memorama', name: 'Memorama', emoji: '🧠', skill: 'significado', color: '#1098AD', Component: MemoryGame, room: BOTH,
     purpose: 'Relacionar cada pregunta con su significado mientras ejercitas la memoria.',
     howTo: 'En parejas, por turnos: gana quien encuentre más pares.' },
   { id: 'contrarreloj', name: 'Contrarreloj', emoji: '⏱️', skill: 'significado', color: '#F08C00', Component: SpeedGame,

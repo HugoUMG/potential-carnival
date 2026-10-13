@@ -198,6 +198,29 @@ DELETE /game-sets/{id}                        — Borrar (solo el dueño o el ad
 - **Crear y editar disparan el diccionario en segundo plano** (`BackgroundTasks`): las palabras del
   set que no estén en `word_meanings` se le piden a la IA (`define_words`). El profesor no espera.
 
+### Salas de juego (ADR-40, públicas y sin JWT)
+
+```
+POST /rooms                    — {game, set_id, mode, name} → {token, me, ...estado}. Crea; quien crea es el anfitrión
+GET  /rooms/{code}?token&since — Estado público. Actualiza "conectado". Sin `state` si version == since
+POST /rooms/{code}/join        — {name} → {token, me, ...estado}
+POST /rooms/{code}/state       — {token, version, state, turn}: reemplaza el blob del juego
+POST /rooms/{code}/turn        — {token, to, lend?}: solo el anfitrión. Da el turno / cede o recupera el control
+```
+
+- Estado público: `{code, game, set_id, mode, host_id, turn, lend, version, players[{id, name,
+  online}], state?}`. El `token` de cada jugador **nunca** sale aquí; es su credencial para escribir.
+- `game` debe estar en `rooms.ROOM_GAMES` (todos menos `contrarreloj`) y `mode` ser `turnos` o
+  `presentador` → 422 si no. Nombre de 1–24 caracteres (422), máximo 8 jugadores (409), blob de
+  hasta 50 KB (413), 404 si la sala no existe o caducó (3 h).
+- `state`: escribe el anfitrión siempre, y el resto solo si `turn` es su id (403). `version` vieja →
+  **409** (el cliente adopta el estado del servidor). `turn` debe ser un jugador de la sala (422).
+  En `presentador`, quien no es anfitrión solo puede mandar `turn` = él mismo o el anfitrión (422);
+  al volver al anfitrión, `lend` pasa a `null`.
+- `turn`: en `presentador`, ceder exige `lend` = `once` o `always` (422); `to` = anfitrión lo recupera.
+- Los errores son `live.LiveError` (mismo handler que `/live`). Solo crear y unirse pasan por
+  `_rate_limit` (60/min por IP); el polling no.
+
 ## Conversación con IA (ADR-39)
 
 ```

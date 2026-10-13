@@ -349,6 +349,31 @@ export interface PublicGameSet {
   glossary: Record<string, WordMeaning>;
 }
 
+// ─── Salas de juego (ADR-40, backend/app/rooms.py) ─────────────────────────
+
+export type RoomMode = 'turnos' | 'presentador';
+export type RoomLend = 'once' | 'always';
+
+export interface RoomPlayer {
+  id: string;
+  name: string;
+  online: boolean;
+}
+
+/** Estado público de una sala. `state` (el blob del juego) solo viaja si cambió desde `since`. */
+export interface RoomState {
+  code: string;
+  game: string;
+  set_id: string;
+  mode: RoomMode;
+  host_id: string;
+  turn: string;
+  lend: RoomLend | null;
+  version: number;
+  players: RoomPlayer[];
+  state?: Record<string, unknown>;
+}
+
 // ─── Conversación con IA por role-play (ADR-39) ────────────────────────────
 
 export type RoleplayLevel = 'beginner' | 'intermediate' | 'advanced';

@@ -16,6 +16,7 @@ from .ai import ai_grade_activities, ai_json, define_words, transcribe_with_clar
 from .database import get_connection, initialize_database
 from . import live
 from . import roleplay
+from . import rooms
 from .models import (
     AiGenerateRequest,
     AiEditRequest,
@@ -75,6 +76,10 @@ from .models import (
     WorksheetResponse,
     WorksheetResponseCreate,
     PracticeGrade,
+    RoomCreate,
+    RoomJoin,
+    RoomPush,
+    RoomTurn,
 )
 from .parser import WorksheetScriptError, parse_worksheet_script, strip_non_printable
 from .repository import repository
@@ -1717,6 +1722,48 @@ def live_finish(code: str, current_user: PublicUser = Depends(require_teacher_or
 def live_close(code: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
     live.owned_session(code, current_user.id, current_user.role == UserRole.admin)
     live.close_session(code)
+
+
+# ── Salas de juego (`rooms.py`, ADR-40) ──────────────────────────────────────
+# Públicas y sin login, como `/live/{code}`. Los errores de `rooms` son `live.LiveError`, así que
+# los traduce el mismo handler. Solo crear y unirse pasan por `_rate_limit` (holgado: un salón
+# comparte la IP del WiFi); el polling no, por el mismo motivo que `/live`.
+
+
+@app.post("/rooms")
+def room_create(payload: RoomCreate, request: Request) -> dict[str, Any]:
+    _rate_limit(request, limit=60)
+    room, host = rooms.create_room(payload.game, payload.set_id, payload.mode, payload.name)
+    return {"token": host.token, "me": host.id, **room.public_state()}
+
+
+@app.get("/rooms/{code}")
+def room_state(code: str, token: str | None = None, since: int | None = None) -> dict[str, Any]:
+    room = rooms.get_room(code)
+    room.touch(token)
+    return room.public_state(since)
+
+
+@app.post("/rooms/{code}/join")
+def room_join(code: str, payload: RoomJoin, request: Request) -> dict[str, Any]:
+    _rate_limit(request, limit=60)
+    room = rooms.get_room(code)
+    player = room.join(payload.name)
+    return {"token": player.token, "me": player.id, **room.public_state()}
+
+
+@app.post("/rooms/{code}/state")
+def room_push(code: str, payload: RoomPush) -> dict[str, Any]:
+    room = rooms.get_room(code)
+    room.push(payload.token, payload.version, payload.state, payload.turn)
+    return room.public_state(room.version)
+
+
+@app.post("/rooms/{code}/turn")
+def room_turn(code: str, payload: RoomTurn) -> dict[str, Any]:
+    room = rooms.get_room(code)
+    room.pass_turn(payload.token, payload.to, payload.lend)
+    return room.public_state(room.version)
 
 
 @app.post("/public/transcribe")

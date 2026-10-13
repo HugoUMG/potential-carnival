@@ -344,6 +344,32 @@
 @keyframes dg-roll { 0% { transform: rotate(0); } 50% { transform: rotate(14deg) scale(1.05); } 100% { transform: rotate(-10deg); } }
 @keyframes dg-pulse { 50% { transform: scale(1.04); box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent); } }
 @keyframes dg-float { 50% { transform: translateY(-8px); } }
+
+/* ── Salas de juego (room.tsx, ADR-40) ── */
+.dg-room { background: var(--surface); border: 1.5px solid var(--line); border-radius: 20px; padding: 12px 14px; margin-bottom: 14px; display: grid; gap: 8px; }
+.dg-room-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dg-room-code { font: 900 20px var(--f-display); letter-spacing: .12em; color: var(--accent); }
+.dg-room-mode { color: var(--muted); font-weight: 800; font-size: 13px; flex: 1; }
+.dg-room-status { font-weight: 900; margin: 0; }
+.dg-room-players { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.dg-room-players li { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 4px 6px 4px 12px; font-weight: 800; font-size: 13px; }
+.dg-room-players li.is-turn { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+.dg-room-players li.is-off { opacity: .5; }
+.dg-room-players li b { min-width: 22px; text-align: center; background: var(--surface); border-radius: 999px; padding: 0 6px; }
+.dg-room-act { border: 0; background: var(--accent); color: #fff; border-radius: 999px; padding: 3px 10px; font-weight: 800; font-size: 12px; }
+.dg-room-error { color: var(--bad); background: var(--bad-bg); border-radius: 12px; padding: 8px 12px; font-weight: 800; margin: 0 0 10px; }
+.dg-room-locked { cursor: not-allowed; }
+.dg-room-gate { max-width: 460px; margin: 0 auto; background: var(--surface); border-radius: 24px; padding: 22px 18px; box-shadow: var(--shadow); display: grid; gap: 12px; }
+.dg-room-gate h2 { margin: 0; text-align: center; font: 800 22px var(--f-display); }
+.dg-room-gate label { display: grid; gap: 6px; font-weight: 800; font-size: 14px; }
+.dg-room-codein { text-transform: uppercase; letter-spacing: .3em; text-align: center; font-weight: 900; }
+.dg-room-tabs { display: flex; gap: 6px; background: var(--surface-2); border-radius: 999px; padding: 4px; }
+.dg-room-tabs button { flex: 1; border: 0; background: none; border-radius: 999px; padding: 8px; font-weight: 800; color: var(--muted); }
+.dg-room-tabs button[aria-selected='true'] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+.dg-room-modes { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+.dg-room-modes legend { font-weight: 800; font-size: 14px; margin-bottom: 6px; }
+.dg-room-modes label { grid-template-columns: auto 1fr; align-items: start; border: 1.5px solid var(--line); border-radius: 14px; padding: 10px; font-weight: 600; }
+.dg-room-modes label b { display: block; }
 @media (prefers-reduced-motion: reduce) {
   .dg *, .dg *::before, .dg *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

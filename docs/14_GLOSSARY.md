@@ -158,6 +158,18 @@ vive en el atributo `data-theme` del `<html>`.
 (ADR-38). Lo crea el profesor en la sección **Juegos**, con IA o pegando preguntas. No confundir con
 la **sesión en vivo** (Kahoot), que juega una hoja de trabajo calificada.
 
+**Sala (de juego)** — Varias personas juegan **el mismo juego** de un set desde sus dispositivos,
+con un código de 4 letras (`/j/:setId?sala=K7QF#juego`). Vive en memoria (`rooms.py`); el servidor
+guarda el estado del juego sin entenderlo (ADR-40). Dos modos: **por turnos** y **presentador**. No
+confundir con la **sesión en vivo**, que es de hojas de trabajo.
+
+**Anfitrión** — Quien crea la sala (👑). En modo presentador es el único que mueve, salvo que
+**ceda el control**; en los dos modos puede dar el turno a otro o recuperarlo.
+
+**Ceder el control** — En modo presentador, el anfitrión deja mover a otro jugador **un turno**
+(`lend = once`: al terminar su turno vuelve solo al anfitrión) o **sin límite** (`lend = always`:
+hasta que el anfitrión lo recupere).
+
 **Juego** — Cada una de las 16 formas de jugar un set (tarjetas, ruleta, bingo, dictado…). Vive en
 `GAMES` (`src/games/registry.ts`) con su habilidad, su propósito y cómo usarlo en clase.
 
