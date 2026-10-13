@@ -199,7 +199,7 @@ function RoomBar({ room, me, seats, scores, error, onPass, onLeave }: {
         {room.players.map((p) => (
           <li key={p.id} className={`${p.id === room.turn ? 'is-turn' : ''} ${p.online ? '' : 'is-off'}`}>
             <span>{p.id === room.host_id && '👑 '}{p.name}{p.id === me && ' (tú)'}{room.mode === 'turnos' && seats !== undefined && room.players.indexOf(p) >= seats && ' 👀'}</span>
-            {room.mode === 'turnos' && <b>{scores[p.id] ?? 0}</b>}
+            {(room.mode === 'turnos' || p.id in scores) && <b>{scores[p.id] ?? 0}</b>}
             {isHost && p.id !== me && room.mode === 'turnos' && p.id !== room.turn && (
               <button type="button" className="dg-room-act" onClick={() => onPass(p.id)}>Dar turno</button>
             )}
@@ -227,8 +227,9 @@ function RoomBar({ room, me, seats, scores, error, onPass, onLeave }: {
 const NAME_KEY = 'dg-name';
 const readName = () => { try { return localStorage.getItem(NAME_KEY) ?? ''; } catch { return ''; } };
 
-export function RoomGate({ game, setId, modes, joinCode, onEnter, onCancel }: {
-  game: string; setId: string; modes: RoomMode[]; joinCode?: string;
+/** `modeText`: título y explicación de cada modo para este juego (p. ej. "Califica el compañero"). */
+export function RoomGate({ game, setId, modes, modeText, joinCode, onEnter, onCancel }: {
+  game: string; setId: string; modes: RoomMode[]; modeText?: Partial<Record<RoomMode, [string, string]>>; joinCode?: string;
   onEnter: (seat: Seat, room: RoomState) => void; onCancel: () => void;
 }) {
   const [tab, setTab] = useState<'crear' | 'unirme'>(joinCode ? 'unirme' : 'crear');
@@ -282,9 +283,9 @@ export function RoomGate({ game, setId, modes, joinCode, onEnter, onCancel }: {
         <fieldset className="dg-room-modes">
           <legend>Modo</legend>
           <label><input type="radio" name="mode" checked={mode === 'turnos'} onChange={() => setMode('turnos')} />
-            <span><b>Por turnos</b> Cada uno juega en su turno; gana quien sume más.</span></label>
+            <span><b>{modeText?.turnos?.[0] ?? 'Por turnos'}</b> {modeText?.turnos?.[1] ?? 'Cada uno juega en su turno; gana quien sume más.'}</span></label>
           <label><input type="radio" name="mode" checked={mode === 'presentador'} onChange={() => setMode('presentador')} />
-            <span><b>Presentador</b> Solo tú mueves y los demás ven lo mismo. Puedes ceder el control.</span></label>
+            <span><b>{modeText?.presentador?.[0] ?? 'Presentador'}</b> {modeText?.presentador?.[1] ?? 'Solo tú mueves y los demás ven lo mismo. Puedes ceder el control.'}</span></label>
         </fieldset>
       )}
       {error && <p className="dg-room-error" role="alert">{error}</p>}

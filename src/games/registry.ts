@@ -6,8 +6,9 @@ import { BingoGame, DictationGame, ListenGame } from './listening';
 import { BalloonsGame, GapGame, OrderGame } from './structure';
 import { MatchGame, MemoryGame, SpeedGame } from './meaning';
 import { ConnectFourGame, LaddersGame, TicTacToeGame } from './board';
+import { AnswerRaceGame, HotPotatoGame, InterviewGame } from './oral';
 
-export type Skill = 'hablar' | 'escuchar' | 'estructura' | 'significado' | 'mesa';
+export type Skill = 'hablar' | 'escuchar' | 'estructura' | 'significado' | 'mesa' | 'turnos';
 
 export const SKILLS: { id: Skill; name: string; emoji: string }[] = [
   { id: 'hablar', name: 'Hablar', emoji: '🗣️' },
@@ -15,6 +16,7 @@ export const SKILLS: { id: Skill; name: string; emoji: string }[] = [
   { id: 'estructura', name: 'Estructura y gramática', emoji: '🧩' },
   { id: 'significado', name: 'Significado', emoji: '🧠' },
   { id: 'mesa', name: 'Juegos de mesa (2 jugadores)', emoji: '♟️' },
+  { id: 'turnos', name: 'Responder por turnos (en voz alta)', emoji: '🎙️' },
 ];
 
 export interface GameMeta {
@@ -37,12 +39,19 @@ export interface GameMeta {
   roomFree?: boolean;
   /** Juegos de mesa: en modo turnos el turno rota solo entre los N primeros de la sala. */
   roomSeats?: number;
+  /** Título y explicación de cada modo en el formulario de la sala, si este juego los nombra distinto. */
+  roomModeText?: Partial<Record<RoomMode, [string, string]>>;
 }
 
 const BOTH: RoomMode[] = ['turnos', 'presentador'];
 const SHOW: RoomMode[] = ['presentador'];
+// Juegos de responder: quien califica es quien tiene el control (oral.tsx).
+const GRADING: Partial<Record<RoomMode, [string, string]>> = {
+  presentador: ['Califica el anfitrión', 'Tú sacas la pregunta para cada jugador por turno y das los puntos.'],
+  turnos: ['Califica el compañero', 'Quien tiene el turno califica al siguiente; se van rotando (con 3: A→B, B→C, C→A).'],
+};
 
-/** Los 19 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
+/** Los 22 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
 export const GAMES: GameMeta[] = [
   { id: 'tarjetas', name: 'Tarjetas', emoji: '🃏', skill: 'hablar', color: '#7048E8', Component: CardsGame, room: BOTH,
     purpose: 'Conversación guiada: al voltear ves la traducción y cómo empezar tu respuesta.',
@@ -101,4 +110,13 @@ export const GAMES: GameMeta[] = [
   { id: 'escaleras', name: 'Serpientes y escaleras', emoji: '🐍', skill: 'mesa', color: '#2B8A3E', Component: LaddersGame, room: BOTH, roomSeats: 2,
     purpose: 'Tira el dado y acierta para avanzar; las escaleras suben y las serpientes bajan.',
     howTo: 'Por parejas: gana quien llegue primero a la casilla 30.' },
+  { id: 'entrevista', name: 'Entrevista', emoji: '🎙️', skill: 'turnos', color: '#7048E8', Component: InterviewGame, room: SHOW.concat('turnos'), roomModeText: GRADING,
+    purpose: 'Responder en voz alta: sale una pregunta, la contestas hablando y te califican.',
+    howTo: 'Tú calificas (presentador) o se califican entre ellos por turnos. Nadie escribe: solo hablan.' },
+  { id: 'carrera', name: 'Carrera de respuestas', emoji: '🏎️', skill: 'turnos', color: '#C92A2A', Component: AnswerRaceGame, room: SHOW.concat('turnos'), roomModeText: GRADING,
+    purpose: 'Cada respuesta buena avanza tu coche. Gana quien llegue primero a la meta.',
+    howTo: 'Ideal por parejas o tríos que se califican entre ellos; proyectada, la clase ve la carrera.' },
+  { id: 'papa', name: 'Papa caliente', emoji: '🥔', skill: 'turnos', color: '#E67700', Component: HotPotatoGame, room: SHOW.concat('turnos'), roomModeText: GRADING,
+    purpose: 'Responde antes de que la papa se queme: el tiempo es secreto (de 10 a 20 segundos).',
+    howTo: 'Para soltarse a hablar rápido. Quien califica marca en cuanto termina la respuesta.' },
 ];

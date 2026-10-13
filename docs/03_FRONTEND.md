@@ -29,7 +29,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 ## Juegos de práctica (`/juegos`, `/j/:setId`, sección `juegos`)
 
 Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji) que se
-juega con **19 juegos** (16 originales + 3 de mesa) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
+juega con **22 juegos** (16 originales + 3 de mesa + 3 de responder por turnos) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
 no hay que escribir nada distinto por juego.
 
 - **Profesor:** sección `juegos` del portal → `GameSetsManager`. Lista de sets (Jugar, Copiar enlace,
@@ -89,6 +89,15 @@ no hay que escribir nada distinto por juego.
   en sala por turnos, `roomSeats: 2` hace que el turno rote solo entre los 2 primeros de la sala (los
   lados llevan sus nombres) y el resto mira con 👀. En presentador mueve el anfitrión por los dos
   lados.
+- **Responder por turnos (`oral.tsx`, grupo `turnos`):** Entrevista, Carrera de respuestas (meta en
+  10) y Papa caliente (tiempo oculto de 10–20 s; si se quema, 0 puntos). Nadie escribe: sale la
+  pregunta, se responde en voz alta y alguien califica ✓ +2 · ½ +1 · ✗ 0. **Quien califica es quien
+  tiene el control de la sala**, así encaja en los dos modos (con nombres propios por
+  `roomModeText`): *Califica el anfitrión* (presentador; responden por turno los demás, índice
+  `ans`) y *Califica el compañero* (turnos; quien tiene el turno califica al siguiente conectado —
+  `nextTurn` — y al calificar le pasa el control: A→B, B→C, C→A). Sin sala, se escriben los nombres
+  y califica quien tiene el celular. Los puntos van en `__scores` por id, así que la barra de la sala
+  los enseña también en presentador.
 - **Pronuncia** usa la Web Speech API del navegador (Chrome, Edge, Safari; Firefox no): sin ella,
   avisa y deja escuchar el modelo. No manda audio al backend.
 

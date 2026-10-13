@@ -1063,6 +1063,11 @@ límite de jugadores por sala en el servidor, `roomSeats: 2` hace que `nextTurn`
 primeros; el resto entra igual y mira. Así una pareja juega y la clase lo sigue en vivo, sin tocar el
 backend.
 
+*Juegos de responder (octubre 2026).* Entrevista, Carrera y Papa caliente necesitan que alguien que
+no responde ponga los puntos. En vez de un permiso nuevo ("calificador") en el servidor, **quien
+califica es quien tiene el control**: en presentador, el anfitrión; en turnos, el que tiene el turno
+califica al siguiente y al calificar le pasa el control. El servidor no cambia.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

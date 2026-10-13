@@ -144,7 +144,7 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
                 <p className="dg-purpose">{game.purpose}</p>
                 {roomErr && <p className="dg-room-error" role="alert">{roomErr}</p>}
                 {game.room && (gate || (inRoom && !seat)) ? (
-                  <RoomGate game={game.id} setId={set.id} modes={game.room} joinCode={roomCode ?? undefined}
+                  <RoomGate game={game.id} setId={set.id} modes={game.room} modeText={game.roomModeText} joinCode={roomCode ?? undefined}
                     onEnter={enterRoom} onCancel={() => (roomCode ? leaveRoom() : setGate(false))} />
                 ) : inRoom && seat ? (
                   roomInit ? (

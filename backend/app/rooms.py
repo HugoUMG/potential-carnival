@@ -26,7 +26,7 @@ from .live import CODE_ALPHABET, LiveError
 ROOM_GAMES = frozenset({
     "memorama", "tarjetas", "chat", "ruleta", "corcho", "dados", "equipos", "pronuncia",
     "escucha", "dictado", "bingo", "ordena", "completa", "globos", "coincide",
-    "gato", "conecta4", "escaleras",
+    "gato", "conecta4", "escaleras", "entrevista", "carrera", "papa",
 })
 MODES = ("turnos", "presentador")
 LENDS = ("once", "always")
