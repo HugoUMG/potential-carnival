@@ -336,6 +336,11 @@
   .dg-notes { grid-template-columns: repeat(3, 1fr); }
   .dg-memory { grid-template-columns: repeat(4, 1fr); }
   .dg-mem { aspect-ratio: 4 / 3; }
+  /* Las ventanas (ruleta, corcho, reto de los juegos de mesa): en celular son hoja inferior; en
+     tableta y PC, ventana centrada. Pegadas al borde de abajo de una pantalla grande se veían caídas. */
+  .dg-scrim { align-items: center; }
+  .dg-sheet { animation: dg-pop .22s ease-out; }
+  .dg-challenge-card { box-shadow: 0 24px 60px rgba(0, 0, 0, .3); }
 }
 @media (min-width: 900px) {
   .dg { padding-inline: 32px; }
