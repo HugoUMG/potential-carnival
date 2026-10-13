@@ -11,7 +11,8 @@ interface Say { text: string; slow: boolean; n: number }
 // ── Proveedor: polling, escrituras y audio ────────────────────────────────────
 
 /** `free`: quien no tiene el control también toca el juego (Bingo); si no, el juego queda `inert`. */
-export function RoomProvider({ seat, initial, free = false, onLeave, children }: { seat: Seat; initial: RoomState; free?: boolean; onLeave: () => void; children: ReactNode }) {
+/** `seats`: juegos de mesa de 2 — en turnos solo juegan los `seats` primeros; el resto mira. */
+export function RoomProvider({ seat, initial, free = false, seats, onLeave, children }: { seat: Seat; initial: RoomState; free?: boolean; seats?: number; onLeave: () => void; children: ReactNode }) {
   const { token, me } = seat;
   const code = initial.code;
   const [room, setRoom] = useState<RoomState>(initial);
@@ -102,13 +103,13 @@ export function RoomProvider({ seat, initial, free = false, onLeave, children }:
 
   const endTurn = useCallback(() => {
     if (!canActRef.current) return;
-    const next = nextTurn(roomRef.current, me);
+    const next = nextTurn(roomRef.current, me, seats);
     if (next === null || next === me) return;
     turnNext.current = next;
     canActRef.current = false; // bloquea ya: no esperar a la respuesta para soltar el control
     setRoom((r) => ({ ...r, turn: next, lend: next === r.host_id ? null : r.lend }));
     schedule();
-  }, [me, schedule]);
+  }, [me, schedule, seats]);
 
   const addPoint = useCallback((n = 1) => {
     if (roomRef.current.mode !== 'turnos') return;
@@ -157,7 +158,7 @@ export function RoomProvider({ seat, initial, free = false, onLeave, children }:
 
   return (
     <RoomContext.Provider value={ctx}>
-      <RoomBar room={room} me={me} scores={(view.__scores ?? {}) as Record<string, number>} error={gone ? 'La sala ya terminó.' : error} onPass={passTurn} onLeave={onLeave} />
+      <RoomBar room={room} me={me} seats={seats} scores={(view.__scores ?? {}) as Record<string, number>} error={gone ? 'La sala ya terminó.' : error} onPass={passTurn} onLeave={onLeave} />
       {gone ? null : !isHost && !view.__ready ? (
         <p className="dg-notice">Esperando al anfitrión…</p>
       ) : (
@@ -169,8 +170,8 @@ export function RoomProvider({ seat, initial, free = false, onLeave, children }:
 
 // ── Barra de la sala ──────────────────────────────────────────────────────────
 
-function RoomBar({ room, me, scores, error, onPass, onLeave }: {
-  room: RoomState; me: string; scores: Record<string, number>; error: string;
+function RoomBar({ room, me, seats, scores, error, onPass, onLeave }: {
+  room: RoomState; me: string; seats?: number; scores: Record<string, number>; error: string;
   onPass: (to: string, lend?: RoomLend) => void; onLeave: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -197,7 +198,7 @@ function RoomBar({ room, me, scores, error, onPass, onLeave }: {
       <ul className="dg-room-players">
         {room.players.map((p) => (
           <li key={p.id} className={`${p.id === room.turn ? 'is-turn' : ''} ${p.online ? '' : 'is-off'}`}>
-            <span>{p.id === room.host_id && '👑 '}{p.name}{p.id === me && ' (tú)'}</span>
+            <span>{p.id === room.host_id && '👑 '}{p.name}{p.id === me && ' (tú)'}{room.mode === 'turnos' && seats !== undefined && room.players.indexOf(p) >= seats && ' 👀'}</span>
             {room.mode === 'turnos' && <b>{scores[p.id] ?? 0}</b>}
             {isHost && p.id !== me && room.mode === 'turnos' && p.id !== room.turn && (
               <button type="button" className="dg-room-act" onClick={() => onPass(p.id)}>Dar turno</button>

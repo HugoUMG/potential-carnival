@@ -1058,6 +1058,11 @@ mientras miran; la excepción es Bingo (`roomFree`), donde cada uno marca su pro
 audio de quien mueve viaja como `__say` en el blob y suena en todos.
 `ROOM_GAMES` (`rooms.py`) duplica el campo `room` de `GAMES` (`registry.ts`).
 
+*Juegos de mesa (octubre 2026).* Gato, Conecta 4 y Serpientes y escaleras son de 2: en vez de un
+límite de jugadores por sala en el servidor, `roomSeats: 2` hace que `nextTurn` rote solo entre los 2
+primeros; el resto entra igual y mira. Así una pareja juega y la clase lo sigue en vivo, sin tocar el
+backend.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

@@ -29,7 +29,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 ## Juegos de práctica (`/juegos`, `/j/:setId`, sección `juegos`)
 
 Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji) que se
-juega con **16 juegos** (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
+juega con **19 juegos** (16 originales + 3 de mesa) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
 no hay que escribir nada distinto por juego.
 
 - **Profesor:** sección `juegos` del portal → `GameSetsManager`. Lista de sets (Jugar, Copiar enlace,
@@ -47,7 +47,13 @@ no hay que escribir nada distinto por juego.
   `matchWords`, azar, `speak`), `ui.tsx` (`Say`, `Speak`, `WordPopover`, `Sheet`, `Countdown`,
   `Finish`), un archivo por habilidad (`speaking`, `listening`, `structure`, `meaning`) y
   `games.css`, todo colgado de `.dg` para no chocar con Tailwind. Modo oscuro solo con variables
-  bajo `:root[data-theme='dark'] .dg` (regla 23).
+  bajo `:root[data-theme='dark'] .dg` (regla 23). La regla global de `app.css` que apaga los bordes
+  en oscuro excluye `.dg *`: con especificidad (0,2,0) les ganaba a los bordes de color de los juegos
+  (la flecha de la ruleta, el hueco de Completa). Piezas visuales comunes: encabezado con insignia
+  del juego (`.dg-ttl-ico`) y botones que bajan a una segunda fila si no caben (`.dg-top-actions`),
+  el propósito como tarjeta con el color del juego, botones `primary` y opciones con relieve, y
+  letras A/B/C/D en `.dg-options` (contador CSS; las de `grid2` no las llevan). En los juegos de
+  mesa, el reto sale en hoja inferior (`Sheet`), así el tablero queda a la vista.
 - **Palabras tocables (estilo Duolingo):** `<Say text>` parte el texto con `tokenize` y cada palabra
   es un botón que abre `WordPopover`: la pronuncia y muestra `lemma` y significados del `glossary`.
   **La regex de `tokenize` es la misma que `_WORD_RE` del backend**; si cambia una, cambia la otra.
@@ -75,6 +81,14 @@ no hay que escribir nada distinto por juego.
   porque cada uno marca su propio cartón (local) y solo las cantadas (`called`) se comparten. Lo que
   es de un solo navegador (arrastre, "escribiendo…" del bot, micrófono, errores) sigue en
   `useState`; la tabla por juego está en `docs/plans/salas-juegos.md`.
+- **Juegos de mesa (`board.tsx`, grupo `mesa`):** Gato (3×3), Conecta 4 (7×6) y Serpientes y
+  escaleras (30 casillas, `JUMPS`). Para mover, quien tiene el turno acierta qué significa una
+  pregunta (`ChallengeCard`: la pregunta y 3 traducciones). Si acierta, aplica la jugada; si falla,
+  la pierde. En los dos casos pasa el turno. `useBoardTurn` guarda lado, reto y ganador con
+  `useShared`; `lineWinner` detecta k en línea. Sin sala se juega pasando el celular ("Jugador 1/2");
+  en sala por turnos, `roomSeats: 2` hace que el turno rote solo entre los 2 primeros de la sala (los
+  lados llevan sus nombres) y el resto mira con 👀. En presentador mueve el anfitrión por los dos
+  lados.
 - **Pronuncia** usa la Web Speech API del navegador (Chrome, Edge, Safari; Firefox no): sin ella,
   avisa y deja escuchar el modelo. No manda audio al backend.
 

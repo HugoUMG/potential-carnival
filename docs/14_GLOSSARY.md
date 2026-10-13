@@ -154,7 +154,7 @@ tras comparar la transcripción.
 **SKIN de cristal / tema oscuro** — Capas puramente CSS: ningún componente sabe que existen. El tema
 vive en el atributo `data-theme` del `<html>`.
 
-**Set de juegos** — Lista de preguntas (`game_sets`) que se juega en `/j/:setId` con los 16 juegos
+**Set de juegos** — Lista de preguntas (`game_sets`) que se juega en `/j/:setId` con los 19 juegos
 (ADR-38). Lo crea el profesor en la sección **Juegos**, con IA o pegando preguntas. No confundir con
 la **sesión en vivo** (Kahoot), que juega una hoja de trabajo calificada.
 
@@ -170,7 +170,7 @@ confundir con la **sesión en vivo**, que es de hojas de trabajo.
 (`lend = once`: al terminar su turno vuelve solo al anfitrión) o **sin límite** (`lend = always`:
 hasta que el anfitrión lo recupere).
 
-**Juego** — Cada una de las 16 formas de jugar un set (tarjetas, ruleta, bingo, dictado…). Vive en
+**Juego** — Cada una de las 19 formas de jugar un set (tarjetas, ruleta, bingo, dictado, gato…). Vive en
 `GAMES` (`src/games/registry.ts`) con su habilidad, su propósito y cómo usarlo en clase.
 
 **Glosario de un set (`glossary`)** — Los significados de las palabras del set, sacados de

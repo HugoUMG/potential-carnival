@@ -746,10 +746,12 @@ textarea.code-field, textarea.code-field:focus {
     color-scheme: dark;
   }
 
-  /* Preflight de Tailwind pinta TODOS los bordes con un gris claro fijo. */
-  :root[data-theme='dark'] *,
-  :root[data-theme='dark'] *::before,
-  :root[data-theme='dark'] *::after { border-color: rgb(255 255 255 / 0.12); }
+  /* Preflight de Tailwind pinta TODOS los bordes con un gris claro fijo. Los juegos (`.dg`,
+     games.css) quedan fuera: ponen cada borde con sus variables, y esta regla (0,2,0) les ganaba a
+     sus colores (la flecha de la ruleta, el hueco de Completa, el borde de color de cada juego). */
+  :root[data-theme='dark'] *:not(.dg *),
+  :root[data-theme='dark'] *:not(.dg *)::before,
+  :root[data-theme='dark'] *:not(.dg *)::after { border-color: rgb(255 255 255 / 0.12); }
 
   :root[data-theme='dark'] body {
     background-color: rgb(var(--app-bg));

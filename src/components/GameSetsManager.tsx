@@ -15,7 +15,7 @@ const blank = (): GameQuestion => ({ text: '', translation: '', hint: '', tag: '
 const playUrl = (id: string) => `${window.location.origin}/j/${id}`;
 const input = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-spike';
 
-/** Sección "Juegos" del portal: sets de preguntas que se juegan en /j/:id con los 16 juegos (ADR-38). */
+/** Sección "Juegos" del portal: sets de preguntas que se juegan en /j/:id con todos los juegos de `GAMES` (ADR-38). */
 export function GameSetsManager() {
   const [sets, setSets] = useState<GameSet[] | null>(null);
   const [error, setError] = useState('');
@@ -46,7 +46,7 @@ export function GameSetsManager() {
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-spike/15"><Gamepad2 size={20} className="text-spike" /></span>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold uppercase tracking-wide text-spike">Juegos de práctica</p>
-            <h2 className="text-xl font-bold text-slate-900">Un set de preguntas, 16 juegos</h2>
+            <h2 className="text-xl font-bold text-slate-900">Un set de preguntas, {GAMES.length} juegos</h2>
           </div>
           <button type="button" className="flex items-center gap-2 rounded-2xl bg-spike px-4 py-2.5 font-semibold text-white hover:brightness-95"
             onClick={() => setEditing({ id: null, draft: { ...EMPTY } })}>

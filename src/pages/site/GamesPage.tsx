@@ -23,7 +23,7 @@ function SetCard({ set }: { set: GameSetSummary }) {
     <article className="site-glass flex flex-col p-6">
       <div className="flex flex-wrap gap-2 text-xs font-bold">
         {set.level && <span className="rounded-full bg-site-acc/15 px-3 py-1 text-site-acc ring-1 ring-site-acc/30">Nivel {set.level}</span>}
-        <span className="rounded-full bg-site-fg/8 px-3 py-1 text-site-fg/60 ring-1 ring-site-fg/15">{set.question_count} preguntas · 16 juegos</span>
+        <span className="rounded-full bg-site-fg/8 px-3 py-1 text-site-fg/60 ring-1 ring-site-fg/15">{set.question_count} preguntas · {GAMES.length} juegos</span>
       </div>
       <h2 className="mt-4 text-2xl font-black tracking-tight">{set.title}</h2>
       {set.topic && <p className="mt-1 leading-relaxed text-site-fg/65">{set.topic}</p>}
@@ -64,7 +64,7 @@ export function GamesPage() {
           <span className="block site-neon">en el celular o en la PC.</span>
         </h1>
         <p className="mt-6 text-lg leading-relaxed text-site-fg/70">
-          Cada set trae 16 juegos para hablar, escuchar, ordenar y entender preguntas en inglés. Se abren con un
+          Cada set trae {GAMES.length} juegos para hablar, escuchar, ordenar y entender preguntas en inglés, y juegos de mesa para retarse en parejas. Se abren con un
           enlace, sin cuenta, y cada palabra se puede tocar para ver qué significa y cómo suena.
         </p>
       </header>
@@ -93,7 +93,7 @@ export function GamesPage() {
       </div>
 
       <section className="mt-16">
-        <h2 className="text-2xl font-black tracking-tight">Los 16 juegos de cada set</h2>
+        <h2 className="text-2xl font-black tracking-tight">Los {GAMES.length} juegos de cada set</h2>
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           {SKILLS.map((s) => (
             <div key={s.id} className="site-glass p-6">

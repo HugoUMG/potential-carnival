@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Users } from 'lucide-react';
 import { getRoom } from '../services/api';
 import type { PublicGameSet, RoomState } from '../types';
 import { GAMES, SKILLS } from './registry';
@@ -104,15 +104,22 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
           ) : (
             <Link className="dg-home" to="/juegos" aria-label="Volver a MyDinoEnglish"><ChevronLeft size={20} /><span>MyDinoEnglish</span></Link>
           )}
+          {game && <span className="dg-ttl-ico" aria-hidden="true">{game.emoji}</span>}
           <div className="dg-ttl">
-            <small>{game ? `${SKILLS.find((s) => s.id === game.skill)?.name} · ${set.title}` : [set.level && `Nivel ${set.level}`, `${set.questions.length} preguntas`].filter(Boolean).join(' · ')}</small>
-            <h1>{game ? `${game.emoji} ${game.name}` : set.title}</h1>
+            <small>
+              {game
+                ? <>{SKILLS.find((s) => s.id === game.skill)?.name}<span className="dg-ttl-set"> · {set.title}</span></>
+                : [set.level && `Nivel ${set.level}`, `${set.questions.length} preguntas`].filter(Boolean).join(' · ')}
+            </small>
+            <h1>{game ? game.name : set.title}</h1>
           </div>
-          {game?.room && !roomCode && !gate && (
-            <button type="button" className="dg-es-btn dg-group-btn" onClick={() => setGate(true)} title="Jugar en grupo">👥</button>
-          )}
-          <Countdown compact />
-          <button type="button" className="dg-es-btn" aria-pressed={es} onClick={toggleEs} title={es ? 'Ocultar traducciones' : 'Mostrar traducciones'}>ES</button>
+          <div className="dg-top-actions">
+            {game?.room && !roomCode && !gate && (
+              <button type="button" className="dg-es-btn dg-group-btn" onClick={() => setGate(true)} title="Jugar en grupo" aria-label="Jugar en grupo"><Users size={16} /><span>En grupo</span></button>
+            )}
+            <Countdown compact />
+            <button type="button" className="dg-es-btn" aria-pressed={es} onClick={toggleEs} title={es ? 'Ocultar traducciones' : 'Mostrar traducciones'}>ES</button>
+          </div>
         </header>
 
         <div className="dg-body">
@@ -141,7 +148,7 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
                     onEnter={enterRoom} onCancel={() => (roomCode ? leaveRoom() : setGate(false))} />
                 ) : inRoom && seat ? (
                   roomInit ? (
-                    <RoomProvider key={roomInit.code} seat={seat} initial={roomInit} free={game.roomFree} onLeave={leaveRoom}>
+                    <RoomProvider key={roomInit.code} seat={seat} initial={roomInit} free={game.roomFree} seats={game.roomSeats} onLeave={leaveRoom}>
                       <game.Component key={game.id} questions={set.questions} />
                     </RoomProvider>
                   ) : <p className="dg-notice">Conectando con la sala…</p>

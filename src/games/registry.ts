@@ -5,14 +5,16 @@ import { BoardGame, CardsGame, ChatGame, DiceGame, PronounceGame, TeamsGame, Whe
 import { BingoGame, DictationGame, ListenGame } from './listening';
 import { BalloonsGame, GapGame, OrderGame } from './structure';
 import { MatchGame, MemoryGame, SpeedGame } from './meaning';
+import { ConnectFourGame, LaddersGame, TicTacToeGame } from './board';
 
-export type Skill = 'hablar' | 'escuchar' | 'estructura' | 'significado';
+export type Skill = 'hablar' | 'escuchar' | 'estructura' | 'significado' | 'mesa';
 
 export const SKILLS: { id: Skill; name: string; emoji: string }[] = [
   { id: 'hablar', name: 'Hablar', emoji: '🗣️' },
   { id: 'escuchar', name: 'Escuchar', emoji: '👂' },
   { id: 'estructura', name: 'Estructura y gramática', emoji: '🧩' },
   { id: 'significado', name: 'Significado', emoji: '🧠' },
+  { id: 'mesa', name: 'Juegos de mesa (2 jugadores)', emoji: '♟️' },
 ];
 
 export interface GameMeta {
@@ -33,12 +35,14 @@ export interface GameMeta {
   /** En sala, quien no tiene el control también puede tocar el juego (Bingo: cada uno marca su
    *  cartón). Sin esto, el área queda `inert` para los que miran. */
   roomFree?: boolean;
+  /** Juegos de mesa: en modo turnos el turno rota solo entre los N primeros de la sala. */
+  roomSeats?: number;
 }
 
 const BOTH: RoomMode[] = ['turnos', 'presentador'];
 const SHOW: RoomMode[] = ['presentador'];
 
-/** Los 16 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
+/** Los 19 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
 export const GAMES: GameMeta[] = [
   { id: 'tarjetas', name: 'Tarjetas', emoji: '🃏', skill: 'hablar', color: '#7048E8', Component: CardsGame, room: BOTH,
     purpose: 'Conversación guiada: al voltear ves la traducción y cómo empezar tu respuesta.',
@@ -88,4 +92,13 @@ export const GAMES: GameMeta[] = [
   { id: 'coincide', name: '¿Coincide?', emoji: '✅', skill: 'significado', color: '#2F9E44', Component: MatchGame, room: BOTH,
     purpose: 'Comprensión de lectura veloz: ¿la traducción corresponde a la pregunta?',
     howTo: 'Calentamiento de 2 minutos; se juega deslizando como en una app.' },
+  { id: 'gato', name: 'Gato', emoji: '⭕', skill: 'mesa', color: '#E8590C', Component: TicTacToeGame, room: BOTH, roomSeats: 2,
+    purpose: 'Tres en raya: para marcar una casilla, acierta qué significa la pregunta.',
+    howTo: 'Parejas en un celular (se lo pasan) o en sala, cada uno en el suyo. Proyectado: dos alumnos al frente.' },
+  { id: 'conecta4', name: 'Conecta 4', emoji: '🔴', skill: 'mesa', color: '#C92A2A', Component: ConnectFourGame, room: BOTH, roomSeats: 2,
+    purpose: 'Suelta tu ficha solo si aciertas la pregunta. Cuatro en línea ganan.',
+    howTo: 'Partida más larga que el gato: ideal por parejas o dos equipos con el tablero proyectado.' },
+  { id: 'escaleras', name: 'Serpientes y escaleras', emoji: '🐍', skill: 'mesa', color: '#2B8A3E', Component: LaddersGame, room: BOTH, roomSeats: 2,
+    purpose: 'Tira el dado y acierta para avanzar; las escaleras suben y las serpientes bajan.',
+    howTo: 'Por parejas: gana quien llegue primero a la casilla 30.' },
 ];

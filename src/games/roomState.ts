@@ -31,13 +31,15 @@ export const useRoom = () => useContext(RoomContext);
 
 /** Quién mueve después de `me` al terminar su turno (null = nadie cambia).
  *  - turnos: el siguiente jugador conectado, en orden de llegada; si no hay otro, nadie cambia.
+ *    Con `seats` (juegos de mesa de 2) rota solo entre los `seats` primeros; el resto mira.
  *  - presentador con el control cedido "un turno": vuelve al anfitrión. */
-export function nextTurn(room: Pick<RoomState, 'mode' | 'lend' | 'host_id' | 'players'>, me: string): string | null {
+export function nextTurn(room: Pick<RoomState, 'mode' | 'lend' | 'host_id' | 'players'>, me: string, seats?: number): string | null {
   if (room.mode === 'presentador') return room.lend === 'once' && me !== room.host_id ? room.host_id : null;
-  const i = room.players.findIndex((p) => p.id === me);
-  for (let k = 1; k < room.players.length; k++) {
-    const p = room.players[(i + k) % room.players.length];
-    if (p.online) return p.id;
+  const players = seats ? room.players.slice(0, seats) : room.players;
+  const i = players.findIndex((p) => p.id === me);
+  for (let k = 1; k <= players.length; k++) {
+    const p = players[(i + k) % players.length];
+    if (p.id !== me && p.online) return p.id;
   }
   return null;
 }

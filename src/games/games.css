@@ -34,12 +34,24 @@
 .dg h1, .dg h2, .dg h3, .dg p { margin: 0; }
 
 /* ── Encabezado y estructura ── */
-.dg-top { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 10px; padding-block: 14px 10px; }
+.dg-top { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 8px; padding-block: 14px 10px; }
 .dg-home { display: inline-flex; align-items: center; gap: 4px; height: 38px; padding: 0 12px 0 8px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 800; font-size: 13px; text-decoration: none; color: var(--fg); flex: none; }
 .dg-home span { display: none; }
-.dg-ttl { flex: 1; min-width: 0; }
+.dg-ttl { flex: 1 1 150px; min-width: 0; }
+/* Si los botones no caben junto al título (celular), bajan a una segunda fila a la derecha: así
+   el título no se parte a mitad de palabra. */
+.dg-top { flex-wrap: wrap; }
+.dg-top-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; flex: none; }
+.dg-ttl-ico { flex: none; width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; background: color-mix(in srgb, var(--accent) 15%, var(--surface)); box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 28%, transparent); }
+.dg-ttl-set { display: none; }
+.dg-group-btn span { display: none; }
 .dg-ttl small { display: block; font-size: 11px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dg-ttl h1 { font-family: var(--f-display); font-weight: 800; font-size: 19px; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.dg-ttl h1 { font-family: var(--f-display); font-weight: 800; font-size: 18px; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: break-word; }
+@media (max-width: 400px) {
+  .dg-ttl h1 { font-size: 16px; }
+  .dg-ttl-ico { width: 36px; height: 36px; font-size: 19px; border-radius: 12px; }
+  .dg-top .dg-timer, .dg-top .dg-es-btn { padding: 0 10px; }
+}
 .dg-es-btn, .dg-timer { height: 38px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 900; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; flex: none; font-variant-numeric: tabular-nums; }
 .dg-es-btn[aria-pressed='false'] { color: var(--muted); text-decoration: line-through; }
 .dg-timer.compact > span:last-child { min-width: 26px; }
@@ -48,7 +60,7 @@
 .dg-body { max-width: 1180px; margin: 0 auto; }
 .dg-main { min-width: 0; }
 .dg-side { display: none; }
-.dg-purpose { color: var(--muted); font-size: 13.5px; margin-bottom: 12px; }
+.dg-purpose { color: var(--muted); font-size: 13.5px; font-weight: 600; margin-bottom: 14px; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 7%, var(--surface)); border-left: 4px solid var(--accent); }
 
 /* ── Inicio: lista de juegos ── */
 .dg-hero { background: linear-gradient(120deg, #2B1D6E, #5B3FC4 55%, #E0559A); color: #fff; border-radius: 22px; padding: 18px 20px; display: grid; gap: 6px; }
@@ -81,7 +93,8 @@
 .dg-row.wrap { flex-wrap: wrap; }
 .dg-row.center { justify-content: center; }
 .dg-btn { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0 18px; height: 46px; font-weight: 800; font-size: 14.5px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.dg-btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+.dg-btn.primary { background: var(--accent); border-color: transparent; color: #fff; box-shadow: 0 4px 0 color-mix(in srgb, var(--accent) 62%, #000); transition: transform .08s, box-shadow .08s; }
+.dg-btn.primary:not(:disabled):active { transform: translateY(3px); box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 62%, #000); }
 .dg-btn.ok { background: var(--ok); border-color: transparent; color: #fff; }
 .dg-btn.dark { background: #2B2B2B; border-color: transparent; color: #fff; }
 .dg-btn.small { height: 36px; font-size: 13px; padding: 0 14px; }
@@ -102,12 +115,17 @@
 .dg-quiz { display: grid; gap: 14px; max-width: 680px; margin: 0 auto; }
 .dg-options { display: grid; gap: 10px; }
 .dg-options.grid2 { grid-template-columns: 1fr 1fr; }
-.dg-option { text-align: left; border: 2px solid var(--line); background: var(--surface); border-radius: 16px; padding: 14px 16px; font-weight: 700; font-size: 15px; line-height: 1.35; transition: border-color .15s, transform .1s; }
+.dg-option { text-align: left; border: 2px solid var(--line); background: var(--surface); border-radius: 16px; padding: 12px 14px; font-weight: 700; font-size: 15px; line-height: 1.35; box-shadow: 0 3px 0 var(--line); transition: border-color .15s, transform .1s; }
+.dg-options:not(.grid2) { counter-reset: dg-opt; }
+.dg-options:not(.grid2) .dg-option { counter-increment: dg-opt; display: flex; align-items: center; gap: 12px; }
+.dg-options:not(.grid2) .dg-option::before { content: counter(dg-opt, upper-alpha); flex: none; width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; font: 800 14px var(--f-display); background: var(--surface-2); color: var(--muted); }
+.dg-options:not(.grid2) .dg-option.ok::before { content: '✓'; background: var(--ok); color: #fff; }
+.dg-options:not(.grid2) .dg-option.bad::before { content: '✕'; background: var(--bad); color: #fff; }
 .dg-options.grid2 .dg-option { text-align: center; font-size: 17px; }
 .dg-option:not(:disabled):hover { border-color: var(--accent); }
 .dg-option:not(:disabled):active { transform: scale(.98); }
-.dg-option.ok { border-color: var(--ok); background: var(--ok-bg); }
-.dg-option.bad { border-color: var(--bad); background: var(--bad-bg); }
+.dg-option.ok { border-color: var(--ok); background: var(--ok-bg); box-shadow: 0 3px 0 var(--ok); }
+.dg-option.bad { border-color: var(--bad); background: var(--bad-bg); box-shadow: 0 3px 0 var(--bad); animation: dg-shake .35s; }
 .dg-option.dim { opacity: .5; }
 .dg-hit { color: var(--ok); font-weight: 800; }
 .dg-miss { color: var(--bad); text-decoration: underline wavy; text-underline-offset: 4px; }
@@ -312,6 +330,7 @@
 /* ── PC ── */
 @media (min-width: 640px) {
   .dg-home span { display: inline; }
+  .dg-ttl-set, .dg-group-btn span { display: inline; }
   .dg-notes { grid-template-columns: repeat(3, 1fr); }
   .dg-memory { grid-template-columns: repeat(4, 1fr); }
   .dg-mem { aspect-ratio: 4 / 3; }
@@ -344,6 +363,64 @@
 @keyframes dg-roll { 0% { transform: rotate(0); } 50% { transform: rotate(14deg) scale(1.05); } 100% { transform: rotate(-10deg); } }
 @keyframes dg-pulse { 50% { transform: scale(1.04); box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 20%, transparent); } }
 @keyframes dg-float { 50% { transform: translateY(-8px); } }
+@keyframes dg-stamp { from { transform: scale(.3); opacity: 0; } }
+@keyframes dg-drop { from { transform: translateY(-420%); } }
+
+/* ── Juegos de mesa (board.tsx) ── */
+.dg-boardgame { display: grid; gap: 16px; max-width: 560px; margin: 0 auto; }
+.dg-players { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dg-player { display: flex; align-items: center; gap: 10px; border: 2px solid var(--line); background: var(--surface); border-radius: 18px; padding: 8px 10px; min-width: 0; transition: border-color .2s, background .2s, box-shadow .2s; }
+.dg-player b { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--side) 14%, var(--surface)); color: var(--side); font: 900 21px/1 var(--f-display); }
+.dg-player b.disc { border-radius: 50%; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--side) 55%, #fff), var(--side) 62%); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .22); }
+.dg-player > span { display: grid; min-width: 0; flex: 1; line-height: 1.2; }
+.dg-player-name { font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-player small { font-size: 11.5px; font-weight: 800; color: var(--muted); }
+.dg-player.turn { border-color: var(--side); background: color-mix(in srgb, var(--side) 8%, var(--surface)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--side) 18%, transparent); }
+.dg-player.turn small { color: var(--side); }
+.dg-player.won { border-color: var(--ok); background: var(--ok-bg); }
+.dg-player.won small { color: var(--ok); }
+
+/* El reto, en hoja inferior sobre el tablero */
+.dg-challenge-card { background: var(--surface); border-top: 6px solid var(--accent); box-shadow: 0 -10px 40px rgba(0, 0, 0, .25); }
+.dg-challenge-card .dg-options, .dg-challenge-card .dg-feedback { width: 100%; }
+.dg-challenge-card .dg-feedback { margin-top: 0; box-shadow: none; border: 0; padding: 4px 0 0; }
+.dg-challenge-card .dg-challenge { color: var(--accent); font: 800 12px var(--f-display); letter-spacing: .14em; text-transform: uppercase; }
+
+/* Gato */
+.dg-ttt { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: min(100%, 340px); margin: 0 auto 10px; padding: 12px; border-radius: 26px;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--accent) 80%, #fff), var(--accent)); box-shadow: 0 10px 0 color-mix(in srgb, var(--accent) 62%, #000), var(--shadow); }
+.dg-ttt-cell { aspect-ratio: 1; border: 0; border-radius: 16px; background: var(--surface); box-shadow: inset 0 -5px 0 var(--line); font: 900 clamp(40px, 13vw, 68px)/1 var(--f-display); color: var(--muted); transition: background .15s, transform .1s; }
+.dg-ttt-cell:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.dg-ttt-cell:not(:disabled):active { transform: scale(.95); }
+.dg-ttt-cell[class*='mark-'] { animation: dg-stamp .35s cubic-bezier(.3, 1.6, .5, 1); }
+.dg-ttt-cell.asking { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface)); animation: dg-blink 1s infinite; }
+
+/* Conecta 4 */
+.dg-c4 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; width: min(100%, 430px); margin: 0 auto 10px; padding: 10px; border-radius: 22px;
+  background: linear-gradient(180deg, #3574E8, #1C4FB8); box-shadow: 0 10px 0 #123A8C, var(--shadow); }
+.dg-c4-drop { border: 0; border-radius: 10px; background: rgba(255, 255, 255, .16); color: #fff; font-weight: 900; font-size: 13px; height: 34px; transition: background .15s, transform .1s; }
+.dg-c4-drop:not(:disabled):hover { background: var(--side); transform: translateY(-2px); }
+.dg-c4-drop:disabled { opacity: .3; }
+.dg-c4-cell { aspect-ratio: 1; border-radius: 50%; background: var(--bg); box-shadow: inset 0 4px 7px rgba(0, 0, 0, .3); }
+.dg-c4-cell[data-on] { background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--piece) 55%, #fff), var(--piece) 62%); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .25), 0 2px 3px rgba(0, 0, 0, .25); animation: dg-drop .5s cubic-bezier(.4, 0, .6, 1.35); }
+
+/* Serpientes y escaleras */
+.dg-snakes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 8px; border-radius: 22px; background: var(--accent); box-shadow: 0 8px 0 color-mix(in srgb, var(--accent) 60%, #000), var(--shadow); }
+.dg-sq { position: relative; aspect-ratio: 1.1; border-radius: 12px; background: var(--surface); padding: 5px 6px; display: grid; align-content: space-between; font-size: 11px; }
+.dg-sq.odd { background: color-mix(in srgb, var(--accent) 11%, var(--surface)); }
+.dg-sq small { color: var(--muted); font-weight: 900; }
+.dg-sq.up { background: var(--ok-bg); }
+.dg-sq.down { background: var(--bad-bg); }
+.dg-sq-jump { display: flex; align-items: center; gap: 2px; font: 900 13px var(--f-display); }
+.dg-sq-jump span { font-size: 17px; }
+.dg-sq.up .dg-sq-jump { color: var(--ok); }
+.dg-sq.down .dg-sq-jump { color: var(--bad); }
+.dg-sq.goal { background: linear-gradient(135deg, #FFE066, #FAB005); }
+.dg-sq.goal small { color: #5C3D00; }
+.dg-sq-tokens { position: absolute; right: 4px; bottom: 4px; display: flex; gap: 2px; }
+.dg-sq-tokens i { font-style: normal; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font: 900 12px var(--f-display); border: 2px solid #fff; box-shadow: 0 3px 6px rgba(0, 0, 0, .35); animation: dg-stamp .35s cubic-bezier(.3, 1.6, .5, 1); }
+.dg-die-face { font-size: 30px; vertical-align: -5px; }
+.dg-boardgame .center-self { justify-self: center; }
 
 /* ── Salas de juego (room.tsx, ADR-40) ── */
 .dg-room { background: var(--surface); border: 1.5px solid var(--line); border-radius: 20px; padding: 12px 14px; margin-bottom: 14px; display: grid; gap: 8px; }

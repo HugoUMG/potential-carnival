@@ -210,7 +210,7 @@ POST /rooms/{code}/turn        — {token, to, lend?}: solo el anfitrión. Da el
 
 - Estado público: `{code, game, set_id, mode, host_id, turn, lend, version, players[{id, name,
   online}], state?}`. El `token` de cada jugador **nunca** sale aquí; es su credencial para escribir.
-- `game` debe estar en `rooms.ROOM_GAMES` (todos menos `contrarreloj`) y `mode` ser `turnos` o
+- `game` debe estar en `rooms.ROOM_GAMES` (todos menos `contrarreloj`, incluidos `gato`, `conecta4` y `escaleras`) y `mode` ser `turnos` o
   `presentador` → 422 si no. Nombre de 1–24 caracteres (422), máximo 8 jugadores (409), blob de
   hasta 50 KB (413), 404 si la sala no existe o caducó (3 h).
 - `state`: escribe el anfitrión siempre, y el resto solo si `turn` es su id (403). `version` vieja →
