@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { RoomState } from '../types';
 
 /* Salas de juego (ADR-40). El servidor (`backend/app/rooms.py`) guarda un blob opaco y vigila quién
@@ -22,10 +22,12 @@ export interface RoomCtx {
   endTurn: () => void;
   /** Punto para quien mueve. Solo cuenta en modo turnos (lo enseña la barra de la sala). */
   addPoint: (n?: number) => void;
+  /** Publica lo que dijo este jugador (su respuesta por voz). Funciona sin tener el control. */
+  say: (text: string) => Promise<void>;
 }
 
 const noop = () => {};
-const SOLO: RoomCtx = { room: null, me: null, isHost: false, canAct: true, view: {}, write: noop, peek: () => ({}), endTurn: noop, addPoint: noop };
+const SOLO: RoomCtx = { room: null, me: null, isHost: false, canAct: true, view: {}, write: noop, peek: () => ({}), endTurn: noop, addPoint: noop, say: async () => {} };
 export const RoomContext = createContext<RoomCtx>(SOLO);
 export const useRoom = () => useContext(RoomContext);
 
@@ -80,4 +82,43 @@ export function saveSeat(code: string, seat: Seat): void {
 }
 export function dropSeat(code: string): void {
   try { sessionStorage.removeItem(seatKey(code)); } catch { /* nada que borrar */ }
+}
+
+// ── Aviso de turno (clase virtual) ────────────────────────────────────────────
+
+/** Cuando `active` pasa a true —te toca—: un pitido corto, vibración y, si la pestaña está detrás
+ *  de Meet/Zoom, el título parpadea con `label` hasta que vuelvas. Sin assets: WebAudio. */
+export function useTurnAlert(active: boolean, label: string): void {
+  const was = useRef(active);
+  useEffect(() => {
+    const fire = active && !was.current;
+    was.current = active;
+    if (!fire) return;
+    try {
+      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (Ctx) {
+        const ctx = new Ctx();
+        [0, 0.18].forEach((at, k) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = k ? 1046 : 784;
+          gain.gain.setValueAtTime(0.0001, ctx.currentTime + at);
+          gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + at + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + at + 0.16);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(ctx.currentTime + at);
+          osc.stop(ctx.currentTime + at + 0.18);
+        });
+        window.setTimeout(() => { void ctx.close(); }, 600);
+      }
+    } catch { /* sin audio: queda el título */ }
+    navigator.vibrate?.(200);
+    if (!document.hidden) return;
+    const original = document.title;
+    let on = false;
+    const id = window.setInterval(() => { on = !on; document.title = on ? `🔔 ${label}` : original; }, 900);
+    const back = () => { if (document.hidden) return; window.clearInterval(id); document.title = original; document.removeEventListener('visibilitychange', back); };
+    document.addEventListener('visibilitychange', back);
+    return () => { window.clearInterval(id); document.title = original; document.removeEventListener('visibilitychange', back); };
+  }, [active, label]);
 }

@@ -118,3 +118,15 @@ def test_codigo_desconocido():
     assert _status(rooms.get_room, "ZZZZ") == 404
     room, *_ = _room()
     assert rooms.get_room(room.code.lower()) is room
+
+
+def test_cualquier_jugador_dice_su_respuesta_aunque_no_tenga_el_control():
+    room, host, b, _ = _room()
+    assert room.turn == host.id
+    room.say(b.token, "  I live   in Guatemala ")
+    said = room.public_state()["said"]
+    assert said == {"pid": b.id, "name": "Luis", "text": "I live in Guatemala", "n": 1}
+    room.say(host.token, "x" * 1000)
+    assert room.public_state()["said"]["n"] == 2 and len(room.public_state()["said"]["text"]) == rooms.MAX_SAID
+    assert _status(room.say, b.token, "   ") == 422
+    assert _status(room.say, "token-falso", "hola") == 403

@@ -372,6 +372,8 @@ export interface RoomState {
   version: number;
   players: RoomPlayer[];
   state?: Record<string, unknown>;
+  /** Lo último que dijo un jugador (respuesta por voz transcrita). Cualquiera puede escribirlo. */
+  said?: { pid: string; name: string; text: string; n: number } | null;
 }
 
 // ─── Conversación con IA por role-play (ADR-39) ────────────────────────────

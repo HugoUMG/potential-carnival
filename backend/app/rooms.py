@@ -37,7 +37,11 @@ MAX_NAME = 24
 MAX_STATE_BYTES = 50_000   # Chat guarda respuestas escritas; lo demás son índices
 MAX_ROOMS = 500
 ROOM_TTL_SECONDS = 3 * 3600
-ONLINE_WINDOW = 10.0       # sin poll en este tiempo, el jugador sale como desconectado
+# Sin poll en este tiempo, el jugador sale como desconectado y el turno se lo salta. Holgado a
+# propósito: en clase virtual el alumno tiene Meet/Zoom delante y nuestra pestaña en segundo
+# plano, donde Chrome espacia los timers (hasta 1 por minuto tras 5 min oculta).
+ONLINE_WINDOW = 90.0
+MAX_SAID = 400             # caracteres de lo que un jugador dijo (transcripción de su respuesta)
 
 
 @dataclass
@@ -61,6 +65,9 @@ class Room:
     state: dict[str, Any] = field(default_factory=dict)
     version: int = 0
     created_at: float = field(default_factory=time.monotonic)
+    # Lo último que dijo un jugador (su respuesta por voz, transcrita). Va fuera de `state` porque
+    # quien responde casi nunca tiene el control: cualquier jugador de la sala puede escribirlo.
+    said: dict[str, Any] | None = None
 
     def player(self, token: str) -> Player:
         for p in self.players:
@@ -105,6 +112,14 @@ class Room:
             self.lend = None
         self.version += 1
 
+    def say(self, token: str, text: str) -> None:
+        p = self.player(token)
+        text = " ".join((text or "").split())[:MAX_SAID]
+        if not text:
+            raise LiveError("No se escuchó nada", status=422)
+        n = (self.said or {}).get("n", 0) + 1
+        self.said = {"pid": p.id, "name": p.name, "text": text, "n": n}
+
     def pass_turn(self, token: str, to: str, lend: str | None) -> None:
         if self.player(token).id != self.host_id:
             raise LiveError("Solo el anfitrión reparte el control", status=403)
@@ -125,6 +140,7 @@ class Room:
             "code": self.code, "game": self.game, "set_id": self.set_id, "mode": self.mode,
             "host_id": self.host_id, "turn": self.turn, "lend": self.lend, "version": self.version,
             "players": [{"id": p.id, "name": p.name, "online": now - p.last_seen < ONLINE_WINDOW} for p in self.players],
+            "said": self.said,
         }
         # Sin cambios desde el último poll, el blob (lo pesado) no viaja.
         if since != self.version:

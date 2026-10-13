@@ -79,6 +79,7 @@ from .models import (
     RoomCreate,
     RoomJoin,
     RoomPush,
+    RoomSay,
     RoomTurn,
 )
 from .parser import WorksheetScriptError, parse_worksheet_script, strip_non_printable
@@ -1756,6 +1757,16 @@ def room_join(code: str, payload: RoomJoin, request: Request) -> dict[str, Any]:
 def room_push(code: str, payload: RoomPush) -> dict[str, Any]:
     room = rooms.get_room(code)
     room.push(payload.token, payload.version, payload.state, payload.turn)
+    return room.public_state(room.version)
+
+
+@app.post("/rooms/{code}/say")
+def room_say(code: str, payload: RoomSay, request: Request) -> dict[str, Any]:
+    """Lo que dijo un jugador (su respuesta por voz, ya transcrita en su navegador). Cualquier
+    jugador de la sala puede escribirlo, tenga o no el control: quien responde casi nunca lo tiene."""
+    _rate_limit(request, limit=120)
+    room = rooms.get_room(code)
+    room.say(payload.token, payload.text)
     return room.public_state(room.version)
 
 

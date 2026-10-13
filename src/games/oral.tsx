@@ -1,9 +1,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { Plus, RotateCcw, X } from 'lucide-react';
+import { Mic, Plus, RotateCcw, X } from 'lucide-react';
 import type { GameQuestion } from '../types';
-import { range, shuffle, speak, type GameProps } from './util';
+import { canRecognize, range, recognizeOnce, shuffle, speak, useGame, type GameProps } from './util';
 import { Es, Notice, Say, Speak } from './ui';
-import { nextTurn, useRoom, useShared } from './roomState';
+import { nextTurn, useRoom, useShared, useTurnAlert } from './roomState';
 
 /* Juegos de responder en voz alta por turnos: la plataforma solo enseña la pregunta; el alumno
  * responde hablando y alguien califica (✓ +2, ½ +1, ✗ 0). Quien califica es quien tiene el
@@ -12,7 +12,11 @@ import { nextTurn, useRoom, useShared } from './roomState';
  *  - turnos      → califica el compañero: quien tiene el turno califica al siguiente conectado, y al
  *                  calificar le pasa el control (A→B, B→C, C→A).
  *  - sin sala    → se escriben los nombres y califica quien tiene el celular.
- * Los puntos van en `__scores` (por id de jugador), los mismos que pinta la barra de la sala. */
+ * Los puntos van en `__scores` (por id de jugador), los mismos que pinta la barra de la sala.
+ *
+ * En línea (cada quien en su casa) quien responde puede hacerlo con la voz: 🎤 → el navegador lo
+ * transcribe → `say()` lo publica en la sala (sin tener el control) y todos leen "Luis dijo: …".
+ * Por eso estos juegos son `roomFree`: quien responde tiene que poder tocar el micrófono. */
 
 const GRADES = [
   { pts: 2, label: '✓ Bien', cls: 'ok' },
@@ -25,13 +29,15 @@ interface Player { key: string; name: string; color: string }
 interface Last { name: string; pts: number; burned?: boolean }
 
 function useOral(questions: GameQuestion[]) {
-  const { room, canAct, endTurn } = useRoom();
+  const { room, me, canAct, endTurn, say } = useRoom();
   const [names, setNames] = useShared<string[]>('names', []);
   const [deck, setDeck] = useShared<number[]>('deck', () => shuffle(range(questions.length)));
   const [q, setQ] = useShared<number | null>('q', null);
   const [ans, setAns] = useShared('ans', 0);
   const [scores, setScores] = useShared<Record<string, number>>('__scores', {});
   const [last, setLast] = useShared<Last | null>('last', null);
+  // `said.n` al sacar la pregunta: solo cuenta lo que se diga después (no la respuesta anterior).
+  const [saidBase, setSaidBase] = useShared('saidBase', 0);
 
   const list = room
     ? (room.mode === 'presentador' ? room.players.filter((p) => p.id !== room.host_id) : room.players).map((p) => ({ key: p.id, name: p.name }))
@@ -45,6 +51,7 @@ function useOral(questions: GameQuestion[]) {
     const rest = deck.length ? deck : shuffle(range(questions.length));
     setQ(rest[0]);
     setDeck(rest.slice(1));
+    setSaidBase(room?.said?.n ?? 0);
     speak(questions[rest[0]].text);
   };
   const grade = (pts: number, burned = false) => {
@@ -56,18 +63,30 @@ function useOral(questions: GameQuestion[]) {
     endTurn(); // en turnos, el control pasa a quien acaba de responder: ahora califica él
   };
   const reset = () => { setScores({}); setLast(null); setQ(null); setAns(0); };
-  return { room, canAct, players, answerer, grader, q, draw, grade, scores, last, names, setNames, reset };
+  const said = room?.said && answerer && room.said.pid === answerer.key && room.said.n > saidBase && q !== null ? room.said : null;
+  const answering = Boolean(room && answerer && answerer.key === me && q !== null);
+  useTurnAlert(answering, '¡Te toca responder!');
+  return { room, canAct, players, answerer, grader, q, draw, grade, scores, last, names, setNames, reset, said, answering, say };
 }
 
 type Oral = ReturnType<typeof useOral>;
 
 /** Sin sala: los nombres de quienes juegan (2 a 8). */
 function Setup({ onStart }: { onStart: (names: string[]) => void }) {
+  const { openGroup } = useGame();
   const [names, setNames] = useState(['', '']);
   const clean = names.map((n, i) => n.trim() || `Jugador ${i + 1}`);
   return (
     <div className="dg-center-card dg-oral-setup">
-      <p className="dg-big-q">¿Quiénes juegan?</p>
+      {openGroup && (
+        <>
+          <p className="dg-big-q">🌐 ¿Cada quien en su casa?</p>
+          <p className="dg-muted">Crea una sala, comparte el enlace y cada uno responde desde su celular. Puedes calificar tú o que se califiquen entre ellos.</p>
+          <button type="button" className="dg-btn primary big" onClick={openGroup}>Jugar en línea</button>
+          <p className="dg-oral-or">o en un solo dispositivo</p>
+        </>
+      )}
+      <p className={openGroup ? 'dg-oral-sub' : 'dg-big-q'}>¿Quiénes juegan?</p>
       <p className="dg-muted">Cada uno responde en voz alta en su turno y quien tiene el celular da los puntos.</p>
       {names.map((n, i) => (
         <div key={i} className="dg-oral-name" style={{ '--who': COLORS[i % COLORS.length] } as CSSProperties}>
@@ -78,7 +97,7 @@ function Setup({ onStart }: { onStart: (names: string[]) => void }) {
         </div>
       ))}
       {names.length < 8 && <button type="button" className="dg-link" onClick={() => setNames([...names, ''])}><Plus size={14} /> Agregar jugador</button>}
-      <button type="button" className="dg-btn primary big" onClick={() => onStart(clean)}>Empezar</button>
+      <button type="button" className={`dg-btn ${openGroup ? '' : 'primary '}big`} onClick={() => onStart(clean)}>Empezar aquí</button>
     </div>
   );
 }
@@ -116,6 +135,8 @@ function Turn({ o, questions, extra }: { o: Oral; questions: GameQuestion[]; ext
           <Es className="center">{q.translation}</Es>
           {q.hint && <p className="dg-hint center">💡 Empieza así: <Say text={q.hint} /></p>}
           {extra}
+          {o.answering && <AnswerMic o={o} />}
+          {o.said && <p className="dg-said"><b>🗣️ {o.said.name} dijo:</b> “{o.said.text}”</p>}
           {o.canAct ? (
             <div className="dg-grades">
               {GRADES.map((g) => (
@@ -132,6 +153,34 @@ function Turn({ o, questions, extra }: { o: Oral; questions: GameQuestion[]; ext
           {o.last.burned ? `💥 A ${o.last.name} se le quemó la papa` : `${o.last.name}: ${o.last.pts ? `+${o.last.pts} ${o.last.pts === 1 ? 'punto' : 'puntos'}` : 'sin puntos'}`}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Quien responde, en línea: habla y el navegador lo transcribe para que quien califica lo lea. */
+function AnswerMic({ o }: { o: Oral }) {
+  const [listening, setListening] = useState(false);
+  const [err, setErr] = useState('');
+  if (!canRecognize) return <p className="dg-muted center">🎤 Responde en voz alta por la llamada (tu navegador no transcribe la voz; en Chrome sí).</p>;
+  const listen = async () => {
+    setErr('');
+    setListening(true);
+    try {
+      const text = await recognizeOnce();
+      if (text) await o.say(text);
+      else setErr('No te escuché. Toca el micrófono y habla.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'No se pudo usar el micrófono');
+    } finally {
+      setListening(false);
+    }
+  };
+  return (
+    <div className="dg-answer-mic">
+      <p className="dg-oral-you">¡Te toca responder!</p>
+      <button type="button" className={`dg-mic ${listening ? 'on' : ''}`} onClick={() => void listen()} disabled={listening} aria-label="Responder con la voz"><Mic size={30} /></button>
+      <p className="dg-muted center">{listening ? 'Te escucho… habla en inglés' : 'Toca y responde en voz alta: lo que digas aparece para quien califica.'}</p>
+      {err && <p className="dg-error center">{err}</p>}
     </div>
   );
 }

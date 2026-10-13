@@ -14,6 +14,8 @@ export interface GameCtx {
   es: boolean;
   setId: string;
   openWord: (word: string, anchor: HTMLElement) => void;
+  /** Abre "Jugar en línea" (crear o unirse a una sala). Solo si el juego admite sala y no hay una. */
+  openGroup?: () => void;
 }
 
 export const GameContext = createContext<GameCtx>({ glossary: {}, es: true, setId: '', openWord: () => {} });
@@ -123,4 +125,37 @@ export function playAudio(text: string, slow = false): void {
 
 export function copyText(text: string): Promise<boolean> {
   return navigator.clipboard.writeText(text).then(() => true, () => false);
+}
+
+// ── Reconocimiento de voz (Web Speech API: Chrome, Edge, Safari; Firefox no) ─────
+
+interface Recognizer {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+}
+type RecognizerClass = new () => Recognizer;
+const speechWindow = typeof window === 'undefined' ? {} : window as unknown as { SpeechRecognition?: RecognizerClass; webkitSpeechRecognition?: RecognizerClass };
+const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+export const canRecognize = Boolean(Recognition);
+
+/** Escucha una frase en inglés y devuelve lo que entendió el navegador ('' si no oyó nada). */
+export function recognizeOnce(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!Recognition) { reject(new Error('Tu navegador no reconoce la voz. Usa Chrome o Edge.')); return; }
+    const r = new Recognition();
+    r.lang = 'en-US';
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+    let text = '';
+    r.onresult = (e) => { text = e.results[0][0].transcript; };
+    r.onerror = (e) => reject(new Error(e.error === 'not-allowed' ? 'Permite el micrófono para responder con la voz.' : 'No te escuché bien. Intenta otra vez.'));
+    r.onend = () => resolve(text);
+    r.start();
+  });
 }

@@ -1073,6 +1073,8 @@ export const getRoom = (code: string, token: string, since: number | null) =>
   roomCall<RoomState>(`/${encodeURIComponent(code)}?token=${encodeURIComponent(token)}${since === null ? '' : `&since=${since}`}`);
 export const pushRoomState = (code: string, token: string, version: number, state: Record<string, unknown>, turn: string) =>
   roomCall<RoomState>(`/${encodeURIComponent(code)}/state`, { token, version, state, turn });
+export const sayInRoom = (code: string, token: string, text: string) =>
+  roomCall<RoomState>(`/${encodeURIComponent(code)}/say`, { token, text });
 export const passRoomTurn = (code: string, token: string, to: string, lend?: RoomLend) =>
   roomCall<RoomState>(`/${encodeURIComponent(code)}/turn`, { token, to, lend: lend ?? null });
 

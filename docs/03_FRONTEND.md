@@ -69,7 +69,7 @@ no hay que escribir nada distinto por juego.
   encabezado abre `RoomGate` (crear sala o unirse con código, con nombre). El enlace es
   `/j/:setId?sala=K7QF#juego`; el token se guarda en `sessionStorage` (`dg-room-{code}`), así que
   un F5 no te saca. `GamePlayer` envuelve el juego en `RoomProvider` (`room.tsx`), que hace
-  polling cada 1 s, muestra `RoomBar` (jugadores, puntos, turno, ceder o recuperar el control) y
+  polling cada 1 s (también con la pestaña oculta, ver "Clase virtual"), muestra `RoomBar` (jugadores, puntos, turno, ceder o recuperar el control, **Invitar** con la hoja de compartir o WhatsApp) y
   deja el juego `inert` a quien no tiene el control. La lógica está en `roomState.ts`:
   `useShared(key, init)` es `useState` sin sala; en sala lee del blob, el anfitrión escribe `init`
   si falta (mismo reparto para todos) y **el setter no hace nada sin el control**. Las escrituras
@@ -98,6 +98,17 @@ no hay que escribir nada distinto por juego.
   `nextTurn` — y al calificar le pasa el control: A→B, B→C, C→A). Sin sala, se escriben los nombres
   y califica quien tiene el celular. Los puntos van en `__scores` por id, así que la barra de la sala
   los enseña también en presentador.
+- **Clase virtual (cada quien en su casa):**
+  - El polling sigue con la pestaña oculta: el alumno suele tener Meet o Zoom delante.
+  - `useTurnAlert` (roomState) avisa con pitido, vibración y título "🔔 ¡Tu turno!" cuando te llega el
+    control (`RoomProvider`), y "¡Te toca responder!" a quien responde en los juegos de turnos.
+  - Sobre cada juego con sala sale el aviso `.dg-online` ("¿Cada quien en su casa?" → Jugar en
+    línea). La pantalla de nombres de los juegos de responder pone primero "Jugar en línea"
+    (`openGroup` en `GameCtx`).
+  - En los juegos de responder, quien responde toca 🎤: `recognizeOnce` (util, Web Speech API, gratis)
+    transcribe y `say()` lo publica (`POST /rooms/{code}/say`, sin tener el control). Todos leen
+    "🗣️ Luis dijo: …"; solo cuenta lo dicho tras sacar la pregunta (`saidBase`). Sin reconocimiento
+    de voz (Firefox), se pide responder por la llamada. Por eso esos juegos son `roomFree`.
 - **Pronuncia** usa la Web Speech API del navegador (Chrome, Edge, Safari; Firefox no): sin ella,
   avisa y deja escuchar el modelo. No manda audio al backend.
 

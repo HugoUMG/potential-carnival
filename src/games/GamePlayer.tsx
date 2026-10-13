@@ -73,7 +73,10 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
 
   const openWord = useCallback((w: string, anchor: HTMLElement) => setWord({ word: w, anchor }), []);
   const closeWord = useCallback(() => setWord(null), []);
-  const ctx = useMemo<GameCtx>(() => ({ glossary: set.glossary, es, setId: set.id, openWord }), [set, es, openWord]);
+  const canGroup = Boolean(GAMES.find((g) => g.id === active)?.room) && !roomCode && !gate;
+  const openGroup = useCallback(() => setGate(true), []);
+  const ctx = useMemo<GameCtx>(() => ({ glossary: set.glossary, es, setId: set.id, openWord, openGroup: canGroup ? openGroup : undefined }),
+    [set, es, openWord, canGroup, openGroup]);
   const game = GAMES.find((g) => g.id === active) ?? null;
   const inRoom = Boolean(roomCode && game?.room);
 
@@ -142,6 +145,12 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
             {game ? (
               <>
                 <p className="dg-purpose">{game.purpose}</p>
+                {canGroup && (
+                  <div className="dg-online">
+                    <span>🌐 <b>¿Cada quien en su casa?</b> Crea una sala y comparte el enlace: todos ven el mismo juego en vivo.</span>
+                    <button type="button" className="dg-btn small primary" onClick={openGroup}>Jugar en línea</button>
+                  </div>
+                )}
                 {roomErr && <p className="dg-room-error" role="alert">{roomErr}</p>}
                 {game.room && (gate || (inRoom && !seat)) ? (
                   <RoomGate game={game.id} setId={set.id} modes={game.room} modeText={game.roomModeText} joinCode={roomCode ?? undefined}

@@ -308,6 +308,11 @@ class RoomPush(BaseModel):
     turn: str
 
 
+class RoomSay(BaseModel):
+    token: str
+    text: str
+
+
 class RoomTurn(BaseModel):
     token: str
     to: str

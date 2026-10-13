@@ -206,10 +206,13 @@ GET  /rooms/{code}?token&since — Estado público. Actualiza "conectado". Sin `
 POST /rooms/{code}/join        — {name} → {token, me, ...estado}
 POST /rooms/{code}/state       — {token, version, state, turn}: reemplaza el blob del juego
 POST /rooms/{code}/turn        — {token, to, lend?}: solo el anfitrión. Da el turno / cede o recupera el control
+POST /rooms/{code}/say         — {token, text}: cualquier jugador, tenga o no el control. Lo que dijo (respuesta por voz)
 ```
 
 - Estado público: `{code, game, set_id, mode, host_id, turn, lend, version, players[{id, name,
-  online}], state?}`. El `token` de cada jugador **nunca** sale aquí; es su credencial para escribir.
+  online}], said, state?}`. `online` = hizo poll en los últimos 90 s. `said` = `{pid, name, text, n}`
+  con lo último que alguien publicó por `/say` (texto ≤ 400, sin espacios de más; 422 si vacío;
+  `_rate_limit` 120/min). Va fuera de `state` porque quien responde casi nunca tiene el control. El `token` de cada jugador **nunca** sale aquí; es su credencial para escribir.
 - `game` debe estar en `rooms.ROOM_GAMES` (todos menos `contrarreloj`, incluidos los de mesa y los de responder: `gato`, `conecta4`, `escaleras`, `entrevista`, `carrera`, `papa`) y `mode` ser `turnos` o
   `presentador` → 422 si no. Nombre de 1–24 caracteres (422), máximo 8 jugadores (409), blob de
   hasta 50 KB (413), 404 si la sala no existe o caducó (3 h).

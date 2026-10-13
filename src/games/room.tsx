@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { createRoom, getRoom, joinRoom, passRoomTurn, pushRoomState, RoomError, type RoomJoined } from '../services/api';
+import { createRoom, getRoom, joinRoom, passRoomTurn, pushRoomState, RoomError, sayInRoom, type RoomJoined } from '../services/api';
 import type { RoomLend, RoomMode, RoomState } from '../types';
-import { nextTurn, RoomContext, saveSeat, type Blob, type RoomCtx, type Seat } from './roomState';
+import { nextTurn, RoomContext, saveSeat, useTurnAlert, type Blob, type RoomCtx, type Seat } from './roomState';
 import { copyText, playAudio, setSpeakGate } from './util';
 
 /* Componentes de la sala de juego (ADR-40). Hooks y lógica pura en `roomState.ts`. */
@@ -117,10 +117,12 @@ export function RoomProvider({ seat, initial, free = false, seats, onLeave, chil
     write('__scores', { ...scores, [me]: (scores[me] ?? 0) + n });
   }, [me, write]);
 
-  // Polling de 1 s (como live.py). Se pausa con la pestaña oculta o con jugadas sin confirmar.
+  // Polling de 1 s (como live.py), también con la pestaña oculta: en clase virtual el alumno tiene
+  // Meet/Zoom delante y, si dejara de preguntar, saldría como desconectado y perdería su turno.
+  // El navegador ya espacia los timers de una pestaña oculta; solo se pausa con jugadas en vuelo.
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (document.hidden || busy.current || Object.keys(pending.current).length) return;
+      if (busy.current || Object.keys(pending.current).length) return;
       void refresh(false);
     }, 1000);
     return () => window.clearInterval(id);
@@ -152,9 +154,19 @@ export function RoomProvider({ seat, initial, free = false, seats, onLeave, chil
     }
   }, [adopt, code, token]);
 
+  const sayAnswer = useCallback(async (text: string) => {
+    try {
+      adopt(await sayInRoom(code, token, text));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo enviar tu respuesta');
+    }
+  }, [adopt, code, token]);
+
   const isHost = room.host_id === me;
-  const ctx = useMemo<RoomCtx>(() => ({ room, me, isHost, canAct, view, write, peek, endTurn, addPoint }),
-    [room, me, isHost, canAct, view, write, peek, endTurn, addPoint]);
+  // Te llega el control (tu turno, o te lo cedieron): pitido y título que parpadea si estás en Meet.
+  useTurnAlert(canAct, room.mode === 'turnos' ? '¡Tu turno!' : '¡Tienes el control!');
+  const ctx = useMemo<RoomCtx>(() => ({ room, me, isHost, canAct, view, write, peek, endTurn, addPoint, say: sayAnswer }),
+    [room, me, isHost, canAct, view, write, peek, endTurn, addPoint, sayAnswer]);
 
   return (
     <RoomContext.Provider value={ctx}>
@@ -185,12 +197,18 @@ function RoomBar({ room, me, seats, scores, error, onPass, onLeave }: {
       : isHost ? '👀 Todos ven lo que haces' : `👀 Viendo a ${host?.name ?? 'el anfitrión'}`;
   const link = `${window.location.origin}${window.location.pathname}?sala=${room.code}${window.location.hash}`;
   const copy = () => { void copyText(link).then((ok) => { setCopied(ok); window.setTimeout(() => setCopied(false), 1500); }); };
+  const invite = `¡Juguemos inglés en MyDinoEnglish! Entra con este enlace (sala ${room.code}): ${link}`;
+  const share = () => {
+    if (navigator.share) void navigator.share({ title: 'MyDinoEnglish', text: invite }).catch(() => {});
+    else window.open(`https://wa.me/?text=${encodeURIComponent(invite)}`, '_blank', 'noopener');
+  };
 
   return (
     <section className="dg-room" aria-label="Sala">
       <div className="dg-room-top">
         <b className="dg-room-code" title="Código de la sala">{room.code}</b>
         <span className="dg-room-mode">{room.mode === 'turnos' ? 'Por turnos' : 'Presentador'}</span>
+        <button type="button" className="dg-btn small primary" onClick={share}>Invitar</button>
         <button type="button" className="dg-btn small" onClick={copy}>{copied ? '¡Copiado!' : 'Copiar enlace'}</button>
         <button type="button" className="dg-link" onClick={onLeave}>Salir</button>
       </div>

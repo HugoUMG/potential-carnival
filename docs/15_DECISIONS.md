@@ -1051,8 +1051,10 @@ entiende ningún juego, el mismo backend sirve para los 15.
   vería a saltos y por turnos no tiene sentido. Queda fuera de `ROOM_GAMES`.
 
 **Consecuencias.** Un redeploy borra las salas (no hay nota que perder). Un jugador que no hizo poll
-en 10 s cuenta como desconectado y `endTurn()` se lo salta. El polling se pausa con la pestaña
-oculta, así que quien cambia de app pierde su turno: el anfitrión puede **dar el turno** a mano. Los
+en 90 s cuenta como desconectado y `endTurn()` se lo salta; el anfitrión puede **dar el turno** a
+mano. *Clase virtual (octubre 2026):* el polling ya **no** se pausa con la pestaña oculta y la
+ventana era de 10 s. Con Meet o Zoom delante, el alumno salía como desconectado y perdía su turno.
+Ahora se avisa con pitido, vibración y título que parpadea (`useTurnAlert`). Los
 espectadores tienen el área del juego `inert`, así que tampoco abren el diccionario de palabras
 mientras miran; la excepción es Bingo (`roomFree`), donde cada uno marca su propio cartón. El
 audio de quien mueve viaja como `__say` en el blob y suena en todos.
