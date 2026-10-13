@@ -132,6 +132,13 @@ versión saneada estática.** `content` queda fuera del chrome "Actividad N / In
 - El selector de velocidad (Muy lento / Lento / Normal) manda `rate` al servidor en vez de tocar el
   `playbackRate` del audio: estirar la onda ya grabada le enseña al alumno una articulación que
   ningún hablante produce. El precio es que cambiar voz o velocidad **recarga** el MP3.
+- **Respaldo: la voz del navegador** (`src/utils/browserSpeech.ts`, `speechSynthesis`). Si `/tts`
+  falla (octubre 2026: Microsoft rechaza edge-tts con 403; ElevenLabs puede quedarse sin cuota), ▶
+  lee el texto (o los turnos de `conversation`) con la voz del navegador a la misma velocidad, y
+  `TtsButton` hace lo mismo. Los juegos (`playAudio`) y la conversación con IA (`say`) usan el mismo
+  respaldo; en los juegos, tras el primer fallo se va directo a él (`serverTtsDown`), así la voz
+  arranca dentro del toque, como pide iOS. Suena peor, pero suena; los audios ya en caché de
+  ElevenLabs siguen saliendo del servidor.
 - `rate` puede venir del DSL (actividad o bloque). Es la velocidad **de partida**: en cuanto el
   alumno toca el selector, manda su elección (`pickedRate ?? dslRate ?? preferencia`). Al revés que
   `voice`, que sí oculta su selector cuando la actividad la fija.

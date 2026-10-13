@@ -52,7 +52,9 @@ no hay que escribir nada distinto por juego.
   es un botón que abre `WordPopover`: la pronuncia y muestra `lemma` y significados del `glossary`.
   **La regex de `tokenize` es la misma que `_WORD_RE` del backend**; si cambia una, cambia la otra.
 - **Audio:** `speak(text, slow)` → `gameAudioUrl` (`api.ts`) → `/tts?…&engine=edge`. Siempre
-  edge-tts: un juego no gasta créditos de ElevenLabs. 🔊 = `-10%`, 🐢 = `-40%`.
+  edge-tts: un juego no gasta créditos de ElevenLabs. 🔊 = `-10%`, 🐢 = `-40%`. Si `/tts` falla
+  (edge-tts bloqueado por Microsoft, octubre 2026), `playAudio` lee con la voz del navegador
+  (`utils/browserSpeech.ts`) y desde ese fallo va directo a ella.
 - **Añadir un juego:** un componente que recibe `{ questions }` (`GameProps`) y una entrada en
   `GAMES`. El catálogo, el panel y la barra lateral lo pintan solos. Para que admita sala: usa
   `useShared` en el estado que deben ver todos, llama a `endTurn()` al final de cada turno, añade

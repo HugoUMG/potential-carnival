@@ -101,6 +101,16 @@ la vez).
 
 ## En cola
 
+### edge-tts bloqueado por Microsoft (abierto, octubre 2026)
+
+Desde octubre de 2026, Microsoft responde **403** a edge-tts (`WSServerHandshakeError` al abrir el
+websocket), incluso con la última versión (7.2.8) y declarando versiones nuevas de Chrome. En
+producción, `/tts` da 503 en todo lo que no esté en la caché de ElevenLabs. Mientras tanto, los juegos, las
+hojas y la conversación con IA suenan con la **voz del navegador** (`utils/browserSpeech.ts`).
+Pendiente: vigilar una versión nueva de `edge-tts` que lo arregle o elegir otro TTS gratuito. Hay
+que revisar también en los logs de Render por qué ElevenLabs falla allí (en local la clave tiene
+cuota: 3078 de 10 000 caracteres).
+
 ### Rendimiento (carga de base de datos)
 
 Hecho: pool de conexiones, `teacher_dashboard` sin N+1, `/public/readers-vocabulary` en un JOIN.

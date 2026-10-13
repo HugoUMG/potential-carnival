@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import { gameAudioUrl } from '../services/api';
+import { browserSpeak, markServerTtsDown, serverTtsDown, stopBrowserSpeech } from '../utils/browserSpeech';
 import type { GameQuestion, WordMeaning } from '../types';
 
 /** Lo que recibe cada juego: el set entero. Cada juego decide cuántas usa y en qué orden. */
@@ -105,10 +106,19 @@ export function speak(text: string, slow = false): void {
   playAudio(text, slow);
 }
 
+/** Suena solo en este navegador. Si `/tts` falla (edge-tts bloqueado), usa la voz del navegador
+ *  y, desde ese momento, va directo a ella (`browserSpeech.ts`). */
 export function playAudio(text: string, slow = false): void {
   current?.pause();
-  current = new Audio(gameAudioUrl(text, slow));
-  current.play().catch(() => { /* sin red o audio bloqueado: el juego sigue sin sonido */ });
+  stopBrowserSpeech();
+  if (serverTtsDown() && browserSpeak(text, slow ? 0.6 : 0.9)) return;
+  const audio = new Audio(gameAudioUrl(text, slow));
+  current = audio;
+  audio.onerror = () => {
+    markServerTtsDown();
+    if (current === audio) browserSpeak(text, slow ? 0.6 : 0.9);
+  };
+  audio.play().catch(() => { /* autoplay bloqueado o error: `onerror` decide el respaldo */ });
 }
 
 export function copyText(text: string): Promise<boolean> {

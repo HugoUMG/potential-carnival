@@ -756,7 +756,12 @@ def _call_groq(system: str, user: str, temperature: float = 0.4, json_mode: bool
             f"completion={usage.get('completion_tokens','?')} "
             f"total={usage.get('total_tokens','?')} tokens"
         )
-        return data["choices"][0]["message"]["content"]
+        content = data["choices"][0]["message"]["content"]
+        # gpt-oss puede gastar toda la salida razonando y devolver "" con 200: es un fallo, no una
+        # respuesta. Lanzar aquí hace que `_ai_call` reintente o pase a Gemini.
+        if not (content or "").strip():
+            raise RuntimeError("Groq devolvió una respuesta vacía")
+        return content
 
 
 def _call_gemini(prompt: str, temperature: float = 0.4, json_mode: bool = False) -> str:
@@ -1374,20 +1379,27 @@ Rules:
 - Contractions (what's, you've, don't): pos "contracción" and the expansion as meaning
   ("what is / what has")."""
 
-# ponytail: 80 palabras por llamada — cabe de sobra en la salida del modelo; un set típico (20
-# preguntas) tiene ~120 palabras distintas, así que son 2 llamadas una sola vez.
-_WORDS_PER_CALL = 80
+# 20 palabras por llamada. Con 80, gpt-oss se comía los ~3000 tokens de salida razonando y
+# devolvía "" (medido): el set entero se quedaba sin diccionario. Un set típico (~120 palabras)
+# son 6 llamadas cortas, una sola vez por palabra (`word_meanings` se comparte entre sets).
+_WORDS_PER_CALL = 20
 
 
 def define_words(words: list[str]) -> list[dict]:
     """Significados por palabra hechos por IA. Devuelve [{"word", "lemma", "senses"}] solo con las
-    palabras pedidas que la IA definió bien; lo que falte se volverá a pedir en otro guardado."""
+    palabras pedidas que la IA definió bien; lo que falte se volverá a pedir en otro guardado.
+    Un bloque que falla no tira los demás: se guarda lo que sí salió."""
     wanted = set(words)
     result: list[dict] = []
     for start in range(0, len(words), _WORDS_PER_CALL):
         chunk = words[start:start + _WORDS_PER_CALL]
-        raw, _ = _ai_call(_WORDS_SYSTEM, "Words:\n" + "\n".join(chunk), prefer_fast=True)
-        for item in _json_from_ai(raw).get("words") or []:
+        try:
+            raw, _ = _ai_call(_WORDS_SYSTEM, "Words:\n" + "\n".join(chunk), prefer_fast=True, json_mode=True)
+            items = _json_from_ai(raw).get("words") or []
+        except Exception as exc:
+            print(f"[juegos] diccionario: falló un bloque de {len(chunk)} palabras: {exc!r}")
+            continue
+        for item in items:
             if not isinstance(item, dict):
                 continue
             word = str(item.get("word", "")).strip().lower()

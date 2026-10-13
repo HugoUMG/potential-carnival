@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Pause, Play, RefreshCw, Volume2, VolumeX } from 'lucide-react';
 import { RATES, VOICE_OPTIONS, getRate, getVoiceName, setRate, setVoiceName } from '../utils/voicePreference';
+import { browserSpeak, canBrowserSpeak } from '../utils/browserSpeech';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
@@ -107,6 +108,15 @@ export function AudioPlayer({ text, voice, conversation, rate: dslRate, maleVoic
   }, [blobUrl]);
 
   const togglePlay = () => {
+    // Sin audio del servidor (edge-tts bloqueado, ElevenLabs sin cuota): voz del navegador. Se
+    // llama dentro del toque, así que también suena en iOS.
+    if (error) {
+      const spoken = conversation
+        ? conversation.split('\n').map((line) => line.split('|').slice(1).join('|')).filter(Boolean).join('. ')
+        : text;
+      browserSpeak(spoken, rate);
+      return;
+    }
     const audio = audioRef.current;
     if (!audio || !blobUrl) return;
     if (playing) {
@@ -176,9 +186,9 @@ export function AudioPlayer({ text, voice, conversation, rate: dslRate, maleVoic
         <button
           type="button"
           onClick={togglePlay}
-          disabled={loading || error || !blobUrl}
+          disabled={loading || (!blobUrl && !(error && canBrowserSpeak()))}
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition
-            ${loading || !blobUrl ? 'bg-slate-200 text-slate-400' : 'bg-rex text-white shadow-sm hover:bg-rex-deep'}
+            ${loading || (!blobUrl && !error) ? 'bg-slate-200 text-slate-400' : 'bg-rex text-white shadow-sm hover:bg-rex-deep'}
             disabled:cursor-not-allowed`}
         >
           {loading
@@ -250,7 +260,7 @@ export function AudioPlayer({ text, voice, conversation, rate: dslRate, maleVoic
       {/* Mensaje de error */}
       {error && (
         <p className="text-xs text-red-500">
-          No se pudo cargar el audio.{' '}
+          {canBrowserSpeak() ? 'El audio del servidor no está disponible: ▶ lo lee la voz de tu navegador.' : 'No se pudo cargar el audio.'}{' '}
           <button type="button" className="underline" onClick={() => void reload()}>Reintentar</button>
         </p>
       )}
@@ -316,7 +326,8 @@ export function TtsButton({ text, voice }: TtsButtonProps) {
       audio.onended   = () => setPlaying(false);
       void audio.play();
     } catch {
-      setError(true);
+      // Respaldo: la voz del navegador. Solo se marca error si tampoco hay eso.
+      setError(!browserSpeak(text));
     } finally {
       setLoading(false);
     }

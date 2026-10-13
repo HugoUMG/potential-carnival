@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { roleplayAudioUrl } from '../services/api';
+import { browserSpeak, stopBrowserSpeech } from '../utils/browserSpeech';
 import type { RoleplayLevel } from '../types';
 
 // ── Voz del personaje ─────────────────────────────────────────────────────────
@@ -131,7 +132,11 @@ export async function say(text: string, voiceName: string, rate: string): Promis
   let src: string;
   try {
     const res = await fetch(roleplayAudioUrl(text, voiceName, rate), { signal: ctrl.signal });
-    if (!res.ok) return;
+    if (!res.ok) {
+      // edge-tts caído (403 de Microsoft): la voz del navegador, para que la escena siga sonando.
+      if (loading === ctrl) await new Promise<void>((resolve) => { finish = resolve; if (!browserSpeak(text, rate, resolve)) resolve(); });
+      return;
+    }
     src = URL.createObjectURL(await res.blob());
   } catch {
     return; // cortada mientras bajaba, o sin red
@@ -143,6 +148,7 @@ export function stopVoice(): void {
   loading?.abort();
   loading = null;
   voice?.pause();
+  stopBrowserSpeech();
   finish();
 }
 

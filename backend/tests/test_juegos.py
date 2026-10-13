@@ -122,10 +122,24 @@ def test_define_words_se_queda_solo_con_lo_pedido_y_bien_formado(monkeypatch):
         {"word": "banana", "senses": [{"pos": "sustantivo", "meanings": ["no se pidió"]}]},
         {"word": "you", "senses": [{"pos": "pronombre", "meanings": []}]},
     ]}
-    monkeypatch.setattr(ai, "_ai_call", lambda system, user, prefer_fast=False: ("```json\n" + json.dumps(reply) + "\n```", "fake"))
+    monkeypatch.setattr(ai, "_ai_call", lambda system, user, **_: ("```json\n" + json.dumps(reply) + "\n```", "fake"))
     assert ai.define_words(["went", "you"]) == [
         {"word": "went", "lemma": "go", "senses": [{"pos": "verbo", "meanings": ["fue", "se fue"]}]},
     ]
+
+
+def test_un_bloque_que_falla_no_tira_el_diccionario_entero(monkeypatch):
+    # Antes: 80 palabras por llamada, gpt-oss devolvía "" y el set entero quedaba sin significados.
+    words = [f"w{i}" for i in range(ai._WORDS_PER_CALL * 2)]
+
+    def fake(system, user, **_):
+        chunk = user.split("\n")[1:]
+        if chunk[0] == words[0]:
+            raise RuntimeError("Groq devolvió una respuesta vacía")
+        return json.dumps({"words": [{"word": w, "senses": [{"pos": "sustantivo", "meanings": ["x"]}]} for w in chunk]}), "fake"
+
+    monkeypatch.setattr(ai, "_ai_call", fake)
+    assert [r["word"] for r in ai.define_words(words)] == words[ai._WORDS_PER_CALL:]
 
 
 def test_las_preguntas_generadas_no_se_repiten_y_respetan_la_cantidad(monkeypatch):
