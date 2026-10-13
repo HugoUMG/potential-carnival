@@ -175,12 +175,13 @@ function matchRound(usable: number[], questions: GameProps['questions']) {
 
 export function MatchGame({ questions }: GameProps) {
   const usable = useTranslated(questions);
-  const [n, setN] = useState(0);
-  const [round, setRound] = useState(() => matchRound(usable, questions));
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [result, setResult] = useState<'' | 'ok' | 'bad'>('');
-  const [drag, setDrag] = useState(0);
+  const { endTurn, addPoint } = useRoom();
+  const [n, setN] = useShared('n', 0);
+  const [round, setRound] = useShared('round', () => matchRound(usable, questions));
+  const [score, setScore] = useShared('score', 0);
+  const [streak, setStreak] = useShared('streak', 0);
+  const [result, setResult] = useShared<'' | 'ok' | 'bad'>('result', '');
+  const [drag, setDrag] = useState(0); // el arrastre es de este dedo: no viaja a la sala
   const startX = useRef<number | null>(null);
 
   if (usable.length < 4) return <Notice>{NEEDS_TRANSLATION}</Notice>;
@@ -194,8 +195,9 @@ export function MatchGame({ questions }: GameProps) {
     setResult(ok ? 'ok' : 'bad');
     setScore((s) => s + (ok ? 1 : 0));
     setStreak((s) => (ok ? s + 1 : 0));
+    if (ok) addPoint();
     setDrag(yes ? 400 : -400);
-    window.setTimeout(() => { setResult(''); setDrag(0); setN((k) => k + 1); setRound(matchRound(usable, questions)); }, 650);
+    window.setTimeout(() => { setResult(''); setDrag(0); setN((k) => k + 1); setRound(matchRound(usable, questions)); endTurn(); }, 650);
   };
   const q = questions[round.target];
 

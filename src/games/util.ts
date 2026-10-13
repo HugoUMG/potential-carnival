@@ -86,6 +86,10 @@ export function toggled(set: ReadonlySet<number>, value: number): Set<number> {
   return next;
 }
 
+/** `toggled` para arrays: el estado de una sala tiene que ser JSON, y un `Set` no lo es. */
+export const toggledList = (list: readonly number[], value: number): number[] =>
+  list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+
 // ── Audio (edge-tts, gratis) ──────────────────────────────────────────────────
 
 let current: HTMLAudioElement | null = null;

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Lightbulb, SkipForward } from 'lucide-react';
 import type { GameQuestion } from '../types';
 import { pick, range, sample, shuffle, tokenize, type GameProps } from './util';
 import { Es, Finish, Say, Speak } from './ui';
+import { useRoom, useShared } from './roomState';
 
 const ROUNDS = 10;
 
@@ -31,13 +32,15 @@ export function OrderGame({ questions }: GameProps) {
     return short.length >= 4 ? short : range(questions.length);
   }, [questions]);
   const rounds = Math.min(ROUNDS, usable.length);
-  const [order, setOrder] = useState(() => sample(usable, rounds));
-  const [pos, setPos] = useState(0);
-  const [pool, setPool] = useState<number[]>(() => shuffledIds(chipsOf(questions[order[0]].text).parts.length));
-  const [picked, setPicked] = useState<number[]>([]);
-  const [status, setStatus] = useState<'' | 'ok' | 'bad'>('');
-  const [score, setScore] = useState(0);
-  const [hint, setHint] = useState(false);
+  const { endTurn, addPoint } = useRoom();
+  const [order, setOrder] = useShared('order', () => sample(usable, rounds));
+  const [pos, setPos] = useShared('pos', 0);
+  const [pool, setPool] = useShared<number[]>('pool', () => shuffledIds(chipsOf(questions[order[0]].text).parts.length));
+  const [picked, setPicked] = useShared<number[]>('picked', []);
+  const [status, setStatus] = useShared<'' | 'ok' | 'bad'>('status', '');
+  const [score, setScore] = useShared('score', 0);
+  const [hint, setHint] = useShared('hint', false);
+  const next = () => { goTo(pos + 1); endTurn(); };
 
   const goTo = (p: number, list = order) => {
     setPos(p);
@@ -55,7 +58,7 @@ export function OrderGame({ questions }: GameProps) {
     // Se comparan los textos, no los ids: dos fichas iguales ("you … you") valen en cualquier orden.
     const ok = picked.map((id) => parts[id]).join(' ') === parts.join(' ');
     setStatus(ok ? 'ok' : 'bad');
-    if (ok) setScore((s) => s + 1);
+    if (ok) { setScore((s) => s + 1); addPoint(); }
   };
 
   return (
@@ -84,13 +87,13 @@ export function OrderGame({ questions }: GameProps) {
           <p className="dg-ok">¡Muy bien! 🎉</p>
           <p className="dg-big-q"><Say text={q.text} /></p>
           <Speak text={q.text} />
-          <button type="button" className="dg-btn primary" onClick={() => goTo(pos + 1)}>Siguiente</button>
+          <button type="button" className="dg-btn primary" onClick={next}>Siguiente</button>
         </div>
       ) : (
         <div className="dg-row center wrap">
           <button type="button" className="dg-btn primary" disabled={pool.length > 0} onClick={check}>Comprobar</button>
           <button type="button" className="dg-btn" onClick={() => setHint(true)}><Lightbulb size={16} /> Pista</button>
-          <button type="button" className="dg-btn" onClick={() => goTo(pos + 1)}><SkipForward size={16} /> Saltar</button>
+          <button type="button" className="dg-btn" onClick={next}><SkipForward size={16} /> Saltar</button>
         </div>
       )}
       {status === 'bad' && <p className="dg-error center">Todavía no. Toca una ficha de arriba para devolverla.</p>}
@@ -137,11 +140,12 @@ export function GapGame({ questions }: GameProps) {
     return [...all];
   }, [questions]);
   const rounds = Math.min(ROUNDS, questions.length);
-  const [order, setOrder] = useState(() => sample(range(questions.length), rounds));
-  const [pos, setPos] = useState(0);
-  const [gap, setGap] = useState(() => makeGap(questions[order[0]], bank));
-  const [chosen, setChosen] = useState<string | null>(null);
-  const [score, setScore] = useState(0);
+  const { endTurn, addPoint } = useRoom();
+  const [order, setOrder] = useShared('order', () => sample(range(questions.length), rounds));
+  const [pos, setPos] = useShared('pos', 0);
+  const [gap, setGap] = useShared<Gap>('gap', () => makeGap(questions[order[0]], bank));
+  const [chosen, setChosen] = useShared<string | null>('chosen', null);
+  const [score, setScore] = useShared('score', 0);
 
   const goTo = (p: number, list = order) => {
     setPos(p);
@@ -167,7 +171,7 @@ export function GapGame({ questions }: GameProps) {
           const state = chosen === null ? '' : o === gap.answer ? 'ok' : o === chosen ? 'bad' : 'dim';
           return (
             <button key={o} type="button" className={`dg-option ${state}`} disabled={chosen !== null}
-              onClick={() => { setChosen(o); if (o === gap.answer) setScore((s) => s + 1); }}>{o}</button>
+              onClick={() => { setChosen(o); if (o === gap.answer) { setScore((s) => s + 1); addPoint(); } }}>{o}</button>
           );
         })}
       </div>
@@ -175,7 +179,7 @@ export function GapGame({ questions }: GameProps) {
         <div className="dg-feedback">
           <p className={chosen === gap.answer ? 'dg-ok' : 'dg-bad'}>{chosen === gap.answer ? '¡Correcto! 🎉' : `Era “${gap.answer}”.`}</p>
           <Speak text={q.text} />
-          <button type="button" className="dg-btn primary" onClick={() => goTo(pos + 1)}>Siguiente</button>
+          <button type="button" className="dg-btn primary" onClick={() => { goTo(pos + 1); endTurn(); }}>Siguiente</button>
         </div>
       )}
     </div>
@@ -196,12 +200,14 @@ function secretOf(q: GameQuestion): number {
 
 export function BalloonsGame({ questions }: GameProps) {
   const rounds = Math.min(8, questions.length);
-  const [order, setOrder] = useState(() => sample(range(questions.length), rounds));
-  const [pos, setPos] = useState(0);
-  const [secret, setSecret] = useState(() => secretOf(questions[order[0]]));
-  const [guessed, setGuessed] = useState<Set<string>>(new Set());
-  const [wins, setWins] = useState(0);
-  const [clue, setClue] = useState(false);
+  const { endTurn, addPoint } = useRoom();
+  const [order, setOrder] = useShared('order', () => sample(range(questions.length), rounds));
+  const [pos, setPos] = useShared('pos', 0);
+  const [secret, setSecret] = useShared('secret', () => secretOf(questions[order[0]]));
+  const [guessedList, setGuessed] = useShared<string[]>('guessed', []);
+  const guessed = useMemo(() => new Set(guessedList), [guessedList]);
+  const [wins, setWins] = useShared('wins', 0);
+  const [clue, setClue] = useShared('clue', false);
 
   const q = pos < order.length ? questions[order[pos]] : null;
   const tokens = q ? tokenize(q.text) : [];
@@ -213,12 +219,13 @@ export function BalloonsGame({ questions }: GameProps) {
   const guess = (letter: string) => {
     if (won || lost || guessed.has(letter)) return;
     const next = new Set(guessed).add(letter);
-    setGuessed(next);
-    if ([...word].every((l) => next.has(l))) setWins((w) => w + 1);
+    setGuessed([...next]);
+    if ([...word].every((l) => next.has(l))) { setWins((w) => w + 1); addPoint(); }
+    if (!word.includes(letter)) endTurn(); // acertar letra no termina el turno
   };
   const goTo = (p: number, list = order) => {
     setPos(p);
-    setGuessed(new Set());
+    setGuessed([]);
     setClue(false);
     if (p < list.length) setSecret(secretOf(questions[list[p]]));
   };

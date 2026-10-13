@@ -84,7 +84,7 @@ No compromete la calificación (que se hace en el servidor leyendo de la base), 
 
 Empezar por la fase 1: casi todo el daño y no toca el frontend.
 
-### Salas de juego para todos los juegos (en curso, ADR-40)
+### Salas de juego para todos los juegos (hecho, ADR-40)
 
 Jugar en grupo un juego de `/j/:setId`: por turnos o con un presentador que puede ceder el control.
 **Plan:** [plans/salas-juegos.md](plans/salas-juegos.md).
@@ -92,7 +92,7 @@ Jugar en grupo un juego de `/j/:setId`: por turnos o con un presentador que pued
 | Fase | Estado |
 |------|--------|
 | 1 — backend `/rooms`, `useShared` / `RoomProvider` y Memorama | ✅ hecha (octubre 2026) |
-| 2 — los otros 14 juegos según la tabla del plan (Contrarreloj queda fuera) | pendiente |
+| 2 — los otros 14 juegos según la tabla del plan (Contrarreloj queda fuera) | ✅ hecha (octubre 2026) |
 
 Después, sin compromiso: WebSockets si la latencia de 1 s molesta y un modo "libre" (todos tocan a
 la vez).

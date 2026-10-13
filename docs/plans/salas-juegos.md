@@ -1,5 +1,11 @@
 # Plan: salas multijugador para los juegos
 
+> **Estado: implementado (fases 1 y 2, octubre 2026).** La referencia viva está en ADR-40
+> (`15_DECISIONS.md`) y `03_FRONTEND.md`. Desviaciones respecto a este plan: los hooks viven en
+> `roomState.ts` (el lint no deja exportar hooks junto a componentes); Bingo lleva `roomFree`, para
+> que quien no canta pueda marcar su cartón; y en modo turnos el anfitrión no mueve fuera de su
+> turno: primero usa "Tomar el turno".
+
 Cualquier juego de `/j/:setId` se puede jugar **en grupo**. Alguien crea una sala, los demás se
 unen con un código y todos ven el mismo tablero en vivo. Esto lo hace posible una pieza genérica
 (`useShared`) que sustituye a `useState` en los juegos. El servidor no entiende ningún juego: solo

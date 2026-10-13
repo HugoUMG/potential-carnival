@@ -10,7 +10,8 @@ interface Say { text: string; slow: boolean; n: number }
 
 // ── Proveedor: polling, escrituras y audio ────────────────────────────────────
 
-export function RoomProvider({ seat, initial, onLeave, children }: { seat: Seat; initial: RoomState; onLeave: () => void; children: ReactNode }) {
+/** `free`: quien no tiene el control también toca el juego (Bingo); si no, el juego queda `inert`. */
+export function RoomProvider({ seat, initial, free = false, onLeave, children }: { seat: Seat; initial: RoomState; free?: boolean; onLeave: () => void; children: ReactNode }) {
   const { token, me } = seat;
   const code = initial.code;
   const [room, setRoom] = useState<RoomState>(initial);
@@ -160,7 +161,7 @@ export function RoomProvider({ seat, initial, onLeave, children }: { seat: Seat;
       {gone ? null : !isHost && !view.__ready ? (
         <p className="dg-notice">Esperando al anfitrión…</p>
       ) : (
-        <div inert={!canAct} className={canAct ? undefined : 'dg-room-locked'}>{children}</div>
+        <div inert={!canAct && !free} className={canAct || free ? undefined : 'dg-room-locked'}>{children}</div>
       )}
     </RoomContext.Provider>
   );

@@ -67,8 +67,12 @@ no hay que escribir nada distinto por juego.
   si falta (mismo reparto para todos) y **el setter no hace nada sin el control**. Las escrituras
   se juntan en un solo `POST /state` en vuelo y un 409 adopta lo del servidor. `useRoom()` da
   `endTurn()` (pura: `nextTurn`) y `addPoint()`. `speak()` pasa por `setSpeakGate`: quien mueve
-  suena y lo anuncia en `__say`; los demás suenan al recibirlo. Cambiar de juego saca de la sala.
-  **Hoy solo Memorama tiene `room`** (fase 1); el plan del resto está en `docs/plans/salas-juegos.md`.
+  suena y lo anuncia en `__say`; los demás suenan al recibirlo (`playAudio` suena solo aquí, sin
+  anunciar). Cambiar de juego saca de la sala. **Todos los juegos tienen `room` salvo
+  Contrarreloj**; Equipos y Bingo solo en modo presentador. Bingo es `roomFree`: no queda `inert`,
+  porque cada uno marca su propio cartón (local) y solo las cantadas (`called`) se comparten. Lo que
+  es de un solo navegador (arrastre, "escribiendo…" del bot, micrófono, errores) sigue en
+  `useState`; la tabla por juego está en `docs/plans/salas-juegos.md`.
 - **Pronuncia** usa la Web Speech API del navegador (Chrome, Edge, Safari; Firefox no): sin ella,
   avisa y deja escuchar el modelo. No manda audio al backend.
 

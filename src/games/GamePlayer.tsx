@@ -141,7 +141,7 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
                     onEnter={enterRoom} onCancel={() => (roomCode ? leaveRoom() : setGate(false))} />
                 ) : inRoom && seat ? (
                   roomInit ? (
-                    <RoomProvider key={roomInit.code} seat={seat} initial={roomInit} onLeave={leaveRoom}>
+                    <RoomProvider key={roomInit.code} seat={seat} initial={roomInit} free={game.roomFree} onLeave={leaveRoom}>
                       <game.Component key={game.id} questions={set.questions} />
                     </RoomProvider>
                   ) : <p className="dg-notice">Conectando con la sala…</p>

@@ -1054,7 +1054,8 @@ entiende ningún juego, el mismo backend sirve para los 15.
 en 10 s cuenta como desconectado y `endTurn()` se lo salta. El polling se pausa con la pestaña
 oculta, así que quien cambia de app pierde su turno: el anfitrión puede **dar el turno** a mano. Los
 espectadores tienen el área del juego `inert`, así que tampoco abren el diccionario de palabras
-mientras miran. El audio de quien mueve viaja como `__say` en el blob y suena en todos.
+mientras miran; la excepción es Bingo (`roomFree`), donde cada uno marca su propio cartón. El
+audio de quien mueve viaja como `__say` en el blob y suena en todos.
 `ROOM_GAMES` (`rooms.py`) duplica el campo `room` de `GAMES` (`registry.ts`).
 
 ## Cómo añadir una decisión

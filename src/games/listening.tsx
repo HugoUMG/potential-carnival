@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Play, RotateCcw, Snail, Volume2 } from 'lucide-react';
-import { matchWords, pick, range, sample, shuffle, speak, toggled, words, type GameProps } from './util';
+import { matchWords, pick, playAudio, range, sample, shuffle, speak, toggled, words, type GameProps } from './util';
 import { Es, Finish, Say, Speak } from './ui';
+import { useRoom, useShared } from './roomState';
 
 const ROUNDS = 10;
 
@@ -23,11 +24,12 @@ function optionsFor(target: number, total: number): number[] {
 
 export function ListenGame({ questions }: GameProps) {
   const rounds = Math.min(ROUNDS, questions.length);
-  const [order, setOrder] = useState(() => sample(range(questions.length), rounds));
-  const [pos, setPos] = useState(-1); // -1 = antes de empezar (el audio necesita un toque del alumno)
-  const [opts, setOpts] = useState<number[]>([]);
-  const [chosen, setChosen] = useState<number | null>(null);
-  const [score, setScore] = useState(0);
+  const { endTurn, addPoint } = useRoom();
+  const [order, setOrder] = useShared('order', () => sample(range(questions.length), rounds));
+  const [pos, setPos] = useShared('pos', -1); // -1 = antes de empezar (el audio necesita un toque del alumno)
+  const [opts, setOpts] = useShared<number[]>('opts', []);
+  const [chosen, setChosen] = useShared<number | null>('chosen', null);
+  const [score, setScore] = useShared('score', 0);
 
   const goTo = (p: number, list = order) => {
     setPos(p);
@@ -59,7 +61,7 @@ export function ListenGame({ questions }: GameProps) {
           const state = chosen === null ? '' : o === target ? 'ok' : o === chosen ? 'bad' : 'dim';
           return (
             <button key={o} type="button" className={`dg-option ${state}`} disabled={chosen !== null}
-              onClick={() => { setChosen(o); if (o === target) setScore((s) => s + 1); }}>
+              onClick={() => { setChosen(o); if (o === target) { setScore((s) => s + 1); addPoint(); } }}>
               {questions[o].text}
             </button>
           );
@@ -70,7 +72,7 @@ export function ListenGame({ questions }: GameProps) {
           <p className={chosen === target ? 'dg-ok' : 'dg-bad'}>{chosen === target ? '¡Correcto! 🎉' : 'Casi. Era esta:'}</p>
           <p className="dg-big-q"><Say text={questions[target].text} /></p>
           <Es className="center">{questions[target].translation}</Es>
-          <button type="button" className="dg-btn primary" onClick={() => goTo(pos + 1)}>Siguiente</button>
+          <button type="button" className="dg-btn primary" onClick={() => { goTo(pos + 1); endTurn(); }}>Siguiente</button>
         </div>
       )}
     </div>
@@ -81,11 +83,12 @@ export function ListenGame({ questions }: GameProps) {
 
 export function DictationGame({ questions }: GameProps) {
   const rounds = Math.min(ROUNDS, questions.length);
-  const [order, setOrder] = useState(() => sample(range(questions.length), rounds));
-  const [pos, setPos] = useState(-1);
-  const [typed, setTyped] = useState('');
-  const [hits, setHits] = useState<boolean[] | null>(null);
-  const [accuracy, setAccuracy] = useState<number[]>([]);
+  const { endTurn, addPoint } = useRoom();
+  const [order, setOrder] = useShared('order', () => sample(range(questions.length), rounds));
+  const [pos, setPos] = useShared('pos', -1);
+  const [typed, setTyped] = useShared('typed', '');
+  const [hits, setHits] = useShared<boolean[] | null>('hits', null);
+  const [accuracy, setAccuracy] = useShared<number[]>('accuracy', []);
 
   const goTo = (p: number, list = order) => {
     setPos(p);
@@ -113,8 +116,10 @@ export function DictationGame({ questions }: GameProps) {
   const target = words(q.text);
   const check = () => {
     const h = matchWords(target, words(typed));
+    const acc = h.filter(Boolean).length / Math.max(1, target.length);
     setHits(h);
-    setAccuracy((a) => [...a, h.filter(Boolean).length / Math.max(1, target.length)]);
+    setAccuracy((a) => [...a, acc]);
+    if (acc >= 0.8) addPoint();
   };
   // Las palabras de la respuesta en su forma original, para pintarlas en verde o rojo.
   const shown = q.text.match(/[A-Za-z]+(?:['’][A-Za-z]+)*/g) ?? [];
@@ -134,7 +139,7 @@ export function DictationGame({ questions }: GameProps) {
           <p className="dg-muted center">{hits.every(Boolean) ? '¡Perfecto! 🎉' : `${hits.filter(Boolean).length} de ${hits.length} palabras. En rojo, las que faltaron o cambiaste.`}</p>
           <Speak text={q.text} />
           <Es className="center">{q.translation}</Es>
-          <button type="button" className="dg-btn primary" onClick={() => goTo(pos + 1)}>Siguiente</button>
+          <button type="button" className="dg-btn primary" onClick={() => { goTo(pos + 1); endTurn(); }}>Siguiente</button>
         </div>
       )}
     </div>
@@ -151,10 +156,14 @@ function bingoLines(size: number): number[][] {
 
 export function BingoGame({ questions }: GameProps) {
   const size = questions.length >= 9 ? 3 : 2;
+  // En sala solo se comparten las cantadas: cada uno marca su propio cartón (por eso Bingo es
+  // `roomFree` en GAMES y su área no queda bloqueada) y canta quien tiene el control.
+  const { room, canAct, endTurn } = useRoom();
   const [card, setCard] = useState(() => sample(range(questions.length), size * size));
   const [marked, setMarked] = useState<Set<number>>(new Set());
-  const [called, setCalled] = useState<number[]>([]);
-  const [teacherCalls, setTeacherCalls] = useState(false);
+  const [called, setCalled] = useShared<number[]>('called', []);
+  const [teacherCallsLocal, setTeacherCalls] = useState(false);
+  const teacherCalls = room ? false : teacherCallsLocal;
   const [shake, setShake] = useState<number | null>(null);
   const bingo = bingoLines(size).some((line) => line.every((cell) => marked.has(cell)));
   const pool = range(questions.length).filter((i) => !called.includes(i));
@@ -164,6 +173,7 @@ export function BingoGame({ questions }: GameProps) {
     const i = pick(pool);
     setCalled((c) => [...c, i]);
     speak(questions[i].text);
+    endTurn();
   };
   const tap = (cell: number) => {
     if (bingo) return;
@@ -181,10 +191,13 @@ export function BingoGame({ questions }: GameProps) {
     <div className="dg-bingo">
       {!teacherCalls && (
         <div className="dg-caller">
-          <button type="button" className="dg-btn primary" onClick={callNext} disabled={!pool.length || bingo}>
-            <Volume2 size={16} /> {called.length ? 'Cantar la siguiente' : 'Cantar la primera'}
-          </button>
-          {last && <button type="button" className="dg-btn" onClick={() => speak(last.text, true)}><Snail size={16} /> Repetir lento</button>}
+          {canAct && (
+            <button type="button" className="dg-btn primary" onClick={callNext} disabled={!pool.length || bingo}>
+              <Volume2 size={16} /> {called.length ? 'Cantar la siguiente' : 'Cantar la primera'}
+            </button>
+          )}
+          {/* playAudio: repetir suena solo en este celular, también al que no canta. */}
+          {last && <button type="button" className="dg-btn" onClick={() => playAudio(last.text, true)}><Snail size={16} /> Repetir lento</button>}
           <span className="dg-muted">Cantadas: {called.length}</span>
         </div>
       )}
@@ -198,10 +211,12 @@ export function BingoGame({ questions }: GameProps) {
       </div>
       {bingo && <p className="dg-bingo-banner">¡BINGO! 🎉</p>}
       {shake !== null && <p className="dg-error center">Esa todavía no la han cantado.</p>}
-      <label className="dg-check">
-        <input type="checkbox" checked={teacherCalls} onChange={(e) => setTeacherCalls(e.target.checked)} />
-        Las canta el profesor (marcar libremente)
-      </label>
+      {!room && (
+        <label className="dg-check">
+          <input type="checkbox" checked={teacherCalls} onChange={(e) => setTeacherCalls(e.target.checked)} />
+          Las canta el profesor (marcar libremente)
+        </label>
+      )}
       <button type="button" className="dg-link center" onClick={reset}><RotateCcw size={14} /> Nuevo cartón</button>
     </div>
   );
