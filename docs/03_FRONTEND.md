@@ -29,7 +29,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 ## Juegos de práctica (`/juegos`, `/j/:setId`, sección `juegos`)
 
 Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji) que se
-juega con **22 juegos** (16 originales + 3 de mesa + 3 de responder por turnos) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
+juega con **27 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 5 tableros numerados) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
 no hay que escribir nada distinto por juego.
 
 - **Profesor:** sección `juegos` del portal → `GameSetsManager`. Lista de sets (Jugar, Copiar enlace,
@@ -81,6 +81,15 @@ no hay que escribir nada distinto por juego.
   porque cada uno marca su propio cartón (local) y solo las cantadas (`called`) se comparten. Lo que
   es de un solo navegador (arrastre, "escribiendo…" del bot, micrófono, errores) sigue en
   `useState`; la tabla por juego está en `docs/plans/salas-juegos.md`.
+- **Tableros numerados (`pick.tsx`, grupo `tablero`, con el Corcho):** casillas del 1 al N en orden; al
+  tocar una, su pregunta sale en `Sheet` (como la nota del corcho) y al cerrar pasa el turno de la sala.
+  `useRound(total, size)` reparte una ronda al azar (`order`, `done`, `open`). Puertas sorpresa (24
+  puertas, la pregunta oculta), Mapa del tesoro (12 paradas en zigzag que se responden **en orden**:
+  solo se abre la del dino, `at`), Sobres con reto (12; el reto sale de `CHALLENGES[qi % 6]`, los
+  mismos de Dados, así no hay estado de más), Rasca y gana (12 boletos; `ScratchPad` es un `<canvas>`
+  que se borra con `destination-out` y destapa al pasar del 55 % rascado; `shown` se comparte) y Cajas
+  bomba (2–4 equipos, 20 cajas con +1/+2/+3, ⭐ que duplica y 💣 que deja en 0; si el equipo falla, la
+  caja sigue cerrada). `CHALLENGES` y `TEAM_COLORS` viven en `util.ts` porque los usan dos archivos.
 - **Juegos de mesa (`board.tsx`, grupo `mesa`):** Gato (3×3), Conecta 4 (7×6) y Serpientes y
   escaleras (30 casillas, `JUMPS`). Para mover, quien tiene el turno acierta qué significa una
   pregunta (`ChallengeCard`: la pregunta y 3 traducciones). Si acierta, aplica la jugada; si falla,

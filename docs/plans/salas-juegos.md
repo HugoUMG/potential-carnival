@@ -188,6 +188,11 @@ tabla. Convierte los `Set` en arrays.
 | 🎈 Globos | ambos | order, pos, secret, guessed[], wins, clue | — | **falla una letra** (si acierta, sigue) | completa la palabra |
 | ✅ ¿Coincide? | ambos | n, round, score, streak, result | drag, startX | responde | acierta |
 | ⏱️ Contrarreloj | **no tiene sala** | — | — | — | — |
+| 🚪 Puertas sorpresa | ambos | order, done[], open | — | cierra la puerta | — |
+| 🗺️ Mapa del tesoro | ambos | route, at, open | — | cierra la parada (respondida o no) | — |
+| ✉️ Sobres con reto | ambos | order, done[], open | — | cierra el sobre | — |
+| 🪙 Rasca y gana | ambos | order, done[], open, shown[] | lo rascado del lienzo | cierra el boleto | — |
+| 💣 Cajas bomba | ambos | scores, turn, order, prizes, opened[], open, result | — | pasa al siguiente equipo | — (tiene sus propios equipos) |
 
 Notas por juego:
 - **Bingo:** en sala, el que tiene el control "canta" y `teacherCalls` queda forzado a `false`.

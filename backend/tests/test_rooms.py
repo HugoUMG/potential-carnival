@@ -36,8 +36,9 @@ def test_el_estado_publico_no_lleva_tokens():
     assert room.turn == host.id
 
 
-def test_los_juegos_de_mesa_y_de_responder_abren_sala():
-    for game in ("gato", "conecta4", "escaleras", "entrevista", "carrera", "papa"):
+def test_los_juegos_de_mesa_de_responder_y_tableros_abren_sala():
+    for game in ("gato", "conecta4", "escaleras", "entrevista", "carrera", "papa",
+                 "puertas", "mapa", "sobres", "rasca", "bomba"):
         assert rooms.create_room(game, "s", "turnos", "Ana")[0].game == game
 
 

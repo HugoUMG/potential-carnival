@@ -7,11 +7,13 @@ import { BalloonsGame, GapGame, OrderGame } from './structure';
 import { MatchGame, MemoryGame, SpeedGame } from './meaning';
 import { ConnectFourGame, LaddersGame, TicTacToeGame } from './board';
 import { AnswerRaceGame, HotPotatoGame, InterviewGame } from './oral';
+import { BombGame, DoorsGame, LettersGame, MapGame, ScratchGame } from './pick';
 
-export type Skill = 'hablar' | 'escuchar' | 'estructura' | 'significado' | 'mesa' | 'turnos';
+export type Skill = 'hablar' | 'tablero' | 'escuchar' | 'estructura' | 'significado' | 'mesa' | 'turnos';
 
 export const SKILLS: { id: Skill; name: string; emoji: string }[] = [
   { id: 'hablar', name: 'Hablar', emoji: '🗣️' },
+  { id: 'tablero', name: 'Tableros: elige un número y responde', emoji: '📌' },
   { id: 'escuchar', name: 'Escuchar', emoji: '👂' },
   { id: 'estructura', name: 'Estructura y gramática', emoji: '🧩' },
   { id: 'significado', name: 'Significado', emoji: '🧠' },
@@ -51,7 +53,7 @@ const GRADING: Partial<Record<RoomMode, [string, string]>> = {
   turnos: ['Califica el compañero', 'Quien tiene el turno califica al siguiente; se van rotando (con 3: A→B, B→C, C→A).'],
 };
 
-/** Los 22 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
+/** Los 27 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
 export const GAMES: GameMeta[] = [
   { id: 'tarjetas', name: 'Tarjetas', emoji: '🃏', skill: 'hablar', color: '#7048E8', Component: CardsGame, room: BOTH,
     purpose: 'Conversación guiada: al voltear ves la traducción y cómo empezar tu respuesta.',
@@ -62,9 +64,24 @@ export const GAMES: GameMeta[] = [
   { id: 'ruleta', name: 'Ruleta', emoji: '🎡', skill: 'hablar', color: '#D9481F', Component: WheelGame, room: BOTH,
     purpose: 'Hablar sin preparar: no sabes qué pregunta te va a tocar.',
     howTo: 'Proyéctala y que gire quien pase al frente. Ideal para cerrar la clase.' },
-  { id: 'corcho', name: 'Corcho', emoji: '📌', skill: 'hablar', color: '#A8631A', Component: BoardGame, room: BOTH,
+  { id: 'corcho', name: 'Corcho', emoji: '📌', skill: 'tablero', color: '#A8631A', Component: BoardGame, room: BOTH,
     purpose: 'Todas las preguntas a la vista para elegir y responder a tu ritmo.',
     howTo: 'Cada alumno elige una nota; o usa “nota al azar” para quien levante la mano.' },
+  { id: 'puertas', name: 'Puertas sorpresa', emoji: '🚪', skill: 'tablero', color: '#9C36B5', Component: DoorsGame, room: BOTH,
+    purpose: 'Cada puerta esconde una pregunta: eliges un número sin saber qué te va a tocar.',
+    howTo: 'Proyectado: el alumno dice un número y abres la puerta. En sala, cada quien abre una en su turno.' },
+  { id: 'mapa', name: 'Mapa del tesoro', emoji: '🗺️', skill: 'tablero', color: '#B5651D', Component: MapGame, room: BOTH,
+    purpose: 'Un camino de paradas en orden: cada respuesta lleva al dino un paso más cerca del tesoro.',
+    howTo: 'Toda la clase avanza junta, por turnos. Si alguien no puede responder, cierra y la parada pasa al siguiente.' },
+  { id: 'sobres', name: 'Sobres con reto', emoji: '✉️', skill: 'tablero', color: '#D6336C', Component: LettersGame, room: BOTH,
+    purpose: 'Cada sobre trae una pregunta y un reto: cuántas oraciones decir, hablar 30 segundos o pasarla a otro.',
+    howTo: 'Por turnos: abre un sobre, lee el reto en voz alta y cúmplelo.' },
+  { id: 'rasca', name: 'Rasca y gana', emoji: '🪙', skill: 'tablero', color: '#5C7CFA', Component: ScratchGame, room: BOTH,
+    purpose: 'Rasca el boleto con el dedo o el ratón para descubrir la pregunta.',
+    howTo: 'Ideal en celular o tableta. En sala rasca quien tiene el turno y todos ven qué salió.' },
+  { id: 'bomba', name: 'Cajas bomba', emoji: '💣', skill: 'tablero', color: '#E03131', Component: BombGame, room: BOTH,
+    purpose: 'Por equipos: si responden bien abren la caja y se llevan lo que hay (puntos, ⭐ doble… o 💣 que deja en 0).',
+    howTo: 'Divide el salón en 2–4 equipos. Tú decides si la respuesta es buena; la suerte de la caja hace el resto.' },
   { id: 'dados', name: 'Dados', emoji: '🎲', skill: 'hablar', color: '#E8590C', Component: DiceGame, room: BOTH,
     purpose: 'Fluidez: el dado decide cuánto tienes que hablar (de 1 oración a 30 segundos).',
     howTo: 'Grupos de 3–4 con un celular: lanzan por turnos y cumplen el reto del número.' },

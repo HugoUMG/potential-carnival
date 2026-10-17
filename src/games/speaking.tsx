@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight, Mic, RotateCcw, SendHorizontal, Shuffle } from 'lucide-react';
-import { copyText, matchWords, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
+import { CHALLENGES, TEAM_COLORS, copyText, matchWords, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
 import { Countdown, Es, Notice, Say, Sheet, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
 
@@ -315,14 +315,6 @@ export function BoardGame({ questions }: GameProps) {
 
 // ── Dados ─────────────────────────────────────────────────────────────────────
 
-const CHALLENGES = [
-  'Responde con una oración completa.',
-  'Responde con dos oraciones.',
-  'Responde con tres oraciones y da un ejemplo.',
-  'Responde y luego hazle la misma pregunta a un compañero.',
-  'Habla 30 segundos sin parar. ¡Usa el cronómetro!',
-  '¡Comodín! Tú eliges quién responde.',
-];
 const PIPS = [[4], [0, 8], [0, 4, 8], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
 
 export function DiceGame({ questions }: GameProps) {
@@ -372,8 +364,6 @@ export function DiceGame({ questions }: GameProps) {
 }
 
 // ── Equipos ───────────────────────────────────────────────────────────────────
-
-const TEAM_COLORS = ['#FF595E', '#1982C4', '#2BB673', '#FF924C'];
 
 export function TeamsGame({ questions }: GameProps) {
   const { endTurn } = useRoom();

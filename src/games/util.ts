@@ -93,6 +93,20 @@ export function toggled(set: ReadonlySet<number>, value: number): Set<number> {
 export const toggledList = (list: readonly number[], value: number): number[] =>
   list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
+// ── Retos y equipos (Dados, Equipos, Sobres, Cajas bomba) ─────────────────────
+
+/** El reto de cada cara del dado; Sobres reparte los mismos. El 5.º (índice 4) lleva cronómetro. */
+export const CHALLENGES = [
+  'Responde con una oración completa.',
+  'Responde con dos oraciones.',
+  'Responde con tres oraciones y da un ejemplo.',
+  'Responde y luego hazle la misma pregunta a un compañero.',
+  'Habla 30 segundos sin parar. ¡Usa el cronómetro!',
+  '¡Comodín! Tú eliges quién responde.',
+];
+
+export const TEAM_COLORS = ['#FF595E', '#1982C4', '#2BB673', '#FF924C'];
+
 // ── Audio (edge-tts, gratis) ──────────────────────────────────────────────────
 
 let current: HTMLAudioElement | null = null;
