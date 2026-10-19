@@ -38,6 +38,11 @@ TABLES = [
     "vocabulary_reader_assignments",
     "guest_access_logs",
     "reader_access_logs",
+    "teacher_images",
+    "game_sets",
+    "word_meanings",
+    # ponytail: tts_cache fuera — es BYTEA (no cabe en JSON) y es solo caché: si se pierde se vuelve
+    # a sintetizar (gasta créditos de ElevenLabs). Respaldarlo pediría base64 al guardar y restaurar.
 ]
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -97,7 +102,10 @@ def restore(path: str) -> None:
 
 def main() -> None:
     if not URL:
-        sys.exit("Define DATABASE_URL (o BACKUP_DATABASE_URL) antes de correr.")
+        sys.exit(
+            "Define DATABASE_URL (o BACKUP_DATABASE_URL) antes de correr. En GitHub Actions: crea el "
+            "secreto AIVEN_DATABASE_URL (Settings → Secrets and variables → Actions)."
+        )
     if len(sys.argv) >= 3 and sys.argv[1] == "restore":
         restore(sys.argv[2])
     else:

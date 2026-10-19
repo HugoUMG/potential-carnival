@@ -141,7 +141,8 @@ actúa cuando no existe un archivo en esa ruta: por eso `/mascot/…` y `/assets
 
 `.github/workflows/backup.yml` — cada lunes 06:00 UTC (y a mano desde Actions): ejecuta
 `scripts/backup_db.py` contra el secreto `AIVEN_DATABASE_URL` y sube el JSON como artifact con 90
-días de retención.
+días de retención. Sin ese secreto (Settings → Secrets and variables → Actions) el job falla en
+segundos y GitHub manda un correo cada lunes. Su valor es el mismo Service URI de Aiven del `.env`.
 
 ## Docker
 

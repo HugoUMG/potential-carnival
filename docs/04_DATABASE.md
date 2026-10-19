@@ -202,5 +202,8 @@ export JWT_SECRET_KEY="dev-local-secret-change-me"
 desde la pestaña Actions), vuelca la base a JSON y lo sube como artifact con 90 días de retención.
 Necesita el secreto `AIVEN_DATABASE_URL`.
 
+Las tablas van en la lista `TABLES` del script, en orden de llaves foráneas: **una tabla nueva hay
+que añadirla ahí** o no se respalda. `tts_cache` queda fuera a propósito (BYTEA, y es caché).
+
 Para migrar datos de SQLite a Postgres puntualmente hay un ejemplo de script en el historial de
 `docs/POSTGRESQL.md` (git) y `scripts/migrate_to_aiven.py` para el caso Render → Aiven.
