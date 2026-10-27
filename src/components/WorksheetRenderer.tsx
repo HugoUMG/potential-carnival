@@ -1,5 +1,6 @@
 import type React from 'react';
-import { Info } from 'lucide-react';
+import { BookOpen, Check, ClipboardList, Headphones, Info, MessagesSquare, X } from 'lucide-react';
+import { AppIcon } from './AppIcon';
 import { activityRegistry, resolveVoice } from './activityRegistry';
 import { AudioPlayer } from './AudioPlayer';
 import { RichText } from './RichText';
@@ -21,9 +22,9 @@ const GRADE_CARD: Record<GradeStatus, string> = {
   incorrect: 'border-red-300 bg-red-50/50',
   pending: 'border-amber-300 bg-amber-50/50',
 };
-const GRADE_BADGE: Record<GradeStatus, { label: string; cls: string }> = {
-  correct: { label: '✓ Correcto', cls: 'bg-emerald-100 text-emerald-700' },
-  incorrect: { label: '✗ Incorrecto', cls: 'bg-red-100 text-red-700' },
+const GRADE_BADGE: Record<GradeStatus, { label: React.ReactNode; cls: string }> = {
+  correct: { label: <><Check size={13} /> Correcto</>, cls: 'bg-emerald-100 text-emerald-700' },
+  incorrect: { label: <><X size={13} /> Incorrecto</>, cls: 'bg-red-100 text-red-700' },
   pending: { label: '… Abierta', cls: 'bg-amber-100 text-amber-700' },
 };
 
@@ -39,14 +40,14 @@ export function BlockStimulus({ block }: { block: ActivityBlock }) {
     <div className="grid gap-3 rounded-3xl border border-rex-light bg-white p-5 shadow-sm">
       {block.text && (
         <>
-          <p className="text-xs font-semibold uppercase tracking-wide text-rex">📖 Lee el texto</p>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rex"><BookOpen size={14} /> Lee el texto</p>
           <p className="rounded-xl bg-rex-light p-4 leading-7 text-slate-700"><RichText text={block.text} /></p>
         </>
       )}
       {(script || block.audioText) && (
         <>
-          <p className="text-xs font-semibold uppercase tracking-wide text-rex">
-            {script ? `🗣️ Escucha la conversación · ${block.lines!.length} turnos` : '🎧 Escucha el audio'}
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-rex">
+            {script ? <><MessagesSquare size={14} /> Escucha la conversación · {block.lines!.length} turnos</> : <><Headphones size={14} /> Escucha el audio</>}
           </p>
           {/* El texto del audio nunca se pinta: leerlo convertiría la escucha en lectura. */}
           <AudioPlayer
@@ -94,14 +95,14 @@ function ActivityCard({ activity, answer, readonly, onAnswerChange, index, statu
     <section className={`rounded-2xl border p-5 shadow-sm transition hover:shadow-md ${status ? GRADE_CARD[status] : 'border-slate-100 bg-white'}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-rex-light text-lg">{definition.icon}</span>
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-rex-light"><AppIcon name={definition.icon} size={20} className="text-rex-deep" /></span>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-rex">Actividad {index + 1}</p>
             <h2 className="font-semibold text-slate-900">{definition.label}</h2>
           </div>
         </div>
         {badge
-          ? <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badge.cls}`}>{badge.label}</span>
+          ? <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${badge.cls}`}>{badge.label}</span>
           : <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Interactiva</span>}
       </div>
       <Renderer activity={activity} value={answer} readonly={readonly} onChange={onAnswerChange} />
@@ -124,7 +125,7 @@ function ThumbPlaceholderCard({ activity }: { activity: WorksheetActivity }) {
   return (
     <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-rex-light text-lg">{definition.icon}</span>
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-rex-light"><AppIcon name={definition.icon} size={20} className="text-rex-deep" /></span>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-rex">Actividad</p>
           <h2 className="font-semibold text-slate-900">{definition.label}</h2>
@@ -204,7 +205,7 @@ export function WorksheetRenderer({ worksheet, answers, readonly, onAnswerChange
       {(worksheet.infoFields?.length ?? 0) > 0 && (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-lg">📋</span>
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100"><ClipboardList size={20} className="text-amber-700" /></span>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Identificación</p>
               <h2 className="font-semibold text-slate-900">Datos del estudiante</h2>

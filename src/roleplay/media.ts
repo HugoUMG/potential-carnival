@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { IconName } from '../components/AppIcon';
 import { roleplayAudioUrl } from '../services/api';
 import { browserSpeak, stopBrowserSpeech } from '../utils/browserSpeech';
 import type { RoleplayLevel } from '../types';
@@ -217,11 +218,11 @@ export function useRecorder() {
   return { recording, level, seconds, start, stop };
 }
 
-export const LEVEL_INFO: Record<RoleplayLevel, { label: string; emoji: string; bullets: string[]; en: boolean; es: boolean }> = {
-  beginner: { label: 'Principiante', emoji: '🌱', en: true, es: true,
+export const LEVEL_INFO: Record<RoleplayLevel, { label: string; icon: IconName; bullets: string[]; en: boolean; es: boolean }> = {
+  beginner: { label: 'Principiante', icon: 'sprout', en: true, es: true,
     bullets: ['Voz lenta y clara', 'Palabras muy sencillas', 'Subtítulos en inglés y español', 'Pronunciación medida con paciencia'] },
-  intermediate: { label: 'Intermedio', emoji: '🌿', en: true, es: false,
+  intermediate: { label: 'Intermedio', icon: 'leaf', en: true, es: false,
     bullets: ['Voz casi normal', 'Inglés del día a día', 'Subtítulos solo en inglés', 'Pronunciación más exigente'] },
-  advanced: { label: 'Avanzado', emoji: '🌳', en: false, es: false,
+  advanced: { label: 'Avanzado', icon: 'treePine', en: false, es: false,
     bullets: ['Voz natural y acentos del mundo', 'Expresiones y phrasal verbs', 'Sin subtítulos: solo escuchas', 'Pronunciación estricta'] },
 };

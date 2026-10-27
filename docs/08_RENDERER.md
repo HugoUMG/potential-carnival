@@ -64,7 +64,9 @@ precedencia **incorrecto > abierta > correcto**.
 
 ## `activityRegistry.tsx`
 
-Un componente por tipo. Detalles que importan:
+Un componente por tipo. La cabecera de cada actividad y sus etiquetas usan `AppIcon`/iconos de
+`lucide-react` (no emojis); el identificador del icono viaja en `ActivityDefinition.icon` y sale
+del registro de `src/components/AppIcon.tsx`. Detalles que importan:
 
 **`fillblank` / `dragdrop` / `listeningfillblank`** — el marcador `_____` (exactamente 5 guiones
 bajos) se parte y entre las partes va un `<input>` o un hueco:

@@ -116,7 +116,7 @@ export function useTurnAlert(active: boolean, label: string): void {
     if (!document.hidden) return;
     const original = document.title;
     let on = false;
-    const id = window.setInterval(() => { on = !on; document.title = on ? `🔔 ${label}` : original; }, 900);
+    const id = window.setInterval(() => { on = !on; document.title = on ? `Turno: ${label}` : original; }, 900);
     const back = () => { if (document.hidden) return; window.clearInterval(id); document.title = original; document.removeEventListener('visibilitychange', back); };
     document.addEventListener('visibilitychange', back);
     return () => { window.clearInterval(id); document.title = original; document.removeEventListener('visibilitychange', back); };

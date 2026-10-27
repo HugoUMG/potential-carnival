@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Circle, Dices, Flag, PartyPopper, RotateCcw, Smile, Trophy, X } from 'lucide-react';
 import type { GameQuestion } from '../types';
 import { pick, range, shuffle, speak, type GameProps } from './util';
 import { Notice, Say, Sheet, Speak } from './ui';
@@ -10,7 +10,11 @@ import { useRoom, useShared } from './roomState';
  * juega pasando el celular; en sala por turnos juegan los 2 primeros (`roomSeats: 2`) y el resto mira. */
 
 const NEEDS = 'Este juego necesita al menos 4 preguntas con traducción. Pídele a tu profesor que las agregue en el generador.';
-const SIDES = [{ mark: '✕', color: '#E8590C' }, { mark: '◯', color: '#1971C2' }];
+const SIDES = [{ name: 'X', color: '#E8590C' }, { name: 'O', color: '#1971C2' }];
+
+function SideMark({ side, size = 18 }: { side: number; size?: number }) {
+  return side === 0 ? <X size={size} strokeWidth={3} /> : <Circle size={size} strokeWidth={3} />;
+}
 
 interface Challenge {
   at: number;        // casilla, columna o tirada del dado: lo que se gana si acierta
@@ -63,10 +67,10 @@ function Sides({ side, names, winner, extra, disc = false }: { side: number; nam
         const turn = winner === null && side === k;
         return (
           <div key={k} className={`dg-player ${turn ? 'turn' : ''} ${winner === k ? 'won' : ''}`} style={{ '--side': s.color } as CSSProperties}>
-            <b className={disc ? 'disc' : ''}>{disc ? '' : s.mark}</b>
+            <b className={disc ? 'disc' : ''}>{disc ? '' : <SideMark side={k} />}</b>
             <span>
               <span className="dg-player-name">{names[k]}</span>
-              <small>{winner === k ? '🏆 ¡Ganó!' : turn ? 'Le toca' : extra?.(k) ?? 'Espera'}</small>
+              <small className="inline-flex items-center gap-1">{winner === k ? <><Trophy size={12} /> ¡Ganó!</> : turn ? 'Le toca' : extra?.(k) ?? 'Espera'}</small>
             </span>
           </div>
         );
@@ -94,7 +98,7 @@ function ChallengeCard({ questions, ch, onChoose, onDone }: { questions: GameQue
       </div>
       {ch.chosen !== null && (
         <div className="dg-feedback">
-          <p className={ok ? 'dg-ok' : 'dg-bad'}>{ok ? '¡Correcto! Haces tu jugada. 🎉' : 'Fallaste: pierdes la jugada.'}</p>
+          <p className={`${ok ? 'dg-ok' : 'dg-bad'} inline-flex items-center gap-1.5`}>{ok ? <><PartyPopper size={16} /> ¡Correcto! Haces tu jugada.</> : 'Fallaste: pierdes la jugada.'}</p>
           <button type="button" className="dg-btn primary" onClick={onDone}>Continuar</button>
         </div>
       )}
@@ -136,7 +140,7 @@ function useBoardTurn(questions: GameQuestion[]) {
 function Result({ winner, names, onAgain }: { winner: number; names: string[]; onAgain: () => void }) {
   return (
     <div className="dg-feedback">
-      <p className="dg-ok">{winner < 0 ? '¡Empate! 🤝' : `¡Gana ${names[winner]}! 🏆`}</p>
+      <p className="dg-ok inline-flex items-center gap-1.5">{winner < 0 ? <><Smile size={16} /> ¡Empate!</> : <><Trophy size={16} /> ¡Gana {names[winner]}!</>}</p>
       <button type="button" className="dg-btn primary" onClick={onAgain}><RotateCcw size={16} /> Otra partida</button>
     </div>
   );
@@ -161,8 +165,8 @@ export function TicTacToeGame({ questions }: GameProps) {
       <div className="dg-ttt">
         {board.map((v, k) => (
           <button key={k} type="button" className={`dg-ttt-cell ${v >= 0 ? `mark-${v}` : ''} ${t.ch?.at === k ? 'asking' : ''}`} disabled={v >= 0 || !!t.ch || t.winner !== null} onClick={() => t.ask(k)}
-            style={v >= 0 ? { color: SIDES[v].color } as CSSProperties : undefined} aria-label={v >= 0 ? SIDES[v].mark : `Casilla ${k + 1}`}>
-            {v >= 0 ? SIDES[v].mark : t.ch?.at === k ? '?' : ''}
+            style={v >= 0 ? { color: SIDES[v].color } as CSSProperties : undefined} aria-label={v >= 0 ? SIDES[v].name : `Casilla ${k + 1}`}>
+            {v >= 0 ? <SideMark side={v} size={34} /> : t.ch?.at === k ? <span className="text-2xl">?</span> : ''}
           </button>
         ))}
       </div>
@@ -200,7 +204,7 @@ export function ConnectFourGame({ questions }: GameProps) {
         {range(C4W).map((col) => (
           <button key={`d${col}`} type="button" className="dg-c4-drop" disabled={locked || freeRow(col) === undefined}
             onClick={() => t.ask(col)} aria-label={`Columna ${col + 1}`} style={{ '--side': SIDES[t.side].color } as CSSProperties}>
-            {t.ch?.at === col ? '?' : '▼'}
+            {t.ch?.at === col ? <span className="text-2xl">?</span> : <ChevronDown size={20} />}
           </button>
         ))}
         {board.map((v, k) => (
@@ -219,7 +223,6 @@ export function ConnectFourGame({ questions }: GameProps) {
 const END = 30;
 // Inicio → fin. Escaleras suben, serpientes bajan.
 const JUMPS: Record<number, number> = { 3: 11, 8: 16, 13: 22, 19: 27, 14: 5, 21: 10, 25: 17, 29: 20 };
-const DICE = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
 export function LaddersGame({ questions }: GameProps) {
   const names = useSideNames();
@@ -247,20 +250,20 @@ export function LaddersGame({ questions }: GameProps) {
           const jump = JUMPS[n];
           return (
             <div key={n} className={`dg-sq ${jump ? (jump > n ? 'up' : 'down') : ''} ${n === END ? 'goal' : ''} ${(Math.ceil(n / 5) + n) % 2 ? 'odd' : ''}`}>
-              <small>{n === END ? '🏁 30' : n}</small>
-              {jump && <span className="dg-sq-jump"><span aria-hidden="true">{jump > n ? '🪜' : '🐍'}</span>{jump}</span>}
+              <small className="inline-flex items-center gap-1">{n === END ? <><Flag size={11} /> 30</> : n}</small>
+              {jump && <span className="dg-sq-jump">{jump > n ? <ArrowUp size={12} /> : <ArrowDown size={12} />}{jump}</span>}
               <span className="dg-sq-tokens">
-                {pos.map((p, k) => (p === n ? <i key={k} style={{ background: SIDES[k].color }}>{SIDES[k].mark}</i> : null))}
+                {pos.map((p, k) => (p === n ? <i key={k} style={{ background: SIDES[k].color }}><SideMark side={k} size={11} /></i> : null))}
               </span>
             </div>
           );
         })}
       </div>
       {pos.some((p) => p === 0) && <p className="dg-muted center">En la salida: {pos.map((p, k) => (p === 0 ? names[k] : null)).filter(Boolean).join(' y ')}</p>}
-      {t.ch && <p className="dg-challenge center">Sacaste <b className="dg-die-face">{DICE[t.ch.at - 1]}</b> {t.ch.at}: acierta para avanzar.</p>}
+      {t.ch && <p className="dg-challenge center inline-flex items-center gap-1.5">Sacaste <Dices size={18} /><b className="dg-die-face">{t.ch.at}</b>: acierta para avanzar.</p>}
       {t.ch && <ChallengeCard questions={questions} ch={t.ch} onChoose={t.choose} onDone={() => t.finish(apply)} />}
       {!t.ch && t.winner === null && (
-        <button type="button" className="dg-btn primary big center-self" onClick={roll}>🎲 Tirar el dado ({names[t.side]})</button>
+        <button type="button" className="dg-btn primary big center-self" onClick={roll}><Dices size={18} /> Tirar el dado ({names[t.side]})</button>
       )}
       {t.winner !== null && <Result winner={t.winner} names={names} onAgain={() => { setPos([0, 0]); t.reset(); }} />}
     </div>

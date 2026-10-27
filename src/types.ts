@@ -1,4 +1,5 @@
 import type React from 'react';
+import type { IconName } from './components/AppIcon';
 
 export type ActivityType =
   | 'fillblank'
@@ -296,7 +297,7 @@ export interface ActivityDefinition<T extends WorksheetActivity = WorksheetActiv
   type: T['type'];
   label: string;
   description: string;
-  icon: string;
+  icon: IconName;
   create: () => T;
   Renderer: React.ComponentType<ActivityRendererProps<T>>;
 }

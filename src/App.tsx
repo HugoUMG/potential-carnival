@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, ClipboardList, Copy, Download, Eye, GraduationCap, History, ImageIcon, Link2, LockKeyhole, LogOut, MoreVertical, Pencil, Printer, RefreshCw, Search, Send, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, ClipboardList, Clock3, Copy, Download, Eye, GraduationCap, History, ImageIcon, Link2, LockKeyhole, LogOut, MessageSquareText, MoreVertical, PartyPopper, Pencil, Printer, RefreshCw, Search, Send, Sparkles, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { ThemeToggle } from './components/ThemeToggle';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer, WorksheetThumb } from './components/WorksheetRenderer';
@@ -126,8 +126,8 @@ function ResponseDetails({ response }: { response: RespuestaEstudiante }) {
           <div className="font-semibold"><RichText text={detail.prompt} /></div>
           <div>Respuesta: <RichText text={answerText(detail.student_answer)} /></div>
           {detail.correct_answer !== null && <div>Correcta: <RichText text={answerText(detail.correct_answer)} /></div>}
-          {detail.teacher_comment && <div className="mt-1 italic opacity-80">💬 {detail.teacher_comment}</div>}
-          {detail.graded_by && <div className="mt-1 text-xs text-slate-400" title="IA que calificó esta respuesta (solo tú lo ves)">✦ Calificado por {detail.graded_by}</div>}
+          {detail.teacher_comment && <div className="mt-1 flex items-start gap-1.5 italic opacity-80"><MessageSquareText size={14} className="mt-0.5 shrink-0" /> {detail.teacher_comment}</div>}
+          {detail.graded_by && <div className="mt-1 flex items-center gap-1 text-xs text-slate-400" title="IA que calificó esta respuesta (solo tú lo ves)"><Sparkles size={12} /> Calificado por {detail.graded_by}</div>}
         </div>
       ))}
     </div>
@@ -352,7 +352,7 @@ export default function App() {
           const body = diff === 1
             ? `${notifs[0].student_name} entregó "${notifs[0].worksheet_title}"`
             : `${diff} nuevas respuestas de estudiantes`;
-          new Notification('Nueva respuesta recibida 📋', { body, icon: '/favicon.ico' });
+          new Notification('Nueva respuesta recibida', { body, icon: '/favicon.ico' });
         }
         prevNotifCount.current = count;
       } catch { /* silent · no interrumpir la UI */ }
@@ -1335,8 +1335,8 @@ export default function App() {
                         </button>
                         <div className="flex items-center gap-3 text-sm">
                           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600">{w.responses} {w.responses === 1 ? 'respuesta' : 'respuestas'}</span>
-                          <span className="font-bold text-emerald-700">✓ {w.correct}</span>
-                          <span className="font-bold text-red-600">✗ {w.incorrect}</span>
+                          <span className="flex items-center gap-1 font-bold text-emerald-700"><Check size={15} /> {w.correct}</span>
+                          <span className="flex items-center gap-1 font-bold text-red-600"><X size={15} /> {w.incorrect}</span>
                           <span className="font-bold text-rex-deep">{w.average_score}%</span>
                           {w.responses > 0 && (
                             <button
@@ -1345,7 +1345,7 @@ export default function App() {
                               disabled={summaryLoading === w.worksheet_id}
                               className="rounded-full border border-spike/40 px-3 py-1 text-xs font-bold text-spike-dark transition hover:bg-spike/10 disabled:opacity-60"
                             >
-                              {summaryLoading === w.worksheet_id ? 'Analizando…' : '✦ Resumen IA'}
+                              {summaryLoading === w.worksheet_id ? 'Analizando…' : <span className="inline-flex items-center gap-1"><Sparkles size={13} /> Resumen IA</span>}
                             </button>
                           )}
                         </div>
@@ -1358,7 +1358,7 @@ export default function App() {
                       )}
                       {summaryByWs[w.worksheet_id] && (
                         <div className="mt-3 rounded-2xl border border-spike/30 bg-spike/10 p-4">
-                          <p className="mb-1 text-xs font-bold uppercase tracking-wide text-spike-dark">✦ Resumen de desempeño (IA)</p>
+                          <p className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-spike-dark"><Sparkles size={13} /> Resumen de desempeño (IA)</p>
                           <p className="whitespace-pre-line text-sm leading-6 text-slate-700">{summaryByWs[w.worksheet_id]}</p>
                         </div>
                       )}
@@ -1411,7 +1411,7 @@ export default function App() {
                 {classrooms.map((classroom) => (
                   <div key={classroom.id} className={`flex items-center justify-between rounded-2xl border ${activeClassroomId === classroom.id ? 'border-rex bg-rex-light' : 'border-slate-100'}`}>
                     <button className={`flex-1 p-3 text-left font-semibold ${activeClassroomId === classroom.id ? 'text-rex-deep' : ''}`} onClick={() => setActiveClassroomId(classroom.id)}>{classroom.name}</button>
-                    <button className="mr-2 rounded-xl border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50" onClick={() => void deleteClassroomHandler(classroom.id, classroom.name)} title="Eliminar aula">✕</button>
+                    <button className="mr-2 rounded-xl border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50" onClick={() => void deleteClassroomHandler(classroom.id, classroom.name)} title="Eliminar aula"><X size={14} /></button>
                   </div>
                 ))}
                 {!classrooms.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay aulas creadas.</p>}
@@ -1880,13 +1880,13 @@ export default function App() {
                         <div className="flex items-start justify-between gap-2">
                           <strong className="text-sm"><RichText text={detail.prompt} /></strong>
                           {hasAiComment && (
-                            <span className="shrink-0 rounded-full bg-spike/15 px-2 py-0.5 text-xs font-bold text-spike-dark">✦ IA</span>
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-spike/15 px-2 py-0.5 text-xs font-bold text-spike-dark"><Sparkles size={11} /> IA</span>
                           )}
                         </div>
                         <p className="text-sm">Respuesta: <RichText text={answerText(detail.student_answer)} /></p>
                         {detail.correct_answer !== null && <p className="text-sm">Correcta: <RichText text={answerText(detail.correct_answer)} /></p>}
                         {hasAiComment && !canReview && (
-                          <p className="mt-1 text-sm italic opacity-80">💬 {detail.teacher_comment}</p>
+                          <p className="mt-1 flex items-start gap-1.5 text-sm italic opacity-80"><MessageSquareText size={14} className="mt-0.5 shrink-0" /> {detail.teacher_comment}</p>
                         )}
                         {canReview && (
                           <div className="mt-2 grid gap-2">
@@ -1964,7 +1964,7 @@ export default function App() {
                         {guestDetail.pending.map((w) => (
                           <span key={w.id} className="rounded-full bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700">{w.title}</span>
                         ))}
-                        {!guestDetail.pending.length && <p className="text-sm text-slate-500">Sin hojas pendientes. ¡Completó todo lo habilitado! 🎉</p>}
+                        {!guestDetail.pending.length && <p className="flex items-center gap-1.5 text-sm text-slate-500">Sin hojas pendientes. ¡Completó todo lo habilitado! <PartyPopper size={16} className="text-amber-500" /></p>}
                       </div>
                     </div>
 
@@ -1987,8 +1987,8 @@ export default function App() {
                               </div>
                               <div className="flex items-center gap-3 text-sm">
                                 <span className="font-bold text-rex-deep">{response.score ?? '-'}%</span>
-                                <span className="font-bold text-emerald-700">✓ {response.correct_count}</span>
-                                {response.pending_count > 0 && <span className="font-bold text-amber-600">⏳ {response.pending_count}</span>}
+                                <span className="flex items-center gap-1 font-bold text-emerald-700"><Check size={15} /> {response.correct_count}</span>
+                                {response.pending_count > 0 && <span className="flex items-center gap-1 font-bold text-amber-600"><Clock3 size={15} /> {response.pending_count}</span>}
                                 <ChevronRight size={16} className={`transition-transform ${expandedResponseId === response.id ? 'rotate-90' : ''}`} />
                               </div>
                             </button>
@@ -2081,7 +2081,7 @@ export default function App() {
                 onChange={(e) => setAssignDueDate(e.target.value)}
               />
               {assignDueDate && (
-                <button className="mt-1 text-xs text-slate-400 hover:text-red-500" type="button" onClick={() => setAssignDueDate('')}>✕ Quitar fecha límite</button>
+                <button className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-red-500" type="button" onClick={() => setAssignDueDate('')}><X size={12} /> Quitar fecha límite</button>
               )}
             </div>
             <div className="mt-5 flex justify-end gap-2">
@@ -2129,8 +2129,8 @@ export default function App() {
                 <div className="mb-4 rounded-2xl border border-spike/30 bg-white p-4">
                   <p className="text-lg font-bold text-slate-800">
                     Puntaje: <span className="text-spike-dark">{practiceResult.score ?? 0}</span>
-                    <span className="ml-3 text-sm font-semibold text-emerald-700">✓ {practiceResult.correct_count} correctas</span>
-                    <span className="ml-3 text-sm font-semibold text-red-600">✗ {incorrect} incorrectas</span>
+                    <span className="ml-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700"><Check size={14} /> {practiceResult.correct_count} correctas</span>
+                    <span className="ml-3 inline-flex items-center gap-1 text-sm font-semibold text-red-600"><X size={14} /> {incorrect} incorrectas</span>
                     {practiceResult.pending_count > 0 && <span className="ml-3 text-sm font-semibold text-amber-600">… {practiceResult.pending_count} abiertas (las califica IA/profesor)</span>}
                   </p>
                   <details className="mt-2">
@@ -2138,7 +2138,10 @@ export default function App() {
                     <div className="mt-2 grid gap-2">
                       {practiceResult.details.map((d, i) => (
                         <div key={i} className={`rounded-xl border p-2 text-sm ${d.status === 'correct' ? 'border-emerald-200 bg-emerald-50' : d.status === 'incorrect' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-                          <p className="font-semibold text-slate-700">{d.status === 'correct' ? '✓' : d.status === 'incorrect' ? '✗' : '…'} {String(d.prompt).slice(0, 90)}</p>
+                          <p className="flex items-center gap-1.5 font-semibold text-slate-700">
+                            {d.status === 'correct' ? <Check size={15} className="shrink-0 text-emerald-600" /> : d.status === 'incorrect' ? <X size={15} className="shrink-0 text-red-600" /> : <Clock3 size={15} className="shrink-0 text-amber-600" />}
+                            <span>{String(d.prompt).slice(0, 90)}</span>
+                          </p>
                           <p className="text-slate-500">Tu respuesta: {answerText(d.student_answer)}{d.status === 'incorrect' && <> · Correcta: <b>{answerText(d.correct_answer)}</b></>}</p>
                         </div>
                       ))}

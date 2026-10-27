@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Lock } from 'lucide-react';
 import { VocabularyViewer } from '../components/VocabularyViewer';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { getPublicVocabulary } from '../services/api';
@@ -34,7 +35,7 @@ export function VocabDirectPage() {
     return (
       <main className="grid min-h-screen place-items-center bg-cream p-6 text-center">
         <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
-          <p className="text-4xl">🔒</p>
+          <Lock size={38} className="mx-auto text-slate-400" />
           <h1 className="mt-3 text-lg font-bold text-slate-900">Vocabulario no disponible</h1>
           <p className="mt-2 text-sm text-slate-500">{error} El enlace puede estar deshabilitado o ser incorrecto.</p>
         </div>

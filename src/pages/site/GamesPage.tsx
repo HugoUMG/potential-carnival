@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check, Copy, MessagesSquare, MonitorSmartphone, Play, QrCode, Smartphone, Users } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { AppIcon } from '../../components/AppIcon';
 import { Spinner } from '../../components/LoadingScreen';
 import { GAMES, SKILLS } from '../../games/registry';
 import { listFeaturedGameSets } from '../../services/api';
@@ -97,11 +98,11 @@ export function GamesPage() {
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           {SKILLS.map((s) => (
             <div key={s.id} className="site-glass p-6">
-              <h3 className="text-lg font-black">{s.emoji} {s.name}</h3>
+              <h3 className="flex items-center gap-2 text-lg font-black"><AppIcon name={s.icon} size={20} /> {s.name}</h3>
               <ul className="mt-4 grid gap-3">
                 {GAMES.filter((g) => g.skill === s.id).map((g) => (
                   <li key={g.id} className="flex gap-3">
-                    <span aria-hidden className="text-2xl leading-none">{g.emoji}</span>
+                    <span aria-hidden className="leading-none"><AppIcon name={g.icon} size={24} /></span>
                     <div>
                       <p className="font-bold">{g.name}</p>
                       <p className="text-sm leading-relaxed text-site-fg/65">{g.purpose}</p>

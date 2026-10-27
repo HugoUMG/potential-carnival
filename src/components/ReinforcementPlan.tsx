@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, RotateCcw } from 'lucide-react';
+import { BookOpen, Check, MessageCircle, RotateCcw } from 'lucide-react';
 import { Spinner } from './LoadingScreen';
 import { getReinforcementPlan, type PlanReforzamiento } from '../services/api';
 
@@ -74,10 +74,10 @@ function PlanBody({ plan }: { plan: PlanReforzamiento }) {
                 {q.options.map((o, j) => (
                   <label key={j} className="flex cursor-pointer items-center gap-2 py-0.5 text-slate-700">
                     <input type="radio" name={`rq-${i}`} disabled={checked} checked={picked[i] === j} onChange={() => setPicked((p) => ({ ...p, [i]: j }))} />
-                    {o}{checked && j === q.answer && <b className="text-emerald-700"> ✓</b>}
+                    {o}{checked && j === q.answer && <Check size={14} className="text-emerald-700" />}
                   </label>
                 ))}
-                {checked && q.explanation && <p className="mt-1 text-xs italic text-slate-600">💬 {q.explanation}</p>}
+                {checked && q.explanation && <p className="mt-1 flex items-start gap-1.5 text-xs italic text-slate-600"><MessageCircle size={13} className="mt-0.5 shrink-0" /> {q.explanation}</p>}
               </fieldset>
             ))}
           </div>

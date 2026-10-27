@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Check, Trophy, Users, X } from 'lucide-react';
+import { BarChart3, Check, Flag, Frown, Medal, PartyPopper, RefreshCw, Timer, Trophy, Users, Volume2, WifiOff, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { EmojiIcon } from '../components/AppIcon';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { RichText } from '../components/RichText';
 import RexMascot from '../components/RexMascot';
@@ -41,8 +42,8 @@ const OPTION_COLORS = [
 /** True/False no usa la paleta rotatoria: verde=True y rojo=False es la convención que ya usa
  *  `TrueFalseButtons` en la hoja normal, y se lee desde el fondo del salón sin leer la palabra. */
 const TRUE_FALSE_COLORS = [
-  { button: 'bg-emerald-600 hover:bg-emerald-700', chip: 'bg-emerald-600', label: '✓' },
-  { button: 'bg-red-600 hover:bg-red-700', chip: 'bg-red-600', label: '✗' },
+  { button: 'bg-emerald-600 hover:bg-emerald-700', chip: 'bg-emerald-600', label: <Check size={14} /> },
+  { button: 'bg-red-600 hover:bg-red-700', chip: 'bg-red-600', label: <X size={14} /> },
 ];
 
 function colorFor(index: number, type?: string) {
@@ -269,7 +270,7 @@ function ReactionLayer({ reactions }: { reactions: LiveState['reactions'] }) {
     <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden" aria-hidden>
       {floaters.map((f) => (
         <span key={f.key} className="live-float absolute bottom-16 text-4xl drop-shadow" style={{ left: `${f.left}%` }}>
-          {f.emoji}
+          <EmojiIcon emoji={f.emoji} size={36} />
         </span>
       ))}
     </div>
@@ -447,7 +448,7 @@ function ReactionBar({ onSend }: { onSend: (emoji: string) => void }) {
           className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-2xl shadow-sm transition hover:-translate-y-0.5 hover:shadow active:scale-90"
           onClick={() => onSend(emoji)}
         >
-          {emoji}
+          <EmojiIcon emoji={emoji} size={26} />
         </button>
       ))}
     </div>
@@ -489,7 +490,7 @@ function AvatarPicker({ value, onPick, disabled }: { value: string; onPick: (emo
           className={`grid aspect-square place-items-center rounded-xl text-xl transition disabled:opacity-40 ${value === emoji ? 'bg-rex-light ring-2 ring-rex' : 'bg-slate-50 hover:bg-slate-100'}`}
           onClick={() => onPick(emoji)}
         >
-          {emoji}
+          <EmojiIcon emoji={emoji} size={24} />
         </button>
       ))}
     </div>
@@ -513,7 +514,7 @@ function Awards({ awards }: { awards: LiveAward[] }) {
               <p className="truncate text-xs text-slate-500">{a.subtitle}</p>
             </div>
             <div className="shrink-0 text-right">
-              <p className="truncate text-sm font-bold text-rex-deep">{a.emoji} {a.label}</p>
+              <p className="flex items-center gap-1 truncate text-sm font-bold text-rex-deep"><EmojiIcon emoji={a.emoji} size={16} /> {a.label}</p>
               <p className="text-xs text-slate-400">{a.detail}</p>
             </div>
           </div>
@@ -593,7 +594,7 @@ function TimeBar({ remaining, duration }: { remaining: number | null; duration: 
 }
 
 function Leaderboard({ rows, title = 'Marcador' }: { rows: { label: string; emoji?: string; score: number; correct: number }[]; title?: string }) {
-  const MEDALS = ['🥇', '🥈', '🥉'];
+  const MEDALS = ['text-amber-400', 'text-slate-400', 'text-amber-700'];
   if (!rows.length) return null;
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm">
@@ -601,10 +602,10 @@ function Leaderboard({ rows, title = 'Marcador' }: { rows: { label: string; emoj
       <ol className="grid gap-2">
         {rows.map((row, i) => (
           <li key={`${row.label}-${i}`} className={`flex items-center gap-3 rounded-2xl px-4 py-3 ${i === 0 ? 'bg-spike/10' : 'bg-slate-50'}`}>
-            <span className="w-8 text-center text-lg font-black text-slate-400">{MEDALS[i] ?? i + 1}</span>
-            <span className="text-xl" aria-hidden>{row.emoji ?? ''}</span>
+            <span className="grid w-8 place-items-center text-lg font-black text-slate-400">{i < 3 ? <Medal size={22} className={MEDALS[i]} /> : i + 1}</span>
+            {row.emoji && <span aria-hidden><EmojiIcon emoji={row.emoji} size={22} /></span>}
             <span className="min-w-0 flex-1 truncate font-semibold text-slate-800">{row.label}</span>
-            <span className="text-xs text-slate-500">{row.correct} ✓</span>
+            <span className="inline-flex items-center gap-0.5 text-xs text-slate-500">{row.correct} <Check size={12} /></span>
             <strong className="tabular-nums text-rex-deep">{row.score}</strong>
           </li>
         ))}
@@ -622,7 +623,7 @@ function SessionError({ message }: { message: string }) {
   return (
     <main className="grid min-h-screen place-items-center bg-cream p-6 text-center">
       <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
-        <p className="text-4xl">📴</p>
+        <WifiOff size={40} className="mx-auto text-slate-400" />
         <h1 className="mt-3 text-lg font-bold text-slate-900">Sesión no disponible</h1>
         <p className="mt-2 text-sm text-slate-500">{message}</p>
       </div>
@@ -680,7 +681,7 @@ function JoinForm({ code, fields, title, onJoined }: {
         <p className="mt-1 text-center text-sm text-slate-500">Completa tus datos para entrar.</p>
 
         <div className="mt-5">
-          <p className="mb-2 text-center text-6xl leading-none" aria-hidden>{emoji}</p>
+          <p className="mb-2 flex justify-center leading-none" aria-hidden><EmojiIcon emoji={emoji} size={60} /></p>
           <p className="mb-2 text-sm font-semibold text-slate-700">Elige tu avatar</p>
           <AvatarPicker value={emoji} onPick={setEmoji} />
         </div>
@@ -783,8 +784,8 @@ export function LivePage() {
 
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-rex-light text-2xl" aria-hidden>
-            {me?.emoji ?? join.emoji ?? '🦖'}
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-rex-light" aria-hidden>
+            <EmojiIcon emoji={me?.emoji ?? join.emoji ?? AVATARS[0]} size={24} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs text-slate-500">{state.title}</p>
@@ -826,7 +827,7 @@ export function LivePage() {
                 irreconocible el marcador entre una pregunta y la siguiente. */}
             <div className="rounded-3xl bg-white p-5 shadow-sm">
               <p className="mb-3 text-sm font-semibold text-slate-700">
-                Tu avatar <span className="ml-1 text-xl align-middle">{me?.emoji ?? join.emoji}</span>
+                Tu avatar <span className="ml-1 inline-flex align-middle"><EmojiIcon emoji={me?.emoji ?? join.emoji} size={19} /></span>
                 <span className="block text-xs font-normal text-slate-400">Solo se puede cambiar ahora, antes de que empiece.</span>
               </p>
               <AvatarPicker value={me?.emoji ?? join.emoji ?? AVATARS[0]} onPick={pickAvatar} />
@@ -843,7 +844,7 @@ export function LivePage() {
               <p className="text-xs font-bold uppercase tracking-wide text-rex">
                 Pregunta {question.number} de {state.total}
               </p>
-              <p className="mt-6 text-6xl">🔊</p>
+              <Volume2 size={56} className="mx-auto mt-6 text-rex" />
               <h1 className="mt-4 text-xl font-extrabold text-slate-900">Escucha el audio</h1>
               <p className="mt-2 text-sm text-slate-500">
                 Suena en la pantalla del salón. Cuando el profesor abra las respuestas
@@ -951,7 +952,7 @@ export function LivePage() {
             {/* Encuesta (`scored === false`): no hay ✓/✗ ni respuesta correcta que anunciar.
                 Votar no puntúa, así que el marco verde/rojo diría algo falso. */}
             <div className={`live-pop rounded-3xl p-8 text-center text-white shadow-lg ${question.scored === false ? 'bg-slate-700' : me?.correct ? 'bg-rex' : answered ? 'bg-red-500' : 'bg-slate-500'}`}>
-              <p className="text-6xl">{question.scored === false ? '📊' : me?.correct ? '🎉' : answered ? '😕' : '⏱️'}</p>
+              <div className="flex justify-center">{question.scored === false ? <BarChart3 size={56} /> : me?.correct ? <PartyPopper size={56} /> : answered ? <Frown size={56} /> : <Timer size={56} />}</div>
               <h1 className="mt-3 text-2xl font-black">
                 {question.scored === false ? (answered ? 'Voto registrado' : 'Sin votar') : me?.correct ? '¡Correcta!' : answered ? 'Incorrecta' : 'Sin responder'}
               </h1>
@@ -1028,7 +1029,7 @@ export function LivePage() {
         {state.phase === 'ended' && (
           <>
             <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
-              <p className="text-5xl">🏁</p>
+              <Flag size={44} className="mx-auto text-slate-700" />
               <h1 className="mt-3 text-2xl font-extrabold text-slate-900">Terminó la sesión</h1>
               <p className="mt-2 text-slate-600">
                 Tu puntaje: <strong className="text-rex-deep">{me?.score ?? 0}</strong> · {me?.correct_total ?? 0} de {state.total} correctas
@@ -1085,7 +1086,7 @@ export function LiveScreenPage() {
           className="fixed bottom-6 right-6 z-50 rounded-2xl bg-spike px-6 py-4 text-lg font-bold shadow-xl transition hover:bg-spike-dark"
           onClick={audio.unlock}
         >
-          🔊 Activar el audio de esta pantalla
+          <span className="inline-flex items-center gap-2"><Volume2 size={20} /> Activar el audio de esta pantalla</span>
         </button>
       )}
       <header className="flex items-center justify-between gap-6">
@@ -1136,7 +1137,7 @@ export function LiveScreenPage() {
           <div className="flex flex-wrap justify-center gap-2">
             {state.lobby_roster!.map((p, i) => (
               <span key={`${p.label}-${i}`} className="live-pop flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-lg font-semibold">
-                <span aria-hidden>{p.emoji}</span>
+                <span aria-hidden><EmojiIcon emoji={p.emoji} size={22} /></span>
                 <span className="max-w-[14ch] truncate">{p.label}</span>
               </span>
             ))}
@@ -1153,7 +1154,7 @@ export function LiveScreenPage() {
       {question && state.phase === 'listening' && (
         <section className="mt-10 text-center">
           <p className="text-lg uppercase tracking-[0.3em] text-white/50">Pregunta {question.number} de {state.total}</p>
-          <p className="mt-10 text-[7rem] leading-none">🔊</p>
+          <div className="mt-10 flex justify-center"><Volume2 size={112} className="text-white/80" /></div>
           <h1 className="mt-6 text-5xl font-black">Escuchen con atención</h1>
           <div className="mt-8 flex justify-center gap-2" aria-hidden>
             {[0, 1, 2, 3, 4, 5, 6].map((i) => (
@@ -1180,7 +1181,9 @@ export function LiveScreenPage() {
               className="mt-8 rounded-2xl bg-white/10 px-6 py-3 text-lg font-semibold transition hover:bg-white/20"
               onClick={audio.replay}
             >
-              {audio.failed ? '⚠️ No sonó · reintentar' : '↻ Repetir el audio'}
+              {audio.failed
+                ? <span className="inline-flex items-center gap-2"><RefreshCw size={18} /> No sonó · reintentar</span>
+                : <span className="inline-flex items-center gap-2"><RefreshCw size={18} /> Repetir el audio</span>}
             </button>
           )}
           <p className="mt-10 text-lg text-white/40">Las respuestas se abren cuando el profesor lo decida.</p>
@@ -1303,7 +1306,7 @@ export function LiveScreenPage() {
 
       {state.phase === 'ended' && (
         <section className="mx-auto mt-8 max-w-5xl text-center">
-          <p className="text-6xl">🏆</p>
+          <Trophy size={56} className="mx-auto text-amber-400" />
           <h1 className="mt-3 text-4xl font-black">Resultados finales</h1>
           <div className="mt-6 grid gap-6 text-left lg:grid-cols-2">
             <div className="text-ink"><Leaderboard rows={state.leaderboard ?? []} title="Top 5" /></div>

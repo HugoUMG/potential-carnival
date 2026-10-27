@@ -1,5 +1,32 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
-import { Code2, Eye, LayoutTemplate, Sparkles, Save, Loader2, Wand2, ClipboardCopy, ClipboardCheck, Volume2, Check } from 'lucide-react';
+import {
+  AlertTriangle,
+  BarChart3,
+  BookOpen,
+  Check,
+  ClipboardCheck,
+  ClipboardCopy,
+  Code2,
+  Dices,
+  Eye,
+  GraduationCap,
+  LayoutTemplate,
+  Loader2,
+  NotebookPen,
+  PenLine,
+  Printer,
+  Puzzle,
+  RefreshCw,
+  Save,
+  Sparkles,
+  Star,
+  Target,
+  Timer,
+  Wand2,
+  X,
+  Volume2,
+} from 'lucide-react';
+import { AppIcon, type IconName } from './AppIcon';
 import { VisualWorksheetBuilder, worksheetToVisualState } from './VisualWorksheetBuilder';
 import { emptyState } from '../utils/dslSerializer';
 import { generateWorksheetWithAI, aiEditWorksheet, aiReviewWorksheet, audioCheckWorksheet, type AudioCheckItem } from '../services/api';
@@ -52,34 +79,34 @@ const ACTIVITIES: [string, string][] = [
   ['Encuesta (sin nota)', 'poll'],
 ];
 // Grupos por objetivo pedagógico: un clic activa todo el set (misma taxonomía que conoce la IA del backend).
-const ACTIVITY_GROUPS: { label: string; icon: string; types: string[] }[] = [
-  { label: 'Gramática y vocabulario', icon: '🧱', types: ['fillblank', 'dragdrop', 'multiplechoice', 'multiselect', 'matching', 'truefalse'] },
-  { label: 'Lectura', icon: '📖', types: ['content', 'reading', 'readingtruefalse'] },
-  { label: 'Comprensión auditiva', icon: '🎧', types: ['listening', 'listeningmultiplechoice', 'listeningtruefalse'] },
-  { label: 'Escucha fina', icon: '🎼', types: ['listeningfillblank', 'listeningorder', 'listeningmatching'] },
-  { label: 'Producción oral', icon: '🗣️', types: ['speaking', 'conversation'] },
-  { label: 'Escritura abierta', icon: '✍️', types: ['textbox', 'imagequestion'] },
-  { label: 'Debate (sin nota)', icon: '📊', types: ['poll'] },
+const ACTIVITY_GROUPS: { label: string; icon: IconName; types: string[] }[] = [
+  { label: 'Gramática y vocabulario', icon: 'shapes', types: ['fillblank', 'dragdrop', 'multiplechoice', 'multiselect', 'matching', 'truefalse'] },
+  { label: 'Lectura', icon: 'bookOpen', types: ['content', 'reading', 'readingtruefalse'] },
+  { label: 'Comprensión auditiva', icon: 'headphones', types: ['listening', 'listeningmultiplechoice', 'listeningtruefalse'] },
+  { label: 'Escucha fina', icon: 'music', types: ['listeningfillblank', 'listeningorder', 'listeningmatching'] },
+  { label: 'Producción oral', icon: 'messages', types: ['speaking', 'conversation'] },
+  { label: 'Escritura abierta', icon: 'penLine', types: ['textbox', 'imagequestion'] },
+  { label: 'Debate (sin nota)', icon: 'barChart', types: ['poll'] },
   // Las tres necesitan URLs que pega el profesor: la IA nunca las inventa.
-  { label: 'Con imágenes', icon: '🖼️', types: ['imagequestion', 'imagechoice', 'imagematching'] },
+  { label: 'Con imágenes', icon: 'image', types: ['imagequestion', 'imagechoice', 'imagematching'] },
 ];
-const PRESETS: { label: string; icon: string; patch: Partial<BuilderState> }[] = [
-  { label: 'Warm-up', icon: '🔥', patch: { objective: 'Introducción', duration: '10', difficulty: 'Fácil', activities: ['multiplechoice', 'truefalse'] } },
-  { label: 'Grammar Practice', icon: '✏️', patch: { objective: 'Práctica', duration: '20', difficulty: 'Normal', activities: ['fillblank', 'multiplechoice', 'dragdrop'] } },
-  { label: 'Weekly Quiz', icon: '📝', patch: { objective: 'Evaluación', duration: '20', difficulty: 'Normal', activities: ['multiplechoice', 'fillblank', 'truefalse'] } },
-  { label: 'Monthly Test', icon: '📊', patch: { objective: 'Evaluación', duration: '45', difficulty: 'Desafiante', activities: ['multiplechoice', 'fillblank', 'matching', 'reading'] } },
-  { label: 'Homework', icon: '🏠', patch: { objective: 'Tarea', duration: '30', difficulty: 'Normal', activities: ['fillblank', 'multiplechoice', 'reading'] } },
-  { label: 'Speaking Club', icon: '🗣️', patch: { objective: 'Práctica', duration: '30', age: 'Adolescentes', activities: ['speaking', 'conversation', 'listening'] } },
-  { label: 'Listening Exam', icon: '🎧', patch: { objective: 'Evaluación', duration: '30', activities: ['listening', 'listeningorder', 'conversation'] } },
-  { label: 'Reading Assessment', icon: '📖', patch: { objective: 'Evaluación', duration: '30', activities: ['reading', 'multiplechoice'] } },
+const PRESETS: { label: string; icon: IconName; patch: Partial<BuilderState> }[] = [
+  { label: 'Warm-up', icon: 'flame', patch: { objective: 'Introducción', duration: '10', difficulty: 'Fácil', activities: ['multiplechoice', 'truefalse'] } },
+  { label: 'Grammar Practice', icon: 'penLine', patch: { objective: 'Práctica', duration: '20', difficulty: 'Normal', activities: ['fillblank', 'multiplechoice', 'dragdrop'] } },
+  { label: 'Weekly Quiz', icon: 'notebookPen', patch: { objective: 'Evaluación', duration: '20', difficulty: 'Normal', activities: ['multiplechoice', 'fillblank', 'truefalse'] } },
+  { label: 'Monthly Test', icon: 'barChart', patch: { objective: 'Evaluación', duration: '45', difficulty: 'Desafiante', activities: ['multiplechoice', 'fillblank', 'matching', 'reading'] } },
+  { label: 'Homework', icon: 'home', patch: { objective: 'Tarea', duration: '30', difficulty: 'Normal', activities: ['fillblank', 'multiplechoice', 'reading'] } },
+  { label: 'Speaking Club', icon: 'messages', patch: { objective: 'Práctica', duration: '30', age: 'Adolescentes', activities: ['speaking', 'conversation', 'listening'] } },
+  { label: 'Listening Exam', icon: 'headphones', patch: { objective: 'Evaluación', duration: '30', activities: ['listening', 'listeningorder', 'conversation'] } },
+  { label: 'Reading Assessment', icon: 'bookOpen', patch: { objective: 'Evaluación', duration: '30', activities: ['reading', 'multiplechoice'] } },
 ];
 
 // Plantillas listas para el modo Script: un clic reemplaza el editor con un WorksheetScript válido.
 // Procura dar variedad: sin bloques, con bloques, y con los tipos más usados.
-const SCRIPT_TEMPLATES: { label: string; icon: string; desc: string; script: string }[] = [
+const SCRIPT_TEMPLATES: { label: string; icon: IconName; desc: string; script: string }[] = [
   {
     label: 'Warm-up',
-    icon: '🔥',
+    icon: 'flame',
     desc: 'Vocabulario + true/false + fillblank. Nivel A1, sin bloques.',
     script: `worksheet {
 title: "Daily Routine Warm-up"
@@ -110,7 +137,7 @@ fillblank {
   },
   {
     label: 'Past Simple',
-    icon: '✏️',
+    icon: 'penLine',
     desc: 'Gramática con bloques: opción múltiple, drag & drop y escritura. Nivel A2.',
     script: `worksheet {
 title: "Past Simple Practice"
@@ -153,7 +180,7 @@ block {
   },
   {
     label: 'Listening Club',
-    icon: '🎧',
+    icon: 'headphones',
     desc: 'Escuchar y ordenar + opción múltiple por audio. Nivel A2.',
     script: `worksheet {
 title: "Listen and Rebuild"
@@ -185,7 +212,7 @@ listeningmultiplechoice {
   },
   {
     label: 'Reading + Writing',
-    icon: '📖',
+    icon: 'bookOpen',
     desc: 'Lectura con bloques y escritura guiada. Nivel B1.',
     script: `worksheet {
 title: "My Town"
@@ -254,10 +281,10 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
     </button>
   );
 }
-function ChipGroup({ label, children }: { label: string; children: ReactNode }) {
+function ChipGroup({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -294,8 +321,8 @@ export function AskAiEdit({ getScript, onApply }: { getScript: () => string; onA
           className="flex items-center gap-1.5 rounded-2xl border border-spike/40 bg-spike/10 px-3 py-2 text-sm font-semibold text-spike-dark transition hover:bg-spike/15">
           <Wand2 size={15} /> Pídele a la IA
         </button>
-        {working && <span className="text-xs font-semibold text-spike animate-pulse">✦ IA trabajando…</span>}
-        {!working && provider && <span className="text-xs text-slate-400" title="IA que hizo el último cambio">✦ {provider}</span>}
+        {working && <span className="text-xs font-semibold text-spike animate-pulse"><Sparkles size={12} className="inline" /> IA trabajando…</span>}
+        {!working && provider && <span className="text-xs text-slate-400" title="IA que hizo el último cambio"><Sparkles size={12} className="inline" /> {provider}</span>}
       </div>
       {open && (
         <div className="mt-1 grid gap-2 rounded-2xl border border-spike/30 bg-white p-3">
@@ -348,8 +375,8 @@ export function AskAiReview({ getScript, printable = false }: { getScript: () =>
           className="flex items-center gap-1.5 rounded-2xl border border-rex/40 bg-rex/10 px-3 py-2 text-sm font-semibold text-rex transition hover:bg-rex/15 disabled:opacity-50">
           <ClipboardCheck size={15} /> Revisar hoja
         </button>
-        {working && <span className="text-xs font-semibold text-rex animate-pulse">✦ Resolviendo la hoja…</span>}
-        {!working && provider && <span className="text-xs text-slate-400" title="IA que revisó">✦ {provider}</span>}
+        {working && <span className="text-xs font-semibold text-rex animate-pulse"><Sparkles size={12} className="inline" /> Resolviendo la hoja…</span>}
+        {!working && provider && <span className="text-xs text-slate-400" title="IA que revisó"><Sparkles size={12} className="inline" /> {provider}</span>}
       </div>
       {err && <p className="text-xs text-red-500">{err}</p>}
       {report && (
@@ -395,7 +422,7 @@ export function AskAudioCheck({ getScript }: { getScript: () => string }) {
           className="flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 disabled:opacity-50">
           <Volume2 size={15} /> Probar el audio
         </button>
-        {working && <span className="text-xs font-semibold text-slate-500 animate-pulse">✦ Escuchando la hoja…</span>}
+        {working && <span className="text-xs font-semibold text-slate-500 animate-pulse"><Sparkles size={12} className="inline" /> Escuchando la hoja…</span>}
       </div>
       {err && <p className="text-xs text-red-500">{err}</p>}
       {items && (
@@ -404,7 +431,7 @@ export function AskAudioCheck({ getScript }: { getScript: () => string }) {
           {!detail && (
             <p className="font-semibold text-slate-700">
               {fallan.length === 0
-                ? `✓ Las ${items.length} actividades con audio se entienden bien.`
+                ? `Las ${items.length} actividades con audio se entienden bien.`
                 : `${fallan.length} de ${items.length} no se transcriben igual que el texto:`}
             </p>
           )}
@@ -412,7 +439,7 @@ export function AskAudioCheck({ getScript }: { getScript: () => string }) {
             <div key={n} className="rounded-xl bg-amber-50 px-3 py-2 text-xs">
               <p className="font-semibold text-amber-800">{i.type}</p>
               <p className="text-slate-600"><span className="font-semibold">dice:</span> {i.text}</p>
-              <p className="text-slate-600"><span className="font-semibold">se oye:</span> {i.error ? `⚠ ${i.error}` : i.heard}</p>
+              <p className="flex items-center gap-1 text-slate-600"><span className="font-semibold">se oye:</span> {i.error ? <><AlertTriangle size={12} className="text-amber-600" /> {i.error}</> : i.heard}</p>
             </div>
           ))}
           <button type="button" onClick={() => setItems(null)} className="w-fit text-xs font-semibold text-slate-500 underline hover:text-slate-700">Cerrar</button>
@@ -464,47 +491,47 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, pri
       <p className="mt-1 text-sm text-slate-500 mb-5">Elige un preset o selecciona opciones: el prompt se arma solo. No necesitas escribir nada.</p>
 
       {/* Presets */}
-      <ChipGroup label="⭐ Presets (un clic)">
+      <ChipGroup label={<><Star size={13} /> Presets (un clic)</>}>
         {PRESETS.map((p) => (
-          <Chip key={p.label} active={false} onClick={() => patch(p.patch)}>{p.icon} {p.label}</Chip>
+          <Chip key={p.label} active={false} onClick={() => patch(p.patch)}><AppIcon name={p.icon} size={14} className="inline" /> {p.label}</Chip>
         ))}
       </ChipGroup>
 
       <div className="mt-5 grid gap-4">
-        <ChipGroup label="📚 Nivel">
+        <ChipGroup label={<><BarChart3 size={13} /> Nivel</>}>
           {LEVELS.map((l) => <Chip key={l} active={b.level === l} onClick={() => patch({ level: b.level === l ? '' : l })}>{l}</Chip>)}
         </ChipGroup>
         <label className="block">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">📖 Tema</p>
+          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><BookOpen size={13} /> Tema</p>
           <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-spike"
             placeholder="Ej: Present Simple, colores, comida…" value={b.topic} onChange={(e) => patch({ topic: e.target.value })} />
         </label>
-        <ChipGroup label="🎯 Objetivo">
+        <ChipGroup label={<><Target size={13} /> Objetivo</>}>
           {OBJECTIVES.map(([l]) => <Chip key={l} active={b.objective === l} onClick={() => patch({ objective: b.objective === l ? '' : l })}>{l}</Chip>)}
         </ChipGroup>
-        <ChipGroup label="✏️ Enfoque">
+        <ChipGroup label={<><PenLine size={13} /> Enfoque</>}>
           {FOCUS.map((f) => <Chip key={f} active={b.focus === f} onClick={() => patch({ focus: b.focus === f ? '' : f })}>{f}</Chip>)}
         </ChipGroup>
         <div className="grid gap-4 sm:grid-cols-3">
-          <ChipGroup label="👨‍🎓 Edad">
+          <ChipGroup label={<><GraduationCap size={13} /> Edad</>}>
             {AGES.map(([l]) => <Chip key={l} active={b.age === l} onClick={() => patch({ age: b.age === l ? '' : l })}>{l}</Chip>)}
           </ChipGroup>
-          <ChipGroup label="⏱️ Duración">
+          <ChipGroup label={<><Timer size={13} /> Duración</>}>
             {DURATIONS.map((d) => <Chip key={d} active={b.duration === d} onClick={() => patch({ duration: b.duration === d ? '' : d })}>{d} min</Chip>)}
           </ChipGroup>
-          <ChipGroup label="🎲 Dificultad">
+          <ChipGroup label={<><Dices size={13} /> Dificultad</>}>
             {DIFFICULTIES.map(([l]) => <Chip key={l} active={b.difficulty === l} onClick={() => patch({ difficulty: b.difficulty === l ? '' : l })}>{l}</Chip>)}
           </ChipGroup>
         </div>
-        <ChipGroup label="🎯 Grupos por habilidad (un clic activa el set)">
+        <ChipGroup label={<><Target size={13} /> Grupos por habilidad (un clic activa el set)</>}>
           {ACTIVITY_GROUPS.map((g) => (
             <Chip key={g.label} active={groupActive(g.types)} onClick={() => toggleGroup(g.types)}>
-              {g.icon} {g.label}
+              <AppIcon name={g.icon} size={14} className="inline" /> {g.label}
             </Chip>
           ))}
         </ChipGroup>
-        <ChipGroup label="🧩 Actividades (opcional, ajusta el detalle)">
-          {ACTIVITIES.map(([l, v]) => <Chip key={v} active={b.activities.includes(v)} onClick={() => toggleActivity(v)}>{b.activities.includes(v) ? '✓ ' : ''}{l}</Chip>)}
+        <ChipGroup label={<><Puzzle size={13} /> Actividades (opcional, ajusta el detalle)</>}>
+          {ACTIVITIES.map(([l, v]) => <Chip key={v} active={b.activities.includes(v)} onClick={() => toggleActivity(v)}>{b.activities.includes(v) && <Check size={12} className="inline" />} {l}</Chip>)}
         </ChipGroup>
       </div>
 
@@ -515,7 +542,7 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, pri
           <span className={`h-5 w-5 rounded-full bg-white shadow transition ${printable ? 'translate-x-5' : ''}`} />
         </span>
         <span>
-          <span className="block text-sm font-semibold text-slate-800">🖨️ Modo físico (imprimible)</span>
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800"><Printer size={15} /> Modo físico (imprimible)</span>
           <span className="block text-xs text-slate-500">La hoja se genera solo con actividades que se resuelven en papel: sin audio ni micrófono.</span>
         </span>
       </button>
@@ -525,7 +552,7 @@ function AiPanel({ aiPrompt, setAiPrompt, isGenerating, aiError, onGenerate, pri
         onCheckedChange={onAiGradingChange} onToleranceChange={onAiToleranceChange} />
 
       <label className="mt-6 block">
-        <span className="text-sm font-semibold text-slate-700">📝 Prompt generado <span className="font-normal text-slate-400">(puedes ajustarlo a mano)</span></span>
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-700"><NotebookPen size={15} /> Prompt generado <span className="font-normal text-slate-400">(puedes ajustarlo a mano)</span></span>
         <textarea
           className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-spike focus:ring-4 focus:ring-spike/15 min-h-28"
           placeholder="El prompt aparecerá aquí conforme selecciones opciones… o escríbelo tú mismo."
@@ -707,8 +734,8 @@ export function WorksheetEditor({
       // "guardar" crearía una segunda: la generada quedaría huérfana en la lista.
       onAiGenerated?.(generated);
       setAiSuccess(printable
-        ? '✓ Hoja imprimible generada y guardada. Revísala y guarda de nuevo si la cambias.'
-        : '✓ Hoja generada y guardada. Revísala y guarda de nuevo si la cambias.');
+        ? 'Hoja imprimible generada y guardada. Revísala y guarda de nuevo si la cambias.'
+        : 'Hoja generada y guardada. Revísala y guarda de nuevo si la cambias.');
       setMode('script');
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Error al generar con IA. Intenta de nuevo.');
@@ -765,7 +792,7 @@ export function WorksheetEditor({
               </button>{' '}
               y luego vuelve a Visual para retocarla. El modo <strong>Script</strong> queda para usuarios avanzados.
             </p>
-            <button type="button" className="shrink-0 text-slate-400 hover:text-slate-600" onClick={() => setGuideDismissed(true)} aria-label="Ocultar guía">✕</button>
+            <button type="button" className="shrink-0 text-slate-400 hover:text-slate-600" onClick={() => setGuideDismissed(true)} aria-label="Ocultar guía"><X size={16} /></button>
           </div>
         )}
 
@@ -773,13 +800,13 @@ export function WorksheetEditor({
           {mode === 'visual' && <AskAiEdit getScript={() => visualScriptRef.current?.() ?? scriptDraft} onApply={(s) => { onScriptChange(s); setMode('script'); }} />}
           {mode === 'visual' && <AskAiReview getScript={() => visualScriptRef.current?.() ?? scriptDraft} printable={printable} />}
           {mode === 'visual' && !printable && <AskAudioCheck getScript={() => visualScriptRef.current?.() ?? scriptDraft} />}
-          <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
+          <button type="button" onClick={clearAll} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 underline hover:text-red-600"><RefreshCw size={12} /> Empezar de cero (limpiar)</button>
         </div>
 
         {skippedWarning !== null && mode === 'visual' && (
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
-            <span>⚠ {skippedWarning} actividad{skippedWarning !== 1 ? 's' : ''} no se importaron al modo visual.</span>
-            <button type="button" className="shrink-0 font-bold hover:text-amber-900" onClick={() => setSkippedWarning(null)}>✕</button>
+            <span className="flex items-center gap-1.5"><AlertTriangle size={15} /> {skippedWarning} actividad{skippedWarning !== 1 ? 's' : ''} no se importaron al modo visual.</span>
+            <button type="button" className="shrink-0 font-bold hover:text-amber-900" onClick={() => setSkippedWarning(null)}><X size={15} /></button>
           </div>
         )}
 
@@ -824,13 +851,13 @@ export function WorksheetEditor({
           <AskAiReview getScript={() => scriptDraft} printable={printable} />
           {!printable && <AskAudioCheck getScript={() => scriptDraft} />}
         </div>
-        <button type="button" onClick={clearAll} className="text-xs font-semibold text-slate-500 underline hover:text-red-600">↺ Empezar de cero (limpiar)</button>
+        <button type="button" onClick={clearAll} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 underline hover:text-red-600"><RefreshCw size={12} /> Empezar de cero (limpiar)</button>
       </div>
 
       <div className="rounded-3xl bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-rex">{isEditing ? '✎ Editando evaluación existente' : 'Modo Script'}</p>
+            <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-rex">{isEditing && <PenLine size={14} />} {isEditing ? 'Editando evaluación existente' : 'Modo Script'}</p>
             <h2 className="text-2xl font-bold text-slate-900">{worksheet.title}</h2>
             <p className="mt-1 text-sm text-slate-500">{isEditing ? 'Editas la MISMA hoja (no se crea una copia). Solo se puede mientras no tenga respuestas.' : 'Pega o escribe WorksheetScript y guárdalo en la base de datos.'}</p>
           </div>
@@ -846,7 +873,7 @@ export function WorksheetEditor({
             className="flex shrink-0 items-center gap-2 rounded-2xl bg-spike px-4 py-2 text-sm font-semibold text-white transition hover:bg-spike-dark"
           >
             {promptCopied ? <Check size={16} /> : <ClipboardCopy size={16} />}
-            {promptCopied ? 'Copiado ✓' : 'Copiar documentación/prompt'}
+            {promptCopied ? 'Copiado' : 'Copiar documentación/prompt'}
           </button>
         </div>
 
@@ -862,7 +889,7 @@ export function WorksheetEditor({
                 className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-rex hover:bg-rex-light"
                 onClick={() => { if (scriptDraft.trim() && !window.confirm('Esto reemplazará el script actual del editor. ¿Continuar?')) return; onScriptChange(t.script); }}
               >
-                <span className="text-lg leading-none">{t.icon}</span>
+                <AppIcon name={t.icon} size={18} className="mt-0.5 shrink-0 text-rex" />
                 <span>
                   <span className="block text-sm font-semibold text-slate-800">{t.label}</span>
                   <span className="block text-xs text-slate-500">{t.desc}</span>

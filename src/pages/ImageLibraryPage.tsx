@@ -180,7 +180,7 @@ export function ImageLibraryPage() {
     setChecking(false);
     setRepairSummary(
       deadIds.size === 0
-        ? `✓ Los ${flat.length} enlaces están activos. La biblioteca no necesita reparación.`
+        ? `Los ${flat.length} enlaces están activos. La biblioteca no necesita reparación.`
         : `Verificadas ${flat.length} imágenes · ${deadIds.size} rota(s) · ${replaced} reemplazada(s) con la más parecida`
           + (stillBroken.size > 0 ? ` · ${stillBroken.size} sin parecida, quedaron marcadas` : '')
           + '. Descarga el JSON reparado y sustitúyelo en src/data/image-library.json.',

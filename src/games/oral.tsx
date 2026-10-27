@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { Mic, Plus, RotateCcw, X } from 'lucide-react';
+import { Bomb, Car, Check, Circle, Flag, Globe2, Layers, Lightbulb, MessageSquareText, Mic, Plus, RotateCcw, Trophy, X } from 'lucide-react';
 import type { GameQuestion } from '../types';
 import { canRecognize, range, recognizeOnce, shuffle, speak, useGame, type GameProps } from './util';
 import { Es, Notice, Say, Speak } from './ui';
@@ -18,10 +18,10 @@ import { nextTurn, useRoom, useShared, useTurnAlert } from './roomState';
  * transcribe → `say()` lo publica en la sala (sin tener el control) y todos leen "Luis dijo: …".
  * Por eso estos juegos son `roomFree`: quien responde tiene que poder tocar el micrófono. */
 
-const GRADES = [
-  { pts: 2, label: '✓ Bien', cls: 'ok' },
+const GRADES: { pts: number; label: ReactNode; cls: string }[] = [
+  { pts: 2, label: <><Check size={15} /> Bien</>, cls: 'ok' },
   { pts: 1, label: '½ Casi', cls: 'mid' },
-  { pts: 0, label: '✗ No', cls: 'bad' },
+  { pts: 0, label: <><X size={15} /> No</>, cls: 'bad' },
 ];
 const COLORS = ['#E8590C', '#1971C2', '#2B8A3E', '#C2255C', '#7048E8', '#0B7285', '#E67700', '#5C940D'];
 
@@ -80,7 +80,7 @@ function Setup({ onStart }: { onStart: (names: string[]) => void }) {
     <div className="dg-center-card dg-oral-setup">
       {openGroup && (
         <>
-          <p className="dg-big-q">🌐 ¿Cada quien en su casa?</p>
+          <p className="dg-big-q inline-flex items-center gap-2"><Globe2 size={22} /> ¿Cada quien en su casa?</p>
           <p className="dg-muted">Crea una sala, comparte el enlace y cada uno responde desde su celular. Puedes calificar tú o que se califiquen entre ellos.</p>
           <button type="button" className="dg-btn primary big" onClick={openGroup}>Jugar en línea</button>
           <p className="dg-oral-or">o en un solo dispositivo</p>
@@ -126,17 +126,17 @@ function Turn({ o, questions, extra }: { o: Oral; questions: GameQuestion[]; ext
       <p className="dg-oral-who">Responde <b>{o.answerer.name}</b>{o.room && <> · califica <b>{o.grader}</b></>}</p>
       {!q ? (
         o.canAct
-          ? <button type="button" className="dg-btn primary big" onClick={o.draw}>🎴 Sacar pregunta para {o.answerer.name}</button>
+          ? <button type="button" className="dg-btn primary big" onClick={o.draw}><Layers size={18} /> Sacar pregunta para {o.answerer.name}</button>
           : <p className="dg-muted center">Esperando a que {graderName} saque la pregunta…</p>
       ) : (
         <>
           <p className="dg-big-q"><Say text={q.text} /></p>
           <div className="dg-row center"><Speak text={q.text} /></div>
           <Es className="center">{q.translation}</Es>
-          {q.hint && <p className="dg-hint center">💡 Empieza así: <Say text={q.hint} /></p>}
+          {q.hint && <p className="dg-hint center inline-flex items-center gap-1.5"><Lightbulb size={15} className="shrink-0" /> Empieza así: <Say text={q.hint} /></p>}
           {extra}
           {o.answering && <AnswerMic o={o} />}
-          {o.said && <p className="dg-said"><b>🗣️ {o.said.name} dijo:</b> “{o.said.text}”</p>}
+          {o.said && <p className="dg-said"><b className="inline-flex items-center gap-1"><MessageSquareText size={15} /> {o.said.name} dijo:</b> “{o.said.text}”</p>}
           {o.canAct ? (
             <div className="dg-grades">
               {GRADES.map((g) => (
@@ -150,7 +150,7 @@ function Turn({ o, questions, extra }: { o: Oral; questions: GameQuestion[]; ext
       )}
       {o.last && (
         <p className="dg-oral-last">
-          {o.last.burned ? `💥 A ${o.last.name} se le quemó la papa` : `${o.last.name}: ${o.last.pts ? `+${o.last.pts} ${o.last.pts === 1 ? 'punto' : 'puntos'}` : 'sin puntos'}`}
+          {o.last.burned ? <span className="inline-flex items-center gap-1"><Bomb size={15} /> A {o.last.name} se le quemó la papa</span> : `${o.last.name}: ${o.last.pts ? `+${o.last.pts} ${o.last.pts === 1 ? 'punto' : 'puntos'}` : 'sin puntos'}`}
         </p>
       )}
     </div>
@@ -161,7 +161,7 @@ function Turn({ o, questions, extra }: { o: Oral; questions: GameQuestion[]; ext
 function AnswerMic({ o }: { o: Oral }) {
   const [listening, setListening] = useState(false);
   const [err, setErr] = useState('');
-  if (!canRecognize) return <p className="dg-muted center">🎤 Responde en voz alta por la llamada (tu navegador no transcribe la voz; en Chrome sí).</p>;
+  if (!canRecognize) return <p className="dg-muted center"><Mic size={16} className="inline align-[-3px]" /> Responde en voz alta por la llamada (tu navegador no transcribe la voz; en Chrome sí).</p>;
   const listen = async () => {
     setErr('');
     setListening(true);
@@ -219,7 +219,7 @@ export function AnswerRaceGame({ questions }: GameProps) {
           return (
             <div key={p.key} className={`dg-lane ${p.key === o.answerer?.key && !winner ? 'now' : ''}`} style={{ '--who': p.color, '--at': pts / GOAL } as CSSProperties}>
               <span className="dg-lane-name">{p.name}</span>
-              <span className="dg-lane-track"><span className="dg-car">🏎️</span><span className="dg-flag">🏁</span></span>
+              <span className="dg-lane-track"><span className="dg-car"><Car size={20} /></span><span className="dg-flag"><Flag size={18} /></span></span>
               <b>{pts}</b>
             </div>
           );
@@ -227,12 +227,12 @@ export function AnswerRaceGame({ questions }: GameProps) {
       </div>
       {winner ? (
         <div className="dg-feedback">
-          <p className="dg-ok">🏆 ¡{winner.name} gana la carrera!</p>
+          <p className="dg-ok inline-flex items-center gap-1.5"><Trophy size={18} /> ¡{winner.name} gana la carrera!</p>
           {o.canAct && <button type="button" className="dg-btn primary" onClick={o.reset}><RotateCcw size={16} /> Otra carrera</button>}
         </div>
       ) : (
         <>
-          <p className="dg-muted center">✓ avanza 2 casillas · ½ avanza 1 · meta en {GOAL}</p>
+          <p className="dg-muted center"><Check size={14} className="inline align-[-2px]" /> avanza 2 casillas · ½ avanza 1 · meta en {GOAL}</p>
           <Turn o={o} questions={questions} />
         </>
       )}
@@ -252,7 +252,7 @@ function Potato({ endsAt, onBurn }: { endsAt: number; onBurn: () => void }) {
   }, [endsAt, onBurn]);
   const left = endsAt - now;
   const heat = left <= 0 ? 'burnt' : left < 3000 ? 'hot' : left < 7000 ? 'warm' : '';
-  return <div className={`dg-potato ${heat}`} aria-label="Papa caliente">{left <= 0 ? '💥' : '🥔'}</div>;
+  return <div className={`dg-potato ${heat}`} aria-label="Papa caliente">{left <= 0 ? <Bomb size={52} /> : <Circle size={52} fill="currentColor" className="text-amber-700" />}</div>;
 }
 
 export function HotPotatoGame({ questions }: GameProps) {

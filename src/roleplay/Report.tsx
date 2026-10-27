@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
-import { CheckCircle2, Lightbulb, RotateCcw, Shuffle, SlidersHorizontal, Snail, Volume2, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, FolderOpen, Lightbulb, Mic, RotateCcw, Rocket, Shuffle, SlidersHorizontal, Snail, Square, Target, Volume2, X, XCircle } from 'lucide-react';
+import { EmojiIcon } from '../components/AppIcon';
 import RexMascot from '../components/RexMascot';
 import type { RoleplayLevel, RoleplayReport, RoleplayStart } from '../types';
 import { moodForScore } from '../utils/scoreMood';
@@ -84,9 +85,9 @@ export function Report({ report, session, onAgain, onSetup, onOther, onLevelUp }
           <h2>{report.grade >= 9 ? '¡Increíble!' : report.grade >= 7.5 ? '¡Muy bien!' : report.grade >= 6 ? '¡Buen trabajo!' : '¡Sigue practicando!'}</h2>
           <p>{report.summary_es}</p>
           <div className="rp-tally">
-            <span className="ok">✓ {counts.ok} bien</span>
-            <span className="better">💡 {counts.better} mejorables</span>
-            <span className="wrong">✗ {counts.wrong} incorrectas</span>
+            <span className="ok inline-flex items-center gap-1"><Check size={14} /> {counts.ok} bien</span>
+            <span className="better inline-flex items-center gap-1"><Lightbulb size={14} /> {counts.better} mejorables</span>
+            <span className="wrong inline-flex items-center gap-1"><X size={14} /> {counts.wrong} incorrectas</span>
           </div>
         </div>
         <ul className="rp-legend">
@@ -106,22 +107,22 @@ export function Report({ report, session, onAgain, onSetup, onOther, onLevelUp }
       <section className="rp-report-grid">
         {report.missions.length > 0 && (
           <div className="rp-box">
-            <h3>🎯 Tu misión</h3>
+            <h3 className="flex items-center gap-2"><Target size={18} /> Tu misión</h3>
             <ul className="rp-checks">
-              {report.missions.map((m, i) => <li key={i} className={m.done ? 'done' : ''}>{m.done ? '✅' : '⬜'} {m.text}</li>)}
+              {report.missions.map((m, i) => <li key={i} className={m.done ? 'done' : ''}>{m.done ? <CheckCircle2 size={15} /> : <Square size={15} />} {m.text}</li>)}
             </ul>
           </div>
         )}
         {report.tips_es.length > 0 && (
           <div className="rp-box">
-            <h3>💡 Para la próxima</h3>
+            <h3 className="flex items-center gap-2"><Lightbulb size={18} /> Para la próxima</h3>
             <ul className="rp-tips">{report.tips_es.map((t, i) => <li key={i}>{t}</li>)}</ul>
           </div>
         )}
       </section>
 
       <section className="rp-box">
-        <h3>🗂️ Tu conversación, respuesta por respuesta</h3>
+        <h3 className="flex items-center gap-2"><FolderOpen size={18} /> Tu conversación, respuesta por respuesta</h3>
         <ol className="rp-review">
           {report.turns.map((t) => {
             const Icon = STATUS[t.status].icon;
@@ -129,14 +130,14 @@ export function Report({ report, session, onAgain, onSetup, onOther, onLevelUp }
               <li key={t.n} className={`rp-turn ${t.status}`}>
                 {t.asked && (
                   <p className="rp-turn-asked">
-                    <span>{session.ai_emoji} {session.ai_name}:</span> {t.asked}
+                    <span className="inline-flex items-center gap-1"><EmojiIcon emoji={session.ai_emoji} size={14} /> {session.ai_name}:</span> {t.asked}
                     <button type="button" onClick={() => play(t.asked)} aria-label="Escuchar"><Volume2 size={14} /></button>
                   </p>
                 )}
                 <p className="rp-turn-said">
                   <span>Tú:</span> “{t.said}”
                   {t.clarity !== null && (
-                    <em className={t.clear === null ? '' : t.clear ? 'ok' : 'low'}>🎤 {Math.round(t.clarity)}%{t.clear === false ? ' · poco clara para tu nivel' : ''}</em>
+                    <em className={t.clear === null ? '' : t.clear ? 'ok' : 'low'}><Mic size={12} className="inline align-[-2px]" /> {Math.round(t.clarity)}%{t.clear === false ? ' · poco clara para tu nivel' : ''}</em>
                   )}
                 </p>
                 <div className="rp-verdict">
@@ -161,7 +162,7 @@ export function Report({ report, session, onAgain, onSetup, onOther, onLevelUp }
 
       {report.next_level && (
         <section className="rp-level-up">
-          <span aria-hidden>🚀</span>
+          <span aria-hidden><Rocket size={26} className="text-violet-500" /></span>
           <p><b>Tu inglés va por encima de este nivel.</b> ¿Probamos en {LEVEL_INFO[report.next_level].label.toLowerCase()}?</p>
           <button type="button" className="rp-btn primary" onClick={() => onLevelUp(report.next_level!)}>
             Probar en {LEVEL_INFO[report.next_level].label}

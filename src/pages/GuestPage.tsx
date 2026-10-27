@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BookOpen, Check, Send, User } from 'lucide-react';
+import { BookOpen, Check, MessageSquareText, Send, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { RichText } from '../components/RichText';
@@ -419,7 +419,7 @@ export function GuestPage() {
                         <p className={`font-semibold ${d.status === 'correct' ? 'text-emerald-800' : d.status === 'incorrect' ? 'text-red-800' : 'text-amber-800'}`}>{d.prompt}</p>
                         <p className="mt-1 text-slate-600">Respuesta: <span className="font-medium"><RichText text={answerText(d.student_answer)} /></span></p>
                         {d.status !== 'pending' && <p className="text-slate-500">Correcta: <RichText text={answerText(d.correct_answer)} /></p>}
-                        {d.teacher_comment && <p className="mt-1 italic text-slate-500">✦ {d.teacher_comment}</p>}
+                        {d.teacher_comment && <p className="mt-1 inline-flex items-start gap-1 italic text-slate-500"><MessageSquareText size={13} className="mt-0.5 shrink-0" /> {d.teacher_comment}</p>}
                       </div>
                     ))}
                   </div>

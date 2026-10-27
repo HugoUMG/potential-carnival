@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ChevronLeft, ChevronRight, Mic, RotateCcw, SendHorizontal, Shuffle } from 'lucide-react';
+import { Check, CheckCheck, ChevronLeft, ChevronRight, Crown, Dices, Lightbulb, Mic, PartyPopper, RotateCcw, SendHorizontal, Shuffle } from 'lucide-react';
+import { EmojiIcon } from '../components/AppIcon';
 import { CHALLENGES, TEAM_COLORS, copyText, matchWords, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
 import { Countdown, Es, Notice, Say, Sheet, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
@@ -54,20 +55,20 @@ export function CardsGame({ questions }: GameProps) {
         <div className={`dg-card3d ${flipped ? 'flipped' : ''}`}>
           <div className="dg-face" style={{ background: grad(i) }}>
             <div className="dg-face-top">
-              <span className="dg-ico">{q.emoji || '💬'}</span>
+              <EmojiIcon emoji={q.emoji} size={28} className="dg-ico" />
               <span className="dg-tag">{q.tag}</span>
-              {done.includes(i) && <span className="dg-stamp">✓ Done</span>}
+              {done.includes(i) && <span className="dg-stamp inline-flex items-center gap-1">Done <Check size={12} /></span>}
               <Speak text={q.text} />
             </div>
             <p className="dg-face-q"><Say text={q.text} /></p>
-            <div className="dg-face-foot">↻ Toca para voltear</div>
+            <div className="dg-face-foot inline-flex items-center gap-1"><RotateCcw size={12} /> Toca para voltear</div>
             <span className="dg-face-num">{String(pos + 1).padStart(2, '0')}</span>
           </div>
           <div className="dg-face back" style={{ background: grad(i) }}>
             {es && q.translation && (<><span className="dg-tag">En español</span><p className="dg-face-t">{q.translation}</p></>)}
             {q.hint && (<><span className="dg-tag">Empieza así</span><p className="dg-face-hint">“<Say text={q.hint} />”</p></>)}
             {!q.hint && !(es && q.translation) && <p className="dg-face-t">Responde con tus propias palabras.</p>}
-            <div className="dg-face-foot">↻ Toca para volver</div>
+            <div className="dg-face-foot inline-flex items-center gap-1"><RotateCcw size={12} /> Toca para volver</div>
           </div>
         </div>
       </div>
@@ -75,7 +76,7 @@ export function CardsGame({ questions }: GameProps) {
       <div className="dg-row">
         <button type="button" className="dg-round" aria-label="Tarjeta anterior" onClick={() => go(-1)}><ChevronLeft /></button>
         <button type="button" className={`dg-btn primary grow ${done.includes(i) ? 'is-done' : ''}`} onClick={() => setDone((d) => toggledList(d, i))}>
-          {done.includes(i) ? '✓ Respondida' : 'Marcar como respondida'}
+          {done.includes(i) ? <span className="inline-flex items-center gap-1"><Check size={16} /> Respondida</span> : 'Marcar como respondida'}
         </button>
         <button type="button" className="dg-round" aria-label="Tarjeta siguiente" onClick={() => go(1)}><ChevronRight /></button>
       </div>
@@ -91,7 +92,7 @@ export function CardsGame({ questions }: GameProps) {
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
 
-const REACTIONS = ['Nice! 😊', 'Oh, interesting!', 'Cool, thanks for sharing!', 'I see! 👀', 'Great answer! 👏', 'Sounds fun!', 'Wow, really?'];
+const REACTIONS = ['Nice!', 'Oh, interesting!', 'Cool, thanks for sharing!', 'I see!', 'Great answer!', 'Sounds fun!', 'Wow, really?'];
 
 export function ChatGame({ questions }: GameProps) {
   const { endTurn } = useRoom();
@@ -130,7 +131,7 @@ export function ChatGame({ questions }: GameProps) {
       </div>
       <div className="dg-msgs" aria-live="polite">
         <div className="dg-msg in">
-          <p className="dg-msg-q">Hi! 👋 Let&apos;s talk. Answer in English with 2–3 sentences.</p>
+          <p className="dg-msg-q">Hi! Let&apos;s talk. Answer in English with 2–3 sentences.</p>
           <Es>¡Hola! Responde en inglés con 2 o 3 oraciones.</Es>
         </div>
         {visible.map((qi, k) => (
@@ -142,7 +143,7 @@ export function ChatGame({ questions }: GameProps) {
             </div>
             {k < answers.length && (
               <>
-                <div className="dg-msg out">{answers[k] || <em>(pregunta saltada)</em>}<span className="dg-ticks">✓✓</span></div>
+                <div className="dg-msg out">{answers[k] || <em>(pregunta saltada)</em>}<span className="dg-ticks"><CheckCheck size={14} /></span></div>
                 {answers[k] && (k < answers.length - 1 || !typing) && <div className="dg-msg in"><p className="dg-msg-q">{REACTIONS[k % REACTIONS.length]}</p></div>}
               </>
             )}
@@ -151,7 +152,7 @@ export function ChatGame({ questions }: GameProps) {
         {typing && <div className="dg-msg in dg-typing"><span /><span /><span /></div>}
         {finished && (
           <div className="dg-msg in">
-            <p className="dg-msg-q">That&apos;s all! 🎉 You answered {answers.filter(Boolean).length} of {order.length}. Now read your answers out loud.</p>
+            <p className="dg-msg-q">That&apos;s all! <PartyPopper size={16} className="inline align-[-2px]" /> You answered {answers.filter(Boolean).length} of {order.length}. Now read your answers out loud.</p>
             <div className="dg-row wrap">
               <button type="button" className="dg-btn small primary" onClick={async () => setCopied((await copyText(transcript)) ? 'ok' : 'fail')}>
                 {copied === 'ok' ? '¡Copiado!' : 'Copiar mis respuestas'}
@@ -219,7 +220,9 @@ export function WheelGame({ questions }: GameProps) {
       <g key={s}>
         <path d={`M0,0 L${x0},${y0} A100,100 0 0,1 ${x1},${y1} Z`} fill={isDone ? '#CFC8BA' : SEG[s % SEG.length]} stroke="#fff" strokeWidth="2" />
         <circle cx={nx} cy={ny} r="14" fill="#fff" />
-        <text x={nx} y={ny} dy="5" textAnchor="middle" className="dg-wheel-n" fill={isDone ? '#8A8478' : '#1B1F3B'}>{isDone ? '✓' : s + 1}</text>
+        {isDone
+          ? <path d={`M${Number(nx) - 5},${ny} l4,4 l7,-8`} fill="none" stroke="#8A8478" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          : <text x={nx} y={ny} dy="5" textAnchor="middle" className="dg-wheel-n" fill="#1B1F3B">{s + 1}</text>}
       </g>
     );
   }), [size, step, done]);
@@ -238,7 +241,7 @@ export function WheelGame({ questions }: GameProps) {
         <button type="button" className="dg-hub" onClick={spin} aria-label="Girar la ruleta">SPIN</button>
       </div>
       <div className="dg-wheel-side">
-        <button type="button" className="dg-spin" onClick={spin} disabled={spinning || !left.length}>{left.length ? 'Girar la ruleta' : '¡Ruleta completa! 🎉'}</button>
+        <button type="button" className="dg-spin" onClick={spin} disabled={spinning || !left.length}>{left.length ? 'Girar la ruleta' : <span className="inline-flex items-center gap-1.5">¡Ruleta completa! <PartyPopper size={16} /></span>}</button>
         <p className="dg-muted center">{left.length} de {size} sin responder</p>
         <button type="button" className="dg-link center" onClick={() => { setRound(sample(range(questions.length), size)); setDone([]); }}>
           <Shuffle size={14} /> Nueva ruleta con otras preguntas
@@ -250,10 +253,10 @@ export function WheelGame({ questions }: GameProps) {
           <p className="dg-sheet-q"><Say text={q.text} /></p>
           <Speak text={q.text} />
           <Es className="center">{q.translation}</Es>
-          {q.hint && <p className="dg-hint">💡 <Say text={q.hint} /></p>}
+          {q.hint && <p className="dg-hint inline-flex items-center gap-1.5"><Lightbulb size={15} className="shrink-0" /> <Say text={q.hint} /></p>}
           <div className="dg-row">
             <button type="button" className="dg-btn primary grow" onClick={() => { setDone((d) => toggledList(d, open)); close(); }}>
-              {done.includes(open) ? 'Quitar marca' : '✓ La respondí'}
+              {done.includes(open) ? 'Quitar marca' : <span className="inline-flex items-center gap-1"><Check size={16} /> La respondí</span>}
             </button>
             <button type="button" className="dg-btn grow" onClick={close}>Cerrar</button>
           </div>
@@ -289,7 +292,7 @@ export function BoardGame({ questions }: GameProps) {
             <span className="dg-note-n">#{i + 1}</span>
             <span className="dg-note-q">{note.text}</span>
             {es && note.translation && <span className="dg-note-t">{note.translation}</span>}
-            {done.includes(i) && <span className="dg-note-stamp">done ✓</span>}
+            {done.includes(i) && <span className="dg-note-stamp inline-flex items-center gap-1">done <Check size={12} /></span>}
           </button>
         ))}
       </div>
@@ -300,10 +303,10 @@ export function BoardGame({ questions }: GameProps) {
           <p className="dg-sheet-note-q"><Say text={q.text} /></p>
           <Speak text={q.text} />
           <Es>{q.translation}</Es>
-          {q.hint && <p className="dg-hint">💡 <Say text={q.hint} /></p>}
+          {q.hint && <p className="dg-hint inline-flex items-center gap-1.5"><Lightbulb size={15} className="shrink-0" /> <Say text={q.hint} /></p>}
           <div className="dg-row">
             <button type="button" className="dg-btn dark grow" onClick={() => { setDone((d) => toggledList(d, open)); close(); }}>
-              {done.includes(open) ? 'Quitar marca' : '✓ La respondí'}
+              {done.includes(open) ? 'Quitar marca' : <span className="inline-flex items-center gap-1"><Check size={16} /> La respondí</span>}
             </button>
             <button type="button" className="dg-btn grow" onClick={close}>Cerrar</button>
           </div>
@@ -348,14 +351,14 @@ export function DiceGame({ questions }: GameProps) {
       <button type="button" className={`dg-die ${rolling ? 'rolling' : ''}`} onClick={roll} aria-label="Lanzar el dado">
         {range(9).map((p) => <span key={p} className={PIPS[face].includes(p) ? 'on' : ''} />)}
       </button>
-      <button type="button" className="dg-btn primary" onClick={roll} disabled={rolling}>🎲 {rolls ? 'Lanzar otra vez' : 'Lanzar el dado'}</button>
+      <button type="button" className="dg-btn primary" onClick={roll} disabled={rolling}><Dices size={18} /> {rolls ? 'Lanzar otra vez' : 'Lanzar el dado'}</button>
       {q && !rolling && (
         <div className="dg-dice-card">
           <p className="dg-challenge"><b>{face + 1}</b> {CHALLENGES[face]}</p>
-          <p className="dg-big-q"><span className="dg-emoji">{q.emoji}</span> <Say text={q.text} /></p>
+          <p className="dg-big-q"><EmojiIcon emoji={q.emoji} size={22} className="dg-emoji inline align-[-3px]" /> <Say text={q.text} /></p>
           <div className="dg-row center"><Speak text={q.text} />{face === 4 && <Countdown />}</div>
           <Es className="center">{q.translation}</Es>
-          {q.hint && <p className="dg-hint center">💡 <Say text={q.hint} /></p>}
+          {q.hint && <p className="dg-hint center inline-flex items-center gap-1.5"><Lightbulb size={15} className="shrink-0" /> <Say text={q.hint} /></p>}
         </div>
       )}
       {!q && <p className="dg-muted center">El número del dado decide cuánto tienes que hablar.</p>}
@@ -407,7 +410,7 @@ export function TeamsGame({ questions }: GameProps) {
       <div className="dg-scoreboard">
         {scores.map((s, k) => (
           <div key={k} className={`dg-team ${k === turn ? 'turn' : ''}`} style={{ '--team': TEAM_COLORS[k] } as CSSProperties}>
-            <span>Equipo {k + 1}{s === best && s > 0 ? ' 👑' : ''}</span>
+            <span className="inline-flex items-center gap-1">Equipo {k + 1}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
             <b>{s}</b>
           </div>
         ))}
@@ -417,7 +420,7 @@ export function TeamsGame({ questions }: GameProps) {
       ) : (
         <div className="dg-dice-card">
           <p className="dg-challenge">Turno del <b style={{ color: TEAM_COLORS[turn] }}>Equipo {turn + 1}</b></p>
-          <p className="dg-big-q"><span className="dg-emoji">{q.emoji}</span> <Say text={q.text} /></p>
+          <p className="dg-big-q"><EmojiIcon emoji={q.emoji} size={22} className="dg-emoji inline align-[-3px]" /> <Say text={q.text} /></p>
           <div className="dg-row center"><Speak text={q.text} /><Countdown /></div>
           <Es className="center">{q.translation}</Es>
           <div className="dg-row wrap center">

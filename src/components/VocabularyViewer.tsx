@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp, Printer, Link2, Wand2, Eye } from 'lucide-react';
+import { BarChart3, BookOpen, Check, ChevronDown, ChevronUp, Eye, Hash, Link2, Plus, Printer, Puzzle, Star, Wand2 } from 'lucide-react';
+import { AppIcon, type IconName } from './AppIcon';
 import type { VocabularyItem, VocabularyList, VocabularyWordType } from '../types';
 import { generateVocabularyWithAI } from '../services/api';
 import { TtsButton } from './AudioPlayer';
@@ -144,7 +145,7 @@ export function VocabularyViewer({ lists }: VocabularyViewerProps) {
   if (!lists.length) {
     return (
       <div className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-sm">
-        <p className="text-4xl">📚</p>
+        <BookOpen size={40} className="mx-auto text-slate-300" />
         <p className="mt-3 font-semibold text-slate-600">Tu profesor aún no ha asignado listas de vocabulario.</p>
       </div>
     );
@@ -296,22 +297,22 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
     </button>
   );
 }
-function ChipGroup({ label, children }: { label: string; children: ReactNode }) {
+function ChipGroup({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
 }
 
-const VOCAB_PRESETS: { icon: string; label: string; topic: string; types: string[] }[] = [
-  { icon: '✈️', label: 'Viajes', topic: 'travel and airports', types: [] },
-  { icon: '🍎', label: 'Comida', topic: 'food and cooking', types: ['noun', 'adjective'] },
-  { icon: '🏫', label: 'Escuela', topic: 'school and classroom', types: [] },
-  { icon: '💼', label: 'Trabajo', topic: 'work and office', types: [] },
-  { icon: '🔁', label: 'Verbos irregulares', topic: 'common irregular verbs', types: ['verb'] },
-  { icon: '🔗', label: 'Conectores', topic: 'connectors and linking words for essays', types: ['connector', 'linking word'] },
+const VOCAB_PRESETS: { icon: IconName; label: string; topic: string; types: string[] }[] = [
+  { icon: 'plane', label: 'Viajes', topic: 'travel and airports', types: [] },
+  { icon: 'apple', label: 'Comida', topic: 'food and cooking', types: ['noun', 'adjective'] },
+  { icon: 'school', label: 'Escuela', topic: 'school and classroom', types: [] },
+  { icon: 'briefcase', label: 'Trabajo', topic: 'work and office', types: [] },
+  { icon: 'refresh', label: 'Verbos irregulares', topic: 'common irregular verbs', types: ['verb'] },
+  { icon: 'link', label: 'Conectores', topic: 'connectors and linking words for essays', types: ['connector', 'linking word'] },
 ];
 const VOCAB_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
 const VOCAB_COUNTS = [10, 15, 20, 30, 40];
@@ -365,15 +366,15 @@ function VocabAiPanel({ onResult }: { onResult: (topic: string, csv: string) => 
       </div>
       <p className="mt-2 mb-5 text-sm text-slate-500">Escribe un tema (o elige un preset) y la IA arma la lista. Se llena la vista previa de abajo: revísala antes de guardar.</p>
 
-      <ChipGroup label="⭐ Presets (un clic)">
+      <ChipGroup label={<><Star size={13} /> Presets (un clic)</>}>
         {VOCAB_PRESETS.map((p) => (
-          <Chip key={p.label} active={false} onClick={() => { setTopic(p.topic); setTypes(p.types); }}>{p.icon} {p.label}</Chip>
+          <Chip key={p.label} active={false} onClick={() => { setTopic(p.topic); setTypes(p.types); }}><AppIcon name={p.icon} size={14} className="inline" /> {p.label}</Chip>
         ))}
       </ChipGroup>
 
       <div className="mt-5 grid gap-4">
         <label className="block">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">📖 Tema</p>
+          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><BookOpen size={13} /> Tema</p>
           <input
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-spike"
             placeholder="Ej: animales de granja, ropa, phrasal verbs con 'get'…"
@@ -383,15 +384,15 @@ function VocabAiPanel({ onResult }: { onResult: (topic: string, csv: string) => 
           />
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
-          <ChipGroup label="📚 Nivel">
+          <ChipGroup label={<><BarChart3 size={13} /> Nivel</>}>
             {VOCAB_LEVELS.map((l) => <Chip key={l} active={level === l} onClick={() => setLevel(level === l ? '' : l)}>{l}</Chip>)}
           </ChipGroup>
-          <ChipGroup label="🔢 Cantidad">
+          <ChipGroup label={<><Hash size={13} /> Cantidad</>}>
             {VOCAB_COUNTS.map((c) => <Chip key={c} active={count === c} onClick={() => setCount(c)}>{c}</Chip>)}
           </ChipGroup>
         </div>
-        <ChipGroup label="🧩 Tipos de palabra (opcional, vacío = mezcla)">
-          {VOCAB_TYPES.map(([label, v]) => <Chip key={v} active={types.includes(v)} onClick={() => toggleType(v)}>{types.includes(v) ? '✓ ' : ''}{label}</Chip>)}
+        <ChipGroup label={<><Puzzle size={13} /> Tipos de palabra (opcional, vacío = mezcla)</>}>
+          {VOCAB_TYPES.map(([label, v]) => <Chip key={v} active={types.includes(v)} onClick={() => toggleType(v)}>{types.includes(v) && <Check size={12} className="inline" />} {label}</Chip>)}
         </ChipGroup>
       </div>
 
@@ -415,7 +416,7 @@ function StudentPreviewModal({ list, onClose }: { list: VocabularyList; onClose:
     <div className="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-slate-900/60 p-4" onClick={onClose}>
       <div className="my-auto w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm">
-          <p className="text-sm font-semibold text-slate-600">👁 Así lo ve el alumno</p>
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-600"><Eye size={15} /> Así lo ve el alumno</p>
           <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600">Cerrar</button>
         </div>
         <VocabularyViewer lists={[list]} />
@@ -584,7 +585,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
                         className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${isAssigned ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500 hover:border-rex/40 hover:text-rex-deep'}`}
                         onClick={() => isAssigned ? onUnassign(list.id, classroom.id) : onAssign(list.id, classroom.id)}
                       >
-                        {isAssigned ? '✓ ' : '+ '}{classroom.name}
+                        {isAssigned ? <Check size={12} className="inline" /> : <Plus size={12} className="inline" />} {classroom.name}
                       </button>
                     );
                   })}
@@ -605,7 +606,7 @@ export function VocabularyManager({ lists, classrooms, readers, onCreate, onDele
                         className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${isAssigned ? 'border-teal-400 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:border-teal-300 hover:text-teal-600'}`}
                         onClick={() => isAssigned ? onUnassignReader(list.id, reader.id) : onAssignReader(list.id, reader.id)}
                       >
-                        {isAssigned ? '✓ ' : '+ '}{reader.name}
+                        {isAssigned ? <Check size={12} className="inline" /> : <Plus size={12} className="inline" />} {reader.name}
                       </button>
                     );
                   })}

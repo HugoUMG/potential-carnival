@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
-import { RotateCcw, Shuffle } from 'lucide-react';
+import { Bomb, Check, Coins, Crown, Gift, Lightbulb, Mail, RotateCcw, Shuffle, Sparkles, Trophy, X } from 'lucide-react';
+import { AppIcon, EmojiIcon } from '../components/AppIcon';
 import type { GameQuestion } from '../types';
 import { CHALLENGES, TEAM_COLORS, range, sample, shuffle, toggledList, type GameProps } from './util';
 import { Countdown, Es, Finish, Say, Sheet, Speak } from './ui';
@@ -29,7 +30,7 @@ function Question({ q, n }: { q: GameQuestion; n?: number }) {
       <p className="dg-sheet-q"><Say text={q.text} /></p>
       <Speak text={q.text} />
       <Es className="center">{q.translation}</Es>
-      {q.hint && <p className="dg-hint">💡 <Say text={q.hint} /></p>}
+      {q.hint && <p className="dg-hint inline-flex items-center gap-1.5"><Lightbulb size={15} className="shrink-0" /> <Say text={q.hint} /></p>}
     </>
   );
 }
@@ -37,7 +38,7 @@ function Question({ q, n }: { q: GameQuestion; n?: number }) {
 function Answered({ done, onDone, onClose }: { done: boolean; onDone: () => void; onClose: () => void }) {
   return (
     <div className="dg-row">
-      <button type="button" className="dg-btn primary grow" onClick={onDone}>{done ? 'Quitar marca' : '✓ La respondí'}</button>
+      <button type="button" className="dg-btn primary grow" onClick={onDone}>{done ? 'Quitar marca' : <span className="inline-flex items-center gap-1"><Check size={16} /> La respondí</span>}</button>
       <button type="button" className="dg-btn grow" onClick={onClose}>Cerrar</button>
     </div>
   );
@@ -65,7 +66,7 @@ export function DoorsGame({ questions }: GameProps) {
         {order.map((qi, k) => (
           <button key={k} type="button" className={`dg-door ${done.includes(k) || open === k ? 'open' : ''}`} onClick={() => setOpen(k)}
             style={{ '--c': DOORS[k % DOORS.length] } as CSSProperties} aria-label={`Puerta ${k + 1}${done.includes(k) ? ' (respondida)' : ''}`}>
-            <span className="dg-door-in">{questions[qi].emoji || '❓'}{done.includes(k) && <b>✓</b>}</span>
+            <span className="dg-door-in"><EmojiIcon emoji={questions[qi].emoji} size={26} />{done.includes(k) && <b><Check size={14} /></b>}</span>
             <span className="dg-door-leaf">{k + 1}<i /></span>
           </button>
         ))}
@@ -107,9 +108,9 @@ export function MapGame({ questions }: GameProps) {
             <div key={k} className={`dg-stop-cell ${link} ${k < at ? 'walked' : ''}`} style={{ gridRow: row + 1, gridColumn: col + 1 }}>
               <button type="button" className={`dg-stop ${k < at ? 'past' : k === at ? 'here' : ''} ${gold ? 'gold' : ''}`}
                 disabled={k !== at || gold} onClick={() => setOpen(true)} aria-label={gold ? 'Tesoro' : `Parada ${k + 1}`}>
-                {gold ? '💰' : k < at ? '✓' : k + 1}
+                {gold ? <Coins size={20} /> : k < at ? <Check size={18} /> : k + 1}
               </button>
-              {k === at && <span className="dg-rex" aria-hidden="true">🦖</span>}
+              {k === at && <span className="dg-rex" aria-hidden="true"><AppIcon name="footprints" size={22} /></span>}
             </div>
           );
         })}
@@ -120,13 +121,13 @@ export function MapGame({ questions }: GameProps) {
           <button type="button" className="dg-link center" onClick={again}><Shuffle size={14} /> Nuevo mapa</button>
         </>
       ) : (
-        <Finish score={route.length} total={route.length} onAgain={again}><p>¡Encontraste el tesoro! 💰</p></Finish>
+        <Finish score={route.length} total={route.length} onAgain={again}><p className="inline-flex items-center gap-1.5">¡Encontraste el tesoro! <Coins size={18} /></p></Finish>
       )}
       {q && open && (
         <Sheet onClose={close} className="dg-sheet-pick">
           <Question q={q} n={at + 1} />
           <div className="dg-row">
-            <button type="button" className="dg-btn primary grow" onClick={() => { setAt((a) => a + 1); close(); }}>✓ La respondí: ¡avanza!</button>
+            <button type="button" className="dg-btn primary grow" onClick={() => { setAt((a) => a + 1); close(); }}><Check size={16} /> La respondí: ¡avanza!</button>
             <button type="button" className="dg-btn grow" onClick={close}>Cerrar</button>
           </div>
         </Sheet>
@@ -150,7 +151,7 @@ export function LettersGame({ questions }: GameProps) {
         {order.map((_, k) => (
           <button key={k} type="button" className={`dg-env ${done.includes(k) ? 'done' : ''}`} onClick={() => setOpen(k)}
             style={{ '--c': ENVELOPES[k % ENVELOPES.length] } as CSSProperties} aria-label={`Sobre ${k + 1}${done.includes(k) ? ' (respondido)' : ''}`}>
-            {done.includes(k) && <span className="dg-env-letter">✓</span>}
+            {done.includes(k) && <span className="dg-env-letter"><Check size={16} /></span>}
             <span className="dg-env-flap" />
             {!done.includes(k) && <span className="dg-seal">{k + 1}</span>}
           </button>
@@ -161,7 +162,7 @@ export function LettersGame({ questions }: GameProps) {
         <Sheet onClose={close} className="dg-sheet-letter">
           <span className="dg-seal big">{open + 1}</span>
           <Question q={questions[qi]} />
-          <p className="dg-task"><b>📮 Reto</b>{CHALLENGES[task]}</p>
+          <p className="dg-task inline-flex items-center gap-1.5"><b className="inline-flex items-center gap-1"><Mail size={15} /> Reto</b>{CHALLENGES[task]}</p>
           {task === 4 && <Countdown />}
           <Answered done={done.includes(open)} onDone={() => answer(open)} onClose={close} />
         </Sheet>
@@ -262,7 +263,7 @@ export function ScratchGame({ questions }: GameProps) {
             aria-label={`Boleto ${k + 1}${shown.includes(k) ? `: ${questions[qi].text}` : ''}`}>
             <span className="dg-ticket-n">#{k + 1}</span>
             {shown.includes(k) ? <span className="dg-ticket-q">{questions[qi].text}</span> : <span className="dg-ticket-foil">RASCA</span>}
-            {done.includes(k) && <span className="dg-note-stamp">done ✓</span>}
+            {done.includes(k) && <span className="dg-note-stamp inline-flex items-center gap-1">done <Check size={12} /></span>}
           </button>
         ))}
       </div>
@@ -290,10 +291,10 @@ export function ScratchGame({ questions }: GameProps) {
 
 // ── Cajas bomba ───────────────────────────────────────────────────────────────
 
-/** Lo que hay en cada caja: puntos (1–3), ⭐ que duplica o 💣 que deja al equipo en 0. */
+/** Lo que hay en cada caja: puntos (1–3), una estrella que duplica o una bomba que deja al equipo en 0. */
 type Prize = number | 'star' | 'boom';
 const BOXES = ['#FF6B6B', '#4DABF7', '#51CF66', '#FF922B', '#9775FA', '#F06595'];
-const prizeLabel = (p: Prize) => (p === 'boom' ? '💣' : p === 'star' ? '⭐' : `+${p}`);
+const prizeLabel = (p: Prize) => (p === 'boom' ? <Bomb size={20} /> : p === 'star' ? <Sparkles size={20} /> : `+${p}`);
 
 function deal(n: number): Prize[] {
   const booms = Math.max(1, Math.round(n / 7));
@@ -330,7 +331,7 @@ export function BombGame({ questions }: GameProps) {
         <div className="dg-row center">
           {[2, 3, 4].map((t) => <button key={t} type="button" className="dg-btn primary big" onClick={() => start(t)}>{t} equipos</button>)}
         </div>
-        <p className="dg-muted center">Cada equipo elige una caja y responde su pregunta. Si responde bien, se lleva lo que hay dentro: puntos, ⭐ (duplica) o 💣 (se queda en 0).</p>
+        <p className="dg-muted center">Cada equipo elige una caja y responde su pregunta. Si responde bien, se lleva lo que hay dentro: puntos, <Sparkles size={14} className="inline align-[-2px]" /> (duplica) o <Bomb size={14} className="inline align-[-2px]" /> (se queda en 0).</p>
       </div>
     );
   }
@@ -359,13 +360,13 @@ export function BombGame({ questions }: GameProps) {
       <div className="dg-scoreboard">
         {scores.map((s, k) => (
           <div key={k} className={`dg-team ${k === turn && !over ? 'turn' : ''}`} style={{ '--team': TEAM_COLORS[k] } as CSSProperties}>
-            <span>Equipo {k + 1}{s === best && s > 0 ? ' 👑' : ''}</span>
+            <span className="inline-flex items-center gap-1">Equipo {k + 1}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
             <b>{s}</b>
           </div>
         ))}
       </div>
       {over
-        ? <p className="dg-big-q">🏆 {winners.length > 1 ? `Empate: equipos ${winners.join(' y ')}` : `¡Gana el Equipo ${winners[0]}!`}</p>
+        ? <p className="dg-big-q inline-flex items-center gap-2"><Trophy size={22} /> {winners.length > 1 ? `Empate: equipos ${winners.join(' y ')}` : `¡Gana el Equipo ${winners[0]}!`}</p>
         : <p className="dg-challenge center">Turno del <span style={{ color: TEAM_COLORS[turn] }}>{team}</span>: elige una caja</p>}
       <div className="dg-boxes">
         {order.map((_, k) => (opened.includes(k) ? (
@@ -385,17 +386,17 @@ export function BombGame({ questions }: GameProps) {
             <>
               <p className="dg-muted center">¿Respondió bien el {team}?</p>
               <div className="dg-row">
-                <button type="button" className="dg-btn ok grow" onClick={() => grade(true)}>✓ Bien: abrir la caja</button>
-                <button type="button" className="dg-btn grow" onClick={() => grade(false)}>✗ No</button>
+                <button type="button" className="dg-btn ok grow" onClick={() => grade(true)}><Check size={16} /> Bien: abrir la caja</button>
+                <button type="button" className="dg-btn grow" onClick={() => grade(false)}><X size={16} /> No</button>
               </div>
             </>
           ) : (
             <>
               <p className={`dg-prize ${result === 'no' ? 'miss' : prize === 'boom' ? 'boom' : ''}`}>
                 {result === 'no' ? 'Sin puntos: la caja sigue cerrada para otro equipo.'
-                  : prize === 'boom' ? `💣 ¡BOOM! El ${team} se queda en 0.`
-                    : prize === 'star' ? `⭐ ¡Estrella! Los puntos del ${team} se duplican.`
-                      : `🎁 +${prize} para el ${team}`}
+                  : prize === 'boom' ? <span className="inline-flex items-center gap-1.5"><Bomb size={18} /> ¡BOOM! El {team} se queda en 0.</span>
+                    : prize === 'star' ? <span className="inline-flex items-center gap-1.5"><Sparkles size={18} /> ¡Estrella! Los puntos del {team} se duplican.</span>
+                      : <span className="inline-flex items-center gap-1.5"><Gift size={18} /> +{prize} para el {team}</span>}
               </p>
               <button type="button" className="dg-btn primary" onClick={next}>Siguiente: Equipo {((turn + 1) % scores.length) + 1}</button>
             </>

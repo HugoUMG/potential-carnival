@@ -85,7 +85,11 @@ function PrintActivity({ activity, n }: { activity: WorksheetActivity; n: number
           <div className="wp-opts">
             {options.map((opt, i) => (
               <div key={i} className="wp-opt">
-                <span className="wp-mark">{multi ? '☐' : `${String.fromCharCode(65 + i)})`}</span>
+                <span className="wp-mark">{multi ? (
+                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                    <rect x="0.75" y="0.75" width="10.5" height="10.5" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                  </svg>
+                ) : `${String.fromCharCode(65 + i)})`}</span>
                 {imageOf(opt)
                   ? <img src={imageOf(opt)} alt={opt} className="wp-img wp-img-opt" />
                   : <span><RichText text={opt} /></span>}

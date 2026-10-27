@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Moon, RotateCcw, Send, Sun } from 'lucide-react';
+import { Check, Lock, MessageSquareText, Moon, RotateCcw, Send, Sun, X } from 'lucide-react';
 import { WorksheetRenderer } from '../components/WorksheetRenderer';
 import { LoadingScreen, LoadingOverlay } from '../components/LoadingScreen';
 import { SubmitConfirmModal, missingNameLabel, type SubmitPrompt } from '../components/SubmitConfirmModal';
@@ -150,7 +150,7 @@ export function DirectWorksheetPage() {
       <main className="grid min-h-screen place-items-center bg-cream p-6 text-center">
         <ThemeFab />
         <div className="max-w-md rounded-3xl bg-white p-8 shadow-sm">
-          <p className="text-4xl">🔒</p>
+          <Lock size={38} className="mx-auto text-slate-400" />
           <h1 className="mt-3 text-lg font-bold text-slate-900">Hoja no disponible</h1>
           <p className="mt-2 text-sm text-slate-500">{error} El enlace puede estar deshabilitado o ser incorrecto.</p>
         </div>
@@ -171,8 +171,8 @@ export function DirectWorksheetPage() {
             <div>
               <p className="text-lg font-bold">
                 Tu resultado: <span className="text-rex-deep">{result.score ?? 0}</span>
-                <span className="ml-3 text-sm font-semibold text-emerald-700">✓ {result.correct} correctas</span>
-                <span className="ml-3 text-sm font-semibold text-red-600">✗ {result.incorrect} incorrectas</span>
+                <span className="ml-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700"><Check size={14} /> {result.correct} correctas</span>
+                <span className="ml-3 inline-flex items-center gap-1 text-sm font-semibold text-red-600"><X size={14} /> {result.incorrect} incorrectas</span>
                 {result.pending > 0 && <span className="ml-3 text-sm font-semibold text-amber-600">… {result.pending} en revisión</span>}
               </p>
               <p className="mt-1 text-xs text-slate-500">Aquí puedes ver siempre qué respondiste bien y mal.</p>
@@ -186,9 +186,9 @@ export function DirectWorksheetPage() {
             <div className="grid gap-2">
               {result.details.map((d, i) => (
                 <div key={i} className={`rounded-xl border p-2 text-sm ${d.status === 'correct' ? 'border-emerald-200 bg-emerald-50' : d.status === 'incorrect' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-                  <p className="font-semibold text-slate-700">{d.status === 'correct' ? '✓' : d.status === 'incorrect' ? '✗' : '…'} {String(d.prompt).slice(0, 100)}</p>
+                  <p className="flex items-start gap-1 font-semibold text-slate-700">{d.status === 'correct' ? <Check size={15} className="mt-0.5 shrink-0 text-emerald-600" /> : d.status === 'incorrect' ? <X size={15} className="mt-0.5 shrink-0 text-red-500" /> : '…'} <span>{String(d.prompt).slice(0, 100)}</span></p>
                   <p className="text-slate-500">Tu respuesta: {answerText(d.student_answer)}{d.status === 'incorrect' && d.correct_answer != null && <> · Correcta: <b>{answerText(d.correct_answer)}</b></>}</p>
-                  {d.teacher_comment && <p className="mt-1 text-xs italic text-slate-600">💬 {d.teacher_comment}</p>}
+                  {d.teacher_comment && <p className="mt-1 inline-flex items-start gap-1 text-xs italic text-slate-600"><MessageSquareText size={13} className="mt-0.5 shrink-0" /> {d.teacher_comment}</p>}
                 </div>
               ))}
             </div>
@@ -230,7 +230,7 @@ export function DirectWorksheetPage() {
       {submitting && <LoadingOverlay message="Calificando tus respuestas…" />}
       <div className="mx-auto max-w-4xl px-4">
         <p className="mb-4 rounded-2xl bg-rex-light px-4 py-2 text-center text-sm font-semibold text-rex-deep">
-          {maxAttempts == null ? '♾️ Puedes hacer esta hoja las veces que quieras.' : `Intento ${attemptsUsed + 1} de ${maxAttempts}.`}
+          {maxAttempts == null ? 'Sin límite: puedes hacer esta hoja las veces que quieras.' : `Intento ${attemptsUsed + 1} de ${maxAttempts}.`}
         </p>
         <WorksheetRenderer worksheet={worksheet} answers={answers} onAnswerChange={updateAnswer} />
         {error && <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm font-semibold text-red-600">{error}</p>}

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ArrowLeft, Check, ClipboardPaste, Copy, ExternalLink, Gamepad2, MessagesSquare, Pencil, Plus, QrCode, Sparkles, Star, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BarChart3, BookOpen, Check, ClipboardPaste, Copy, ExternalLink, Gamepad2, Hash, MessagesSquare, NotebookPen, Pencil, Plus, QrCode, Sparkles, Star, Target, Trash2, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { AppIcon, EmojiIcon } from './AppIcon';
 import { createGameSet, deleteGameSet, generateGameQuestions, listGameSets, updateGameSet } from '../services/api';
 import type { GameQuestion, GameSet, GameSetDraft } from '../types';
 import { SAMPLE_GAME_SET } from '../data/sampleGameSet';
@@ -62,10 +63,10 @@ export function GameSetsManager() {
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             {SKILLS.map((s) => (
               <div key={s.id}>
-                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-400">{s.emoji} {s.name}</p>
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-400"><AppIcon name={s.icon} size={14} /> {s.name}</p>
                 <ul className="grid gap-2">
                   {GAMES.filter((g) => g.skill === s.id).map((g) => (
-                    <li key={g.id}><b>{g.emoji} {g.name}:</b> {g.purpose} <span className="text-slate-500">{g.howTo}</span></li>
+                    <li key={g.id}><b className="inline-flex items-center gap-1"><AppIcon name={g.icon} size={14} /> {g.name}:</b> {g.purpose} <span className="text-slate-500">{g.howTo}</span></li>
                   ))}
                 </ul>
               </div>
@@ -260,15 +261,15 @@ function Editor({ id, initial, onSaved, onCancel }: { id: string | null; initial
 
       <section className="grid gap-4 rounded-3xl bg-white p-5 shadow-sm sm:grid-cols-2">
         <label className="block sm:col-span-2">
-          <Label>📝 Título del juego</Label>
+          <Label><span className="flex items-center gap-1.5"><NotebookPen size={13} /> Título del juego</span></Label>
           <input className={input} value={draft.title} maxLength={120} placeholder="Ej: Would you…? Speaking B1" onChange={(e) => patch({ title: e.target.value })} />
         </label>
         <label className="block">
-          <Label>📖 Tema</Label>
+          <Label><span className="flex items-center gap-1.5"><BookOpen size={13} /> Tema</span></Label>
           <input className={input} value={draft.topic} maxLength={300} placeholder="Ej: vacaciones, comida, tecnología…" onChange={(e) => patch({ topic: e.target.value })} />
         </label>
         <div>
-          <Label>📚 Nivel</Label>
+          <Label><span className="flex items-center gap-1.5"><BarChart3 size={13} /> Nivel</span></Label>
           <div className="flex flex-wrap gap-2">{LEVELS.map((l) => <Chip key={l} active={draft.level === l} onClick={() => patch({ level: l })}>{l}</Chip>)}</div>
         </div>
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 sm:col-span-2">
@@ -287,12 +288,12 @@ function Editor({ id, initial, onSaved, onCancel }: { id: string | null; initial
         </div>
         <div className="mt-4 grid gap-4">
           <label className="block">
-            <Label>🎯 Enfoque gramatical (opcional)</Label>
+            <Label><span className="flex items-center gap-1.5"><Target size={13} /> Enfoque gramatical (opcional)</span></Label>
             <input className={input} value={focus} maxLength={200} placeholder="Ej: Wh- questions with would" onChange={(e) => setFocus(e.target.value)} />
             <div className="mt-2 flex flex-wrap gap-2">{FOCUS_PRESETS.map((f) => <Chip key={f} active={focus === f} onClick={() => setFocus(focus === f ? '' : f)}>{f}</Chip>)}</div>
           </label>
           <div>
-            <Label>🔢 Cantidad</Label>
+            <Label><span className="flex items-center gap-1.5"><Hash size={13} /> Cantidad</span></Label>
             <div className="flex flex-wrap gap-2">{COUNTS.map((c) => <Chip key={c} active={count === c} onClick={() => setCount(c)}>{c}</Chip>)}</div>
           </div>
         </div>
@@ -329,7 +330,10 @@ function Editor({ id, initial, onSaved, onCancel }: { id: string | null; initial
             <div key={k} className="grid gap-2 rounded-2xl border border-slate-200 p-3">
               <div className="flex items-center gap-2">
                 <span className="w-6 text-right text-xs font-bold text-slate-400">{k + 1}</span>
-                <input className={`${input} !w-14 text-center`} value={q.emoji} maxLength={8} aria-label="Emoji" placeholder="🙂" onChange={(e) => patchQ(k, { emoji: e.target.value })} />
+                <div className="flex items-center gap-1">
+                  <input className={`${input} !w-14 text-center`} value={q.emoji} maxLength={8} aria-label="Emoji o icono" placeholder="Icono" onChange={(e) => patchQ(k, { emoji: e.target.value })} />
+                  <EmojiIcon emoji={q.emoji} size={18} className="shrink-0 text-slate-500" />
+                </div>
                 <input className={`${input} font-semibold`} value={q.text} maxLength={300} aria-label="Pregunta en inglés" placeholder="Pregunta en inglés" onChange={(e) => patchQ(k, { text: e.target.value })} />
                 <button type="button" aria-label="Quitar pregunta" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500"
                   onClick={() => patch({ questions: draft.questions.filter((_, i) => i !== k) })}><X size={16} /></button>

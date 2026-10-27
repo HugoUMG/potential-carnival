@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Play, X } from 'lucide-react';
+import { Check, Flame, Play, Timer, Trophy, X } from 'lucide-react';
 import { pick, range, sample, shuffle, speak, useGame, type GameProps } from './util';
 import { Finish, Notice, Say, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
@@ -138,7 +138,7 @@ export function SpeedGame({ questions }: GameProps) {
     return (
       <div className="dg-center-card">
         {phase === 'over' && <p className="dg-finish-score">{score} puntos</p>}
-        <p className="dg-big-q">{phase === 'over' ? (score >= best && score > 0 ? '¡Nuevo récord! 🏆' : `Tu récord: ${best}`) : `Tienes ${SECONDS} segundos: lee la traducción y elige la pregunta en inglés.`}</p>
+        <p className="dg-big-q">{phase === 'over' ? (score >= best && score > 0 ? <span className="inline-flex items-center gap-2">¡Nuevo récord! <Trophy size={22} /></span> : `Tu récord: ${best}`) : `Tienes ${SECONDS} segundos: lee la traducción y elige la pregunta en inglés.`}</p>
         <p className="dg-muted center">Cada acierto seguido sube el combo (hasta ×5). Un error lo reinicia.</p>
         <button type="button" className="dg-btn primary big" onClick={start}><Play size={18} /> {phase === 'over' ? 'Jugar otra vez' : '¡Empezar!'}</button>
       </div>
@@ -150,7 +150,7 @@ export function SpeedGame({ questions }: GameProps) {
       <div className="dg-speed-bar">
         <span className="dg-speed-time" style={{ width: `${(left / SECONDS) * 100}%` }} />
       </div>
-      <p className="dg-progress">⏱ {left}s · {score} puntos {combo > 1 && <b className="dg-combo">combo ×{Math.min(combo, 5)}</b>}</p>
+      <p className="dg-progress inline-flex items-center gap-1.5"><Timer size={15} /> {left}s · {score} puntos {combo > 1 && <b className="dg-combo">combo ×{Math.min(combo, 5)}</b>}</p>
       <p className="dg-big-q es">{questions[round.target].translation}</p>
       <div className="dg-options">
         {round.options.map((o) => (
@@ -203,7 +203,7 @@ export function MatchGame({ questions }: GameProps) {
 
   return (
     <div className="dg-quiz">
-      <p className="dg-progress">Tarjeta {n + 1} de {MATCH_ROUNDS} · {score} aciertos {streak > 2 && <b className="dg-combo">🔥 {streak}</b>}</p>
+      <p className="dg-progress">Tarjeta {n + 1} de {MATCH_ROUNDS} · {score} aciertos {streak > 2 && <b className="dg-combo inline-flex items-center gap-1"><Flame size={13} /> {streak}</b>}</p>
       <div
         className={`dg-swipe ${result}`}
         style={{ transform: `translateX(${drag}px) rotate(${drag / 25}deg)` }}

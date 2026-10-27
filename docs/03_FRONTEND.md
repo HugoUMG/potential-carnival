@@ -26,9 +26,25 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 
 `ProtectedRoute` envuelve los portales autenticados. Cualquier otra ruta redirige a `/`.
 
+## Iconografía
+
+- Los iconos de la UI salen de `lucide-react` a través de `src/components/AppIcon.tsx`
+  (`AppIcon` y el registro `ICONS`/`IconName`). No se añaden emojis nuevos a la interfaz.
+- `EmojiIcon` acepta tanto un emoji como un nombre de icono; normaliza variantes con `U+FE0F`
+  y cae en `Sparkles` si no reconoce el valor.
+- Los emojis que siguen siendo **datos del backend** (avatares y reacciones de la sesión en vivo,
+  emoji de una pregunta de juego, emoji de escenario/rol de role-play) se conservan en el contrato
+  y se pintan con `EmojiIcon`; no se renombran campos de la API por esto.
+- Excepción fija: los literales `AVATARS` y `REACTIONS` de `src/pages/LivePage.tsx` deben seguir
+  siendo emojis crudos porque `backend/tests/test_live_session.py` compara esas listas con las del
+  backend.
+- `src/data/sampleGameSet.ts` puede usar nombres de icono en el campo `emoji` de la pregunta: el
+  render los resuelve con `EmojiIcon`, pero el contrato sigue llamándose `emoji`.
+
 ## Juegos de práctica (`/juegos`, `/j/:setId`, sección `juegos`)
 
-Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji) que se
+Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji o
+nombre de icono) que se
 juega con **27 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 5 tableros numerados) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
 no hay que escribir nada distinto por juego.
 
@@ -42,8 +58,8 @@ no hay que escribir nada distinto por juego.
   el hash (`#ordena`), así que se comparte por enlace y el "atrás" del celular vuelve al inicio.
   Si el diccionario aún no está completo (la IA corre en segundo plano al guardar), lo vuelve a pedir
   **una vez** a los 20 s.
-- **Motor:** `src/games/`. `registry.ts` (`GAMES`: id, nombre, habilidad, color, `purpose`, `howTo`,
-  componente — lo leen el reproductor, el catálogo y el panel), `util.ts` (contexto, `tokenize`,
+- **Motor:** `src/games/`. `registry.ts` (`GAMES`: id, nombre, habilidad, color, `icon`, `purpose`,
+  `howTo`, componente — lo leen el reproductor, el catálogo y el panel), `util.ts` (contexto, `tokenize`,
   `matchWords`, azar, `speak`), `ui.tsx` (`Say`, `Speak`, `WordPopover`, `Sheet`, `Countdown`,
   `Finish`), un archivo por habilidad (`speaking`, `listening`, `structure`, `meaning`) y
   `games.css`, todo colgado de `.dg` para no chocar con Tailwind. Modo oscuro solo con variables

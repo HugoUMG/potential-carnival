@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Crown, Eye, Gamepad2, Play, Users } from 'lucide-react';
 import { createRoom, getRoom, joinRoom, passRoomTurn, pushRoomState, RoomError, sayInRoom, type RoomJoined } from '../services/api';
 import type { RoomLend, RoomMode, RoomState } from '../types';
 import { nextTurn, RoomContext, saveSeat, useTurnAlert, type Blob, type RoomCtx, type Seat } from './roomState';
@@ -191,10 +192,10 @@ function RoomBar({ room, me, seats, scores, error, onPass, onLeave }: {
   const nameOf = (id: string) => room.players.find((p) => p.id === id)?.name ?? '…';
   const host = room.players.find((p) => p.id === room.host_id);
   const status = room.mode === 'turnos'
-    ? (room.turn === me ? '▶ Tu turno' : `▶ Turno de ${nameOf(room.turn)}`)
+    ? (room.turn === me ? <><Play size={13} /> Tu turno</> : <><Play size={13} /> Turno de {nameOf(room.turn)}</>)
     : room.lend
-      ? `🎮 ${room.turn === me ? 'Ahora mueves tú' : `Ahora mueve ${nameOf(room.turn)}`} (${room.lend === 'once' ? '1 turno' : 'sin límite'})`
-      : isHost ? '👀 Todos ven lo que haces' : `👀 Viendo a ${host?.name ?? 'el anfitrión'}`;
+      ? <><Gamepad2 size={14} /> {room.turn === me ? 'Ahora mueves tú' : `Ahora mueve ${nameOf(room.turn)}`} ({room.lend === 'once' ? '1 turno' : 'sin límite'})</>
+      : isHost ? <><Eye size={14} /> Todos ven lo que haces</> : <><Eye size={14} /> Viendo a {host?.name ?? 'el anfitrión'}</>;
   const link = `${window.location.origin}${window.location.pathname}?sala=${room.code}${window.location.hash}`;
   const copy = () => { void copyText(link).then((ok) => { setCopied(ok); window.setTimeout(() => setCopied(false), 1500); }); };
   const invite = `¡Juguemos inglés en MyDinoEnglish! Entra con este enlace (sala ${room.code}): ${link}`;
@@ -216,7 +217,7 @@ function RoomBar({ room, me, seats, scores, error, onPass, onLeave }: {
       <ul className="dg-room-players">
         {room.players.map((p) => (
           <li key={p.id} className={`${p.id === room.turn ? 'is-turn' : ''} ${p.online ? '' : 'is-off'}`}>
-            <span>{p.id === room.host_id && '👑 '}{p.name}{p.id === me && ' (tú)'}{room.mode === 'turnos' && seats !== undefined && room.players.indexOf(p) >= seats && ' 👀'}</span>
+            <span className="inline-flex items-center gap-1">{p.id === room.host_id && <Crown size={13} className="text-amber-500" />}{p.name}{p.id === me && ' (tú)'}{room.mode === 'turnos' && seats !== undefined && room.players.indexOf(p) >= seats && <Eye size={13} className="text-slate-400" />}</span>
             {(room.mode === 'turnos' || p.id in scores) && <b>{scores[p.id] ?? 0}</b>}
             {isHost && p.id !== me && room.mode === 'turnos' && p.id !== room.turn && (
               <button type="button" className="dg-room-act" onClick={() => onPass(p.id)}>Dar turno</button>
@@ -281,7 +282,7 @@ export function RoomGate({ game, setId, modes, modeText, joinCode, onEnter, onCa
 
   return (
     <form className="dg-room-gate" onSubmit={(e) => { void submit(e); }}>
-      <h2>👥 Jugar en grupo</h2>
+      <h2 className="flex items-center gap-2"><Users size={20} /> Jugar en grupo</h2>
       {!joinCode && (
         <div className="dg-room-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'crear'} onClick={() => setTab('crear')}>Crear sala</button>

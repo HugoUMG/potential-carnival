@@ -10,10 +10,9 @@ interface Activity {
   grading: Grading;
 }
 
-const GROUPS: { icon: typeof Shapes; emoji: string; title: string; subtitle: string; items: Activity[] }[] = [
+const GROUPS: { icon: typeof Shapes; title: string; subtitle: string; items: Activity[] }[] = [
   {
     icon: Shapes,
-    emoji: '🧱',
     title: 'Gramática y vocabulario',
     subtitle: 'Preguntas cerradas: hay una respuesta esperada y el sistema la conoce.',
     items: [
@@ -27,7 +26,6 @@ const GROUPS: { icon: typeof Shapes; emoji: string; title: string; subtitle: str
   },
   {
     icon: BookOpen,
-    emoji: '📖',
     title: 'Lectura',
     subtitle: 'Primero se explica o se lee; después se pregunta sobre el texto.',
     items: [
@@ -38,7 +36,6 @@ const GROUPS: { icon: typeof Shapes; emoji: string; title: string; subtitle: str
   },
   {
     icon: Headphones,
-    emoji: '🎧',
     title: 'Comprensión auditiva',
     subtitle: 'El audio se genera con voz sintética; el alumno nunca ve el texto.',
     items: [
@@ -49,7 +46,6 @@ const GROUPS: { icon: typeof Shapes; emoji: string; title: string; subtitle: str
   },
   {
     icon: Music4,
-    emoji: '🎼',
     title: 'Escucha fina',
     subtitle: 'Dictado y orden: aquí se entrena el oído palabra por palabra.',
     items: [
@@ -60,7 +56,6 @@ const GROUPS: { icon: typeof Shapes; emoji: string; title: string; subtitle: str
   },
   {
     icon: Mic,
-    emoji: '🗣️',
     title: 'Producción oral',
     subtitle: 'Micrófono en el navegador; si no hay, queda el respaldo escrito.',
     items: [
@@ -70,7 +65,6 @@ const GROUPS: { icon: typeof Shapes; emoji: string; title: string; subtitle: str
   },
   {
     icon: PenLine,
-    emoji: '✍️',
     title: 'Escritura abierta',
     subtitle: 'Sin respuesta única: las evalúa la IA o el profesor.',
     items: [
@@ -110,7 +104,7 @@ export function ActivitiesPage() {
       </div>
 
       <div className="mt-12 grid gap-6">
-        {GROUPS.map(({ icon: Icon, emoji, title, subtitle, items }) => (
+        {GROUPS.map(({ icon: Icon, title, subtitle, items }) => (
           <section key={title} className="site-glass p-6 sm:p-8">
             <div className="flex flex-wrap items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-site-acc/15 text-site-acc ring-1 ring-site-acc/30">
@@ -118,7 +112,7 @@ export function ActivitiesPage() {
               </span>
               <div className="min-w-[14rem] flex-1">
                 <h2 className="text-xl font-black tracking-tight">
-                  <span aria-hidden className="mr-2">{emoji}</span>{title}
+                  {title}
                 </h2>
                 <p className="mt-0.5 text-sm text-site-fg/55">{subtitle}</p>
               </div>

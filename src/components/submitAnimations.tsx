@@ -1,4 +1,34 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  Bomb,
+  BookOpen,
+  Brain,
+  Cake,
+  Check,
+  ChefHat,
+  Cloud,
+  CookingPot,
+  Flame,
+  Fuel,
+  NotebookPen,
+  PartyPopper,
+  PenLine,
+  PersonStanding,
+  Plane,
+  Rocket,
+  Satellite,
+  Sparkle,
+  Sparkles,
+  Star,
+  TreePine,
+  Umbrella,
+  Utensils,
+  Wind,
+  X,
+  Zap,
+} from 'lucide-react';
+import { AppIcon, type IconName } from './AppIcon';
 import RexMascot from './RexMascot';
 import { moodForScore } from '../utils/scoreMood';
 
@@ -96,7 +126,7 @@ function StarField() {
   return (
     <div className="pointer-events-none absolute inset-0">
       {STARS.map((s, i) => (
-        <span key={i} className="rk-twinkle absolute text-xs text-white/80" style={{ left: s.left, top: s.top, animationDelay: s.delay }}>✦</span>
+        <Sparkle key={i} size={11} className="rk-twinkle absolute text-white/80" style={{ left: s.left, top: s.top, animationDelay: s.delay }} />
       ))}
     </div>
   );
@@ -118,10 +148,10 @@ function Overlay({ bg, shake, children }: { bg: string; shake?: boolean; childre
 }
 
 /** Rótulo de la escena, legible sobre cualquier fondo. */
-function Caption({ text }: { text: string }) {
+function Caption({ text }: { text: ReactNode }) {
   return (
     <p className="absolute inset-x-0 top-10 flex justify-center px-4">
-      <span className="rounded-full bg-black/40 px-5 py-1.5 text-center text-xl font-black text-white backdrop-blur-sm">{text}</span>
+      <span className="flex items-center gap-2 rounded-full bg-black/40 px-5 py-1.5 text-center text-xl font-black text-white backdrop-blur-sm">{text}</span>
     </p>
   );
 }
@@ -129,22 +159,22 @@ function Caption({ text }: { text: string }) {
 /** Tarjeta blanca final con puntuación y botones · igual para todas las animaciones.
  *  RexLearn asoma sobre la tarjeta y reacciona a la nota (ver moodForScore); sin nota
  *  todavía, usa el resultado binario de la escena (ok). */
-function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitle, onSeeAnswers, onClose }: SceneProps & { ok: boolean; emoji: string; title: string }) {
+function ResultCard({ ok, icon, title, score, correct, incorrect, worksheetTitle, onSeeAnswers, onClose }: SceneProps & { ok: boolean; icon: IconName; title: string }) {
   return (
     <div className="relative mt-16 w-full max-w-sm rounded-3xl bg-white/95 p-8 pt-14 text-center shadow-2xl backdrop-blur">
       <RexMascot
         mood={score !== null ? moodForScore(score) : (ok ? 'happy' : 'sad')}
         className="absolute -top-20 left-1/2 h-36 w-36 -translate-x-1/2 drop-shadow-xl"
       />
-      <h2 className="text-2xl font-extrabold text-ink">{emoji} {title}</h2>
+      <h2 className="flex items-center justify-center gap-2 text-2xl font-extrabold text-ink"><AppIcon name={icon} size={26} /> {title}</h2>
       <p className="mt-1 text-sm text-slate-500">{worksheetTitle}</p>
       <div className={`mt-4 rounded-2xl px-6 py-4 ${ok ? 'bg-rex-light' : 'bg-rose-50'}`}>
         <p className={`text-4xl font-black ${ok ? 'text-rex-deep' : 'text-rose-700'}`}>{score !== null ? score : '-'}</p>
         <p className="text-sm font-semibold text-slate-500">Puntuación</p>
       </div>
       <div className="mt-3 flex justify-center gap-3 text-sm font-semibold">
-        <span className="rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700">✓ {correct}</span>
-        <span className="rounded-xl bg-red-50 px-3 py-1 text-red-700">✗ {incorrect}</span>
+        <span className="flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700"><Check size={15} /> {correct}</span>
+        <span className="flex items-center gap-1 rounded-xl bg-red-50 px-3 py-1 text-red-700"><X size={15} /> {incorrect}</span>
       </div>
       <button className="mt-6 w-full rounded-2xl bg-rex px-6 py-3 font-semibold text-white transition hover:bg-rex-dark" onClick={onSeeAnswers}>
         Ver mis respuestas →
@@ -158,17 +188,17 @@ function ResultCard({ ok, emoji, title, score, correct, incorrect, worksheetTitl
 
 // ── Animación 1: cohete al espacio ──────────────────────────────────────────
 
-const PLANETS = [
-  { emoji: '🪐', left: '18%', top: '20%', size: 'text-4xl', delay: '0.1s' },
-  { emoji: '🌕', left: '78%', top: '14%', size: 'text-3xl', delay: '0.4s' },
-  { emoji: '🌍', left: '68%', top: '58%', size: 'text-2xl', delay: '0.7s' },
+const PLANETS: { icon: IconName; left: string; top: string; size: number; delay: string }[] = [
+  { icon: 'orbit', left: '18%', top: '20%', size: 38, delay: '0.1s' },
+  { icon: 'moon', left: '78%', top: '14%', size: 30, delay: '0.4s' },
+  { icon: 'globe', left: '68%', top: '58%', size: 24, delay: '0.7s' },
 ];
 
 function Planets() {
   return (
     <div className="pointer-events-none absolute inset-0">
       {PLANETS.map((p, i) => (
-        <span key={i} className={`rk-planet-in absolute ${p.size}`} style={{ left: p.left, top: p.top, animationDelay: p.delay }}>{p.emoji}</span>
+        <AppIcon key={i} name={p.icon} size={p.size} className="rk-planet-in absolute text-indigo-200/70" style={{ left: p.left, top: p.top, animationDelay: p.delay }} />
       ))}
     </div>
   );
@@ -194,16 +224,16 @@ type RocketPhase = 'fuel' | 'suspense' | 'ignite' | 'ascend' | 'stabilize' | 'sp
 const ROCKET_OK: Array<[RocketPhase, number]> = [['fuel', 2000], ['suspense', 1700], ['ignite', 1000], ['ascend', 1400], ['stabilize', 900], ['space', 1600]];
 const ROCKET_FAIL: Array<[RocketPhase, number]> = [['fuel', 2000], ['suspense', 1700], ['ignite', 1000], ['ascend', 1400], ['turbo', 700], ['enginefail', 500], ['fall', 1000]];
 const ROCKET_SFX: Partial<Record<RocketPhase, SfxName>> = { ignite: 'launch', turbo: 'launch', space: 'success', fall: 'explosion' };
-const ROCKET_CAPTIONS: Record<RocketPhase, string> = {
-  fuel: '⛽ Tus respuestas son la gasolina del cohete',
-  suspense: '¿Podrá despegar el cohete? 🤔',
-  ignite: '🔥 ¡Ignición!',
-  ascend: '🚀 ¡Despegando!',
-  stabilize: '🛰️ Estabilizando…',
-  space: '🌌 ¡Llegó al espacio!',
-  turbo: '⚡ ¡Intentando turbo!',
-  enginefail: '⚠️ Falla de motor…',
-  fall: '💥 ¡Se estrelló!',
+const ROCKET_CAPTIONS: Record<RocketPhase, ReactNode> = {
+  fuel: <><Fuel size={20} /> Tus respuestas son la gasolina del cohete</>,
+  suspense: <>¿Podrá despegar el cohete? <Brain size={20} /></>,
+  ignite: <><Flame size={20} /> ¡Ignición!</>,
+  ascend: <><Rocket size={20} /> ¡Despegando!</>,
+  stabilize: <><Satellite size={20} /> Estabilizando…</>,
+  space: <><Sparkles size={20} /> ¡Llegó al espacio!</>,
+  turbo: <><Zap size={20} /> ¡Intentando turbo!</>,
+  enginefail: <><AlertTriangle size={20} /> Falla de motor…</>,
+  fall: <><Bomb size={20} /> ¡Se estrelló!</>,
 };
 
 function RocketScene(props: SceneProps) {
@@ -231,7 +261,7 @@ function RocketScene(props: SceneProps) {
           {phase === 'ascend' && (
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               {CLOUDS.map((c, i) => (
-                <span key={i} className="rk-cloud absolute text-4xl" style={{ left: c.left, top: c.top, animationDelay: c.delay }}>☁️</span>
+                <Cloud key={i} size={38} className="rk-cloud absolute text-white/80" style={{ left: c.left, top: c.top, animationDelay: c.delay }} />
               ))}
             </div>
           )}
@@ -240,26 +270,25 @@ function RocketScene(props: SceneProps) {
             {phase === 'suspense' && <div className="pointer-events-none absolute inset-0 -z-10 animate-pulse rounded-full bg-amber-400/25 blur-2xl" />}
             {phase === 'fuel' && (
               <>
-                <span className="rk-bob absolute -left-20 bottom-1 text-5xl">⛽</span>
-                {['📝', '✏️', '📚'].map((m, i) => (
-                  <span key={i} className="rk-rise absolute -left-7 bottom-0 text-2xl" style={{ animationDelay: `${i * 0.5}s` }}>{m}</span>
+                <Fuel size={44} className="rk-bob absolute -left-20 bottom-1 text-amber-300" />
+                {[NotebookPen, PenLine, BookOpen].map((Icon, i) => (
+                  <Icon key={i} size={22} className="rk-rise absolute -left-7 bottom-0 text-amber-100" style={{ animationDelay: `${i * 0.5}s` }} />
                 ))}
               </>
             )}
             <div className={onPad ? '' : (ok ? 'rk-journey-success' : 'rk-journey-fail')}>
               <div className={phase === 'ignite' || phase === 'turbo' ? 'rk-rumble' : (phase === 'ascend' || phase === 'suspense') ? 'rk-rumble-soft' : ''}>
                 <div className="rk-bob flex flex-col items-center">
-                  <span className="text-7xl">🚀</span>
+                  <Rocket size={72} className="text-white drop-shadow-lg" />
                   {!onPad && phase !== 'fall' && (
-                    <span
+                    <Flame
+                      size={40}
                       className={
-                        phase === 'turbo' ? 'rk-turbo -mt-2 text-4xl'
-                        : phase === 'enginefail' ? 'rk-flame-out -mt-2 text-4xl'
-                        : 'rk-flame -mt-2 text-4xl'
+                        phase === 'turbo' ? 'rk-turbo -mt-2 text-orange-400'
+                        : phase === 'enginefail' ? 'rk-flame-out -mt-2 text-slate-400'
+                        : 'rk-flame -mt-2 text-orange-400'
                       }
-                    >
-                      🔥
-                    </span>
+                    />
                   )}
                 </div>
               </div>
@@ -268,7 +297,7 @@ function RocketScene(props: SceneProps) {
             {phase === 'ignite' && (
               <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2">
                 {[0, 1, 2].map((i) => (
-                  <span key={i} className="rk-smoke absolute text-3xl" style={{ animationDelay: `${i * 0.25}s` }}>💨</span>
+                  <Wind key={i} size={30} className="rk-smoke absolute text-slate-300/70" style={{ animationDelay: `${i * 0.25}s` }} />
                 ))}
               </div>
             )}
@@ -276,15 +305,14 @@ function RocketScene(props: SceneProps) {
 
           {phase === 'fall' && (
             <div className="pointer-events-none absolute inset-x-0 bottom-16 grid place-items-center">
-              <span className="rk-explode text-7xl" style={{ animationDelay: '0.45s' }}>💥</span>
+              <Bomb size={72} className="rk-explode text-orange-400" style={{ animationDelay: '0.45s' }} />
               {DEBRIS.map((d, i) => (
-                <span
+                <Sparkle
                   key={i}
-                  className="rk-debris absolute text-2xl"
+                  size={22}
+                  className="rk-debris absolute text-amber-300"
                   style={{ animationDelay: '0.45s', ['--dx' as string]: `${d.dx}px`, ['--dy' as string]: `${d.dy}px` }}
-                >
-                  ✨
-                </span>
+                />
               ))}
             </div>
           )}
@@ -295,12 +323,15 @@ function RocketScene(props: SceneProps) {
         <>
           <div className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden">
             {ok ? (
-              <span className="rk-orbit text-[9rem] drop-shadow-[0_0_45px_rgba(129,140,248,0.65)]">🚀</span>
+              <Rocket size={144} className="rk-orbit text-indigo-300 drop-shadow-[0_0_45px_rgba(129,140,248,0.65)]" />
             ) : (
-              <span className="text-[9rem] opacity-25">🚀💥</span>
+              <div className="relative text-rose-400/30">
+                <Rocket size={144} />
+                <Bomb size={72} className="absolute -bottom-4 -right-4 text-rose-400/60" />
+              </div>
             )}
           </div>
-          <ResultCard {...props} ok={ok} emoji={ok ? '🚀' : '💥'} title={ok ? '¡Buen despegue!' : 'Uff, casi…'} />
+          <ResultCard {...props} ok={ok} icon={ok ? 'rocket' : 'bomb'} title={ok ? '¡Buen despegue!' : 'Uff, casi…'} />
         </>
       )}
     </Overlay>
@@ -309,27 +340,27 @@ function RocketScene(props: SceneProps) {
 
 // ── Animación 2: pastelero (bowl → pastel) ──────────────────────────────────
 
-const INGREDIENTS = [
-  { emoji: '🥚', off: '-80px', delay: '0s' },
-  { emoji: '🥛', off: '60px', delay: '0.22s' },
-  { emoji: '🧈', off: '-20px', delay: '0.44s' },
-  { emoji: '🍫', off: '90px', delay: '0.66s' },
-  { emoji: '🍓', off: '-90px', delay: '0.88s' },
-  { emoji: '🍯', off: '30px', delay: '1.1s' },
+const INGREDIENTS: { icon: IconName; off: string; delay: string }[] = [
+  { icon: 'egg', off: '-80px', delay: '0s' },
+  { icon: 'milk', off: '60px', delay: '0.22s' },
+  { icon: 'sandwich', off: '-20px', delay: '0.44s' },
+  { icon: 'candy', off: '90px', delay: '0.66s' },
+  { icon: 'cherry', off: '-90px', delay: '0.88s' },
+  { icon: 'candy', off: '30px', delay: '1.1s' },
 ];
 
 type BakePhase = 'kitchen' | 'mixing' | 'whisk' | 'suspense' | 'oven' | 'reveal' | 'burnt';
 const BAKE_OK: Array<[BakePhase, number]> = [['kitchen', 700], ['mixing', 2000], ['whisk', 1200], ['suspense', 1600], ['oven', 1300], ['reveal', 1800]];
 const BAKE_FAIL: Array<[BakePhase, number]> = [['kitchen', 700], ['mixing', 2000], ['whisk', 1200], ['suspense', 1600], ['oven', 1300], ['burnt', 1800]];
 const BAKE_SFX: Partial<Record<BakePhase, SfxName>> = { mixing: 'pop', whisk: 'whoosh', reveal: 'success', burnt: 'explosion' };
-const BAKE_CAPTIONS: Record<BakePhase, string> = {
-  kitchen: '👩‍🍳 Alistando la cocina…',
-  mixing: '🥣 Tus respuestas son los ingredientes del chef',
-  whisk: '🥄 ¡Batiendo la mezcla!',
-  suspense: '¿Saldrá bien el pastel? 🤔',
-  oven: '🔥 Al horno…',
-  reveal: '🎂 ¡Pastel perfecto!',
-  burnt: '💨 Uy… se quemó',
+const BAKE_CAPTIONS: Record<BakePhase, ReactNode> = {
+  kitchen: <><ChefHat size={20} /> Alistando la cocina…</>,
+  mixing: <><CookingPot size={20} /> Tus respuestas son los ingredientes del chef</>,
+  whisk: <><Utensils size={20} /> ¡Batiendo la mezcla!</>,
+  suspense: <>¿Saldrá bien el pastel? <Brain size={20} /></>,
+  oven: <><Flame size={20} /> Al horno…</>,
+  reveal: <><Cake size={20} /> ¡Pastel perfecto!</>,
+  burnt: <><Wind size={20} /> Uy… se quemó</>,
 };
 
 function BakerScene(props: SceneProps) {
@@ -349,13 +380,13 @@ function BakerScene(props: SceneProps) {
           <div className="absolute inset-0 grid place-items-center">
             {withBowl && (
               <div className="relative flex flex-col items-center">
-                <span className="text-8xl">👩‍🍳</span>
+                <ChefHat size={80} className="text-stone-800" />
                 <div className="relative -mt-6">
-                  <span className={`block text-[11rem] leading-none ${phase === 'mixing' || phase === 'whisk' ? 'bake-shake' : ''}`}>🥣</span>
-                  {phase === 'whisk' && <span className="bake-whisk absolute -top-14 left-1/2 -translate-x-1/2 text-7xl">🥄</span>}
+                  <CookingPot size={176} strokeWidth={1.2} className={`block text-stone-700 ${phase === 'mixing' || phase === 'whisk' ? 'bake-shake' : ''}`} />
+                  {phase === 'whisk' && <Utensils size={64} className="bake-whisk absolute -top-14 left-1/2 -translate-x-1/2 text-stone-800" />}
                   {phase === 'mixing' && INGREDIENTS.map((ing, i) => (
                     <div key={i} className="absolute left-1/2 top-2 -translate-x-1/2" style={{ marginLeft: ing.off }}>
-                      <span className="bake-drop-cu block text-6xl" style={{ animationDelay: ing.delay }}>{ing.emoji}</span>
+                      <AppIcon name={ing.icon} size={52} className="bake-drop-cu block text-amber-900" style={{ animationDelay: ing.delay }} />
                     </div>
                   ))}
                 </div>
@@ -364,37 +395,39 @@ function BakerScene(props: SceneProps) {
 
             {phase === 'suspense' && (
               <div className="relative flex flex-col items-center">
-                <span className="text-8xl">👩‍🍳</span>
+                <ChefHat size={80} className="text-stone-800" />
                 <div className="relative -mt-4">
-                  <span className="block text-[11rem] leading-none">🥣</span>
+                  <CookingPot size={176} strokeWidth={1.2} className="block text-stone-700" />
                   <div className="absolute inset-6 -z-10 animate-pulse rounded-full bg-amber-400/40 blur-2xl" />
                 </div>
-                <span className="mt-1 animate-bounce text-5xl">🤔</span>
+                <Brain size={46} className="mt-1 animate-bounce text-amber-800" />
               </div>
             )}
 
             {phase === 'oven' && (
               <div className="relative grid place-items-center">
-                <span className="text-[13rem] leading-none" style={{ filter: 'brightness(0.75)' }}>🎂</span>
+                <Cake size={208} strokeWidth={1.2} className="text-amber-900" style={{ filter: 'brightness(0.75)' }} />
                 <div className="absolute inset-8 animate-pulse rounded-full bg-orange-500/50 blur-2xl" />
-                <span className="absolute -bottom-2 text-6xl">🔥🔥🔥</span>
+                <div className="absolute -bottom-2 flex gap-1 text-orange-500">
+                  <Flame size={56} /><Flame size={56} /><Flame size={56} />
+                </div>
               </div>
             )}
 
             {phase === 'reveal' && (
               <div className="relative">
-                <span className="bake-cake-pop block text-[14rem] leading-none drop-shadow-[0_0_45px_rgba(251,191,36,0.7)]">🎂</span>
-                {['✨', '🎉', '⭐', '✨', '🎊', '⭐'].map((s, i) => (
-                  <span key={i} className="bake-sparkle absolute text-4xl" style={{ left: `${[0, 86, 12, 78, 42, 58][i]}%`, top: `${[-8, 2, 74, 66, -12, 82][i]}%`, animationDelay: `${i * 0.18}s` }}>{s}</span>
+                <Cake size={224} strokeWidth={1.2} className="bake-cake-pop block text-amber-700 drop-shadow-[0_0_45px_rgba(251,191,36,0.7)]" />
+                {[Sparkle, PartyPopper, Star, Sparkle, PartyPopper, Star].map((Icon, i) => (
+                  <Icon key={i} size={34} className="bake-sparkle absolute text-amber-500" style={{ left: `${[0, 86, 12, 78, 42, 58][i]}%`, top: `${[-8, 2, 74, 66, -12, 82][i]}%`, animationDelay: `${i * 0.18}s` }} />
                 ))}
               </div>
             )}
 
             {phase === 'burnt' && (
               <div className="relative">
-                <span className="bake-shake block text-[14rem] leading-none" style={{ filter: 'brightness(0.3) saturate(0.35)' }}>🎂</span>
+                <Cake size={224} strokeWidth={1.2} className="bake-shake block text-stone-900" />
                 {[0, 1, 2, 3, 4].map((i) => (
-                  <span key={i} className="bake-steam absolute text-5xl" style={{ left: `${16 + i * 16}%`, top: '-10%', animationDelay: `${i * 0.25}s` }}>💨</span>
+                  <Wind key={i} size={44} className="bake-steam absolute text-stone-500" style={{ left: `${16 + i * 16}%`, top: '-10%', animationDelay: `${i * 0.25}s` }} />
                 ))}
               </div>
             )}
@@ -406,12 +439,12 @@ function BakerScene(props: SceneProps) {
         <>
           <div className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden">
             {ok ? (
-              <span className="bake-cake-pop text-[9rem] drop-shadow-[0_0_35px_rgba(251,191,36,0.6)]">🎂</span>
+              <Cake size={144} className="bake-cake-pop text-amber-600 drop-shadow-[0_0_35px_rgba(251,191,36,0.6)]" />
             ) : (
-              <span className="text-[9rem] opacity-30" style={{ filter: 'brightness(0.4) saturate(0.4)' }}>🎂</span>
+              <Cake size={144} className="text-stone-500 opacity-30" />
             )}
           </div>
-          <ResultCard {...props} ok={ok} emoji={ok ? '🎂' : '🔥'} title={ok ? '¡Pastel perfecto!' : 'Se quemó…'} />
+          <ResultCard {...props} ok={ok} icon={ok ? 'cake' : 'flame'} title={ok ? '¡Pastel perfecto!' : 'Se quemó…'} />
         </>
       )}
     </Overlay>
@@ -446,13 +479,13 @@ type SkyPhase = 'prep' | 'suspense' | 'jump' | 'deploy' | 'land' | 'plummet';
 const SKY_OK: Array<[SkyPhase, number]> = [['prep', 2000], ['suspense', 1600], ['jump', 1800], ['deploy', 1500], ['land', 2000]];
 const SKY_FAIL: Array<[SkyPhase, number]> = [['prep', 2000], ['suspense', 1600], ['jump', 1800], ['plummet', 2000]];
 const SKY_SFX: Partial<Record<SkyPhase, SfxName>> = { prep: 'pop', jump: 'whoosh', deploy: 'pop', land: 'success', plummet: 'whoosh' };
-const SKY_CAPTIONS: Record<SkyPhase, string> = {
-  prep: '🪂 Tus respuestas son los parches del paracaídas',
-  suspense: '¿Aguantará el paracaídas? 🤔',
-  jump: '🪂 ¡Saltó del avión!',
-  deploy: '🪂 ¡Paracaídas abierto!',
-  land: '🌳 ¡Aterrizaje perfecto!',
-  plummet: '💥 ¡El paracaídas falló!',
+const SKY_CAPTIONS: Record<SkyPhase, ReactNode> = {
+  prep: <><Umbrella size={20} /> Tus respuestas son los parches del paracaídas</>,
+  suspense: <>¿Aguantará el paracaídas? <Brain size={20} /></>,
+  jump: <><Umbrella size={20} /> ¡Saltó del avión!</>,
+  deploy: <><Umbrella size={20} /> ¡Paracaídas abierto!</>,
+  land: <><TreePine size={20} /> ¡Aterrizaje perfecto!</>,
+  plummet: <><Bomb size={20} /> ¡El paracaídas falló!</>,
 };
 
 function SkydiverScene(props: SceneProps) {
@@ -468,18 +501,18 @@ function SkydiverScene(props: SceneProps) {
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {falling
           ? RUSH_CLOUDS.map((c, i) => (
-              <span key={i} className="sky-rush absolute text-6xl" style={{ left: c.left, bottom: '-10%', animationDelay: c.delay }}>☁️</span>
+              <Cloud key={i} size={58} className="sky-rush absolute text-white" style={{ left: c.left, bottom: '-10%', animationDelay: c.delay }} />
             ))
           : CLOUDS.map((c, i) => (
-              <span key={i} className="rk-cloud absolute text-4xl" style={{ left: c.left, top: c.top, animationDelay: c.delay }}>☁️</span>
+              <Cloud key={i} size={38} className="rk-cloud absolute text-white" style={{ left: c.left, top: c.top, animationDelay: c.delay }} />
             ))}
       </div>
 
       {showGround && (
         <>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-emerald-500 to-emerald-800" />
-          <span className="pointer-events-none absolute bottom-16 left-[12%] text-5xl">🌳</span>
-          <span className="pointer-events-none absolute bottom-16 right-[12%] text-5xl">🌲</span>
+          <TreePine size={48} className="pointer-events-none absolute bottom-16 left-[12%] text-emerald-900" />
+          <TreePine size={48} className="pointer-events-none absolute bottom-16 right-[12%] text-emerald-950" />
         </>
       )}
       {phase === 'plummet' && <div className="pointer-events-none absolute inset-0 animate-pulse bg-rose-600/20" />}
@@ -490,7 +523,7 @@ function SkydiverScene(props: SceneProps) {
           <div className="absolute inset-0 grid place-items-center">
             {phase === 'prep' && (
               <div className="relative">
-                <span className="rk-bob block text-[14rem] leading-none">🪂</span>
+                <Umbrella size={224} strokeWidth={1.1} className="rk-bob block text-white drop-shadow-lg" />
                 <ChutePatches />
               </div>
             )}
@@ -498,31 +531,31 @@ function SkydiverScene(props: SceneProps) {
             {phase === 'suspense' && (
               <div className="relative flex flex-col items-center">
                 <div className="pointer-events-none absolute inset-0 -z-10 animate-pulse rounded-full bg-white/30 blur-2xl" />
-                <span className="sky-plane-bob text-[9rem] leading-none">✈️</span>
-                <span className="mt-2 animate-bounce text-6xl">🕴️</span>
+                <Plane size={144} className="sky-plane-bob text-white drop-shadow-lg" />
+                <PersonStanding size={64} className="mt-2 animate-bounce text-sky-950" />
               </div>
             )}
 
-            {phase === 'jump' && <span className="sky-wobble text-[12rem] leading-none">🕴️</span>}
+            {phase === 'jump' && <PersonStanding size={190} className="sky-wobble text-sky-950" />}
 
             {phase === 'deploy' && (
               <div className="sky-chute-open relative">
-                <span className="block text-[14rem] leading-none">🪂</span>
+                <Umbrella size={224} strokeWidth={1.1} className="block text-white drop-shadow-lg" />
                 <ChutePatches />
               </div>
             )}
 
             {phase === 'land' && (
               <div className="sky-sway relative">
-                <span className="block text-[13rem] leading-none">🪂</span>
+                <Umbrella size={208} strokeWidth={1.1} className="block text-white drop-shadow-lg" />
                 <ChutePatches />
               </div>
             )}
 
             {phase === 'plummet' && (
               <div className="relative grid place-items-center">
-                <span className="sky-spin block text-[12rem] leading-none">🕴️</span>
-                <span className="absolute -top-20 text-6xl opacity-70">🪂</span>
+                <PersonStanding size={190} className="sky-spin block text-sky-950" />
+                <Umbrella size={64} className="absolute -top-20 text-white/70" />
               </div>
             )}
           </div>
@@ -534,18 +567,18 @@ function SkydiverScene(props: SceneProps) {
           {ok && (
             <>
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-emerald-500 to-emerald-800" />
-              <span className="pointer-events-none absolute bottom-14 left-[15%] text-4xl">🌳</span>
-              <span className="pointer-events-none absolute bottom-14 right-[15%] text-4xl">🌲</span>
+              <TreePine size={38} className="pointer-events-none absolute bottom-14 left-[15%] text-emerald-900" />
+              <TreePine size={38} className="pointer-events-none absolute bottom-14 right-[15%] text-emerald-950" />
             </>
           )}
           <div className="pointer-events-none absolute inset-0 grid place-items-center overflow-hidden">
             {ok ? (
-              <span className="sky-plane-bob text-[9rem] drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]">🪂</span>
+              <Umbrella size={144} className="sky-plane-bob text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]" />
             ) : (
-              <span className="text-[9rem] opacity-30">💥</span>
+              <Bomb size={144} className="text-rose-200 opacity-40" />
             )}
           </div>
-          <ResultCard {...props} ok={ok} emoji={ok ? '🪂' : '💥'} title={ok ? '¡Aterrizaje perfecto!' : '¡Se estrelló!'} />
+          <ResultCard {...props} ok={ok} icon={ok ? 'umbrella' : 'bomb'} title={ok ? '¡Aterrizaje perfecto!' : '¡Se estrelló!'} />
         </>
       )}
     </Overlay>

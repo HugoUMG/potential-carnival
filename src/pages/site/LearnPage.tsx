@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Code2, MousePointerClick, Wand2 } from 'lucide-react';
+import { ArrowRight, Check, Code2, MousePointerClick, Star, Wand2 } from 'lucide-react';
 import { useTheme } from '../../utils/theme';
 
 /**
@@ -155,18 +155,22 @@ export function LearnPage() {
               </tr>
             </thead>
             <tbody className="text-site-fg/70">
-              {[
-                ['Empezar sin aprender nada', '★★★', '★', '★★★'],
-                ['Ir rápido en hojas largas', '★', '★★★', '★★'],
-                ['Control fino de cada campo', '★★', '★★★', '★'],
-                ['Reutilizar y versionar', '★', '★★★', '★'],
-                ['Tener un borrador ya escrito', '(', ')', '★★★'],
-              ].map(([q, a, b, c]) => (
+              {([
+                ['Empezar sin aprender nada', 3, 1, 3],
+                ['Ir rápido en hojas largas', 1, 3, 2],
+                ['Control fino de cada campo', 2, 3, 1],
+                ['Reutilizar y versionar', 1, 3, 1],
+                ['Tener un borrador ya escrito', 0, 0, 3],
+              ] satisfies [string, number, number, number][]).map(([q, a, b, c]) => (
                 <tr key={q}>
                   <td className="border-b border-site-fg/5 py-3 pr-4 font-semibold text-site-fg/85">{q}</td>
-                  <td className="border-b border-site-fg/5 py-3 pr-4 text-site-acc">{a}</td>
-                  <td className="border-b border-site-fg/5 py-3 pr-4 text-site-acc">{b}</td>
-                  <td className="border-b border-site-fg/5 py-3 text-site-acc">{c}</td>
+                  {[a, b, c].map((n, k) => (
+                    <td key={k} className="border-b border-site-fg/5 py-3 pr-4 text-site-acc">
+                      <span className="inline-flex gap-0.5" aria-label={`${n} de 3`}>
+                        {[0, 1, 2].map((i) => <Star key={i} size={14} className={i < n ? 'fill-current' : 'opacity-20'} />)}
+                      </span>
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

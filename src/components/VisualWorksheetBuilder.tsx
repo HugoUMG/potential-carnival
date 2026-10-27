@@ -8,14 +8,15 @@
  * las tarjetas de este archivo. El coste es un refresco completo en desarrollo al tocarlo.
  */
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import { SandboxedHtml } from './SandboxedHtml';
 import {
-  AlignLeft, CheckSquare, ChevronDown, ChevronUp, Columns2, Copy, Eye,
-  GripVertical, Library, List, Loader2, Pencil, PlusCircle, Save, Trash2, ToggleLeft, Upload,
-  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText, BarChart3,
+  AlignLeft, AlertTriangle, Check, CheckSquare, ChevronDown, ChevronUp, ClipboardList, Columns2, Copy, Eye,
+  GripVertical, Library, List, Loader2, Palette, Pencil, PlusCircle, Save, Snail, Trash2, ToggleLeft, Upload,
+  Volume2, Image, BookOpen, Headphones, Move, ListChecks, Mic, MessagesSquare, FileText, BarChart3, X,
 } from 'lucide-react';
+import { GenderIcon } from './GenderIcon';
 import { subirImagen } from '../services/api';
 import { VOICE_OPTIONS } from '../utils/voicePreference';
 import { ImagePickerModal } from './ImagePicker';
@@ -262,8 +263,8 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 /** Selector de voz por hablante (conversaciones). '' = la voz curada de ese género; el resto son
- *  las 8 curadas del reproductor (Andrew, Aria, Ryan, Sonia, Natasha y las infantiles Ana ♀ y
- *  Roger ♂ — las ÚNICAS voces de niño que se ofrecen; otras infantiles del catálogo de Azure
+ *  las 8 curadas del reproductor (Andrew, Aria, Ryan, Sonia, Natasha y las infantiles Ana, femenina,
+ *  y Roger, masculina — las ÚNICAS voces de niño que se ofrecen; otras infantiles del catálogo de Azure
  *  solo por nombre literal en el DSL). Un nombre
  *  literal fuera de la lista no aparece aquí: se escribe a mano en el DSL. */
 function VoiceSelect({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
@@ -308,7 +309,7 @@ function TextArea({ value, onChange, rows = 3, placeholder }: { value: string; o
 function AudioField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <label className="block rounded-xl bg-rex-light border border-rex-light p-3">
-      <FieldLabel>🔊 Texto del audio (oculto al estudiante)</FieldLabel>
+      <FieldLabel><span className="flex items-center gap-1.5"><Volume2 size={13} /> Texto del audio (oculto al estudiante)</span></FieldLabel>
       <TextInput value={value} onChange={onChange} placeholder="Texto que leerá el TTS al estudiante..." />
     </label>
   );
@@ -319,18 +320,18 @@ function AudioTtsControls({ act, onChange }: { act: VisualActivity; onChange: (a
   return (
     <div className="grid gap-2 rounded-xl border border-rex-light bg-rex-light p-3">
       <div className="flex flex-wrap gap-1">
-        {([['', 'Voz por defecto'], ['female', '♀ Femenina'], ['male', '♂ Masculina']] as const).map(([v, label]) => (
+        {([['', 'Voz por defecto'], ['female', 'Femenina'], ['male', 'Masculina']] as const).map(([v, label]) => (
           <button key={v} type="button" onClick={() => onChange({ ...act, voice: v })}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${act.voice === v ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
-            {label}
+            className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${act.voice === v ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+            {v !== '' && <GenderIcon gender={v} size={13} />} {label}
           </button>
         ))}
       </div>
       <div className="flex flex-wrap gap-1">
-        {([['', 'Velocidad del alumno'], ['-35%', '🐢 Muy lento'], ['-15%', 'Lento'], ['+0%', 'Normal']] as const).map(([r, label]) => (
+        {([['', 'Velocidad del alumno'], ['-35%', 'Muy lento'], ['-15%', 'Lento'], ['+0%', 'Normal']] as const).map(([r, label]) => (
           <button key={r} type="button" onClick={() => onChange({ ...act, rate: r })}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${act.rate === r ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
-            {label}
+            className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${act.rate === r ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+            {r === '-35%' && <Snail size={13} />} {label}
           </button>
         ))}
       </div>
@@ -366,7 +367,7 @@ function StatementsEditor({ statements, onChange }: { statements: VisualStatemen
     onChange(statements.map((s) => s.id === id ? { ...s, ...patch } : s));
   return (
     <div className="grid gap-2">
-      <p className="text-xs text-slate-400">Escribe el enunciado y marca si es verdadero (✓) o falso (✗).</p>
+      <p className="text-xs text-slate-400">Escribe el enunciado y marca si es verdadero o falso.</p>
       {statements.map((stmt) => (
         <div key={stmt.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2">
           <input
@@ -376,8 +377,8 @@ function StatementsEditor({ statements, onChange }: { statements: VisualStatemen
             onChange={(e) => update(stmt.id, { text: e.target.value })}
           />
           <button type="button" onClick={() => update(stmt.id, { answer: !stmt.answer })}
-            className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition ${stmt.answer ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
-            {stmt.answer ? '✓ True' : '✗ False'}
+            className={`flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold transition ${stmt.answer ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
+            {stmt.answer ? <><Check size={13} /> True</> : <><X size={13} /> False</>}
           </button>
           <button type="button" className="rounded-xl border border-red-100 p-2 text-red-400 transition hover:bg-red-50" onClick={() => onChange(statements.filter((s) => s.id !== stmt.id))}>
             <Trash2 size={14} />
@@ -468,7 +469,7 @@ function MatchingEditor({ act, onChange }: { act: VisualActivity; onChange: (a: 
         </div>
       </div>
       {act.left.length !== act.right.length && act.left.length > 0 && act.right.length > 0 && (
-        <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">⚠ Ambas columnas deben tener {maxLen} ítems.</p>
+        <p className="flex items-center gap-1.5 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700"><AlertTriangle size={13} /> Ambas columnas deben tener {maxLen} ítems.</p>
       )}
     </div>
   );
@@ -547,7 +548,7 @@ function ListeningMatchingEditor({ act, onChange }: { act: VisualActivity; onCha
           {act.pairs.map((pair, i) => (
             <div key={pair.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3 grid gap-2">
               <div className="flex items-center gap-2">
-                <span className="shrink-0 rounded-full bg-rex-light px-2 py-0.5 text-xs font-bold text-rex-deep">🔊 Audio {i + 1}</span>
+                <span className="flex shrink-0 items-center gap-1 rounded-full bg-rex-light px-2 py-0.5 text-xs font-bold text-rex-deep"><Volume2 size={12} /> Audio {i + 1}</span>
                 <button type="button" className="ml-auto rounded-xl border border-red-100 p-1.5 text-red-400 hover:bg-red-50" onClick={() => removePair(pair.id)}><Trash2 size={12} /></button>
               </div>
               <input className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
@@ -650,13 +651,13 @@ function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: 
       <div>
         <FieldLabel>Diálogo (turnos con voz alternada · se fusionan en un solo audio)</FieldLabel>
         <div className="mt-2 grid gap-2">
-          <p className="text-xs text-slate-400">El texto es solo audio (no lo ve el alumno). Alterna ♂ / ♀ por turno.</p>
+          <p className="text-xs text-slate-400">El texto es solo audio (no lo ve el alumno). Alterna voces masculina y femenina por turno.</p>
           {act.lines.map((line) => (
             <div key={line.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2">
               <button type="button" onClick={() => update(line.id, { speaker: line.speaker === 'female' ? 'male' : 'female' })}
                 title="Cambiar voz"
                 className={`shrink-0 rounded-xl px-3 py-2 text-sm font-bold transition ${line.speaker === 'female' ? 'bg-pink-500 text-white' : 'bg-rex text-white'}`}>
-                {line.speaker === 'female' ? '♀' : '♂'}
+                <GenderIcon gender={line.speaker} size={15} />
               </button>
               <input
                 className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
@@ -676,8 +677,8 @@ function ConversationEditor({ act, onChange }: { act: VisualActivity; onChange: 
         </div>
       </div>
       <div className="flex flex-wrap gap-4">
-        <VoiceSelect label="Voz de ♀" value={act.femaleVoice} onChange={(femaleVoice) => onChange({ ...act, femaleVoice })} />
-        <VoiceSelect label="Voz de ♂" value={act.maleVoice} onChange={(maleVoice) => onChange({ ...act, maleVoice })} />
+        <VoiceSelect label="Voz femenina" value={act.femaleVoice} onChange={(femaleVoice) => onChange({ ...act, femaleVoice })} />
+        <VoiceSelect label="Voz masculina" value={act.maleVoice} onChange={(maleVoice) => onChange({ ...act, maleVoice })} />
       </div>
       <label className="block">
         <FieldLabel>Pregunta</FieldLabel>
@@ -919,7 +920,7 @@ function MultiSelectEditor({ act, onChange }: { act: VisualActivity; onChange: (
             return (
               <div key={i} className="flex items-center gap-2">
                 <button type="button" onClick={() => toggleCorrect(opt)}
-                  className={`grid h-5 w-5 shrink-0 place-items-center rounded border-2 text-xs font-bold text-white transition ${checked ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'}`}>{checked ? '✓' : ''}</button>
+                  className={`grid h-5 w-5 shrink-0 place-items-center rounded border-2 text-xs font-bold text-white transition ${checked ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'}`}>{checked && <Check size={13} />}</button>
                 <input className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
                   value={opt}
                   onChange={(e) => {
@@ -1145,20 +1146,20 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
 
   const RateButtons = () => (
     <div className="flex flex-wrap gap-1">
-      {([['', 'Velocidad del alumno'], ['-35%', '🐢 Muy lento'], ['-15%', 'Lento'], ['+0%', 'Normal']] as const).map(([r, label]) => (
+      {([['', 'Velocidad del alumno'], ['-35%', 'Muy lento'], ['-15%', 'Lento'], ['+0%', 'Normal']] as const).map(([r, label]) => (
         <button key={r} type="button" onClick={() => onUpdate({ ...block, rate: r })}
-          className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${block.rate === r ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
-          {label}
+          className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${block.rate === r ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+          {r === '-35%' && <Snail size={13} />} {label}
         </button>
       ))}
     </div>
   );
 
-  const OPTIONS: { value: typeof kind; label: string }[] = [
+  const OPTIONS: { value: typeof kind; label: ReactNode }[] = [
     { value: 'none', label: 'Ninguno' },
-    { value: 'text', label: '📖 Texto' },
-    { value: 'audio', label: '🎧 Audio' },
-    { value: 'conversation', label: '🗣️ Conversación' },
+    { value: 'text', label: <><BookOpen size={13} /> Texto</> },
+    { value: 'audio', label: <><Headphones size={13} /> Audio</> },
+    { value: 'conversation', label: <><MessagesSquare size={13} /> Conversación</> },
   ];
 
   return (
@@ -1168,7 +1169,7 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
         <div className="ml-auto flex flex-wrap gap-1">
           {OPTIONS.map((o) => (
             <button key={o.value} type="button" onClick={() => setKind(o.value)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${kind === o.value ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+              className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${kind === o.value ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
               {o.label}
             </button>
           ))}
@@ -1219,10 +1220,10 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
           <TextArea value={block.audioText} onChange={(audioText) => onUpdate({ ...block, audioText })} rows={3}
             placeholder="Lo que dirá la voz. El alumno NO lo ve, solo lo escucha." />
           <div className="flex gap-1">
-            {([['', 'Voz por defecto'], ['female', '♀ Femenina'], ['male', '♂ Masculina']] as const).map(([v, label]) => (
+            {([['', 'Voz por defecto'], ['female', 'Femenina'], ['male', 'Masculina']] as const).map(([v, label]) => (
               <button key={v} type="button" onClick={() => onUpdate({ ...block, voice: v })}
-                className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${block.voice === v ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
-                {label}
+                className={`flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${block.voice === v ? 'bg-rex text-white' : 'bg-white text-slate-500 border border-slate-200 hover:border-rex'}`}>
+                {v !== '' && <GenderIcon gender={v} size={13} />} {label}
               </button>
             ))}
           </div>
@@ -1237,7 +1238,7 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
               <button type="button" title="Cambiar voz"
                 onClick={() => updateLine(line.id, { speaker: line.speaker === 'female' ? 'male' : 'female' })}
                 className={`shrink-0 rounded-xl px-3 py-2 text-sm font-bold text-white transition ${line.speaker === 'female' ? 'bg-pink-500' : 'bg-rex'}`}>
-                {line.speaker === 'female' ? '♀' : '♂'}
+                <GenderIcon gender={line.speaker} size={15} />
               </button>
               <input className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-rex focus:ring-2 focus:ring-rex-light"
                 value={line.text} placeholder="Lo que dice este turno..."
@@ -1253,8 +1254,8 @@ function BlockStimulusEditor({ block, onUpdate }: { block: VisualBlock; onUpdate
             <PlusCircle size={14} /> Agregar turno
           </button>
           <div className="flex flex-wrap gap-4">
-            <VoiceSelect label="Voz de ♀" value={block.femaleVoice} onChange={(femaleVoice) => onUpdate({ ...block, femaleVoice })} />
-            <VoiceSelect label="Voz de ♂" value={block.maleVoice} onChange={(maleVoice) => onUpdate({ ...block, maleVoice })} />
+            <VoiceSelect label="Voz femenina" value={block.femaleVoice} onChange={(femaleVoice) => onUpdate({ ...block, femaleVoice })} />
+            <VoiceSelect label="Voz masculina" value={block.maleVoice} onChange={(maleVoice) => onUpdate({ ...block, maleVoice })} />
           </div>
           <RateButtons />
         </div>
@@ -1443,7 +1444,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, aiGradi
           </label>
         </div>
         <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">🎨 Colores del tema (opcional)</summary>
+          <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><Palette size={13} /> Colores del tema (opcional)</summary>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             {([
               ['primary_color', 'Primario', '#84B84C'],
@@ -1463,7 +1464,7 @@ export function VisualWorksheetBuilder({ initialState, maxAttemptsDraft, aiGradi
           </div>
         </details>
         <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">📋 Campos de identificación (opcional)</summary>
+          <summary className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500"><ClipboardList size={13} /> Campos de identificación (opcional)</summary>
           <p className="mt-2 text-xs text-slate-400">Datos que se piden al alumno arriba de la hoja (no se califican). Ej: Nombre, Fecha, Sección.</p>
           <div className="mt-2">
             <StringListEditor items={state.infoFields} onChange={(infoFields) => setState((s) => ({ ...s, infoFields }))} placeholder="Ej: Nombre" addLabel="Agregar campo" />

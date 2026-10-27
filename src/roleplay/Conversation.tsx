@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClipboardList, Keyboard, Mic, RotateCcw, SendHorizontal, Snail, Square, Volume2, X } from 'lucide-react';
+import { ClipboardList, Keyboard, Mic, PartyPopper, RotateCcw, SendHorizontal, Snail, Square, Target, Volume2, X } from 'lucide-react';
+import { EmojiIcon } from '../components/AppIcon';
 import { roleplayTurn, transcribeWithClarity } from '../services/api';
 import type { RoleplayMessage, RoleplayStart } from '../types';
 import { Cards, Missions } from './Cards';
@@ -107,7 +108,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
     try {
       blob = await rec.start();
     } catch {
-      setNotice('No se pudo usar el micrófono. Revisa el permiso (candado 🔒) o escribe tu respuesta.');
+      setNotice('No se pudo usar el micrófono. Revisa el permiso (icono del candado) o escribe tu respuesta.');
       setTyping(true);
       return;
     }
@@ -134,7 +135,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
     speaking: 'Escucha con atención…',
     listen: rec.recording ? `Te escucho… ${rec.seconds}s · toca de nuevo para enviar` : typing ? 'Tu turno: escribe tu respuesta en inglés.' : 'Tu turno: toca el micrófono y responde en inglés.',
     transcribing: 'Entendiendo lo que dijiste…',
-    done: '¡Conversación terminada! 🎉',
+    done: <><PartyPopper size={15} className="inline align-[-2px]" /> ¡Conversación terminada!</>,
     error: error,
   }[phase];
 
@@ -144,7 +145,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
         <button type="button" className="rp-icon-btn" onClick={() => { stopVoice(); onExit(); }} aria-label="Salir de la conversación"><X size={20} /></button>
         <div className="rp-talk-title">
           <small>{session.title} · {session.place}</small>
-          <b>{session.ai_emoji} {session.ai_name} <span>({session.ai_role})</span></b>
+          <b className="inline-flex items-center gap-1.5"><EmojiIcon emoji={session.ai_emoji} size={18} /> {session.ai_name} <span>({session.ai_role})</span></b>
         </div>
         <div className="rp-toggles" role="group" aria-label="Subtítulos y velocidad">
           <button type="button" aria-pressed={prefs.en} onClick={() => setPrefs({ ...prefs, en: !prefs.en })} title="Subtítulos en inglés">EN</button>
@@ -162,7 +163,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
           <div className="rp-msgs" aria-live="polite">
             {msgs.map((m, i) => (m.who === 'ai' ? (
               <div key={i} className="rp-msg ai">
-                <span className="rp-av" aria-hidden>{session.ai_emoji}</span>
+                <span className="rp-av" aria-hidden><EmojiIcon emoji={session.ai_emoji} size={26} /></span>
                 <div className={`rp-bubble ${phase === 'speaking' && i === msgs.length - 1 ? 'speaking' : ''}`}>
                   {prefs.en || revealed.has(i) ? <p className="rp-en">{m.text}</p> : <p className="rp-audio-only"><span className="rp-wave" aria-hidden><i /><i /><i /><i /></span> Solo audio</p>}
                   {beginner && prefs.es && m.es && <p className="rp-es">{m.es}</p>}
@@ -182,14 +183,14 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
                 <div className="rp-bubble">
                   <p>{m.text}</p>
                   <span className={`rp-clarity ${!measured(m) ? '' : m.clarity! >= session.clarity_ok ? 'ok' : 'low'}`}>
-                    {m.clarity == null ? '⌨️ escrito' : `🎤 claridad ${Math.round(m.clarity)}%`}
+                    {m.clarity == null ? <><Keyboard size={12} /> escrito</> : <><Mic size={12} /> claridad {Math.round(m.clarity)}%</>}
                   </span>
                 </div>
               </div>
             )))}
             {phase === 'thinking' && (
               <div className="rp-msg ai">
-                <span className="rp-av" aria-hidden>{session.ai_emoji}</span>
+                <span className="rp-av" aria-hidden><EmojiIcon emoji={session.ai_emoji} size={26} /></span>
                 <div className="rp-bubble rp-typing" aria-label="Escribiendo"><i /><i /><i /></div>
               </div>
             )}
@@ -203,7 +204,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
             {phase === 'error' ? (
               <button type="button" className="rp-btn primary" onClick={() => void ask(failed.current)}><RotateCcw size={16} /> Reintentar</button>
             ) : phase === 'done' ? (
-              <button type="button" className="rp-btn primary big" onClick={() => onFinish(msgs)}>Ver mi nota 🎯</button>
+              <button type="button" className="rp-btn primary big" onClick={() => onFinish(msgs)}><Target size={16} /> Ver mi nota</button>
             ) : typing ? (
               <form className="rp-type" onSubmit={(e) => { e.preventDefault(); if (draft.trim() && yourTurn) send(draft.trim(), null); }}>
                 {canRecord && <button type="button" className="rp-icon-btn" onClick={() => setTyping(false)} aria-label="Volver al micrófono"><Mic size={18} /></button>}
@@ -237,7 +238,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
             {session.cards.length > 0 && (
               <>
                 <div className="rp-info-head">
-                  <h3>📋 Información para la conversación</h3>
+                  <h3 className="flex items-center gap-2"><ClipboardList size={18} /> Información para la conversación</h3>
                   <p>Lo que tú y {session.ai_name} saben. Úsala para preguntar y responder; no hace falta leerla toda.</p>
                 </div>
                 <Cards cards={session.cards} />

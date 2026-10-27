@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, ExternalLink, Flag, History, Info, Monitor, Play, Radio, Search, SkipForward, Square, Users, Volume2, Zap } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BookOpen, Check, Copy, ExternalLink, Flag, Headphones, History, Info, Medal, Monitor, Play, Radio, Search, SkipForward, Square, Users, Volume2, X, Zap } from 'lucide-react';
 import { RichText } from './RichText';
 import { activityRegistry } from './activityRegistry';
 import {
@@ -131,7 +131,7 @@ function SkippedNote({ skipped }: { skipped: Map<string, number> | { type: strin
 const DURATIONS = [10, 15, 20, 30, 45, 60, 0];
 
 /** Etiqueta corta por tipo en el temario. `multiplechoice` no lleva: es el caso normal. */
-const QUESTION_BADGE: Record<string, string> = {
+const QUESTION_BADGE: Record<string, ReactNode> = {
   multiselect: 'multi',
   truefalse: 'V/F',
   imagechoice: 'imagen',
@@ -139,12 +139,12 @@ const QUESTION_BADGE: Record<string, string> = {
   imagematching: 'imagen',
   dragdrop: 'hueco',
   fillblank: 'escribir',
-  listeningmultiplechoice: '🔊',
-  listeningtruefalse: '🔊 V/F',
-  listeningmatching: '🔊 pareja',
-  listeningfillblank: '🔊 hueco',
-  listeningorder: '🔊 ordenar',
-  readingtruefalse: '📖 V/F',
+  listeningmultiplechoice: <><Headphones size={11} /> audio</>,
+  listeningtruefalse: <><Headphones size={11} /> V/F</>,
+  listeningmatching: <><Headphones size={11} /> pareja</>,
+  listeningfillblank: <><Headphones size={11} /> hueco</>,
+  listeningorder: <><Headphones size={11} /> ordenar</>,
+  readingtruefalse: <><BookOpen size={11} /> V/F</>,
 };
 
 function CopyField({ label, value }: { label: string; value: string }) {
@@ -180,7 +180,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
  *  evaluación en vivo deje rastro visible sin tener que entrar a Revisión hoja por hoja: ahí
  *  las entregas quedan mezcladas con las de la hoja normal y no se sabe cuál fue en vivo. */
 function LiveHistory({ rows }: { rows: LiveHistoryRow[] }) {
-  const MEDALS = ['🥇', '🥈', '🥉'];
+  const MEDAL_COLORS = ['text-amber-500', 'text-slate-400', 'text-amber-700'];
   if (!rows.length) return null;
   return (
     <div className="rounded-2xl border border-slate-200 p-4">
@@ -202,9 +202,9 @@ function LiveHistory({ rows }: { rows: LiveHistoryRow[] }) {
             <ol className="mt-2 grid gap-1">
               {s.top.map((p, i) => (
                 <li key={`${p.label}-${i}`} className="flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 text-sm">
-                  <span className="w-6 text-center">{MEDALS[i] ?? i + 1}</span>
+                  <span className="grid w-6 place-items-center">{i < 3 ? <Medal size={16} className={MEDAL_COLORS[i]} /> : i + 1}</span>
                   <span className="min-w-0 flex-1 truncate">{p.label}</span>
-                  <span className="text-xs text-slate-400">{p.correct}✓</span>
+                  <span className="flex items-center gap-0.5 text-xs text-slate-400">{p.correct} <Check size={11} /></span>
                   <strong className="tabular-nums text-rex-deep">{Math.round(p.score)}</strong>
                 </li>
               ))}
@@ -383,7 +383,7 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
                           <label className="mt-3 flex items-start gap-2 text-sm text-slate-600">
                             <input type="checkbox" className="mt-0.5" checked={instant} onChange={(e) => setInstant(e.target.checked)} />
                             <span>
-                              Mostrar el ✓/✗ al momento de responder.
+                              Mostrar el resultado (<Check size={12} className="inline" />/<X size={12} className="inline" />) al momento de responder.
                               <span className="block text-xs text-slate-400">
                                 Apagado (recomendado): el resultado sale cuando cierras la pregunta, así el primero en responder no le canta la respuesta al de al lado.
                               </span>
@@ -479,7 +479,7 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
         <div className="rounded-3xl bg-white p-6 shadow-sm">
           {isEnded ? (
             <div className="text-center">
-              <p className="text-4xl">🏁</p>
+              <Flag size={36} className="mx-auto text-slate-400" />
               <p className="mt-2 text-lg font-bold text-slate-900">Sesión terminada</p>
               {state.saved != null && (
                 <p className="mt-1 text-sm text-slate-500">
@@ -577,7 +577,7 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
                 <span className="w-5 shrink-0 text-center font-bold">{q.number}</span>
                 <span className="min-w-0 flex-1"><RichText text={q.question} /></span>
                 {QUESTION_BADGE[q.type] && (
-                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-slate-400">{QUESTION_BADGE[q.type]}</span>
+                  <span className="flex shrink-0 items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-slate-400">{QUESTION_BADGE[q.type]}</span>
                 )}
               </li>
             ))}
@@ -602,7 +602,7 @@ export function LiveHostPanel({ worksheets }: { worksheets: Worksheet[] }) {
                   cuando dos puntajes se cruzan: es la pregunta que hacen los alumnos al ver el
                   podio, y aquí el profesor tiene la respuesta a mano. */}
               {p.avg_speed != null && <span className="text-[11px] tabular-nums text-slate-400" title="Segundos promedio por acierto">{p.avg_speed}s</span>}
-              <span className="text-xs text-slate-400">{p.correct}✓</span>
+              <span className="flex items-center gap-0.5 text-xs text-slate-400">{p.correct} <Check size={11} /></span>
               <strong className="tabular-nums text-rex-deep">{p.score}</strong>
             </li>
           ))}

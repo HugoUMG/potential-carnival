@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Play, RotateCcw, Snail, Volume2 } from 'lucide-react';
+import { PartyPopper, Play, RotateCcw, Snail, Volume2 } from 'lucide-react';
+import { EmojiIcon } from '../components/AppIcon';
 import { matchWords, pick, playAudio, range, sample, shuffle, speak, toggled, words, type GameProps } from './util';
 import { Es, Finish, Say, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
@@ -69,7 +70,7 @@ export function ListenGame({ questions }: GameProps) {
       </div>
       {chosen !== null && (
         <div className="dg-feedback">
-          <p className={chosen === target ? 'dg-ok' : 'dg-bad'}>{chosen === target ? '¡Correcto! 🎉' : 'Casi. Era esta:'}</p>
+          <p className={`${chosen === target ? 'dg-ok' : 'dg-bad'} inline-flex items-center gap-1.5`}>{chosen === target ? <><PartyPopper size={16} /> ¡Correcto!</> : 'Casi. Era esta:'}</p>
           <p className="dg-big-q"><Say text={questions[target].text} /></p>
           <Es className="center">{questions[target].translation}</Es>
           <button type="button" className="dg-btn primary" onClick={() => { goTo(pos + 1); endTurn(); }}>Siguiente</button>
@@ -136,7 +137,7 @@ export function DictationGame({ questions }: GameProps) {
       ) : (
         <div className="dg-feedback">
           <p className="dg-big-q">{shown.map((w, k) => <span key={k} className={hits[k] ? 'dg-hit' : 'dg-miss'}>{w} </span>)}</p>
-          <p className="dg-muted center">{hits.every(Boolean) ? '¡Perfecto! 🎉' : `${hits.filter(Boolean).length} de ${hits.length} palabras. En rojo, las que faltaron o cambiaste.`}</p>
+          <p className="dg-muted center">{hits.every(Boolean) ? <span className="inline-flex items-center gap-1.5"><PartyPopper size={16} /> ¡Perfecto!</span> : `${hits.filter(Boolean).length} de ${hits.length} palabras. En rojo, las que faltaron o cambiaste.`}</p>
           <Speak text={q.text} />
           <Es className="center">{q.translation}</Es>
           <button type="button" className="dg-btn primary" onClick={() => { goTo(pos + 1); endTurn(); }}>Siguiente</button>
@@ -204,12 +205,12 @@ export function BingoGame({ questions }: GameProps) {
       <div className={`dg-bingo-card size-${size} ${bingo ? 'won' : ''}`}>
         {card.map((qi, cell) => (
           <button key={cell} type="button" className={`dg-cell ${marked.has(cell) ? 'marked' : ''} ${shake === cell ? 'shake' : ''}`} onClick={() => tap(cell)}>
-            <span className="dg-emoji">{questions[qi].emoji}</span>
+            <EmojiIcon emoji={questions[qi].emoji} size={18} className="dg-emoji shrink-0" />
             <span>{questions[qi].text}</span>
           </button>
         ))}
       </div>
-      {bingo && <p className="dg-bingo-banner">¡BINGO! 🎉</p>}
+      {bingo && <p className="dg-bingo-banner inline-flex items-center gap-2">¡BINGO! <PartyPopper size={22} /></p>}
       {shake !== null && <p className="dg-error center">Esa todavía no la han cantado.</p>}
       {!room && (
         <label className="dg-check">

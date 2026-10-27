@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
-import { Lightbulb, SkipForward } from 'lucide-react';
+import { Circle, Lightbulb, PartyPopper, SkipForward } from 'lucide-react';
+import { AppIcon } from '../components/AppIcon';
 import type { GameQuestion } from '../types';
 import { pick, range, sample, shuffle, tokenize, type GameProps } from './util';
 import { Es, Finish, Say, Speak } from './ui';
@@ -84,7 +85,7 @@ export function OrderGame({ questions }: GameProps) {
       {hint && <Es className="center">{q.translation || 'Sin traducción para esta pregunta.'}</Es>}
       {status === 'ok' ? (
         <div className="dg-feedback">
-          <p className="dg-ok">¡Muy bien! 🎉</p>
+          <p className="dg-ok inline-flex items-center gap-1.5">¡Muy bien! <PartyPopper size={16} /></p>
           <p className="dg-big-q"><Say text={q.text} /></p>
           <Speak text={q.text} />
           <button type="button" className="dg-btn primary" onClick={next}>Siguiente</button>
@@ -177,7 +178,7 @@ export function GapGame({ questions }: GameProps) {
       </div>
       {chosen !== null && (
         <div className="dg-feedback">
-          <p className={chosen === gap.answer ? 'dg-ok' : 'dg-bad'}>{chosen === gap.answer ? '¡Correcto! 🎉' : `Era “${gap.answer}”.`}</p>
+          <p className={`${chosen === gap.answer ? 'dg-ok' : 'dg-bad'} inline-flex items-center gap-1.5`}>{chosen === gap.answer ? <><PartyPopper size={16} /> ¡Correcto!</> : `Era “${gap.answer}”.`}</p>
           <Speak text={q.text} />
           <button type="button" className="dg-btn primary" onClick={() => { goTo(pos + 1); endTurn(); }}>Siguiente</button>
         </div>
@@ -244,8 +245,8 @@ export function BalloonsGame({ questions }: GameProps) {
     <div className="dg-quiz">
       <p className="dg-progress">Palabra {pos + 1} de {order.length} · {wins} salvadas</p>
       <div className="dg-balloons" aria-label={`${LIVES - misses} globos`}>
-        {range(LIVES).map((k) => <span key={k} className={k < LIVES - misses ? '' : 'popped'}>🎈</span>)}
-        <span className={`dg-rex-float ${lost ? 'down' : ''}`}>🦖</span>
+        {range(LIVES).map((k) => <Circle key={k} size={26} fill="currentColor" className={k < LIVES - misses ? 'text-rose-400' : 'popped'} />)}
+        <AppIcon name="footprints" size={34} className={`dg-rex-float text-emerald-700 ${lost ? 'down' : ''}`} />
       </div>
       <p className="dg-big-q">
         {tokens.map((t, k) => (k === secret
@@ -257,7 +258,7 @@ export function BalloonsGame({ questions }: GameProps) {
       )}
       {won || lost ? (
         <div className="dg-feedback">
-          <p className={won ? 'dg-ok' : 'dg-bad'}>{won ? '¡Salvaste a Rex! 🎉' : `Se acabaron los globos. Era “${tokens[secret].raw}”.`}</p>
+          <p className={`${won ? 'dg-ok' : 'dg-bad'} inline-flex items-center gap-1.5`}>{won ? <><PartyPopper size={16} /> ¡Salvaste a Rex!</> : `Se acabaron los globos. Era “${tokens[secret].raw}”.`}</p>
           <p className="dg-big-q"><Say text={q.text} /></p>
           <Speak text={q.text} />
           <button type="button" className="dg-btn primary" onClick={() => goTo(pos + 1)}>Siguiente</button>

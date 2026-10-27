@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Headphones, Mic, Volume2 } from 'lucide-react';
+import { AppIcon, EmojiIcon } from '../components/AppIcon';
 import RexMascot from '../components/RexMascot';
 import { Spinner } from '../components/LoadingScreen';
 import { listRoleplayScenarios, roleplayReport, startRoleplay } from '../services/api';
@@ -51,10 +52,10 @@ function Picker({ scenarios, onPick }: { scenarios: RoleplayScenario[]; onPick: 
       <div className="rp-scenarios">
         {scenarios.map((s) => (
           <button key={s.id} type="button" className="rp-scenario" onClick={() => onPick(s.id)}>
-            <span className="rp-scenario-emoji" aria-hidden>{s.emoji}</span>
+            <span className="rp-scenario-emoji" aria-hidden><EmojiIcon emoji={s.emoji} size={34} /></span>
             <b>{s.title}</b>
             <span>{s.description}</span>
-            <small>{s.roles.map((r) => `${r.emoji} ${r.label}`).join('  ·  ')}</small>
+            <small className="flex flex-wrap items-center gap-1.5">{s.roles.map((r) => <span key={r.id} className="inline-flex items-center gap-1"><EmojiIcon emoji={r.emoji} size={14} /> {r.label}</span>)}</small>
           </button>
         ))}
       </div>
@@ -142,7 +143,7 @@ function Session({ scenario, onBack }: { scenario: RoleplayScenario; onBack: () 
     <div className="rp-page">
       <button type="button" className="rp-back" onClick={onBack}><ArrowLeft size={16} /> Otras situaciones</button>
       <section className="rp-setup-head">
-        <span className="rp-scenario-emoji big" aria-hidden>{scenario.emoji}</span>
+        <span className="rp-scenario-emoji big" aria-hidden><EmojiIcon emoji={scenario.emoji} size={48} /></span>
         <div>
           <h1>{scenario.title}</h1>
           <p>{scenario.description}</p>
@@ -155,9 +156,9 @@ function Session({ scenario, onBack }: { scenario: RoleplayScenario; onBack: () 
           const other = scenario.roles.find((x) => x.id !== r.id);
           return (
             <button key={r.id} type="button" className={`rp-choice ${role === r.id ? 'on' : ''}`} onClick={() => setRole(r.id)} aria-pressed={role === r.id}>
-              <span className="rp-choice-emoji" aria-hidden>{r.emoji}</span>
+              <span className="rp-choice-emoji" aria-hidden><EmojiIcon emoji={r.emoji} size={30} /></span>
               <b>{r.label}</b>
-              <small>La IA será {other?.emoji} {other?.label.toLowerCase()}</small>
+              <small className="inline-flex items-center gap-1">La IA será {other && <EmojiIcon emoji={other.emoji} size={14} />} {other?.label.toLowerCase()}</small>
             </button>
           );
         })}
@@ -167,7 +168,7 @@ function Session({ scenario, onBack }: { scenario: RoleplayScenario; onBack: () 
       <div className="rp-choices three">
         {LEVELS.map((l) => (
           <button key={l} type="button" className={`rp-choice level ${level === l ? 'on' : ''}`} onClick={() => pickLevel(l)} aria-pressed={level === l}>
-            <span className="rp-choice-emoji" aria-hidden>{LEVEL_INFO[l].emoji}</span>
+            <span className="rp-choice-emoji" aria-hidden><AppIcon name={LEVEL_INFO[l].icon} size={30} /></span>
             <b>{LEVEL_INFO[l].label}</b>
             <ul>{LEVEL_INFO[l].bullets.map((b) => <li key={b}>{b}</li>)}</ul>
           </button>
@@ -181,7 +182,7 @@ function Session({ scenario, onBack }: { scenario: RoleplayScenario; onBack: () 
           <label><input type="checkbox" checked={prefs.es} onChange={(e) => setPrefs({ ...prefs, es: e.target.checked })} /> Ver la traducción al español</label>
         )}
         <label><input type="checkbox" checked={prefs.slow} onChange={(e) => setPrefs({ ...prefs, slow: e.target.checked })} /> Voz todavía más lenta</label>
-        <p>{prefs.en ? 'Puedes cambiar esto también durante la conversación.' : '🎧 Modo solo escuchar. Puedes cambiarlo durante la conversación.'}</p>
+            <p>{prefs.en ? 'Puedes cambiar esto también durante la conversación.' : <><Headphones size={14} className="inline align-[-2px]" /> Modo solo escuchar. Puedes cambiarlo durante la conversación.</>}</p>
       </div>
 
       <h2 className="rp-h2">4. ¿Cómo quieres practicar?</h2>
@@ -245,14 +246,14 @@ function SoundCheck({ session, prefs, onBack, onStart }: { session: RoleplayStar
             <Mic size={28} />
             <div>
               <b>Permite el micrófono</b>
-              <p>{mic === 'denied' ? 'El navegador bloqueó el micrófono: actívalo en el candado 🔒 o escribe tus respuestas.' : 'Vas a responder hablando. Tu voz solo se usa para entenderte.'}</p>
+              <p>{mic === 'denied' ? 'El navegador bloqueó el micrófono: actívalo en el icono del candado o escribe tus respuestas.' : 'Vas a responder hablando. Tu voz solo se usa para entenderte.'}</p>
             </div>
             <button type="button" className={`rp-btn ${mic === 'ok' ? 'ok' : ''}`} onClick={() => void testMic()}>{mic === 'ok' ? <><Check size={16} /> Listo</> : 'Permitir'}</button>
           </div>
         )}
       </div>
       <div className="rp-mission-preview">
-        <p className="rp-eyebrow">{session.missions.length ? 'Tu misión' : 'Hablarás'} con {session.ai_emoji} {session.ai_name} ({session.ai_role})</p>
+        <p className="rp-eyebrow inline-flex items-center gap-1">{session.missions.length ? 'Tu misión' : 'Hablarás'} con <EmojiIcon emoji={session.ai_emoji} size={14} /> {session.ai_name} ({session.ai_role})</p>
         {session.missions.length > 0
           ? <ol>{session.missions.map((m, i) => <li key={i}>{m}</li>)}</ol>
           : <p><b>Sin misiones:</b> conversa libremente dentro de la escena.</p>}

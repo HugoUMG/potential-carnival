@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { Info } from 'lucide-react';
+import { Check, Info, Loader2, MessagesSquare, Mic, Square, Volume2 } from 'lucide-react';
 import { transcribeAudio } from '../services/api';
 import { playSfx } from '../utils/sfx';
 import type {
@@ -244,7 +244,7 @@ function DragDropRenderer({ activity, value, readonly, onChange }: ActivityRende
                 title={placed[index] ? 'Arrastra a otro hueco, o clic para quitar' : 'Arrastra una palabra aquí'}
                 className={`mx-1 inline-flex min-w-[90px] items-center justify-center rounded-lg border-2 border-dashed px-3 py-1 align-middle text-sm transition ${placed[index] ? 'cursor-grab active:cursor-grabbing font-semibold text-rex-deep' : 'text-slate-400'} ${overBlank === index ? 'border-rex bg-rex-light ring-2 ring-rex' : placed[index] ? 'border-rex bg-rex-light' : 'border-slate-300 bg-slate-50'} ${dragKey === `blank-${index}` ? 'opacity-40' : ''}`}
               >
-                {placed[index] || '⬚'}
+                {placed[index] || <Square size={16} className="text-slate-300" />}
               </span>
             )}
           </span>
@@ -707,7 +707,7 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
       rec.start();
       setRecording(true);
     } catch {
-      setError('No se pudo acceder al micrófono. Revisa el permiso (candado 🔒) o escribe tu respuesta abajo.');
+      setError('No se pudo acceder al micrófono. Revisa el permiso del navegador o escribe tu respuesta abajo.');
       setShowFallback(true);
     }
   };
@@ -731,7 +731,13 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
           disabled={transcribing}
           className={`flex w-fit items-center gap-2 rounded-2xl px-5 py-3 font-semibold text-white transition disabled:opacity-60 ${recording ? 'animate-pulse bg-red-500' : 'bg-rex hover:bg-rex-deep'}`}
         >
-          {transcribing ? '⏳ Transcribiendo…' : recording ? '⏹ Detener' : `🎤 ${transcript ? 'Repetir' : (target ? 'Leer en voz alta' : 'Hablar')}`}
+          {transcribing ? (
+            <><Loader2 size={18} className="animate-spin" /> Transcribiendo…</>
+          ) : recording ? (
+            <><Square size={16} /> Detener</>
+          ) : (
+            <><Mic size={18} /> {transcript ? 'Repetir' : (target ? 'Leer en voz alta' : 'Hablar')}</>
+          )}
         </button>
       )}
       {transcript && (
@@ -750,8 +756,8 @@ function SpeakingRenderer({ activity, value, readonly, onChange }: ActivityRende
               ))}
             </div>
           )}
-          {matched === true && <p className="mt-2 font-semibold text-emerald-700">✓ ¡Bien! Coincide con la oración. Puedes continuar.</p>}
-          {matched === false && <p className="mt-2 font-semibold text-amber-700">Repite las palabras en rojo. Escucha 🔊 la oración e inténtalo otra vez.</p>}
+          {matched === true && <p className="mt-2 flex items-center gap-1.5 font-semibold text-emerald-700"><Check size={15} /> ¡Bien! Coincide con la oración. Puedes continuar.</p>}
+          {matched === false && <p className="mt-2 flex items-center gap-1.5 font-semibold text-amber-700"><Volume2 size={15} /> Repite las palabras en rojo. Escucha la oración e inténtalo otra vez.</p>}
         </div>
       )}
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
@@ -974,7 +980,7 @@ function ConversationRenderer({ activity, value, readonly, onChange }: ActivityR
   return (
     <div className="grid gap-3">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-rex">
-        <span>🗣️ Conversación</span>
+        <span className="flex items-center gap-1.5"><MessagesSquare size={14} /> Conversación</span>
         <span className="text-slate-400">{activity.lines.length} turnos · dos voces</span>
       </div>
       <AudioPlayer
@@ -1047,7 +1053,7 @@ export const activityRegistry = {
     type: 'fillblank',
     label: 'Fill in the Blank',
     description: 'The student types the missing word or phrase.',
-    icon: '✏️',
+    icon: 'penLine',
     create: () => ({ id: nextId('fillblank'), type: 'fillblank', text: 'I ____ ready.', answer: 'am' }),
     Renderer: FillBlankRenderer,
   },
@@ -1055,7 +1061,7 @@ export const activityRegistry = {
     type: 'multiplechoice',
     label: 'Multiple Choice',
     description: 'The student chooses one correct option.',
-    icon: '✅',
+    icon: 'squareCheck',
     create: () => ({ id: nextId('multiplechoice'), type: 'multiplechoice', question: 'Choose the correct answer.', options: ['am', 'is', 'are'], answer: 'am' }),
     Renderer: MultipleChoiceRenderer,
   },
@@ -1063,7 +1069,7 @@ export const activityRegistry = {
     type: 'poll',
     label: 'Encuesta (sin nota)',
     description: 'Opinion poll: no right answer, no score. Live shows how the class voted.',
-    icon: '📊',
+    icon: 'barChart',
     create: () => ({ id: nextId('poll'), type: 'poll', question: 'What do you think?', options: ['I agree', 'It depends', 'I disagree'] }),
     Renderer: MultipleChoiceRenderer,
   },
@@ -1071,7 +1077,7 @@ export const activityRegistry = {
     type: 'multiselect',
     label: 'Multi-Select',
     description: 'The student can choose several correct options.',
-    icon: '🗹',
+    icon: 'listChecks',
     create: () => ({ id: nextId('multiselect'), type: 'multiselect', question: 'Select all that apply.', options: ['run', 'runs', 'running', 'ran'], answer: ['run', 'runs'] }),
     Renderer: MultiSelectRenderer,
   },
@@ -1079,7 +1085,7 @@ export const activityRegistry = {
     type: 'dragdrop',
     label: 'Drag & Drop',
     description: 'Word bank dragged into blanks.',
-    icon: '🧩',
+    icon: 'puzzle',
     create: () => ({ id: nextId('dragdrop'), type: 'dragdrop', text: 'She _____ to school and _____ English.', answer: ['goes', 'studies'], bank: ['goes', 'go', 'studies', 'study'] }),
     Renderer: DragDropRenderer,
   },
@@ -1087,7 +1093,7 @@ export const activityRegistry = {
     type: 'textbox',
     label: 'Open Answer',
     description: 'Long written response.',
-    icon: '📝',
+    icon: 'notebookPen',
     create: () => ({ id: nextId('textbox'), type: 'textbox', prompt: 'Describe your house.' }),
     Renderer: TextBoxRenderer,
   },
@@ -1095,7 +1101,7 @@ export const activityRegistry = {
     type: 'matching',
     label: 'Matching',
     description: 'Match words with meanings.',
-    icon: '🔗',
+    icon: 'link',
     create: () => ({ id: nextId('matching'), type: 'matching', left: ['dog', 'cat'], right: ['animal that barks', 'animal that meows'] }),
     Renderer: MatchingRenderer,
   },
@@ -1103,7 +1109,7 @@ export const activityRegistry = {
     type: 'reading',
     label: 'Reading',
     description: 'Reading text with questions.',
-    icon: '📖',
+    icon: 'bookOpen',
     create: () => ({ id: nextId('reading'), type: 'reading', title: 'My school', content: 'This is my school.', questions: ['What is the text about?'] }),
     Renderer: ReadingRenderer,
   },
@@ -1111,7 +1117,7 @@ export const activityRegistry = {
     type: 'listening',
     label: 'Listening',
     description: 'Audio comprehension prompt',
-    icon: '🎧',
+    icon: 'headphones',
     create: () => ({ id: nextId('listening'), type: 'listening', text: 'Listen to this sentence.', question: 'What did you hear?', answer: '' }),
     Renderer: ListeningRenderer,
   } satisfies ActivityDefinition<ListeningActivity>,
@@ -1119,7 +1125,7 @@ export const activityRegistry = {
     type: 'imagequestion',
     label: 'Image Question',
     description: 'Visual prompt with written answer.',
-    icon: '🖼️',
+    icon: 'image',
     create: () => ({ id: nextId('imagequestion'), type: 'imagequestion', image: 'https://placehold.co/900x500', prompt: 'Describe what you see.' }),
     Renderer: ImageQuestionRenderer,
   },
@@ -1127,7 +1133,7 @@ export const activityRegistry = {
     type: 'imagechoice',
     label: 'Imagen + Opción múltiple',
     description: 'Choose one option; the options can be pictures.',
-    icon: '🖼️✅',
+    icon: 'images',
     create: () => ({ id: nextId('imagechoice'), type: 'imagechoice', question: 'Which one is the apple?', options: ['apple', 'banana'], option_images: ['https://placehold.co/400x300?text=apple', 'https://placehold.co/400x300?text=banana'], answer: 'apple' }),
     Renderer: MultipleChoiceRenderer,
   } satisfies ActivityDefinition<ImageChoiceActivity>,
@@ -1135,7 +1141,7 @@ export const activityRegistry = {
     type: 'imagematching',
     label: 'Imagen + Matching',
     description: 'Match each picture with its word.',
-    icon: '🖼️🔗',
+    icon: 'image',
     create: () => ({ id: nextId('imagematching'), type: 'imagematching', left: ['Image 1', 'Image 2'], left_images: ['https://placehold.co/400x300?text=dog', 'https://placehold.co/400x300?text=cat'], right: ['dog', 'cat'] }),
     Renderer: MatchingRenderer,
   } satisfies ActivityDefinition<ImageMatchingActivity>,
@@ -1143,7 +1149,7 @@ export const activityRegistry = {
     type: 'listeningfillblank',
     label: 'Listening + Fill Blank',
     description: 'Listen and complete the missing words.',
-    icon: '🎧✏️',
+    icon: 'audioLines',
     create: () => ({ id: nextId('listeningfillblank'), type: 'listeningfillblank', audio_text: 'She goes to school every day.', text: 'She _____ to school every day.', answer: 'goes' }),
     Renderer: ListeningFillBlankRenderer,
   },
@@ -1151,7 +1157,7 @@ export const activityRegistry = {
     type: 'listeningmultiplechoice',
     label: 'Listening + Multiple Choice',
     description: 'Listen and choose the correct option.',
-    icon: '🎧✅',
+    icon: 'headphones',
     create: () => ({ id: nextId('listeningmultiplechoice'), type: 'listeningmultiplechoice', audio_text: 'The meeting is on Friday at 3 PM.', question: 'When is the meeting?', options: ['Thursday at 3 PM', 'Friday at 3 PM', 'Friday at 5 PM'], answer: 'Friday at 3 PM' }),
     Renderer: ListeningMultipleChoiceRenderer,
   },
@@ -1159,7 +1165,7 @@ export const activityRegistry = {
     type: 'listeningmatching',
     label: 'Listening + Matching',
     description: 'Match each audio with its meaning.',
-    icon: '🎧🔗',
+    icon: 'audioLines',
     create: () => ({ id: nextId('listeningmatching'), type: 'listeningmatching', pairs: [{ audio_text: 'It might rain later.', match: 'Possibility' }, { audio_text: 'You should rest more.', match: 'Advice' }], options: ['Possibility', 'Advice'] }),
     Renderer: ListeningMatchingRenderer,
   },
@@ -1167,7 +1173,7 @@ export const activityRegistry = {
     type: 'listeningtruefalse',
     label: 'Listening + True/False',
     description: 'Listen and decide if each statement is true or false.',
-    icon: '🎧❓',
+    icon: 'headphones',
     create: () => ({ id: nextId('listeningtruefalse'), type: 'listeningtruefalse', audio_text: 'The store opens at 9 AM and closes at 6 PM.', statements: [{ text: 'The store opens at 9 AM.', answer: true }, { text: 'The store closes at 8 PM.', answer: false }] }),
     Renderer: ListeningTrueFalseRenderer,
   },
@@ -1175,7 +1181,7 @@ export const activityRegistry = {
     type: 'listeningorder',
     label: 'Listening + Ordenar',
     description: 'Listen and drag the scrambled words into the correct order.',
-    icon: '🎧🔀',
+    icon: 'listOrdered',
     create: () => ({ id: nextId('listeningorder'), type: 'listeningorder', audio_text: 'She has never been to Paris.', answer: ['She', 'has', 'never', 'been', 'to', 'Paris'], bank: ['Paris', 'She', 'to', 'has', 'been', 'never'] }),
     Renderer: ListeningOrderRenderer,
   } satisfies ActivityDefinition<ListeningOrderActivity>,
@@ -1183,7 +1189,7 @@ export const activityRegistry = {
     type: 'conversation',
     label: 'Conversación (2 voces)',
     description: 'Dialogue with alternating male/female voices in one audio + a question.',
-    icon: '🗣️',
+    icon: 'messages',
     create: () => ({ id: nextId('conversation'), type: 'conversation', lines: [{ speaker: 'female', text: 'Hi, are you new here?' }, { speaker: 'male', text: 'Yes, I started today.' }], question: 'Where did he start today?', answer: 'at school' }),
     Renderer: ConversationRenderer,
   } satisfies ActivityDefinition<ConversationActivity>,
@@ -1191,7 +1197,7 @@ export const activityRegistry = {
     type: 'content',
     label: 'Contenido / Repaso',
     description: 'Read-only rich content (headings, colors, layout) to review the topic. Not graded.',
-    icon: '📄',
+    icon: 'fileText',
     create: () => ({ id: nextId('content'), type: 'content', title: 'Repaso', html: '<h1 style="color:#0EA5E9">Título</h1>\n<p>Escribe aquí un repaso corto del tema. Puedes usar <b>negrita</b>, colores y listas.</p>' }),
     Renderer: ContentRenderer,
   } satisfies ActivityDefinition<ContentActivity>,
@@ -1199,7 +1205,7 @@ export const activityRegistry = {
     type: 'truefalse',
     label: 'True / False',
     description: 'Decide if each statement is true or false.',
-    icon: '✔️❌',
+    icon: 'toggleLeft',
     create: () => ({ id: nextId('truefalse'), type: 'truefalse', statements: [{ text: 'The Earth is round.', answer: true }, { text: 'The Sun orbits the Earth.', answer: false }] }),
     Renderer: TrueFalseRenderer,
   },
@@ -1207,7 +1213,7 @@ export const activityRegistry = {
     type: 'readingtruefalse',
     label: 'Reading + True/False',
     description: 'Read a text (with audio), then answer True or False.',
-    icon: '📖❓',
+    icon: 'bookOpen',
     create: () => ({ id: nextId('readingtruefalse'), type: 'readingtruefalse', title: 'My School', content: 'My school is very big. There are many classrooms and a large library.', statements: [{ text: 'The school has a library.', answer: true }, { text: 'The school is small.', answer: false }] }),
     Renderer: ReadingTrueFalseRenderer,
   },
@@ -1215,7 +1221,7 @@ export const activityRegistry = {
     type: 'speaking',
     label: 'Speaking (micrófono)',
     description: 'Read a sentence aloud (or answer by voice); uses the microphone.',
-    icon: '🎤',
+    icon: 'mic',
     create: () => ({ id: nextId('speaking'), type: 'speaking', prompt: 'Read the sentence aloud.', target: 'She goes to school every day.' }),
     Renderer: SpeakingRenderer,
   },

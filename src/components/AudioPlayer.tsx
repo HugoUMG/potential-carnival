@@ -260,7 +260,7 @@ export function AudioPlayer({ text, voice, conversation, rate: dslRate, maleVoic
       {/* Mensaje de error */}
       {error && (
         <p className="text-xs text-red-500">
-          {canBrowserSpeak() ? 'El audio del servidor no está disponible: ▶ lo lee la voz de tu navegador.' : 'No se pudo cargar el audio.'}{' '}
+          {canBrowserSpeak() ? 'El audio del servidor no está disponible: el navegador lo lee en voz alta.' : 'No se pudo cargar el audio.'}{' '}
           <button type="button" className="underline" onClick={() => void reload()}>Reintentar</button>
         </p>
       )}

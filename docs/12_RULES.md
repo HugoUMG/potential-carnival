@@ -73,6 +73,10 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
     (`VisualWorksheetBuilder.tsx`) es solo icono y colores — no volver a meterle un `label`: cuando lo
     tuvo, 11 de 21 tipos acabaron con dos nombres distintos y el profesor creaba un "Open Answer" que
     la hoja pintaba como "Text box".
+49. **La UI no añade emojis nuevos.** Los iconos salen de `lucide-react`/`AppIcon`; `EmojiIcon` solo
+    traduce emojis que sigan siendo datos del backend (avatares/reacciones, pregunta de juego,
+    escenario/rol). No convertir a iconos los literales `AVATARS`/`REACTIONS` de `LivePage.tsx`:
+    `test_live_session.py` los compara con `backend/app/live.py`.
 
 ## Contenido de las hojas
 

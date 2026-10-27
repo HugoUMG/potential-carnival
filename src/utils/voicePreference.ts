@@ -7,13 +7,13 @@
  */
 
 export const VOICE_OPTIONS = [
-  { name: 'en-US-AndrewNeural',  label: 'Andrew · EE. UU. ♂' },
-  { name: 'en-US-AriaNeural',    label: 'Aria · EE. UU. ♀' },
-  { name: 'en-GB-RyanNeural',    label: 'Ryan · Reino Unido ♂' },
-  { name: 'en-GB-SoniaNeural',   label: 'Sonia · Reino Unido ♀' },
-  { name: 'en-AU-NatashaNeural', label: 'Natasha · Australia ♀' },
-  { name: 'en-US-AnaNeural',     label: 'Ana · EE. UU. ♀ infantil' },
-  { name: 'en-US-RogerNeural',   label: 'Roger · EE. UU. ♂ infantil' },
+  { name: 'en-US-AndrewNeural',  label: 'Andrew · EE. UU. · voz masculina' },
+  { name: 'en-US-AriaNeural',    label: 'Aria · EE. UU. · voz femenina' },
+  { name: 'en-GB-RyanNeural',    label: 'Ryan · Reino Unido · voz masculina' },
+  { name: 'en-GB-SoniaNeural',   label: 'Sonia · Reino Unido · voz femenina' },
+  { name: 'en-AU-NatashaNeural', label: 'Natasha · Australia · voz femenina' },
+  { name: 'en-US-AnaNeural',     label: 'Ana · EE. UU. · voz femenina infantil' },
+  { name: 'en-US-RogerNeural',   label: 'Roger · EE. UU. · voz masculina infantil' },
 ] as const;
 
 /** DSL `voice: male|female` → la voz más clara de cada género. */

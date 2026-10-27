@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Users } from 'lucide-react';
+import { AppIcon } from '../components/AppIcon';
 import { getRoom } from '../services/api';
 import type { PublicGameSet, RoomState } from '../types';
 import { GAMES, SKILLS } from './registry';
@@ -107,7 +108,7 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
           ) : (
             <Link className="dg-home" to="/juegos" aria-label="Volver a MyDinoEnglish"><ChevronLeft size={20} /><span>MyDinoEnglish</span></Link>
           )}
-          {game && <span className="dg-ttl-ico" aria-hidden="true">{game.emoji}</span>}
+          {game && <span className="dg-ttl-ico" aria-hidden="true"><AppIcon name={game.icon} size={32} /></span>}
           <div className="dg-ttl">
             <small>
               {game
@@ -130,11 +131,11 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
             <nav className="dg-side" aria-label="Juegos">
               {SKILLS.map((s) => (
                 <div key={s.id}>
-                  <p>{s.emoji} {s.name}</p>
+                  <p><AppIcon name={s.icon} size={14} className="inline align-[-2px]" /> {s.name}</p>
                   {GAMES.filter((g) => g.skill === s.id).map((g) => (
                     <button key={g.id} type="button" aria-current={g.id === game.id ? 'page' : undefined} onClick={() => open(g.id)}
                       style={{ '--accent': g.color } as CSSProperties}>
-                      <span>{g.emoji}</span>{g.name}
+                      <AppIcon name={g.icon} size={15} /><span>{g.name}</span>
                     </button>
                   ))}
                 </div>
@@ -147,7 +148,7 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
                 <p className="dg-purpose">{game.purpose}</p>
                 {canGroup && (
                   <div className="dg-online">
-                    <span>🌐 <b>¿Cada quien en su casa?</b> Crea una sala y comparte el enlace: todos ven el mismo juego en vivo.</span>
+                    <span><AppIcon name="globe" size={16} className="inline align-[-2px]" /> <b>¿Cada quien en su casa?</b> Crea una sala y comparte el enlace: todos ven el mismo juego en vivo.</span>
                     <button type="button" className="dg-btn small primary" onClick={openGroup}>Jugar en línea</button>
                   </div>
                 )}
@@ -182,15 +183,15 @@ function Home({ set, onOpen }: { set: PublicGameSet; onOpen: (id: string) => voi
       <section className="dg-hero">
         {set.topic && <p className="dg-hero-topic">{set.topic}</p>}
         <p>Elige un juego. Todos usan las mismas {set.questions.length} preguntas.</p>
-        <p className="dg-hero-tip">💡 Toca cualquier palabra en inglés para ver sus significados y escuchar cómo se pronuncia. 🔊 lee la pregunta y 🐢 la lee lento.</p>
+        <p className="dg-hero-tip"><AppIcon name="lightbulb" size={15} className="inline align-[-2px]" /> Toca cualquier palabra en inglés para ver sus significados y escuchar cómo se pronuncia. <AppIcon name="volume" size={15} className="inline align-[-2px]" /> lee la pregunta y <AppIcon name="snail" size={15} className="inline align-[-2px]" /> la lee lento.</p>
       </section>
       {SKILLS.map((s) => (
         <section key={s.id} className="dg-skill">
-          <h2>{s.emoji} {s.name}</h2>
+          <h2 className="flex items-center gap-2"><AppIcon name={s.icon} size={22} /> {s.name}</h2>
           <div className="dg-tiles">
             {GAMES.filter((g) => g.skill === s.id).map((g) => (
               <button key={g.id} type="button" className="dg-tile" onClick={() => onOpen(g.id)} style={{ '--accent': g.color } as CSSProperties}>
-                <span className="dg-tile-emoji">{g.emoji}</span>
+                <span className="dg-tile-emoji"><AppIcon name={g.icon} size={30} /></span>
                 <b>{g.name}</b>
                 <span>{g.purpose}</span>
               </button>
