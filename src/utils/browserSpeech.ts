@@ -1,15 +1,17 @@
 /**
  * Voz del navegador (Web Speech API, `speechSynthesis`): respaldo gratis y sin red para cuando
- * `/tts` no puede sintetizar (octubre 2026: Microsoft rechaza edge-tts con 403 y ElevenLabs puede
- * quedarse sin cuota). Suena peor que edge o ElevenLabs, pero suena.
+ * `/tts` no puede sintetizar (Microsoft rechaza edge-tts con 403 o ElevenLabs se queda sin cuota).
+ * Suena peor que edge o ElevenLabs, pero suena.
  *
- * `ttsDown` recuerda el fallo: tras el primero, se habla directo con el navegador sin esperar otro
- * 503. Además así la voz arranca dentro del toque del alumno, que es lo que pide iOS.
+ * `ttsDownUntil` recuerda el fallo solo un minuto: pasado ese tiempo se vuelve a probar el servidor.
+ * Antes el fallo era para siempre y un 503 pasajero dejaba toda la clase con la voz del navegador.
+ * Mientras está caído, la voz arranca dentro del toque del alumno, que es lo que pide iOS.
  */
 
-let ttsDown = false;
-export const serverTtsDown = () => ttsDown;
-export const markServerTtsDown = () => { ttsDown = true; };
+const RETRY_MS = 60_000;
+let ttsDownUntil = 0;
+export const serverTtsDown = () => Date.now() < ttsDownUntil;
+export const markServerTtsDown = () => { ttsDownUntil = Date.now() + RETRY_MS; };
 
 export const canBrowserSpeak = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
 

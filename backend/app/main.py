@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 import secrets
+import threading
 import time
 
 import httpx
@@ -568,6 +569,91 @@ async def _edge_synth(text: str, voice: str, rate: str) -> bytes:
     return b"".join([chunk async for chunk in _edge_stream(text, voice, rate)])
 
 
+# ── Caché de edge-tts ────────────────────────────────────────────────────────
+# edge es gratis, pero sintetizar cuesta ~1-3 s y una clase entera toca la misma palabra a la vez.
+# El mp3 se guarda en `tts_cache` (la misma tabla de ElevenLabs, con prefijo en la clave) y se
+# sintetiza UNA vez por texto+voz+velocidad: los que llegan mientras tanto esperan y lo leen.
+
+_EDGE_LOCKS_GUARD = threading.Lock()
+
+
+class _EdgeLock:
+    __slots__ = ("lock", "users")
+
+    def __init__(self) -> None:
+        self.lock = asyncio.Lock()
+        self.users = 0
+
+
+_edge_locks: dict[str, _EdgeLock] = {}
+
+
+def _edge_cache_key(text: str, voice: str, rate: str) -> str:
+    # El prefijo evita chocar con la clave de ElevenLabs (modelo|voice_id|speed|texto).
+    return hashlib.sha256(f"edge|{voice}|{_tts_rate(rate)}|{text}".encode()).hexdigest()
+
+
+async def _read_edge_cache(key: str) -> bytes | None:
+    """La caché es una optimización: si la base falla, el audio sigue saliendo de edge."""
+    try:
+        return await asyncio.to_thread(repository.get_tts_audio, key)
+    except Exception as exc:
+        print(f"[tts] no se pudo leer la caché de edge: {exc!r}")
+        return None
+
+
+async def _write_edge_cache(key: str, audio: bytes) -> None:
+    try:
+        await asyncio.to_thread(repository.put_tts_audio, key, audio)
+    except Exception as exc:
+        print(f"[tts] no se pudo guardar la caché de edge: {exc!r}")
+
+
+def _edge_lock_register(key: str) -> _EdgeLock:
+    with _EDGE_LOCKS_GUARD:
+        entry = _edge_locks.setdefault(key, _EdgeLock())
+        entry.users += 1
+        return entry
+
+
+def _edge_lock_unregister(key: str, entry: _EdgeLock) -> None:
+    with _EDGE_LOCKS_GUARD:
+        entry.users -= 1
+        if entry.users == 0:
+            _edge_locks.pop(key, None)
+
+
+async def _edge_cached_stream(text: str, voice: str, rate: str):
+    """El mp3 por trozos, con caché y una sola síntesis por frase a la vez.
+
+    El primero sintetiza y guarda; los demás esperan a que suelte y lo leen de la caché. Así 30
+    alumnos que tocan la misma palabra no abren 30 websockets contra Microsoft.
+    """
+    key = _edge_cache_key(text, voice, rate)
+    if cached := await _read_edge_cache(key):
+        yield cached
+        return
+    entry = _edge_lock_register(key)
+    try:
+        await entry.lock.acquire()
+    except BaseException:
+        _edge_lock_unregister(key, entry)
+        raise
+    try:
+        if cached := await _read_edge_cache(key):
+            yield cached
+            return
+        data = bytearray()
+        async for chunk in _edge_stream(text, voice, rate):
+            data.extend(chunk)
+            yield chunk
+        if data:
+            await _write_edge_cache(key, bytes(data))
+    finally:
+        entry.lock.release()
+        _edge_lock_unregister(key, entry)
+
+
 # ── Voz con la conexión adelantada (conversación con IA, ADR-39) ──
 # Abrir la conexión con edge-tts es lo caro (0,7-2 s, con picos de 8) y no depende del texto;
 # sintetizar son ~0,5 s. El turno la abre MIENTRAS la IA piensa y manda el texto en cuanto lo tiene.
@@ -784,7 +870,7 @@ async def tts(
             _check_voice_exists(voice_name)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        stream = _edge_stream(text, voice_name, rate)
+        stream = _edge_cached_stream(text, voice_name, rate)
         try:
             first = await anext(stream, b"")
         except Exception as exc:

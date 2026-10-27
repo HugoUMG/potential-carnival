@@ -193,8 +193,9 @@ CREATE TABLE IF NOT EXISTS teacher_images (
 
 CREATE INDEX IF NOT EXISTS idx_teacher_images_teacher_id ON teacher_images(teacher_id);
 
--- Audio ya sintetizado por ElevenLabs (clave = sha256 de modelo|voz|velocidad|texto). El plan
--- gratuito son 10 000 créditos al mes: cada mp3 se paga una vez, no una por alumno y reproducción.
+-- Audio ya sintetizado, con clave sha256(motor|voz|velocidad|texto) (las de edge llevan "edge|").
+-- ElevenLabs: el plan gratuito son 10 000 créditos al mes y cada mp3 se paga una vez. edge-tts es
+-- gratis, pero sintetizar cuesta 1-3 s: la caché hace que la clase entera comparta una síntesis.
 CREATE TABLE IF NOT EXISTS tts_cache (
   cache_key  TEXT PRIMARY KEY,
   audio      BYTEA NOT NULL,

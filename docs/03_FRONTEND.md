@@ -74,9 +74,14 @@ no hay que escribir nada distinto por juego.
   es un botón que abre `WordPopover`: la pronuncia y muestra `lemma` y significados del `glossary`.
   **La regex de `tokenize` es la misma que `_WORD_RE` del backend**; si cambia una, cambia la otra.
 - **Audio:** `speak(text, slow)` → `gameAudioUrl` (`api.ts`) → `/tts?…&engine=edge`. Siempre
-  edge-tts: un juego no gasta créditos de ElevenLabs. 🔊 = `-10%`, 🐢 = `-40%`. Si `/tts` falla
-  (edge-tts bloqueado por Microsoft, octubre 2026), `playAudio` lee con la voz del navegador
-  (`utils/browserSpeech.ts`) y desde ese fallo va directo a ella.
+  edge-tts: un juego no gasta créditos de ElevenLabs. 🔊 = `-10%`, 🐢 = `-40%`. `playAudio` usa
+  **un solo** `<audio>` reutilizado y lo corta al cambiar o cerrar el juego (`stopAudio`). Si `/tts`
+  falla, lee con la voz del navegador (`utils/browserSpeech.ts`) y **reintenta edge-tts al minuto**,
+  en vez de quedarse con la voz del navegador el resto de la sesión. El backend guarda el mp3 de
+  edge en `tts_cache` (ADR-43): la primera reproducción tarda ~1-3 s y las siguientes, de otro alumno
+  u otro dispositivo, salen en milisegundos. `edge-tts>=7.3.1` es obligatorio desde octubre 2026:
+  Microsoft exige el token `Sec-MS-GEC` v2 (7.3.0) y 7.3.1 corrige el parseo de la fecha del
+  servidor; las versiones viejas reciben 403.
 - **Añadir un juego:** un componente que recibe `{ questions }` (`GameProps`) y una entrada en
   `GAMES`. El catálogo, el panel y la barra lateral lo pintan solos. Para que admita sala: usa
   `useShared` en el estado que deben ver todos, llama a `endTurn()` al final de cada turno, añade
@@ -134,8 +139,12 @@ no hay que escribir nada distinto por juego.
     transcribe y `say()` lo publica (`POST /rooms/{code}/say`, sin tener el control). Todos leen
     "🗣️ Luis dijo: …"; solo cuenta lo dicho tras sacar la pregunta (`saidBase`). Sin reconocimiento
     de voz (Firefox), se pide responder por la llamada. Por eso esos juegos son `roomFree`.
-- **Pronuncia** usa la Web Speech API del navegador (Chrome, Edge, Safari; Firefox no): sin ella,
-  avisa y deja escuchar el modelo. No manda audio al backend.
+- **Pronuncia** graba con `MediaRecorder` y transcribe con Groq Whisper (`/public/transcribe`), igual
+  que la actividad `speaking` y la conversación con IA (`useRecorder` en `src/utils/`): funciona en
+  Chrome, Edge, Safari y Firefox, siempre sobre HTTPS. El porcentaje sale de `matchWords`; si el
+  permiso está bloqueado, el error explica cómo desbloquearlo en Chrome. Sin `MediaRecorder` avisa y
+  deja escuchar el modelo. La grabación se corta sola a los 25 s y se suelta al salir del juego o al
+  pasar de pregunta (incluso si el permiso todavía estaba pendiente).
 
 Con "Juegos" el menú del sitio tiene cinco enlaces: `SiteLayout` los manda a una segunda fila hasta
 `xl` y ensancha el encabezado a `max-w-7xl` desde ahí. Con los botones de invitado (Crear cuenta,

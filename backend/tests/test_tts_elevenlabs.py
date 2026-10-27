@@ -188,6 +188,80 @@ def test_seis_alumnos_a_la_vez_pagan_un_solo_mp3(monkeypatch):
     assert len(FakeClient.calls) == 1  # con Semaphore(2) eran dos: el mismo texto pagado dos veces
 
 
+def test_el_mp3_de_edge_se_guarda_y_se_reutiliza(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    store: dict[str, bytes] = {}
+    monkeypatch.setattr(repository, "get_tts_audio", store.get)
+    monkeypatch.setattr(repository, "put_tts_audio", store.__setitem__)
+    calls: list[tuple[str, str, str]] = []
+
+    async def stream(text: str, voice: str, rate: str):
+        calls.append((text, voice, rate))
+        yield b"ID3"
+        yield b"-mp3"
+
+    monkeypatch.setattr(main, "_edge_stream", stream)
+    client = TestClient(main.app)
+    params = {"text": "Same edge text", "engine": "edge", "voice": "en-US-AndrewNeural", "rate": "-10%"}
+    first = client.get("/tts", params=params)
+    second = client.get("/tts", params=params)
+    assert first.status_code == second.status_code == 200
+    assert first.content == second.content == b"ID3-mp3"
+    assert first.headers["cache-control"].startswith("public")
+    assert len(calls) == 1 and list(store.values()) == [b"ID3-mp3"]
+
+    # La voz y la velocidad forman parte de la clave: cada versión se sintetiza una vez.
+    assert client.get("/tts", params={**params, "rate": "-40%"}).content == b"ID3-mp3"
+    assert client.get("/tts", params={**params, "voice": "en-GB-SoniaNeural"}).content == b"ID3-mp3"
+    assert len(calls) == 3
+
+
+def test_seis_alumnos_de_edge_sintetizan_la_frase_una_vez(monkeypatch):
+    store: dict[str, bytes] = {}
+    monkeypatch.setattr(repository, "get_tts_audio", store.get)
+    monkeypatch.setattr(repository, "put_tts_audio", store.__setitem__)
+    calls = 0
+
+    async def stream(text: str, voice: str, rate: str):
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.01)  # deja que los otros cinco lleguen y esperen
+        yield b"ID3"
+        yield b"-mp3"
+
+    monkeypatch.setattr(main, "_edge_stream", stream)
+
+    async def one() -> bytes:
+        return b"".join([chunk async for chunk in main._edge_cached_stream(
+            "Same edge text", "en-US-AndrewNeural", "-10%")])
+
+    async def avalancha() -> list[bytes]:
+        return await asyncio.gather(*[one() for _ in range(6)])
+
+    assert asyncio.run(avalancha()) == [b"ID3-mp3"] * 6
+    assert calls == 1  # el primero sintetiza; los demás leen el mp3 guardado
+
+
+def test_si_la_cache_de_edge_falla_el_audio_sigue_saliendo(monkeypatch):
+    def broken(key: str) -> bytes:
+        raise RuntimeError("base caída")
+
+    monkeypatch.setattr(repository, "get_tts_audio", broken)
+    monkeypatch.setattr(repository, "put_tts_audio", broken)
+
+    async def stream(text: str, voice: str, rate: str):
+        yield b"ID3"
+
+    monkeypatch.setattr(main, "_edge_stream", stream)
+
+    async def audio() -> bytes:
+        return b"".join([chunk async for chunk in main._edge_cached_stream(
+            "Cache down", "en-US-AndrewNeural", "-10%")])
+
+    assert asyncio.run(audio()) == b"ID3"
+
+
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     # Mismo motivo que en test_teacher_images.py: sin esto el test correría contra la base de

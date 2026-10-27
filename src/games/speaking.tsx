@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Check, CheckCheck, ChevronLeft, ChevronRight, Crown, Dices, Lightbulb, Mic, PartyPopper, RotateCcw, SendHorizontal, Shuffle } from 'lucide-react';
+import { Check, CheckCheck, ChevronLeft, ChevronRight, Crown, Dices, Lightbulb, Loader2, Mic, PartyPopper, RotateCcw, SendHorizontal, Shuffle, Square } from 'lucide-react';
 import { EmojiIcon } from '../components/AppIcon';
+import { transcribeAudio } from '../services/api';
+import { canRecord, useRecorder } from '../utils/useRecorder';
 import { CHALLENGES, TEAM_COLORS, copyText, matchWords, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
 import { Countdown, Es, Notice, Say, Sheet, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
@@ -437,63 +439,89 @@ export function TeamsGame({ questions }: GameProps) {
 
 // ── Pronuncia ─────────────────────────────────────────────────────────────────
 
-// Web Speech API: Chrome, Edge y Safari la traen (con prefijo webkit); Firefox no. Tipado mínimo
-// porque TypeScript no la incluye en lib.dom.
-interface Recognizer {
-  lang: string;
-  interimResults: boolean;
-  maxAlternatives: number;
-  start(): void;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onerror: ((e: { error: string }) => void) | null;
-  onend: (() => void) | null;
+/** El permiso del micrófono, explicado para que el alumno sepa qué tocar en Chrome. */
+function micError(e: unknown): string {
+  const name = e instanceof DOMException ? e.name : (e as { name?: string } | null)?.name ?? '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return 'Chrome bloqueó el micrófono. Toca el candado de la barra de direcciones, pon “Micrófono → Permitir” y recarga la página.';
+  }
+  if (name === 'NotFoundError') return 'No hay ningún micrófono conectado.';
+  if (name === 'NotReadableError') return 'Otra aplicación está usando el micrófono. Ciérrala e intenta otra vez.';
+  return 'No se pudo usar el micrófono. Revisa el permiso del navegador e intenta otra vez.';
 }
-type RecognizerClass = new () => Recognizer;
-const speechWindow = window as unknown as { SpeechRecognition?: RecognizerClass; webkitSpeechRecognition?: RecognizerClass };
-const Recognition = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
 
 export function PronounceGame({ questions }: GameProps) {
   const { endTurn, addPoint } = useRoom();
   const [order] = useShared('order', () => shuffle(range(questions.length)));
   const [pos, setPos] = useShared('pos', 0);
-  const [listening, setListening] = useState(false);
   const [said, setSaid] = useShared('said', '');
-  const [err, setErr] = useState('');
-  // Huecos = frases sin intento. En sala viajan como JSON y llegan como `null`.
   const [best, setBest] = useShared<(number | null)[]>('best', []);
+  const [err, setErr] = useState('');
+  const [transcribing, setTranscribing] = useState(false);
+  const rec = useRecorder(25);
+  // Cada intento lleva un número: si el alumno pasa a la siguiente mientras se transcribe, el
+  // resultado viejo no se cuela en la pregunta nueva.
+  const attempt = useRef(0);
+  useEffect(() => () => { attempt.current++; }, []);
+
   const q = questions[order[pos % order.length]];
   const target = words(q.text);
   const hits = said ? matchWords(target, words(said)) : null;
   const pct = hits ? Math.round((100 * hits.filter(Boolean).length) / Math.max(1, target.length)) : 0;
+  const scores = Array.isArray(best) ? best : [];
+  const scored = scores.filter((b): b is number => typeof b === 'number');
+  const average = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
 
-  const listen = () => {
-    if (!Recognition || listening) return;
-    const r = new Recognition();
-    r.lang = 'en-US';
-    r.interimResults = false;
-    r.maxAlternatives = 1;
-    r.onresult = (e) => {
-      const text = e.results[0][0].transcript;
-      setSaid(text);
-      const score = Math.round((100 * matchWords(target, words(text)).filter(Boolean).length) / Math.max(1, target.length));
-      setBest((b) => { const next = [...b]; next[pos] = Math.max(next[pos] ?? 0, score); return next; });
-      if (score >= 80) addPoint();
-    };
-    r.onerror = (e) => setErr(e.error === 'not-allowed' ? 'Permite el uso del micrófono para jugar.' : 'No te escuché bien. Intenta otra vez.');
-    r.onend = () => setListening(false);
+  const listen = async () => {
+    if (rec.starting || transcribing) return;
+    if (rec.recording) { rec.stop(); return; }
+    const id = ++attempt.current;
     setErr('');
     setSaid('');
-    setListening(true);
-    r.start();
+    let blob: Blob | null;
+    try {
+      blob = await rec.start();
+    } catch (e) {
+      if (id === attempt.current) setErr(micError(e));
+      return;
+    }
+    if (id !== attempt.current) return;
+    if (!blob) { setErr('No se grabó audio. Toca el micrófono y lee la pregunta otra vez.'); return; }
+    setTranscribing(true);
+    try {
+      const text = (await transcribeAudio(blob)).trim();
+      if (id !== attempt.current) return;
+      if (!text) { setErr('No te escuché bien. Acércate al micrófono y lee la pregunta otra vez.'); return; }
+      setSaid(text);
+      const score = Math.round((100 * matchWords(target, words(text)).filter(Boolean).length) / Math.max(1, target.length));
+      const before = scores[pos] ?? 0;
+      setBest((b) => { const next = Array.isArray(b) ? [...b] : []; next[pos] = Math.max(next[pos] ?? 0, score); return next; });
+      if (score >= 80 && before < 80) addPoint();
+    } catch {
+      if (id === attempt.current) setErr('No se pudo entender el audio. Revisa tu conexión e intenta otra vez.');
+    } finally {
+      if (id === attempt.current) setTranscribing(false);
+    }
   };
-  const next = () => { setPos((p) => p + 1); setSaid(''); setErr(''); endTurn(); };
+  const next = () => {
+    attempt.current++;
+    if (rec.recording || rec.starting) rec.cancel();
+    setTranscribing(false);
+    setPos((p) => p + 1);
+    setSaid('');
+    setErr('');
+    endTurn();
+  };
   const tokens = q.text.split(/\s+/);
-  const average = best.length ? Math.round(best.reduce<number>((a, b) => a + (b ?? 0), 0) / best.filter((b) => b != null).length) : null;
 
   return (
     <div className="dg-pron">
-      {!Recognition && (
-        <Notice>Tu navegador no reconoce la voz. Ábrelo en Chrome o Edge para que te califique; mientras, escucha el modelo y repítelo.</Notice>
+      {!canRecord && (
+        <Notice>
+          {window.isSecureContext
+            ? 'Este navegador no puede grabar audio. Usa Chrome, Edge o Safari actualizado.'
+            : 'El micrófono necesita una página HTTPS. Abre el juego con https:// (o en localhost).'}
+        </Notice>
       )}
       <div className="dg-dice-card">
         <p className="dg-challenge">Lee la pregunta en voz alta</p>
@@ -508,12 +536,19 @@ export function PronounceGame({ questions }: GameProps) {
         </p>
         <div className="dg-row center"><Speak text={q.text} label="Escuchar el modelo" /></div>
         <Es className="center">{q.translation}</Es>
-        {Recognition && (
-          <button type="button" className={`dg-mic ${listening ? 'on' : ''}`} onClick={listen} aria-label="Hablar">
-            <Mic size={30} />
+        {canRecord && (
+          <button type="button" className={`dg-mic ${rec.recording ? 'on' : ''}`} onClick={listen}
+            disabled={rec.starting || transcribing}
+            aria-label={rec.recording ? 'Detener y calificar' : 'Hablar'}>
+            {transcribing ? <Loader2 size={30} className="animate-spin" /> : rec.recording ? <Square size={26} /> : <Mic size={30} />}
           </button>
         )}
-        <p className="dg-muted center">{listening ? 'Te escucho…' : Recognition ? 'Toca el micrófono y lee la pregunta.' : ''}</p>
+        <p className="dg-muted center">
+          {rec.starting ? 'Pidiendo permiso para el micrófono…'
+            : rec.recording ? `Grabando… ${rec.seconds}s · toca otra vez para calificar`
+              : transcribing ? 'Entendiendo lo que dijiste…'
+                : canRecord ? 'Toca el micrófono y lee la pregunta.' : ''}
+        </p>
         {err && <p className="dg-error center">{err}</p>}
         {said && (
           <div className={`dg-result ${pct >= 80 ? 'ok' : pct >= 50 ? 'mid' : 'bad'}`}>

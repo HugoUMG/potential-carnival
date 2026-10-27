@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type { IconName } from '../components/AppIcon';
 import { roleplayAudioUrl } from '../services/api';
 import { browserSpeak, stopBrowserSpeech } from '../utils/browserSpeech';
@@ -155,68 +154,8 @@ export function stopVoice(): void {
 
 // ── Micrófono ─────────────────────────────────────────────────────────────────
 
-export const canRecord = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
-
-const MAX_SECONDS = 45;
-
-/** Graba con MediaRecorder (como la actividad speaking) y mide el volumen en vivo para las barras. */
-export function useRecorder() {
-  const [recording, setRecording] = useState(false);
-  const [level, setLevel] = useState(0);
-  const [seconds, setSeconds] = useState(0);
-  const recorder = useRef<MediaRecorder | null>(null);
-  const cleanup = useRef<() => void>(() => {});
-
-  const stop = useCallback((): void => { recorder.current?.stop(); }, []);
-
-  const start = useCallback(async (): Promise<Blob | null> => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    const chunks: Blob[] = [];
-    const rec = new MediaRecorder(stream);
-    recorder.current = rec;
-
-    const ctx = new AudioContext();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    ctx.createMediaStreamSource(stream).connect(analyser);
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    const began = Date.now();
-    const timer = window.setInterval(() => {
-      analyser.getByteFrequencyData(data);
-      setLevel(Math.min(1, data.reduce((a, b) => a + b, 0) / data.length / 90));
-      const elapsed = Math.floor((Date.now() - began) / 1000);
-      setSeconds(elapsed);
-      if (elapsed >= MAX_SECONDS) rec.stop();
-    }, 100);
-    cleanup.current = () => {
-      window.clearInterval(timer);
-      stream.getTracks().forEach((t) => t.stop());
-      void ctx.close();
-      setRecording(false);
-      setLevel(0);
-    };
-
-    return new Promise((resolve) => {
-      rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-      rec.onstop = () => {
-        cleanup.current();
-        const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
-        resolve(blob.size ? blob : null);
-      };
-      rec.start();
-      setSeconds(0);
-      setRecording(true);
-    });
-  }, []);
-
-  // Si el alumno sale a mitad de una grabación, el micrófono se suelta.
-  useEffect(() => {
-    const release = cleanup;
-    return () => release.current();
-  }, []);
-
-  return { recording, level, seconds, start, stop };
-}
+// El grabador vive en `utils/` porque también lo usa el juego Pronuncia.
+export { canRecord, useRecorder } from '../utils/useRecorder';
 
 export const LEVEL_INFO: Record<RoleplayLevel, { label: string; icon: IconName; bullets: string[]; en: boolean; es: boolean }> = {
   beginner: { label: 'Principiante', icon: 'sprout', en: true, es: true,

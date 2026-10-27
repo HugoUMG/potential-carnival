@@ -7,7 +7,7 @@ import type { PublicGameSet, RoomState } from '../types';
 import { GAMES, SKILLS } from './registry';
 import { RoomGate, RoomProvider } from './room';
 import { dropSeat, loadSeat } from './roomState';
-import { GameContext, type GameCtx } from './util';
+import { GameContext, type GameCtx, stopAudio } from './util';
 import { Countdown, WordPopover } from './ui';
 import './games.css';
 
@@ -39,6 +39,7 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
   const [gate, setGate] = useState(false);
 
   const leaveRoom = useCallback(() => {
+    stopAudio();
     if (roomCode) dropSeat(roomCode);
     setRoomCode(null); setSeat(null); setRoomInit(null); setGate(false);
     window.history.replaceState(null, '', window.location.pathname + window.location.hash);
@@ -50,6 +51,9 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
     window.addEventListener('popstate', sync);
     return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
   }, []);
+
+  // Al cambiar de juego o salir del reproductor, la voz que estaba sonando se corta.
+  useEffect(() => () => stopAudio(), [active]);
 
   // Con asiento guardado (F5 o enlace tras unirse en otra página), se pide el estado y se entra.
   useEffect(() => {

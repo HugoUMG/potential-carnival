@@ -99,17 +99,23 @@ la vez).
 
 ---
 
+## Cerrado: edge-tts recuperado con la 7.3.1 (octubre 2026)
+
+Microsoft empezó a exigir el token `Sec-MS-GEC` v2. `edge-tts 7.3.0` lo añadió y `7.3.1`
+(13-oct-2026) corrigió el parseo de la fecha del servidor, que fallaba según la configuración
+regional. `backend/requirements.txt` exige `edge-tts>=7.3.1`: `/tts?engine=edge` vuelve a responder
+200 y los juegos, las hojas y la conversación con IA recuperan la voz de edge. La app reintenta
+edge-tts al minuto si `/tts` falla, en vez de quedarse con la voz del navegador. El mp3 de edge se
+guarda en `tts_cache` (ADR-43): la primera reproducción de una frase la sintetiza y el resto de la
+clase la recibe de la base en milisegundos. No se cambió de proveedor de TTS: la versión nueva
+arregla el bloqueo sin tocar voces ni URLs.
+
 ## En cola
 
-### edge-tts bloqueado por Microsoft (abierto, octubre 2026)
+### ElevenLabs en Render
 
-Desde octubre de 2026, Microsoft responde **403** a edge-tts (`WSServerHandshakeError` al abrir el
-websocket), incluso con la última versión (7.2.8) y declarando versiones nuevas de Chrome. En
-producción, `/tts` da 503 en todo lo que no esté en la caché de ElevenLabs. Mientras tanto, los juegos, las
-hojas y la conversación con IA suenan con la **voz del navegador** (`utils/browserSpeech.ts`).
-Pendiente: vigilar una versión nueva de `edge-tts` que lo arregle o elegir otro TTS gratuito. Hay
-que revisar también en los logs de Render por qué ElevenLabs falla allí (en local la clave tiene
-cuota: 3078 de 10 000 caracteres).
+Revisar en los logs por qué falla en producción; en local la clave tiene cuota (3078 de 10 000
+caracteres). Mientras tanto, todo lo que no esté en caché cae a edge-tts.
 
 ### Rendimiento (carga de base de datos)
 

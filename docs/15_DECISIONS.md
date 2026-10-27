@@ -1070,6 +1070,79 @@ no responde ponga los puntos. En vez de un permiso nuevo ("calificador") en el s
 califica es quien tiene el control**: en presentador, el anfitrión; en turnos, el que tiene el turno
 califica al siguiente y al calificar le pasa el control. El servidor no cambia.
 
+## 🟢 ADR-41 — Pronuncia graba y transcribe en el servidor, no con la Web Speech API
+
+**Decisión.** El juego Pronuncia pide el micrófono con `MediaRecorder` y manda el audio a
+`POST /public/transcribe` (Groq Whisper); el porcentaje sigue saliendo de comparar las palabras del
+texto con `matchWords`. El grabador (`useRecorder`) vive en `src/utils/` y lo comparten Pronuncia y
+la conversación con IA. La grabación se corta a los 25 s y se suelta al salir del juego o al pasar
+de pregunta (aunque el permiso siga pendiente).
+
+**Motivo.** La Web Speech API no existe en Firefox ni en iOS, y en Chrome depende de los servidores
+de Google: en redes filtradas `start()` termina en `network`, y un permiso bloqueado antes solo
+dejaba un aviso inútil. El alumno se quedaba sin poder jugar. El endpoint de Whisper ya existía para
+la actividad `speaking` y el role-play, con tope por IP, así que el juego usa el mismo camino que ya
+funciona en cualquier navegador que grabe.
+
+**Alternativas descartadas.**
+- *Seguir con `webkitSpeechRecognition` y un aviso para Firefox/iOS.* El aviso no deja jugar al
+  alumno, que es justo el objetivo del juego.
+- *Usar la Web Speech API y caer a Whisper solo si falla.* Son dos caminos y el fallo más común
+  (permiso bloqueado o servicio de Google inaccesible) no siempre llega como un error recuperable.
+
+**Consecuencias.** Cada intento gasta una llamada a Whisper (4 MB y 180 peticiones/min por IP); a
+cambio el juego funciona en Chrome, Edge, Safari y Firefox, y califica con la misma transcripción que
+la actividad `speaking`. Sin HTTPS `getUserMedia` no existe: el aviso lo dice y deja escuchar el
+modelo. El error de permiso de Chrome explica cómo desbloquearlo y recargar.
+
+## 🟢 ADR-42 — El audio de los juegos usa un solo elemento y reintenta edge-tts
+
+**Decisión.** `playAudio` (`src/games/util.ts`) reutiliza un único `<audio>`; `stopAudio()` corta la
+reproducción y suelta la descarga al cambiar o cerrar el juego. Si `/tts` falla, suena la voz del
+navegador durante 60 s (`serverTtsDown`) y después se vuelve a probar edge-tts. `backend/requirements.txt`
+exige `edge-tts>=7.3.1`: 7.3.0 añadió el token `Sec-MS-GEC` v2 que Microsoft empezó a pedir y 7.3.1
+corrigió el parseo de la fecha del servidor.
+
+**Motivo.** Un 503 pasajero (o una versión vieja de edge-tts) dejaba `ttsDown` en `true` para siempre:
+toda la sesión sonaba con la voz del navegador aunque el servidor ya estuviera bien. Además, crear un
+`new Audio` por frase dejaba descargas vivas y la voz seguía sonando al salir del juego. El elemento
+único y el corte explícito hacen que "lo que se oye" sea siempre el juego abierto.
+
+**Alternativas descartadas.**
+- *Mantener el fallo permanente*: es lo que hacía que la clase entera oyera la voz mala tras un solo
+  error; el coste de reintentar una vez por minuto es despreciable.
+- *Cambiar de TTS gratuito*: `edge-tts 7.3.1` arregla el 403 sin tocar las voces ni las URLs.
+
+**Consecuencias.** Cambiar de juego corta la frase a mitad (es lo que se quiere). Si edge-tts vuelve
+a bloquearse, cada minuto se paga un 503 y se cae a la voz del navegador; en cuanto edge responde, el
+siguiente minuto vuelve a sonar con la voz buena sin recargar la página.
+
+## 🟢 ADR-43 — El MP3 de edge-tts se cachea en el servidor y se sintetiza una vez por frase
+
+**Decisión.** `GET /tts?engine=edge` guarda el mp3 en `tts_cache` con clave
+`sha256("edge|voz|rate|texto")` y lo busca antes de abrir el websocket de Microsoft. El primer alumno
+sintetiza; los demás leen la base. `_edge_cached_stream` mantiene un lock por clave: si varios piden
+la misma frase a la vez, uno sintetiza y el resto espera y recibe el mp3 cacheado. El audio se
+acumula mientras se manda en streaming y se guarda al terminar; si el cliente corta a mitad, no se
+guarda un mp3 truncado. Si la base falla, se sintetiza igual.
+
+**Motivo.** El navegador ya cachea 7 días, pero cada dispositivo pagaba su primera síntesis: 30
+alumnos tocando la misma palabra abrían 30 websockets y esperaban 1-3 s. La tabla `tts_cache` ya
+existía para ElevenLabs; reutilizarla no cuesta una migración y convierte la segunda reproducción en
+~15 ms. Medido en local: 2,7 s la primera y 14-15 ms las siguientes.
+
+**Alternativas descartadas.**
+- *Confiar solo en la caché del navegador*: no cruza dispositivos; el primero de cada uno paga la
+  síntesis y la clase entera espera a la vez.
+- *Un semáforo global como ElevenLabs*: serializaría todas las frases de la clase, no solo las
+  repetidas; una palabra distinta por alumno esperaría a las demás.
+- *Sintetizar entero antes de responder*: perdía el streaming (el `<audio>` empieza con el primer
+  trozo), que es lo que hace que la conversación no se sienta cortada.
+
+**Consecuencias.** La caché no expira (~20 KB por frase); los textos van hasheados, no en claro. Un
+fallo de la base no rompe el audio: solo se pierde la caché. La clave incluye voz y velocidad, así
+que la versión lenta se guarda aparte.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

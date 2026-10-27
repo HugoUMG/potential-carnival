@@ -110,6 +110,26 @@ export const TEAM_COLORS = ['#FF595E', '#1982C4', '#2BB673', '#FF924C'];
 // ── Audio (edge-tts, gratis) ──────────────────────────────────────────────────
 
 let current: HTMLAudioElement | null = null;
+let playId = 0;
+
+const audioElement = () => {
+  current ??= new Audio();
+  current.preload = 'auto';
+  return current;
+};
+
+/** Corta el audio en curso y suelta la descarga. Se llama al cambiar o cerrar un juego. */
+export function stopAudio(): void {
+  playId++;
+  const audio = current;
+  if (audio) {
+    audio.onerror = null;
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+  }
+  stopBrowserSpeech();
+}
 
 /** En una sala (room.tsx) decide qué navegador suena: quien mueve suena y avisa a los demás; el
  *  resto calla aquí y suena cuando llega el aviso. Devolver `false` calla este `speak`. */
@@ -122,18 +142,19 @@ export function speak(text: string, slow = false): void {
   playAudio(text, slow);
 }
 
-/** Suena solo en este navegador. Si `/tts` falla (edge-tts bloqueado), usa la voz del navegador
- *  y, desde ese momento, va directo a ella (`browserSpeech.ts`). */
+/** Suena solo en este navegador. Un solo elemento de audio, reutilizado. Si `/tts` falla, usa la
+ *  voz del navegador y reintenta el servidor tras un minuto (`browserSpeech.ts`). */
 export function playAudio(text: string, slow = false): void {
-  current?.pause();
-  stopBrowserSpeech();
+  stopAudio();
   if (serverTtsDown() && browserSpeak(text, slow ? 0.6 : 0.9)) return;
-  const audio = new Audio(gameAudioUrl(text, slow));
-  current = audio;
+  const audio = audioElement();
+  const id = playId;
   audio.onerror = () => {
+    if (id !== playId) return;
     markServerTtsDown();
-    if (current === audio) browserSpeak(text, slow ? 0.6 : 0.9);
+    browserSpeak(text, slow ? 0.6 : 0.9);
   };
+  audio.src = gameAudioUrl(text, slow);
   audio.play().catch(() => { /* autoplay bloqueado o error: `onerror` decide el respaldo */ });
 }
 

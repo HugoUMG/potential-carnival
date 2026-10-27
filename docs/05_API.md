@@ -294,9 +294,15 @@ GET    /tts/conversation?lines=…&male=…&female=…&rate=… — Diálogo con
 **`engine=edge`** lo usan los juegos (ADR-38) y la conversación con IA (ADR-39): suenan siempre con
 edge-tts, que es gratis, y responden con `Cache-Control: public, max-age=604800` para que el
 navegador no vuelva a pedir la misma palabra. Así una clase tocando palabras no gasta el cupo de
-ElevenLabs, que queda para las hojas. Va **en streaming** (`StreamingResponse` sobre `_edge_stream`):
-el `<audio>` empieza a sonar con el primer trozo (~1 s) en vez de esperar la frase entera. El primer
-trozo se pide antes de responder, así que una voz inexistente sigue siendo 400 y un fallo de edge 503.
+ElevenLabs, que queda para las hojas. El mp3 se guarda **también en el servidor**, en `tts_cache`,
+con clave `sha256(edge|voz|rate|texto)` (ADR-43): el primero que pide una frase la sintetiza y los
+demás la leen de la base, aunque estén en otro dispositivo. `_edge_cached_stream` mantiene un lock
+por clave: si 30 alumnos tocan la misma palabra a la vez, uno sintetiza y los otros 29 esperan y
+reciben el mp3 ya hecho; la versión lenta se cachea aparte porque `rate` forma parte de la clave. Si
+la base falla, el audio sigue saliendo de edge: la caché es solo una optimización. En un fallo de
+caché va **en streaming** (`StreamingResponse` sobre `_edge_stream`): el `<audio>` empieza a sonar
+con el primer trozo (~1 s) en vez de esperar la frase entera. El primer trozo se pide antes de
+responder, así que una voz inexistente sigue siendo 400 y un fallo de edge 503.
 
 **Dos motores, una función.** Todo el audio de la plataforma (`/tts`, `/tts/conversation`,
 `/live/{code}/audio` y la prueba de audio) pasa por `_synth_mp3(parts, rate)`, que recibe una lista de
@@ -304,7 +310,8 @@ trozo se pide antes de responder, así que una voz inexistente sigue siendo 400 
 
 1. Con `ELEVENLABS_API_KEY` → **ElevenLabs** (`POST /v1/text-to-speech/{voice_id}`, modelo
    `ELEVENLABS_MODEL`, default `eleven_multilingual_v2`, `mp3_44100_128`). El mp3 se guarda en la
-   tabla **`tts_cache`** con clave `sha256(modelo|voice_id|speed|texto)`: el plan gratuito son
+   tabla **`tts_cache`** con clave `sha256(modelo|voice_id|speed|texto)` (la de edge usa la misma
+   tabla con prefijo `edge|`): el plan gratuito son
    10 000 créditos al mes y un carácter es un crédito, así que **cada texto se paga una vez**, no
    una por alumno y reproducción. La caché se mira dos veces: antes de esperar turno y ya con él
    (`_eleven_slots`, semáforo de **1**), para que 30 alumnos que abren la hoja a la vez no pidan el

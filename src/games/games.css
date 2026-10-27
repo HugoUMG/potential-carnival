@@ -334,7 +334,8 @@ button.dg-box:hover { transform: translateY(-3px) rotate(-2deg); }
 
 /* ── Pronuncia ── */
 .dg-mic { width: 78px; height: 78px; border-radius: 50%; border: 0; background: var(--accent); color: #fff !important; display: grid; place-items: center; box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 45%, transparent); }
-.dg-mic.on { animation: dg-pulse 1s infinite; }
+.dg-mic.on { background: var(--bad); animation: dg-pulse 1s infinite; }
+.dg-mic:disabled { cursor: progress; opacity: .75; }
 .dg-result { display: flex; align-items: center; gap: 12px; border-radius: 16px; padding: 10px 14px; font-size: 14px; }
 .dg-result b { font-family: var(--f-game); font-weight: 400; font-size: 28px; }
 .dg-result.ok { background: var(--ok-bg); color: var(--ok); }

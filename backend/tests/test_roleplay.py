@@ -119,8 +119,16 @@ def test_claridad_de_whisper():
 def test_el_audio_de_los_juegos_y_la_conversacion_va_en_streaming(monkeypatch):
     from fastapi.testclient import TestClient
     from backend.app import main
+    from backend.app.repository import repository
+
+    store: dict[str, bytes] = {}
+    monkeypatch.setattr(repository, "get_tts_audio", store.get)
+    monkeypatch.setattr(repository, "put_tts_audio", store.__setitem__)
+    calls = 0
 
     async def stream(text, voice, rate):
+        nonlocal calls
+        calls += 1
         for part in (b"ID3", b"-uno", b"-dos"):
             yield part
 
@@ -129,10 +137,14 @@ def test_el_audio_de_los_juegos_y_la_conversacion_va_en_streaming(monkeypatch):
         yield b""  # pragma: no cover
 
     monkeypatch.setattr(main, "_edge_stream", stream)
-    client = TestClient(main.app)  # sin `with`: no corre el arranque, no toca ninguna base
-    ok = client.get("/tts", params={"text": "Hi", "engine": "edge", "voice": "en-GB-SoniaNeural", "rate": "-25%"})
+    client = TestClient(main.app)  # sin `with`: no corre el arranque
+    params = {"text": "Hi", "engine": "edge", "voice": "en-GB-SoniaNeural", "rate": "-25%"}
+    ok = client.get("/tts", params=params)
     assert ok.status_code == 200 and ok.content == b"ID3-uno-dos"
     assert ok.headers["cache-control"].startswith("public")
+    # La segunda vez sale de `tts_cache`: no se vuelve a abrir el websocket de edge.
+    assert client.get("/tts", params=params).content == b"ID3-uno-dos"
+    assert calls == 1 and list(store.values()) == [b"ID3-uno-dos"]
     assert client.get("/tts", params={"text": "Hi", "engine": "edge", "voice": "en-GB-OliverNeural"}).status_code == 400
 
     monkeypatch.setattr(main, "_edge_stream", broken)
