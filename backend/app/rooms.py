@@ -27,7 +27,7 @@ ROOM_GAMES = frozenset({
     "memorama", "tarjetas", "chat", "ruleta", "corcho", "dados", "equipos", "pronuncia",
     "escucha", "dictado", "bingo", "ordena", "completa", "globos", "coincide",
     "gato", "conecta4", "escaleras", "entrevista", "carrera", "papa",
-    "puertas", "mapa", "sobres", "rasca", "bomba",
+    "puertas", "mapa", "sobres", "rasca", "bomba", "dinos",
 })
 MODES = ("turnos", "presentador")
 LENDS = ("once", "always")

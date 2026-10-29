@@ -3,7 +3,7 @@ import { Check, CheckCheck, ChevronLeft, ChevronRight, Crown, Dices, Lightbulb, 
 import { EmojiIcon } from '../components/AppIcon';
 import { transcribeAudio } from '../services/api';
 import { canRecord, useRecorder } from '../utils/useRecorder';
-import { CHALLENGES, TEAM_COLORS, copyText, matchWords, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
+import { CHALLENGES, PIPS, TEAM_COLORS, copyText, matchWords, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
 import { Countdown, Es, Notice, Say, Sheet, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
 
@@ -320,7 +320,6 @@ export function BoardGame({ questions }: GameProps) {
 
 // ── Dados ─────────────────────────────────────────────────────────────────────
 
-const PIPS = [[4], [0, 8], [0, 4, 8], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
 
 export function DiceGame({ questions }: GameProps) {
   const { endTurn } = useRoom();

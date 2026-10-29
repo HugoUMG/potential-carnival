@@ -45,7 +45,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 
 Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji o
 nombre de icono) que se
-juega con **27 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 5 tableros numerados) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
+juega con **28 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 5 tableros numerados + Carrera de dinos) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
 no hay que escribir nada distinto por juego.
 
 - **Profesor:** sección `juegos` del portal → `GameSetsManager`. Lista de sets (Jugar, Copiar enlace,
@@ -110,7 +110,16 @@ no hay que escribir nada distinto por juego.
   mismos de Dados, así no hay estado de más), Rasca y gana (12 boletos; `ScratchPad` es un `<canvas>`
   que se borra con `destination-out` y destapa al pasar del 55 % rascado; `shown` se comparte) y Cajas
   bomba (2–4 equipos, 20 cajas con +1/+2/+3, ⭐ que duplica y 💣 que deja en 0; si el equipo falla, la
-  caja sigue cerrada). `CHALLENGES` y `TEAM_COLORS` viven en `util.ts` porque los usan dos archivos.
+  caja sigue cerrada). `CHALLENGES`, `TEAM_COLORS` y `PIPS` (caras del dado) viven en `util.ts` porque los
+  usan varios archivos.
+- **Carrera de dinos (`pick.tsx`, `dinos`, grupo `hablar`):** prima de Cajas bomba para 2–4 equipos. Un
+  carril por equipo (16 casillas, meta en la 15) con 5 casillas sorpresa repartidas al azar por
+  partida (`dealSquares`): 2 turbo (+2), 2 trampa (−3) y 1 cambio (cambia de lugar con el que va
+  primero, si hay alguien delante). La pregunta del equipo en turno sale sola debajo de la pista; el
+  profesor marca ✓ o ✕. Con ✓ el equipo tira el dado; con ✕ pasa el turno. La sorpresa no encadena
+  otra (`race`, pura). Anima igual que Serpientes y escaleras: quien mueve guarda `pos` y `move`
+  (`before`, `path`, `after`, `kind`) y cada navegador anima por `move.id`; el veredicto también es
+  compartido (`verdict`) para que todos oigan el acierto o el fallo y vean el carril brillar o temblar.
 - **Juegos de mesa (`board.tsx`, grupo `mesa`):** Gato (3×3), Conecta 4 (7×6) y Serpientes y
   escaleras (30 casillas, `JUMPS`). Para mover, quien tiene el turno acierta qué significa una
   pregunta (`ChallengeCard`: la pregunta y 3 traducciones). Si acierta, aplica la jugada; si falla,
@@ -119,6 +128,13 @@ no hay que escribir nada distinto por juego.
   en sala por turnos, `roomSeats: 2` hace que el turno rote solo entre los 2 primeros de la sala (los
   lados llevan sus nombres) y el resto mira con 👀. En presentador mueve el anfitrión por los dos
   lados.
+  Serpientes y escaleras es un tablero 6×5 dibujado en SVG (escaleras y serpientes calculadas con
+  `xy(n)`; todos salen de la casilla 1). El dado va entre los dos jugadores, rueda con sonido y,
+  al responder, la jugada se aplica sola al segundo ("Continuar" la adelanta). Quien mueve guarda
+  `pos` (final) y `move` (`{id, side, path}`: cada casilla pisada y el destino del salto); cada
+  navegador anima la ficha a partir de `move.id`, así una jugada es una sola escritura en la sala y
+  quien entra tarde no ve repeticiones. Los efectos (`tick`, `hop`, `ok`, `miss`, `climb`, `slide`,
+  `win`) están en `utils/sfx.ts` (ZzFX, sin archivos).
 - **Responder por turnos (`oral.tsx`, grupo `turnos`):** Entrevista, Carrera de respuestas (meta en
   10) y Papa caliente (tiempo oculto de 10–20 s; si se quema, 0 puntos). Nadie escribe: sale la
   pregunta, se responde en voz alta y alguien califica ✓ +2 · ½ +1 · ✗ 0. **Quien califica es quien

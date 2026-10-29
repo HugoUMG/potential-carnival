@@ -105,6 +105,9 @@ export const CHALLENGES = [
   '¡Comodín! Tú eliges quién responde.',
 ];
 
+/** Puntos de cada cara del dado (1–6) en una rejilla 3×3. */
+export const PIPS = [[4], [0, 8], [0, 4, 8], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 2, 3, 5, 6, 8]];
+
 export const TEAM_COLORS = ['#FF595E', '#1982C4', '#2BB673', '#FF924C'];
 
 // ── Audio (edge-tts, gratis) ──────────────────────────────────────────────────

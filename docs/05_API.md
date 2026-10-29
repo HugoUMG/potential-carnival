@@ -213,7 +213,7 @@ POST /rooms/{code}/say         — {token, text}: cualquier jugador, tenga o no 
   online}], said, state?}`. `online` = hizo poll en los últimos 90 s. `said` = `{pid, name, text, n}`
   con lo último que alguien publicó por `/say` (texto ≤ 400, sin espacios de más; 422 si vacío;
   `_rate_limit` 120/min). Va fuera de `state` porque quien responde casi nunca tiene el control. El `token` de cada jugador **nunca** sale aquí; es su credencial para escribir.
-- `game` debe estar en `rooms.ROOM_GAMES` (todos menos `contrarreloj`, incluidos los de mesa, los de responder y los tableros: `gato`, `conecta4`, `escaleras`, `entrevista`, `carrera`, `papa`, `puertas`, `mapa`, `sobres`, `rasca`, `bomba`) y `mode` ser `turnos` o
+- `game` debe estar en `rooms.ROOM_GAMES` (todos menos `contrarreloj`, incluidos los de mesa, los de responder y los tableros: `gato`, `conecta4`, `escaleras`, `entrevista`, `carrera`, `papa`, `puertas`, `mapa`, `sobres`, `rasca`, `bomba`, `dinos`) y `mode` ser `turnos` o
   `presentador` → 422 si no. Nombre de 1–24 caracteres (422), máximo 8 jugadores (409), blob de
   hasta 50 KB (413), 404 si la sala no existe o caducó (3 h).
 - `state`: escribe el anfitrión siempre, y el resto solo si `turn` es su id (403). `version` vieja →

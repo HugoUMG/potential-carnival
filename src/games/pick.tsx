@@ -1,8 +1,9 @@
-import { useEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
-import { Bomb, Check, Coins, Crown, Gift, Lightbulb, Mail, RotateCcw, Shuffle, Sparkles, Trophy, X } from 'lucide-react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
+import { ArrowLeftRight, Bomb, Check, ChevronsLeft, ChevronsRight, Coins, Crown, Flag, Gift, Lightbulb, Mail, RotateCcw, Shuffle, Sparkles, Trophy, X } from 'lucide-react';
 import { AppIcon, EmojiIcon } from '../components/AppIcon';
 import type { GameQuestion } from '../types';
-import { CHALLENGES, TEAM_COLORS, range, sample, shuffle, toggledList, type GameProps } from './util';
+import { playSfx } from '../utils/sfx';
+import { CHALLENGES, PIPS, TEAM_COLORS, range, reduceMotion, sample, shuffle, toggledList, type GameProps } from './util';
 import { Countdown, Es, Finish, Say, Sheet, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
 
@@ -289,6 +290,19 @@ export function ScratchGame({ questions }: GameProps) {
   );
 }
 
+/** Primera pantalla de los juegos por equipos: 2, 3 o 4. */
+function TeamCount({ onPick, children }: { onPick: (teams: number) => void; children: ReactNode }) {
+  return (
+    <div className="dg-teams-setup">
+      <p className="dg-big-q">¿Cuántos equipos juegan?</p>
+      <div className="dg-row center">
+        {[2, 3, 4].map((t) => <button key={t} type="button" className="dg-btn primary big" onClick={() => onPick(t)}>{t} equipos</button>)}
+      </div>
+      <p className="dg-muted center">{children}</p>
+    </div>
+  );
+}
+
 // ── Cajas bomba ───────────────────────────────────────────────────────────────
 
 /** Lo que hay en cada caja: puntos (1–3), una estrella que duplica o una bomba que deja al equipo en 0. */
@@ -326,13 +340,9 @@ export function BombGame({ questions }: GameProps) {
 
   if (!scores.length) {
     return (
-      <div className="dg-teams-setup">
-        <p className="dg-big-q">¿Cuántos equipos juegan?</p>
-        <div className="dg-row center">
-          {[2, 3, 4].map((t) => <button key={t} type="button" className="dg-btn primary big" onClick={() => start(t)}>{t} equipos</button>)}
-        </div>
-        <p className="dg-muted center">Cada equipo elige una caja y responde su pregunta. Si responde bien, se lleva lo que hay dentro: puntos, <Sparkles size={14} className="inline align-[-2px]" /> (duplica) o <Bomb size={14} className="inline align-[-2px]" /> (se queda en 0).</p>
-      </div>
+      <TeamCount onPick={start}>
+        Cada equipo elige una caja y responde su pregunta. Si responde bien, se lleva lo que hay dentro: puntos, <Sparkles size={14} className="inline align-[-2px]" /> (duplica) o <Bomb size={14} className="inline align-[-2px]" /> (se queda en 0).
+      </TeamCount>
     );
   }
 
@@ -403,6 +413,228 @@ export function BombGame({ questions }: GameProps) {
           )}
         </Sheet>
       )}
+    </div>
+  );
+}
+
+// ── Carrera de dinos ──────────────────────────────────────────────────────────
+
+/* Primo de Cajas bomba: responder bien solo da derecho a tirar el dado; la suerte decide cuánto
+ * avanza el dino y qué casilla sorpresa pisa. Un carril por equipo. Como en serpientes y escaleras,
+ * quien mueve guarda `pos` (final) y `move` (recorrido) y cada navegador anima a partir de `move.id`. */
+
+type Surprise = 'turbo' | 'trap' | 'swap';
+const GOAL = 15;
+const SHIFT = { turbo: 2, trap: -3 };
+const SURPRISE_ICON = { turbo: ChevronsRight, trap: ChevronsLeft, swap: ArrowLeftRight };
+const RACE_HOP = reduceMotion ? 60 : 240;
+const RACE_JUMP = reduceMotion ? 60 : 800;
+
+interface RaceMove { id: number; team: number; before: number[]; path: number[]; after: number[]; kind: Surprise | null }
+
+/** 2 turbos, 2 trampas y 1 cambio en casillas al azar entre la 2 y la 13. */
+const dealSquares = (): Record<number, Surprise> => {
+  const [a, b, c, d, e] = sample(range(12).map((k) => k + 2), 5);
+  return { [a]: 'turbo', [b]: 'turbo', [c]: 'trap', [d]: 'trap', [e]: 'swap' };
+};
+
+/** Tirada de `team`: casillas que pisa y posiciones finales. La sorpresa no encadena otra; el
+ *  cambio solo cuenta si hay alguien por delante (cambia de lugar con el que va primero). Pura. */
+function race(pos: number[], team: number, face: number, squares: Record<number, Surprise>): Omit<RaceMove, 'id' | 'team'> {
+  const land = Math.min(GOAL, pos[team] + face);
+  const path = range(land - pos[team]).map((k) => pos[team] + k + 1);
+  const after = pos.map((p, k) => (k === team ? land : p));
+  let kind: Surprise | null = land < GOAL ? squares[land] ?? null : null;
+  if (kind === 'turbo' || kind === 'trap') after[team] = Math.max(0, Math.min(GOAL, land + SHIFT[kind]));
+  if (kind === 'swap') {
+    const lead = after.reduce((best, p, k) => (k !== team && p > after[best] ? k : best), team);
+    if (lead === team) kind = null;
+    else [after[team], after[lead]] = [after[lead], land];
+  }
+  return { before: pos, path, after, kind };
+}
+
+/** Dino de perfil mirando a la derecha; toma el color de `currentColor`. */
+function Dino() {
+  return (
+    <svg viewBox="0 0 64 48" className="dg-dino" aria-hidden="true">
+      <path d="M2 27 Q12 25 18 22 L21 33 Q9 33 2 27Z" fill="currentColor" />
+      <path d="M17 20 l3-7 3 6 3-7 3 6 3-7 3 6 3-6 2 6" fill="currentColor" />
+      <ellipse cx="29" cy="27" rx="15" ry="11" fill="currentColor" />
+      <path d="M36 22 Q39 13 44 11 L51 19 Q44 23 42 30Z" fill="currentColor" />
+      <ellipse cx="50" cy="13" rx="11" ry="8.5" fill="currentColor" />
+      <ellipse cx="29" cy="31" rx="9" ry="5" fill="#fff" opacity=".3" />
+      <rect className="leg a" x="20" y="34" width="6" height="11" rx="3" fill="currentColor" />
+      <rect className="leg b" x="32" y="34" width="6" height="11" rx="3" fill="currentColor" />
+      <circle cx="53" cy="10.5" r="3.4" fill="#fff" /><circle cx="54.2" cy="10.5" r="1.7" fill="#111" />
+      <path d="M53 17 q3.5 1.5 6-1" stroke="#111" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function DinoRaceGame({ questions }: GameProps) {
+  const { endTurn, canAct } = useRoom();
+  const [teams, setTeams] = useShared('teams', 0);
+  const [turn, setTurn] = useShared('turn', 0);
+  const [pos, setPos] = useShared<number[]>('pos', []);
+  const [squares, setSquares] = useShared<Record<number, Surprise>>('squares', {});
+  const [deck, setDeck] = useShared<number[]>('deck', []);
+  const [qn, setQn] = useShared('qn', 0);
+  const [phase, setPhase] = useShared<'ask' | 'roll'>('phase', 'ask');
+  const [rolling, setRolling] = useShared('rolling', false);
+  const [face, setFace] = useShared('face', 6);
+  const [move, setMove] = useShared<RaceMove | null>('move', null);
+  const [verdict, setVerdict] = useShared<{ id: number; team: number; ok: boolean } | null>('verdict', null);
+  const [flick, setFlick] = useState(6);
+  const [anim, setAnim] = useState<{ at: number[]; jump: boolean } | null>(null);
+  const [flash, setFlash] = useState<{ team: number; ok: boolean } | null>(null);
+  const seen = useRef(move?.id);
+  const [shownId, setShownId] = useState(move?.id);
+  const heard = useRef(verdict?.id);
+  const pending = move && move.id !== shownId ? move : null;
+
+  const start = (n: number) => {
+    setTeams(n);
+    setTurn(0);
+    setPos(new Array(n).fill(0));
+    setSquares(dealSquares());
+    setDeck(shuffle(range(questions.length)));
+    setQn(0);
+    setPhase('ask');
+    setMove(null);
+    setVerdict(null);
+  };
+
+  // Veredicto (en todos los navegadores): sonido y el carril brilla en verde o tiembla en rojo.
+  useEffect(() => {
+    if (!verdict || verdict.id === heard.current) return;
+    heard.current = verdict.id;
+    playSfx(verdict.ok ? 'ok' : 'miss');
+    setFlash(verdict);
+    const id = window.setTimeout(() => setFlash(null), 900);
+    return () => window.clearTimeout(id);
+  }, [verdict]);
+
+  // El dado rueda en todos; la cara y el recorrido los decide quien tiró.
+  useEffect(() => {
+    if (!rolling) return;
+    const id = window.setInterval(() => { setFlick(1 + Math.floor(Math.random() * 6)); playSfx('tick'); }, 90);
+    const stop = window.setTimeout(() => {
+      const f = 1 + Math.floor(Math.random() * 6);
+      const m = race(pos, turn, f, squares);
+      setFace(f);
+      setRolling(false);
+      setPos(m.after);
+      setMove({ id: Date.now(), team: turn, ...m });
+      setPhase('ask');
+      setTurn((turn + 1) % teams);
+      endTurn();
+    }, reduceMotion ? 100 : 900);
+    return () => { window.clearInterval(id); window.clearTimeout(stop); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo importa `rolling`
+  }, [rolling]);
+
+  // Recorrido nuevo: el dino salta casilla por casilla y luego la sorpresa (turbo, trampa o cambio).
+  useEffect(() => {
+    if (!move || move.id === seen.current) return;
+    seen.current = move.id;
+    setShownId(move.id);
+    const { team, before, path, after, kind } = move;
+    let at = before;
+    setAnim({ at, jump: false });
+    const timers = path.map((p, k) => window.setTimeout(() => {
+      at = at.map((v, i) => (i === team ? p : v));
+      setAnim({ at, jump: false });
+      playSfx('hop');
+    }, (k + 1) * RACE_HOP));
+    let end = (path.length + 1) * RACE_HOP;
+    if (kind) {
+      timers.push(window.setTimeout(() => { setAnim({ at: after, jump: true }); playSfx(kind === 'turbo' ? 'climb' : kind === 'trap' ? 'slide' : 'swap'); }, end));
+      end += RACE_JUMP;
+    }
+    timers.push(window.setTimeout(() => { setAnim(null); if (after[team] >= GOAL) playSfx('win'); }, end));
+    return () => timers.forEach(window.clearTimeout);
+    // La sala trae un objeto nuevo en cada sondeo: solo un `id` nuevo es otra jugada.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [move?.id]);
+
+  if (!teams) {
+    return (
+      <TeamCount onPick={start}>
+        Si el equipo responde bien, tira el dado y su dino avanza. Las casillas sorpresa dan turbo <ChevronsRight size={14} className="inline align-[-2px]" />,
+        trampa <ChevronsLeft size={14} className="inline align-[-2px]" /> o cambio con el que va primero <ArrowLeftRight size={14} className="inline align-[-2px]" />.
+      </TeamCount>
+    );
+  }
+
+  const moving = !!anim || !!pending;
+  const shown = anim?.at ?? pending?.before ?? pos;
+  const active = moving && move ? move.team : turn;
+  const winner = moving ? -1 : pos.findIndex((p) => p >= GOAL);
+  const q = questions[deck[qn % deck.length] ?? 0];
+  const grade = (ok: boolean) => {
+    setVerdict({ id: Date.now(), team: turn, ok });
+    setQn(qn + 1);
+    if (ok) { setPhase('roll'); return; }
+    setTurn((turn + 1) % teams);
+    endTurn();
+  };
+  const roll = () => { if (phase === 'roll' && !rolling && !moving) setRolling(true); };
+
+  return (
+    <div className="dg-pick">
+      <div className="dg-dr">
+        {range(teams).map((k) => {
+          const p = shown[k] ?? 0;
+          return (
+            <div key={k} className={`dg-dr-lane ${k === active && winner < 0 ? 'now' : ''} ${flash?.team === k ? (flash.ok ? 'ok' : 'miss') : ''}`}
+              style={{ '--team': TEAM_COLORS[k] } as CSSProperties}>
+              <b className="dg-dr-n">{k + 1}</b>
+              <div className="dg-dr-track">
+                {range(GOAL + 1).map((c) => {
+                  const kind = squares[c];
+                  const Icon = kind && SURPRISE_ICON[kind];
+                  return <span key={c} className={`dg-dr-cell ${kind ?? ''} ${c === GOAL ? 'goal' : ''}`}>{Icon && <Icon size={16} />}{c === GOAL && <Flag size={16} />}</span>;
+                })}
+                <span className={`dg-dr-dino ${anim?.jump && anim.at[k] !== move?.before[k] ? 'jump' : ''} ${winner === k ? 'won' : ''}`}
+                  style={{ left: `${((p + 0.5) / (GOAL + 1)) * 100}%`, zIndex: k === active ? 3 : 2 }} role="img" aria-label={`Equipo ${k + 1}: casilla ${p}`}>
+                  <span key={p}><Dino /></span>
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {winner >= 0 ? (
+        <div className="dg-feedback" style={{ '--team': TEAM_COLORS[winner] } as CSSProperties}>
+          <span className="dg-dr-me"><Dino /></span>
+          <p className="dg-ok inline-flex items-center gap-1.5"><Trophy size={18} /> ¡Gana el Equipo {winner + 1}!</p>
+          <button type="button" className="dg-btn primary" onClick={() => setTeams(0)}><RotateCcw size={16} /> Otra carrera</button>
+        </div>
+      ) : (
+        <div className="dg-dr-turn" style={{ '--team': TEAM_COLORS[active] } as CSSProperties}>
+          <span className="dg-dr-me" aria-label={`Turno del Equipo ${active + 1}`}><Dino /><b>{active + 1}</b></span>
+          {phase === 'ask' && !moving ? (
+            <div className="dg-dr-q">
+              <p className="dg-big-q"><Say text={q.text} /></p>
+              <div className="dg-row center"><Speak text={q.text} /></div>
+              <Es className="center">{q.translation}</Es>
+              {q.hint && <p className="dg-hint inline-flex items-center gap-1.5"><Lightbulb size={15} className="shrink-0" /> <Say text={q.hint} /></p>}
+              <div className="dg-row">
+                <button type="button" className="dg-btn ok grow" onClick={() => grade(true)} aria-label="Respondió bien"><Check size={20} /></button>
+                <button type="button" className="dg-btn grow" onClick={() => grade(false)} aria-label="Respondió mal"><X size={20} /></button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className={`dg-die dg-dr-die ${rolling ? 'rolling' : ''} ${phase === 'roll' && !rolling && !moving && canAct ? 'ready' : ''}`}
+              onClick={roll} disabled={phase !== 'roll' || rolling || moving || !canAct} aria-label="Tirar el dado">
+              {range(9).map((d) => <span key={d} className={PIPS[(rolling ? flick : face) - 1].includes(d) ? 'on' : ''} />)}
+            </button>
+          )}
+        </div>
+      )}
+      {winner < 0 && <button type="button" className="dg-link center" onClick={() => setTeams(0)}><RotateCcw size={14} /> Nueva carrera</button>}
     </div>
   );
 }

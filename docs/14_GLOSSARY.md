@@ -158,7 +158,7 @@ vive en el atributo `data-theme` del `<html>`.
 1 al N a la vista: eliges una y su pregunta sale en una ventana. Puertas sorpresa, Mapa del tesoro,
 Sobres con reto, Rasca y gana y Cajas bomba.
 
-**Set de juegos** — Lista de preguntas (`game_sets`) que se juega en `/j/:setId` con los 27 juegos
+**Set de juegos** — Lista de preguntas (`game_sets`) que se juega en `/j/:setId` con los 28 juegos
 (ADR-38). Lo crea el profesor en la sección **Juegos**, con IA o pegando preguntas. No confundir con
 la **sesión en vivo** (Kahoot), que juega una hoja de trabajo calificada.
 
