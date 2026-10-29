@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
-import { ArrowLeftRight, Bomb, Check, ChevronsLeft, ChevronsRight, Coins, Crown, Flag, Gift, Lightbulb, Mail, RotateCcw, Shuffle, Sparkles, Trophy, X } from 'lucide-react';
+import { Anchor, ArrowLeftRight, Bomb, Check, ChevronsLeft, ChevronsRight, Coins, Crown, Flag, Gift, Lightbulb, Mail, RotateCcw, Shield, Shuffle, Skull, Sparkles, Trophy, X } from 'lucide-react';
 import { AppIcon, EmojiIcon } from '../components/AppIcon';
 import type { GameQuestion } from '../types';
 import { playSfx } from '../utils/sfx';
@@ -407,6 +407,150 @@ export function BombGame({ questions }: GameProps) {
                   : prize === 'boom' ? <span className="inline-flex items-center gap-1.5"><Bomb size={18} /> ¡BOOM! El {team} se queda en 0.</span>
                     : prize === 'star' ? <span className="inline-flex items-center gap-1.5"><Sparkles size={18} /> ¡Estrella! Los puntos del {team} se duplican.</span>
                       : <span className="inline-flex items-center gap-1.5"><Gift size={18} /> +{prize} para el {team}</span>}
+              </p>
+              <button type="button" className="dg-btn primary" onClick={next}>Siguiente: Equipo {((turn + 1) % scores.length) + 1}</button>
+            </>
+          )}
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
+// ── Cofres piratas ────────────────────────────────────────────────────────────
+
+/* Primo de Cajas bomba, pero la suerte pega a otros equipos: un cofre puede robar puntos al que va
+ * ganando, cambiar tu marcador con el suyo o darte un escudo contra el siguiente golpe. */
+
+/** Lo que hay en cada cofre: puntos (1–3), robo (2 puntos al líder), trueque con el líder o escudo. */
+type Loot = number | 'steal' | 'swap' | 'shield';
+const STEAL = 2;
+const lootLabel = (p: Loot) => (p === 'steal' ? <Skull size={20} /> : p === 'swap' ? <ArrowLeftRight size={20} /> : p === 'shield' ? <Shield size={20} /> : `+${p}`);
+
+function dealLoot(n: number): Loot[] {
+  const steals = Math.max(1, Math.round(n / 7));
+  const shields = Math.max(1, Math.round(n / 10));
+  const points = range(Math.max(0, n - steals - shields - 1)).map(() => 1 + Math.floor(Math.random() * 3));
+  return shuffle<Loot>([...Array<Loot>(steals).fill('steal'), 'swap', ...Array<Loot>(shields).fill('shield'), ...points]);
+}
+
+/** Aplica el cofre al equipo `team` (pura). El escudo de la víctima absorbe un golpe y se gasta. */
+function settleLoot(scores: number[], shields: boolean[], team: number, loot: Loot): { scores: number[]; shields: boolean[]; note: string } {
+  const sc = [...scores];
+  const sh = [...shields];
+  const name = `Equipo ${team + 1}`;
+  if (typeof loot === 'number') { sc[team] += loot; return { scores: sc, shields: sh, note: `+${loot} para el ${name}` }; }
+  if (loot === 'shield') { sh[team] = true; return { scores: sc, shields: sh, note: `¡Escudo! El ${name} aguanta el próximo golpe.` }; }
+  // Víctima: el que más puntos tiene entre los demás (el primero si hay empate).
+  let victim = -1;
+  sc.forEach((v, k) => { if (k !== team && (victim < 0 || v > sc[victim])) victim = k; });
+  const vname = `Equipo ${victim + 1}`;
+  if (loot === 'steal') {
+    if (sc[victim] <= 0) return { scores: sc, shields: sh, note: `¡Robo! Pero el ${vname} no tiene nada que quitar.` };
+    if (sh[victim]) { sh[victim] = false; return { scores: sc, shields: sh, note: `¡Robo! El escudo del ${vname} lo detiene y se rompe.` }; }
+    const took = Math.min(STEAL, sc[victim]);
+    sc[victim] -= took; sc[team] += took;
+    return { scores: sc, shields: sh, note: `¡Robo! El ${name} le quita ${took} al ${vname}.` };
+  }
+  if (sc[victim] <= sc[team]) return { scores: sc, shields: sh, note: `¡Trueque! Pero el ${name} ya va ganando: nada cambia.` };
+  if (sh[victim]) { sh[victim] = false; return { scores: sc, shields: sh, note: `¡Trueque! El escudo del ${vname} lo detiene y se rompe.` }; }
+  [sc[team], sc[victim]] = [sc[victim], sc[team]];
+  return { scores: sc, shields: sh, note: `¡Trueque! El ${name} cambia marcador con el ${vname}.` };
+}
+
+export function PirateGame({ questions }: GameProps) {
+  const { endTurn } = useRoom();
+  const n = Math.min(20, questions.length);
+  const [scores, setScores] = useShared<number[]>('scores', []);
+  const [shields, setShields] = useShared<boolean[]>('shields', []);
+  const [turn, setTurn] = useShared('turn', 0);
+  const [order, setOrder] = useShared<number[]>('order', []);
+  const [loot, setLoot] = useShared<Loot[]>('loot', []);
+  const [opened, setOpened] = useShared<number[]>('opened', []);
+  const [open, setOpen] = useShared<number | null>('open', null);
+  const [result, setResult] = useShared<'ok' | 'no' | null>('result', null);
+  const [note, setNote] = useShared('note', '');
+
+  const start = (teams: number) => {
+    setScores(new Array(teams).fill(0));
+    setShields(new Array(teams).fill(false));
+    setTurn(0);
+    setOrder(sample(range(questions.length), n));
+    setLoot(dealLoot(n));
+    setOpened([]);
+    setOpen(null);
+    setResult(null);
+    setNote('');
+  };
+
+  if (!scores.length) {
+    return (
+      <TeamCount onPick={start}>
+        Cada equipo elige un cofre y responde su pregunta. Si responde bien, abre el cofre: puntos, <Skull size={14} className="inline align-[-2px]" /> (roba al líder), <ArrowLeftRight size={14} className="inline align-[-2px]" /> (cambia marcador con el líder) o <Shield size={14} className="inline align-[-2px]" /> (escudo).
+      </TeamCount>
+    );
+  }
+
+  // Bien: se abre el cofre y se aplica. Mal: sigue cerrado para otro equipo.
+  const grade = (ok: boolean) => {
+    if (open === null) return;
+    if (ok) {
+      const r = settleLoot(scores, shields, turn, loot[open]);
+      setScores(r.scores);
+      setShields(r.shields);
+      setNote(r.note);
+      setOpened((o) => [...o, open]);
+    }
+    setResult(ok ? 'ok' : 'no');
+  };
+  const next = () => { setOpen(null); setResult(null); setTurn((t) => (t + 1) % scores.length); endTurn(); };
+
+  const best = Math.max(...scores);
+  const winners = scores.flatMap((s, k) => (s === best ? [k + 1] : []));
+  const over = opened.length === order.length;
+  const q = open === null ? null : questions[order[open]];
+  const team = `Equipo ${turn + 1}`;
+
+  return (
+    <div className="dg-pick">
+      <div className="dg-scoreboard">
+        {scores.map((s, k) => (
+          <div key={k} className={`dg-team ${k === turn && !over ? 'turn' : ''}`} style={{ '--team': TEAM_COLORS[k] } as CSSProperties}>
+            <span className="inline-flex items-center gap-1">Equipo {k + 1}{shields[k] && <Shield size={14} aria-label="Con escudo" />}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
+            <b>{s}</b>
+          </div>
+        ))}
+      </div>
+      {over
+        ? <p className="dg-big-q inline-flex items-center gap-2"><Trophy size={22} /> {winners.length > 1 ? `Empate: equipos ${winners.join(' y ')}` : `¡Gana el Equipo ${winners[0]}!`}</p>
+        : <p className="dg-challenge center">Turno del <span style={{ color: TEAM_COLORS[turn] }}>{team}</span>: elige un cofre</p>}
+      <div className="dg-boxes">
+        {order.map((_, k) => (opened.includes(k) ? (
+          <div key={k} className={`dg-box open ${loot[k] === 'steal' ? 'boom' : ''}`}>{lootLabel(loot[k])}</div>
+        ) : (
+          <button key={k} type="button" className="dg-box" onClick={() => { setOpen(k); setResult(null); }}
+            style={{ '--c': BOXES[k % BOXES.length] } as CSSProperties} aria-label={`Cofre ${k + 1}`}>
+            <span>{k + 1}</span>
+          </button>
+        )))}
+      </div>
+      <button type="button" className="dg-link center" onClick={() => setScores([])}><RotateCcw size={14} /> Nueva partida</button>
+      {q && open !== null && (
+        <Sheet onClose={result ? next : () => setOpen(null)} className="dg-sheet-pick" style={{ '--accent': TEAM_COLORS[turn] } as CSSProperties}>
+          <Question q={q} n={open + 1} />
+          {result === null ? (
+            <>
+              <p className="dg-muted center">¿Respondió bien el {team}?</p>
+              <div className="dg-row">
+                <button type="button" className="dg-btn ok grow" onClick={() => grade(true)}><Check size={16} /> Bien: abrir el cofre</button>
+                <button type="button" className="dg-btn grow" onClick={() => grade(false)}><X size={16} /> No</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className={`dg-prize ${result === 'no' ? 'miss' : loot[open] === 'steal' ? 'boom' : ''}`}>
+                {result === 'no' ? 'Sin botín: el cofre sigue cerrado para otro equipo.'
+                  : <span className="inline-flex items-center gap-1.5"><Anchor size={18} /> {note}</span>}
               </p>
               <button type="button" className="dg-btn primary" onClick={next}>Siguiente: Equipo {((turn + 1) % scores.length) + 1}</button>
             </>

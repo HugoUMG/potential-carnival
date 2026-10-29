@@ -8,7 +8,7 @@ import { BalloonsGame, GapGame, OrderGame } from './structure';
 import { MatchGame, MemoryGame, SpeedGame } from './meaning';
 import { ConnectFourGame, LaddersGame, TicTacToeGame } from './board';
 import { AnswerRaceGame, HotPotatoGame, InterviewGame } from './oral';
-import { BombGame, DinoRaceGame, DoorsGame, LettersGame, MapGame, ScratchGame } from './pick';
+import { BombGame, DinoRaceGame, DoorsGame, LettersGame, MapGame, PirateGame, ScratchGame } from './pick';
 
 export type Skill = 'hablar' | 'tablero' | 'escuchar' | 'estructura' | 'significado' | 'mesa' | 'turnos';
 
@@ -54,7 +54,7 @@ const GRADING: Partial<Record<RoomMode, [string, string]>> = {
   turnos: ['Califica el compañero', 'Quien tiene el turno califica al siguiente; se van rotando (con 3: A→B, B→C, C→A).'],
 };
 
-/** Los 28 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
+/** Los 29 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
 export const GAMES: GameMeta[] = [
   { id: 'tarjetas', name: 'Tarjetas', icon: 'layers', skill: 'hablar', color: '#7048E8', Component: CardsGame, room: BOTH,
     purpose: 'Conversación guiada: al voltear ves la traducción y cómo empezar tu respuesta.',
@@ -83,6 +83,9 @@ export const GAMES: GameMeta[] = [
   { id: 'bomba', name: 'Cajas bomba', icon: 'alertTriangle', skill: 'tablero', color: '#E03131', Component: BombGame, room: BOTH,
     purpose: 'Por equipos: si responden bien abren la caja y se llevan lo que hay (puntos, doble… o una bomba que deja en 0).',
     howTo: 'Divide el salón en 2–4 equipos. Tú decides si la respuesta es buena; la suerte de la caja hace el resto.' },
+  { id: 'piratas', name: 'Cofres piratas', icon: 'crown', skill: 'tablero', color: '#0B7285', Component: PirateGame, room: BOTH,
+    purpose: 'Por equipos: si responden bien abren el cofre y se llevan puntos, roban al líder, cambian de marcador o ganan un escudo.',
+    howTo: 'Divide el salón en 2–4 equipos. Tú decides si la respuesta es buena; el botín puede cambiar quién va ganando.' },
   { id: 'dinos', name: 'Carrera de dinos', icon: 'footprints', skill: 'hablar', color: '#5C940D', Component: DinoRaceGame, room: BOTH,
     purpose: 'Por equipos: responder bien da derecho a tirar el dado; la suerte y las casillas sorpresa (turbo, trampa, cambio) deciden la carrera.',
     howTo: 'Divide el salón en 2–4 equipos y comparte la pantalla. Tú marcas si la respuesta es buena; gana el primer dino en llegar a la meta.' },

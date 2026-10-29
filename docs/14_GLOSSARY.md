@@ -156,9 +156,9 @@ vive en el atributo `data-theme` del `<html>`.
 
 **Tablero numerado** — Grupo de juegos (`tablero`, `src/games/pick.tsx` y el Corcho) con casillas del
 1 al N a la vista: eliges una y su pregunta sale en una ventana. Puertas sorpresa, Mapa del tesoro,
-Sobres con reto, Rasca y gana y Cajas bomba.
+Sobres con reto, Rasca y gana, Cajas bomba y Cofres piratas.
 
-**Set de juegos** — Lista de preguntas (`game_sets`) que se juega en `/j/:setId` con los 28 juegos
+**Set de juegos** — Lista de preguntas (`game_sets`) que se juega en `/j/:setId` con los 29 juegos
 (ADR-38). Lo crea el profesor en la sección **Juegos**, con IA o pegando preguntas. No confundir con
 la **sesión en vivo** (Kahoot), que juega una hoja de trabajo calificada.
 

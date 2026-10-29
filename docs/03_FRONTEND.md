@@ -45,7 +45,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 
 Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji o
 nombre de icono) que se
-juega con **28 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 5 tableros numerados + Carrera de dinos) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
+juega con **29 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 6 tableros numerados + Carrera de dinos) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
 no hay que escribir nada distinto por juego.
 
 - **Profesor:** sección `juegos` del portal → `GameSetsManager`. Lista de sets (Jugar, Copiar enlace,
@@ -110,7 +110,7 @@ no hay que escribir nada distinto por juego.
   mismos de Dados, así no hay estado de más), Rasca y gana (12 boletos; `ScratchPad` es un `<canvas>`
   que se borra con `destination-out` y destapa al pasar del 55 % rascado; `shown` se comparte) y Cajas
   bomba (2–4 equipos, 20 cajas con +1/+2/+3, ⭐ que duplica y 💣 que deja en 0; si el equipo falla, la
-  caja sigue cerrada). `CHALLENGES`, `TEAM_COLORS` y `PIPS` (caras del dado) viven en `util.ts` porque los
+  caja sigue cerrada). Cofres piratas (`PirateGame`, `piratas`) es su variante: 20 cofres con +1/+2/+3, 💀 que roba 2 puntos al líder, ⇄ que cambia el marcador con el líder (solo si va por delante) y 🛡️ escudo que absorbe el siguiente robo o trueque (`settleLoot`, pura). `CHALLENGES`, `TEAM_COLORS` y `PIPS` (caras del dado) viven en `util.ts` porque los
   usan varios archivos.
 - **Carrera de dinos (`pick.tsx`, `dinos`, grupo `hablar`):** prima de Cajas bomba para 2–4 equipos. Un
   carril por equipo (16 casillas, meta en la 15) con 5 casillas sorpresa repartidas al azar por
