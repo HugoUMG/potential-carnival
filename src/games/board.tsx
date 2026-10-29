@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { ChevronDown, Circle, Flag, PartyPopper, RotateCcw, Smile, Trophy, X } from 'lucide-react';
 import type { GameQuestion } from '../types';
 import { playSfx } from '../utils/sfx';
-import { PIPS, pick, range, reduceMotion, shuffle, speak, type GameProps } from './util';
+import { PIPS, pick, range, shuffle, speak, type GameProps } from './util';
 import { Notice, Say, Sheet, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
 
@@ -227,10 +227,46 @@ const COLS = 6;
 const ROWS = 5;
 const END = COLS * ROWS;
 // Inicio → fin. Escaleras suben, serpientes bajan. Ningún fin es inicio de otro salto.
-const JUMPS: Record<number, number> = { 3: 16, 8: 19, 11: 23, 20: 28, 15: 6, 22: 9, 27: 13, 29: 18 };
+type Jumps = Record<number, number>;
 const SNAKE_COLORS = ['#74B816', '#E64980', '#7048E8', '#F08C00'];
-const HOP_MS = reduceMotion ? 60 : 260;
-const JUMP_MS = reduceMotion ? 60 : 850;
+// La pausa entre pasos no se acorta con "reducir movimiento": ahí la ficha salta sin deslizarse
+// (games.css), pero el alumno tiene que poder contar las casillas.
+const HOP_MS = 450;
+const JUMP_MS = 1000;
+
+const CLASSIC: Jumps = { 3: 16, 8: 19, 11: 23, 20: 28, 15: 6, 22: 9, 27: 13, 29: 18 };
+
+/** ¿Se cruzan los tramos rectos de dos saltos? (para que no se enciman en el dibujo) */
+function crosses([a, b]: number[], [c, d]: number[]): boolean {
+  const [p, q, r, s] = [a, b, c, d].map(xy);
+  const side = (u: number[], v: number[], w: number[]) => Math.sign((v[0] - u[0]) * (w[1] - u[1]) - (v[1] - u[1]) * (w[0] - u[0]));
+  return side(p, q, r) * side(p, q, s) < 0 && side(r, s, p) * side(r, s, q) < 0;
+}
+
+/** Tablero nuevo por partida: 4 escaleras y 4 serpientes que suben o bajan 1–2 filas y se corren
+ *  2 columnas como mucho, sin cruzarse, sin tocar salida ni meta ni compartir casillas. Si en 50
+ *  intentos no sale (no pasa en la práctica), el tablero clásico. */
+function dealJumps(): Jumps {
+  for (let round = 0; round < 50; round++) {
+    const used = new Set([1, END]);
+    const jumps: Jumps = {};
+    const segs: number[][] = [];
+    for (let tries = 0; segs.length < 8 && tries < 400; tries++) {
+      const up = segs.length < 4;
+      const a = 2 + Math.floor(Math.random() * (END - 2));
+      const b = up ? a + 4 + Math.floor(Math.random() * 10) : a - 4 - Math.floor(Math.random() * 10);
+      if (b < 2 || b >= END || used.has(a) || used.has(b)) continue;
+      const [[xa, ya], [xb, yb]] = [xy(a), xy(b)];
+      const rows = Math.abs(ya - yb) / 100;
+      if (rows < 1 || rows > 2 || Math.abs(xa - xb) > 200 || segs.some((s) => crosses(s, [a, b]))) continue;
+      jumps[a] = b;
+      used.add(a).add(b);
+      segs.push([a, b]);
+    }
+    if (segs.length === 8) return jumps;
+  }
+  return CLASSIC;
+}
 
 /** Centro de la casilla `n` en el SVG (100 por casilla). Zigzag: la fila de abajo va a la derecha. */
 function xy(n: number): [number, number] {
@@ -241,10 +277,10 @@ function xy(n: number): [number, number] {
 }
 
 /** Recorrido de una tirada: cada casilla que pisa y, si cae en un salto, su destino. Pura. */
-function walk(from: number, steps: number): number[] {
+function walk(from: number, steps: number, jumps: Jumps): number[] {
   const raw = Math.min(END, from + steps);
   const path = range(raw - from).map((k) => from + k + 1);
-  return JUMPS[raw] ? [...path, JUMPS[raw]] : path;
+  return jumps[raw] ? [...path, jumps[raw]] : path;
 }
 
 function Ladder({ from, to }: { from: number; to: number }) {
@@ -295,6 +331,7 @@ export function LaddersGame({ questions }: GameProps) {
   const { canAct } = useRoom();
   const t = useBoardTurn(questions);
   const [pos, setPos] = useShared<number[]>('pos', [1, 1]);
+  const [jumps, setJumps] = useShared<Jumps>('jumps', dealJumps);
   const [move, setMove] = useShared<Move | null>('move', null);
   const [rolling, setRolling] = useShared('rolling', false);
   const [face, setFace] = useShared('face', 6);
@@ -316,7 +353,7 @@ export function LaddersGame({ questions }: GameProps) {
       setFace(f);
       setRolling(false);
       t.ask(f);
-    }, reduceMotion ? 100 : 900);
+    }, 900);
     return () => { window.clearInterval(id); window.clearTimeout(stop); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `t` cambia en cada render; solo importa `rolling`
   }, [rolling]);
@@ -338,7 +375,8 @@ export function LaddersGame({ questions }: GameProps) {
     seen.current = move.id;
     setShownId(move.id);
     const { side, path } = move;
-    const jumped = path.length > 1 && JUMPS[path[path.length - 2]] === path[path.length - 1];
+    // Caminando se avanza de 1 en 1; un salto (escalera o serpiente) es siempre de 5 o más.
+    const jumped = path.length > 1 && Math.abs(path[path.length - 1] - path[path.length - 2]) > 1;
     setAnim({ side, at: path[0] - 1, jump: false });
     const timers = path.map((at, k) => window.setTimeout(() => {
       const jump = jumped && k === path.length - 1;
@@ -357,7 +395,7 @@ export function LaddersGame({ questions }: GameProps) {
   if (t.usable.length < 4) return <Notice>{NEEDS}</Notice>;
 
   function apply(steps: number) {
-    const path = walk(pos[t.side], steps);
+    const path = walk(pos[t.side], steps, jumps);
     const to = path[path.length - 1];
     setPos(pos.map((p, k) => (k === t.side ? to : p)));
     setMove({ id: Date.now(), side: t.side, path });
@@ -366,7 +404,7 @@ export function LaddersGame({ questions }: GameProps) {
   const moving = !!anim || !!pending;
   const busy = rolling || !!t.ch || moving || t.winner !== null;
   const roll = () => { if (!busy) setRolling(true); };
-  const again = () => { setPos([1, 1]); setMove(null); t.reset(); };
+  const again = () => { setPos([1, 1]); setMove(null); setJumps(dealJumps()); t.reset(); };
 
   const at = (k: number) => (anim?.side === k ? anim.at : pending?.side === k ? pending.path[0] - 1 : pos[k]);
   const active = anim?.side ?? pending?.side ?? t.side;
@@ -392,8 +430,8 @@ export function LaddersGame({ questions }: GameProps) {
           </div>
         ))}
         <svg viewBox={`0 0 ${COLS * 100} ${ROWS * 100}`} aria-hidden="true">
-          {Object.entries(JUMPS).filter(([a, b]) => b > +a).map(([a, b]) => <Ladder key={a} from={+a} to={b} />)}
-          {Object.entries(JUMPS).filter(([a, b]) => b < +a).map(([a, b], k) => <Snake key={a} from={+a} to={b} color={SNAKE_COLORS[k % SNAKE_COLORS.length]} />)}
+          {Object.entries(jumps).filter(([a, b]) => b > +a).map(([a, b]) => <Ladder key={a} from={+a} to={b} />)}
+          {Object.entries(jumps).filter(([a, b]) => b < +a).map(([a, b], k) => <Snake key={a} from={+a} to={b} color={SNAKE_COLORS[k % SNAKE_COLORS.length]} />)}
         </svg>
         {SIDES.map((s, k) => {
           const [x, y] = xy(at(k));

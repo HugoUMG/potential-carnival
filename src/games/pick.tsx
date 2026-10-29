@@ -3,7 +3,7 @@ import { ArrowLeftRight, Bomb, Check, ChevronsLeft, ChevronsRight, Coins, Crown,
 import { AppIcon, EmojiIcon } from '../components/AppIcon';
 import type { GameQuestion } from '../types';
 import { playSfx } from '../utils/sfx';
-import { CHALLENGES, PIPS, TEAM_COLORS, range, reduceMotion, sample, shuffle, toggledList, type GameProps } from './util';
+import { CHALLENGES, PIPS, TEAM_COLORS, range, sample, shuffle, toggledList, type GameProps } from './util';
 import { Countdown, Es, Finish, Say, Sheet, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
 
@@ -427,8 +427,9 @@ type Surprise = 'turbo' | 'trap' | 'swap';
 const GOAL = 15;
 const SHIFT = { turbo: 2, trap: -3 };
 const SURPRISE_ICON = { turbo: ChevronsRight, trap: ChevronsLeft, swap: ArrowLeftRight };
-const RACE_HOP = reduceMotion ? 60 : 240;
-const RACE_JUMP = reduceMotion ? 60 : 800;
+// Igual que en serpientes y escaleras: la pausa entre pasos no se acorta con "reducir movimiento".
+const RACE_HOP = 450;
+const RACE_JUMP = 1000;
 
 interface RaceMove { id: number; team: number; before: number[]; path: number[]; after: number[]; kind: Surprise | null }
 
@@ -529,7 +530,7 @@ export function DinoRaceGame({ questions }: GameProps) {
       setPhase('ask');
       setTurn((turn + 1) % teams);
       endTurn();
-    }, reduceMotion ? 100 : 900);
+    }, 900);
     return () => { window.clearInterval(id); window.clearTimeout(stop); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo importa `rolling`
   }, [rolling]);

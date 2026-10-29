@@ -121,7 +121,7 @@ no hay que escribir nada distinto por juego.
   (`before`, `path`, `after`, `kind`) y cada navegador anima por `move.id`; el veredicto también es
   compartido (`verdict`) para que todos oigan el acierto o el fallo y vean el carril brillar o temblar.
 - **Juegos de mesa (`board.tsx`, grupo `mesa`):** Gato (3×3), Conecta 4 (7×6) y Serpientes y
-  escaleras (30 casillas, `JUMPS`). Para mover, quien tiene el turno acierta qué significa una
+  escaleras (30 casillas, tablero distinto en cada partida). Para mover, quien tiene el turno acierta qué significa una
   pregunta (`ChallengeCard`: la pregunta y 3 traducciones). Si acierta, aplica la jugada; si falla,
   la pierde. En los dos casos pasa el turno. `useBoardTurn` guarda lado, reto y ganador con
   `useShared`; `lineWinner` detecta k en línea. Sin sala se juega pasando el celular ("Jugador 1/2");
@@ -129,7 +129,12 @@ no hay que escribir nada distinto por juego.
   lados llevan sus nombres) y el resto mira con 👀. En presentador mueve el anfitrión por los dos
   lados.
   Serpientes y escaleras es un tablero 6×5 dibujado en SVG (escaleras y serpientes calculadas con
-  `xy(n)`; todos salen de la casilla 1). El dado va entre los dos jugadores, rueda con sonido y,
+  `xy(n)`; todos salen de la casilla 1). Cada partida reparte un tablero nuevo (`dealJumps`, clave
+  compartida `jumps`): 4 escaleras y 4 serpientes que suben o bajan 1–2 filas, se corren 2 columnas
+  como mucho y no se cruzan; si no sale en 50 intentos, el tablero clásico (`CLASSIC`). La ficha da
+  un paso cada 450 ms y el salto dura 1 s (en la Carrera de dinos, igual), **también con "reducir
+  movimiento"**: ahí la ficha no se desliza, pero la pausa deja contar las casillas. El dado va entre
+  los dos jugadores, rueda con sonido y,
   al responder, la jugada se aplica sola al segundo ("Continuar" la adelanta). Quien mueve guarda
   `pos` (final) y `move` (`{id, side, path}`: cada casilla pisada y el destino del salto); cada
   navegador anima la ficha a partir de `move.id`, así una jugada es una sola escritura en la sala y
