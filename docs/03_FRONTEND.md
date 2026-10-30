@@ -191,6 +191,9 @@ colgados de `.rp` en `roleplay.css` (modo oscuro solo con variables bajo `:root[
   que se oyó con "Grabar otra vez" / "Enviar así", para que el personaje no conteste a algo que el
   alumno no dijo. En la última línea del personaje, **¿Qué digo?** muestra sus `hints` (tocar uno lo
   suena; no se envía solo) y cada línea visible trae **Repetir** (`Practice`, el mismo del informe).
+  Si con las pistas abiertas la respuesta repite el 80 % de una, va con `hinted` y el chip "con pista"
+  (en el chat y en el informe). Las comparaciones habladas (Practice, Pronuncia) usan `matchSpoken`
+  (`games/spoken.ts`): cifras a palabras ("$12.50" = twelve fifty) y contracciones abiertas ("I'm" = I am).
 - **`Report`**: pastel de "pétalos" en SVG (`GradePie`: cada rebanada mide su peso y su radio, el
   puntaje), Rex según la nota, misiones, consejos y la revisión respuesta por respuesta con 🔊/🐢. Con
   `next_level` muestra "Tu inglés va por encima de este nivel" y un botón que empieza otra partida en

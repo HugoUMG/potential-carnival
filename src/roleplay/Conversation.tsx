@@ -5,6 +5,7 @@ import { roleplayTurn, transcribeWithClarity } from '../services/api';
 import type { RoleplayMessage, RoleplayStart } from '../types';
 import { Cards, Missions } from './Cards';
 import { canRecord, play, playStream, say, stopVoice, useRecorder, voiceRate } from './media';
+import { matchSpoken, words } from '../games/util';
 import { Practice } from './Practice';
 
 export interface Prefs {
@@ -102,7 +103,14 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
   const send = (text: string, clarity: number | null) => {
     stopVoice();
     setUnsure(null);
-    const next: Msg[] = [...msgs, { who: 'user', text, clarity }];
+    // Con las pistas abiertas, una respuesta que repite el 80 % de una cuenta como leída.
+    const shown = hintsFor === msgs.length - 1 ? msgs[hintsFor]?.hints ?? [] : [];
+    const hinted = shown.some((h) => {
+      const hit = matchSpoken(words(h), text);
+      return hit.length > 0 && hit.filter(Boolean).length / hit.length >= 0.8;
+    });
+    setHintsFor(null);
+    const next: Msg[] = [...msgs, { who: 'user', text, clarity, hinted }];
     setMsgs(next);
     setDraft('');
     void ask(next);
@@ -211,6 +219,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
               <div key={i} className="rp-msg me">
                 <div className="rp-bubble">
                   <p>{m.text}</p>
+                  {m.hinted && <span className="rp-clarity hint"><Lightbulb size={12} /> con pista</span>}
                   <span className={`rp-clarity ${!measured(m) ? '' : m.clarity! >= session.clarity_ok ? 'ok' : 'low'}`}>
                     {m.clarity == null ? <><Keyboard size={12} /> escrito</> : <><Mic size={12} /> claridad {Math.round(m.clarity)}%</>}
                   </span>

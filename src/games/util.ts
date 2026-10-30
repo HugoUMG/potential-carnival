@@ -49,23 +49,8 @@ export function tokenize(text: string): Token[] {
 
 export const words = (text: string): string[] => tokenize(text).flatMap((t) => (t.word ? [t.word] : []));
 
-/** Qué palabras de `target` aparecen en `said`, en orden (subsecuencia común más larga). Así una
- *  palabra de más o de menos no descuadra el resto, como pasaría comparando posición a posición. */
-export function matchWords(target: string[], said: string[]): boolean[] {
-  const dp = Array.from({ length: target.length + 1 }, () => new Array<number>(said.length + 1).fill(0));
-  for (let i = target.length - 1; i >= 0; i--) {
-    for (let j = said.length - 1; j >= 0; j--) {
-      dp[i][j] = target[i] === said[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const hit = new Array<boolean>(target.length).fill(false);
-  for (let i = 0, j = 0; i < target.length && j < said.length;) {
-    if (target[i] === said[j]) { hit[i] = true; i++; j++; }
-    else if (dp[i + 1][j] >= dp[i][j + 1]) i++;
-    else j++;
-  }
-  return hit;
-}
+// El emparejado vive en spoken.ts (sin dependencias, para probarlo con Node).
+export { matchSpoken, matchWords } from './spoken';
 
 // ── Azar ──────────────────────────────────────────────────────────────────────
 

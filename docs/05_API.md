@@ -234,7 +234,7 @@ POST   /public/roleplay/report                — Igual que turn → RoleplayRep
 ```
 
 - Sin estado: el servidor regenera la partida con el `seed` (tarjetas y **secreto**, que nunca sale).
-  `history` = `[{who: "ai"|"user", text ≤ 600, clarity 0-100|null}]`, máx. 24 mensajes.
+  `history` = `[{who: "ai"|"user", text ≤ 600, clarity 0-100|null, hinted?}]` (`hinted`: repitió una pista), máx. 24 mensajes.
 - `turn` trae la **voz en la misma respuesta**, en streaming (`application/octet-stream`): primero una
   línea JSON (`RoleplayReply` + `\n`) y después el mp3 según lo manda edge-tts, con la voz de la partida
   y `rate` (`^[+-]NN%$`, la del nivel o más lenta). El navegador suena desde los primeros trozos. Medido
@@ -252,7 +252,7 @@ POST   /public/roleplay/report                — Igual que turn → RoleplayRep
 - `report`: `grade` (1-10, un decimal), `scores` (`communication`, `grammar`, `vocabulary`,
   `pronunciation` — esta `null` si todo fue escrito), `weights`, `summary_es`, `tips_es`,
   `missions[{text, done}]`, `turns[{n, asked, said, status: ok|better|wrong, better, why_es,
-  clarity, clear}]` (`clear` es `null` en lo escrito y en respuestas de menos de 3 palabras) y
+  clarity, clear, hinted}]` (`clear` es `null` en lo escrito y en respuestas de menos de 3 palabras) y
   `next_level` (el nivel siguiente si la nota es ≥ 8.5; `null` si no, o si ya es avanzado).
 - Errores: 422 escenario/rol/nivel inexistente o conversación terminada; 503 si la IA falla.
   Topes por IP y minuto: `start` 120, `turn` 240, `report` 60.

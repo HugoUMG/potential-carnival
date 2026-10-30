@@ -3,7 +3,7 @@ import { Check, CheckCheck, ChevronLeft, ChevronRight, Crown, Dices, Lightbulb, 
 import { EmojiIcon } from '../components/AppIcon';
 import { transcribeAudio } from '../services/api';
 import { canRecord, useRecorder } from '../utils/useRecorder';
-import { CHALLENGES, PIPS, TEAM_COLORS, copyText, matchWords, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
+import { CHALLENGES, PIPS, TEAM_COLORS, copyText, matchSpoken, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
 import { Countdown, Es, Notice, Say, Sheet, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
 
@@ -465,7 +465,7 @@ export function PronounceGame({ questions }: GameProps) {
 
   const q = questions[order[pos % order.length]];
   const target = words(q.text);
-  const hits = said ? matchWords(target, words(said)) : null;
+  const hits = said ? matchSpoken(target, said) : null;
   const pct = hits ? Math.round((100 * hits.filter(Boolean).length) / Math.max(1, target.length)) : 0;
   const scores = Array.isArray(best) ? best : [];
   const scored = scores.filter((b): b is number => typeof b === 'number');
@@ -492,7 +492,7 @@ export function PronounceGame({ questions }: GameProps) {
       if (id !== attempt.current) return;
       if (!text) { setErr('No te escuché bien. Acércate al micrófono y lee la pregunta otra vez.'); return; }
       setSaid(text);
-      const score = Math.round((100 * matchWords(target, words(text)).filter(Boolean).length) / Math.max(1, target.length));
+      const score = Math.round((100 * matchSpoken(target, text).filter(Boolean).length) / Math.max(1, target.length));
       const before = scores[pos] ?? 0;
       setBest((b) => { const next = Array.isArray(b) ? [...b] : []; next[pos] = Math.max(next[pos] ?? 0, score); return next; });
       if (score >= 80 && before < 80) addPoint();

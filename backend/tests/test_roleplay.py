@@ -183,6 +183,12 @@ def test_el_informe_sabe_que_lineas_se_oyeron_poco_claras():
     assert "L1 (clarity 30%, low): I would like" in user
     assert "L2: Yes" in user and "L3: Bye" in user and "L4: I typed" in user
 
+    history[0]["hinted"] = history[1]["hinted"] = True
+    _, user = rp.report_prompt(scenario, built, "waiter", "beginner", history)
+    assert "L1 (clarity 30%, low, read a hint): I" in user and "L2 (read a hint): Yes" in user
+    out = rp.report("restaurante", "waiter", "beginner", 7, history, _fake({"turns": []}))
+    assert [t["hinted"] for t in out["turns"]] == [True, True, False, False]
+
 
 def test_el_turno_trae_la_voz_y_sin_ella_la_conversacion_sigue(monkeypatch):
     """Una línea JSON y detrás el mp3, en la misma respuesta; si edge-tts falla, sale solo el texto."""

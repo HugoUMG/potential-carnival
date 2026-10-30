@@ -577,6 +577,7 @@ class RoleplayMessage(BaseModel):
     who: Literal["ai", "user"]
     text: str = Field(max_length=600)
     clarity: float | None = Field(default=None, ge=0, le=100)  # solo en lo que el alumno dijo hablando
+    hinted: bool = False  # repitió una pista de "¿Qué digo?"
 
 
 class RoleplayTurnRequest(RoleplayStartRequest):
@@ -607,6 +608,7 @@ class RoleplayTurnReview(BaseModel):
     why_es: str = ""
     clarity: float | None = None
     clear: bool | None = None
+    hinted: bool = False
 
 
 class RoleplayReport(BaseModel):

@@ -137,6 +137,7 @@ export function Report({ report, session, onAgain, onSetup, onOther, onLevelUp }
                 )}
                 <p className="rp-turn-said">
                   <span>Tú:</span> “{t.said}”
+                  {t.hinted && <em className="hint" title="No cuenta para gramática ni vocabulario"><Lightbulb size={12} className="inline align-[-2px]" /> con pista</em>}
                   {t.clarity !== null && (
                     <em className={t.clear === null ? '' : t.clear ? 'ok' : 'low'}><Mic size={12} className="inline align-[-2px]" /> {Math.round(t.clarity)}%{t.clear === false ? ' · poco clara para tu nivel' : ''}</em>
                   )}

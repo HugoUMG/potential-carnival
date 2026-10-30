@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Mic, Snail, Square, Volume2 } from 'lucide-react';
-import { matchWords, tokenize, words } from '../games/util';
+import { matchSpoken, tokenize, words } from '../games/util';
 import { transcribeAudio } from '../services/api';
 import { canRecord, stopVoice, useRecorder } from './media';
 
@@ -22,7 +22,7 @@ export function Practice({ text, play, label = 'Practícala' }: { text: string; 
   }
 
   const target = words(text);
-  const hits = heard ? matchWords(target, words(heard)) : null;
+  const hits = heard ? matchSpoken(target, heard) : null;
   const pct = hits ? Math.round((100 * hits.filter(Boolean).length) / Math.max(1, target.length)) : 0;
   let k = 0;
   const marks = tokenize(text).map((t) => ({ raw: t.raw, hit: t.word && hits ? hits[k++] : undefined }));

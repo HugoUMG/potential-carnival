@@ -1091,7 +1091,7 @@ export function startRoleplay(scenario: string, role: string, level: RoleplayLev
 }
 
 const roleplayBody = (s: RoleplayStart, history: RoleplayMessage[], rate?: string) =>
-  JSON.stringify({ scenario: s.scenario, role: s.role, level: s.level, seed: s.seed, rate, with_info: s.with_info, with_missions: s.with_missions, history: history.map(({ who, text, clarity }) => ({ who, text, clarity: clarity ?? null })) });
+  JSON.stringify({ scenario: s.scenario, role: s.role, level: s.level, seed: s.seed, rate, with_info: s.with_info, with_missions: s.with_missions, history: history.map(({ who, text, clarity, hinted }) => ({ who, text, clarity: clarity ?? null, hinted: !!hinted })) });
 
 /** La siguiente línea del personaje (con historial vacío, la que abre la escena). */
 export async function roleplayTurn(s: RoleplayStart, history: RoleplayMessage[], rate: string):

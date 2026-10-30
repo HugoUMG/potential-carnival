@@ -421,6 +421,8 @@ export interface RoleplayMessage {
   who: 'ai' | 'user';
   text: string;
   clarity?: number | null;
+  /** La respuesta repite una pista de "¿Qué digo?": el informe no la cuenta como inglés propio. */
+  hinted?: boolean;
 }
 
 export interface RoleplayReply {
@@ -440,6 +442,7 @@ export interface RoleplayTurnReview {
   why_es: string;
   clarity: number | null;
   clear: boolean | null;
+  hinted: boolean;
 }
 
 export interface RoleplayReport {
