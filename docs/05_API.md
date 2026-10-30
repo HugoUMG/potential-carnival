@@ -229,7 +229,7 @@ POST /rooms/{code}/say         — {token, text}: cualquier jugador, tenga o no 
 ```
 GET    /public/roleplay/scenarios             — Las 8 situaciones con sus 2 roles → RoleplayScenario[]
 POST   /public/roleplay/start                 — {scenario, role, level, with_info, with_missions} → RoleplayStart (seed, tarjetas, misiones, voz…)
-POST   /public/roleplay/turn                  — {scenario, role, level, seed, history, rate} → línea JSON {reply, reply_es, done} + mp3 por trozos
+POST   /public/roleplay/turn                  — {scenario, role, level, seed, history, rate} → línea JSON {reply, reply_es, done, hints} + mp3 por trozos
 POST   /public/roleplay/report                — Igual que turn → RoleplayReport (nota 1-10, puntajes, revisión por respuesta)
 ```
 
@@ -248,7 +248,7 @@ POST   /public/roleplay/report                — Igual que turn → RoleplayRep
   caro (0,7-2 s) y no depende del texto. Si falla, `_edge_synth` abre otra (`_turn_voice`).
 - `turn` con `history` vacío da la línea que abre la escena. `reply_es` solo en `beginner`. `done`
   llega `true` cuando el alumno ya dio las respuestas del nivel (6/8/10): esa línea es la despedida;
-  mandar más es 422.
+  mandar más es 422. `hints`: hasta 2 respuestas posibles del alumno (botón "¿Qué digo?"), vacío en la despedida.
 - `report`: `grade` (1-10, un decimal), `scores` (`communication`, `grammar`, `vocabulary`,
   `pronunciation` — esta `null` si todo fue escrito), `weights`, `summary_es`, `tips_es`,
   `missions[{text, done}]`, `turns[{n, asked, said, status: ok|better|wrong, better, why_es,

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClipboardList, Keyboard, Mic, PartyPopper, RotateCcw, SendHorizontal, Snail, Square, Target, Volume2, X } from 'lucide-react';
+import { ClipboardList, Keyboard, Lightbulb, Mic, PartyPopper, RotateCcw, SendHorizontal, Snail, Square, Target, Volume2, X } from 'lucide-react';
 import { EmojiIcon } from '../components/AppIcon';
 import { roleplayTurn, transcribeWithClarity } from '../services/api';
 import type { RoleplayMessage, RoleplayStart } from '../types';
 import { Cards, Missions } from './Cards';
 import { canRecord, play, playStream, say, stopVoice, useRecorder, voiceRate } from './media';
+import { Practice } from './Practice';
 
 export interface Prefs {
   en: boolean;
@@ -12,8 +13,9 @@ export interface Prefs {
   slow: boolean;
 }
 
-/** `audio`: la voz que llegó con la línea (blob:), para repetirla sin volver a pedirla. */
-export type Msg = RoleplayMessage & { es?: string; audio?: string };
+/** `audio`: la voz que llegó con la línea (blob:), para repetirla sin volver a pedirla.
+ *  `hints`: las respuestas posibles de "¿Qué digo?" (solo en las líneas del personaje). */
+export type Msg = RoleplayMessage & { es?: string; audio?: string; hints?: string[] };
 type Phase = 'thinking' | 'speaking' | 'listen' | 'transcribing' | 'done' | 'error';
 
 /** Con menos palabras la claridad de Whisper no dice nada (igual que `MIN_WORDS_FOR_CLARITY` del backend). */
@@ -41,6 +43,8 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
   // Lo que Whisper oyó con poca claridad: el alumno lo confirma o lo graba otra vez antes de que el
   // personaje conteste a algo que no dijo.
   const [unsure, setUnsure] = useState<{ text: string; clarity: number } | null>(null);
+  // Índice de la línea del personaje con las pistas abiertas: solo la última se puede pedir.
+  const [hintsFor, setHintsFor] = useState<number | null>(null);
   const rec = useRecorder();
   const started = useRef(false);
   // Cada pedido al personaje lleva un número: si el alumno lo interrumpe, la frase cortada no
@@ -61,7 +65,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
     setError('');
     try {
       const { reply: r, voice } = await roleplayTurn(session, history, rate.current);
-      const msg: Msg = { who: 'ai', text: r.reply, es: r.reply_es };
+      const msg: Msg = { who: 'ai', text: r.reply, es: r.reply_es, hints: r.hints ?? [] };
       // El texto aparece cuando la voz empieza a sonar (o a los 3 s si tarda): juntos, no uno 8 s antes.
       let shown = false;
       const show = () => {
@@ -141,6 +145,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
 
   // Se puede contestar sin esperar a que el personaje termine de hablar (salvo su despedida).
   const yourTurn = phase === 'listen' || (phase === 'speaking' && !closing);
+  const playLine = (text: string, slow = false) => void say(text, session.ai_voice, slow ? voiceRate(session.rate, true) : rate.current);
   const status = {
     thinking: `${session.ai_name} está pensando…`,
     speaking: 'Escucha con atención…',
@@ -186,7 +191,20 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
                         {revealed.has(i) ? 'Ocultar texto' : 'Ver texto'}
                       </button>
                     )}
+                    {i === msgs.length - 1 && yourTurn && !!m.hints?.length && (
+                      <button type="button" className="rp-reveal" aria-expanded={hintsFor === i} onClick={() => setHintsFor(hintsFor === i ? null : i)}>
+                        <Lightbulb size={13} /> ¿Qué digo?
+                      </button>
+                    )}
+                    {/* Repetir la frase pide verla: en "solo audio" aparece al tocar "Ver texto". */}
+                    {(prefs.en || revealed.has(i)) && <Practice text={m.text} play={playLine} label="Repetir" />}
                   </div>
+                  {hintsFor === i && i === msgs.length - 1 && yourTurn && (
+                    <div className="rp-hints">
+                      <small>Podrías decir algo como (toca para escucharlo):</small>
+                      {m.hints!.map((h) => <button key={h} type="button" onClick={() => playLine(h)}><Volume2 size={13} /> {h}</button>)}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

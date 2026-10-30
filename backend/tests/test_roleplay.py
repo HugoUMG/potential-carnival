@@ -64,6 +64,17 @@ def test_la_traduccion_solo_viaja_en_principiante_y_el_chat_no_hace_fila():
     assert ask.calls[0]["serialize"] is False and ask.calls[0]["prefer_fast"] is True and ask.calls[0]["chat"] is True
 
 
+def test_las_pistas_vienen_saneadas_y_no_en_la_despedida():
+    ask = _fake({"reply": "Coffee or tea?", "hints": ["  Coffee, please.", "", "Tea with milk.", "x" * 300, "Water."]})
+    assert rp.reply("restaurante", "customer", "beginner", 9, [], ask)["hints"] == ["Coffee, please.", "Tea with milk."]
+    assert rp.reply("restaurante", "customer", "beginner", 9, [], _fake({"reply": "Hi", "hints": "nope"}))["hints"] == []
+    full = _history(*["ok"] * rp.LEVELS["beginner"].turns)
+    assert rp.reply("restaurante", "customer", "beginner", 9, full, ask)["hints"] == []  # se despide: nada que contestar
+    scenario, built = rp.session("restaurante", "customer", "beginner", 9)
+    assert '"hints"' in rp.turn_prompt(scenario, built, "customer", "beginner", [])[0]
+    assert '"hints"' not in rp.turn_prompt(scenario, built, "customer", "beginner", full)[0]
+
+
 def test_no_se_puede_seguir_hablando_pasado_el_tope():
     ask = _fake({"reply": "Bye!"})
     too_long = _history(*["ok"] * (rp.LEVELS["beginner"].turns + 1))

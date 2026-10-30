@@ -427,6 +427,8 @@ export interface RoleplayReply {
   reply: string;
   reply_es: string;
   done: boolean;
+  /** "¿Qué digo?": 2 respuestas posibles del alumno; vacío en la despedida. */
+  hints: string[];
 }
 
 export interface RoleplayTurnReview {

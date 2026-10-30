@@ -590,6 +590,7 @@ class RoleplayReply(BaseModel):
     reply: str
     reply_es: str = ""  # solo en principiante
     done: bool = False
+    hints: list[str] = Field(default_factory=list)  # "¿Qué digo?": 2 respuestas posibles; vacío al despedirse
 
 
 class RoleplayMission(BaseModel):

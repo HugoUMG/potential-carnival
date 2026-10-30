@@ -519,7 +519,10 @@ def turn_prompt(scenario: Scenario, built: Built, user_role: str, level: str, hi
     assert learner
     answered = sum(1 for m in history if m["who"] == "user")
     closing = answered >= lv.turns
-    output = '{"reply": "your next line"' + (', "reply_es": "the same line in natural Latin American Spanish"}' if level == "beginner" else "}")
+    output = '{"reply": "your next line"' + (', "reply_es": "the same line in natural Latin American Spanish"' if level == "beginner" else "")
+    # Las pistas del botón "¿Qué digo?" vienen en la misma llamada: pedirlas aparte sumaba otra espera.
+    output += "}" if closing else (f', "hints": ["2 different short answers the learner, as the {learner.label_en}, could give to '
+                                   'your line: at their level, max 10 words each, using the facts when they help"]}')
     system = "\n".join([
         f"You are {built.ai_name}, the {me.label_en}, in a role-play with an English learner (a native Spanish speaker) who plays the {learner.label_en}.",
         f"Scene: {scenario.scene_en} Place: {built.place}.",
@@ -558,7 +561,9 @@ def reply(scenario_id: str, role_id: str, level: str, seed: int, history: list[d
     text = str(data.get("reply", "")).strip().strip('"')[:500]
     if not text:
         raise RuntimeError("La IA no devolvió una respuesta")
-    out: dict[str, Any] = {"reply": text, "reply_es": "", "done": closing, "voice": built.ai_voice}
+    hints = data.get("hints") if not closing and isinstance(data.get("hints"), list) else []
+    out: dict[str, Any] = {"reply": text, "reply_es": "", "done": closing, "voice": built.ai_voice,
+                           "hints": [str(h).strip()[:120] for h in hints if str(h).strip()][:2]}
     if level == "beginner":
         out["reply_es"] = str(data.get("reply_es", "")).strip()[:500]
     return out
