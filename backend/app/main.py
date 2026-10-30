@@ -1342,8 +1342,44 @@ def duplicate_worksheet(worksheet_id: str, current_user: PublicUser = Depends(re
     return duplicated
 
 
+def _try_ai_grade(details: list, worksheet: Worksheet) -> bool:
+    """Califica con IA en el sitio. False si la IA falló: el envío se guarda con la
+    auto-calificación y `_retry_ai_grading` lo vuelve a intentar en segundo plano."""
+    try:
+        ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance, _activity_notes(worksheet))
+        return True
+    except Exception as exc:
+        print(f"[AI:grade] falló al enviar, se reintentará: {exc}")
+        return False
+
+
+# Esperas antes de cada reintento: el rate-limit por minuto del proveedor es lo que tumbaba el
+# segundo de dos envíos seguidos, así que hay que dejar pasar su ventana.
+# ponytail: reintento en memoria; un redeploy durante la espera lo pierde. Cola en BD si llega a pasar.
+_AI_RETRY_DELAYS = (15, 45, 120)
+
+
+def _retry_ai_grading(response_id: str, worksheet: Worksheet) -> None:
+    for delay in _AI_RETRY_DELAYS:
+        time.sleep(delay)
+        response = repository.get_response(response_id)
+        if not response:
+            return  # el profesor la borró mientras tanto
+        # Lo que el profesor ya revisó a mano (tiene comentario) no se vuelve a pasar por la IA.
+        fresh = [d for d in response.details if not d.teacher_comment]
+        try:
+            ai_grade_activities(fresh, worksheet.title, worksheet.ai_tolerance, _activity_notes(worksheet))
+        except Exception as exc:
+            print(f"[AI:grade] reintento fallido para {response_id}: {exc}")
+            continue
+        response.correct_count, response.pending_count, response.score = _score_details(response.details)
+        repository.update_response_review(response)
+        return
+    print(f"[AI:grade] {response_id} quedó sin calificar por IA tras {len(_AI_RETRY_DELAYS)} reintentos")
+
+
 @app.post("/responses", response_model=WorksheetResponse)
-def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser = Depends(require_student)) -> WorksheetResponse:
+def submit_response(payload: WorksheetResponseCreate, background: BackgroundTasks, current_user: PublicUser = Depends(require_student)) -> WorksheetResponse:
     if payload.student_id and payload.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="No puedes enviar respuestas por otro estudiante")
 
@@ -1363,8 +1399,7 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
     _response_locks[lock_key] = now
 
     details = _build_answer_details(worksheet, payload.answers_json)
-    if worksheet.ai_grading:
-        details = ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance, _activity_notes(worksheet))
+    ai_failed = worksheet.ai_grading and not _try_ai_grade(details, worksheet)
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,
@@ -1376,7 +1411,10 @@ def submit_response(payload: WorksheetResponseCreate, current_user: PublicUser =
         correct_count=correct_count,
         pending_count=pending_count,
     )
-    return repository.add_response(response)
+    saved = repository.add_response(response)
+    if ai_failed:
+        background.add_task(_retry_ai_grading, saved.id, worksheet)
+    return saved
 
 
 @app.post("/worksheets/{worksheet_id}/practice")
@@ -1527,7 +1565,7 @@ def public_worksheet(worksheet_id: str) -> Worksheet:
 
 
 @app.post("/public/responses", response_model=WorksheetResponse)
-def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
+def submit_guest_response(payload: GuestResponseCreate, background: BackgroundTasks) -> WorksheetResponse:
     """Envía respuestas como invitado. Identificación por guest_token (UUID en localStorage)."""
     if not payload.guest_token or len(payload.guest_token) < 10:
         raise HTTPException(status_code=422, detail="guest_token inválido")
@@ -1551,8 +1589,7 @@ def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
     _response_locks[lock_key] = now
 
     details = _build_answer_details(worksheet, payload.answers_json)
-    if worksheet.ai_grading:
-        details = ai_grade_activities(details, worksheet.title, worksheet.ai_tolerance, _activity_notes(worksheet))
+    ai_failed = worksheet.ai_grading and not _try_ai_grade(details, worksheet)
     correct_count, pending_count, score = _score_details(details)
     response = WorksheetResponse(
         worksheet_id=payload.worksheet_id,
@@ -1565,7 +1602,10 @@ def submit_guest_response(payload: GuestResponseCreate) -> WorksheetResponse:
         pending_count=pending_count,
         guest_token=payload.guest_token,
     )
-    return repository.add_response(response)
+    saved = repository.add_response(response)
+    if ai_failed:
+        background.add_task(_retry_ai_grading, saved.id, worksheet)
+    return saved
 
 
 # Debajo de esta nota se ofrece plan de reforzamiento (la misma frontera que `moodForScore`: <75 = "le falta mejorar").

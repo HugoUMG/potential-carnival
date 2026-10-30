@@ -1095,7 +1095,9 @@ def ai_grade_activities(details: list[Any], worksheet_title: str, tolerance: int
     `notes` es {activity_id: note}: la nota privada que el profesor escribió para guiar la
     calificación (ADR-19). No viaja en los AnswerDetail porque esos sí se le devuelven al alumno.
     Returns the same list with updated status and teacher_comment fields.
-    Silently returns unmodified details if AI call fails.
+    Si la IA falla LANZA (sin tocar los detalles): antes devolvía la lista intacta en silencio y,
+    con dos envíos seguidos que chocaban con el rate-limit, uno se guardaba sin calificar para
+    siempre. Quien llama decide reintentar (`_retry_ai_grading` en main.py).
     """
     if not details:
         return details
@@ -1131,18 +1133,15 @@ def ai_grade_activities(details: list[Any], worksheet_title: str, tolerance: int
         f"Activities to grade:\n{json.dumps(activities_payload, ensure_ascii=False, indent=2)}"
     )
 
-    try:
-        raw, provider = _ai_call(_grade_system(tolerance), user_prompt, prefer_fast=True)
-        raw = raw.strip()
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        parsed: dict = json.loads(raw)
-        grades: list[dict] = parsed.get("grades", [])
-    except Exception:
-        return details
+    raw, provider = _ai_call(_grade_system(tolerance), user_prompt, prefer_fast=True)
+    raw = raw.strip()
+    # Strip markdown code fences if present
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    parsed: dict = json.loads(raw)
+    grades: list[dict] = parsed.get("grades", [])
 
     grades_by_id = {g["id"]: g for g in grades}
     for d in details:
