@@ -239,6 +239,9 @@ class WorksheetResponse(BaseModel):
     submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     student_id: str | None = None
     guest_token: str | None = None
+    # Solo en la respuesta del envío: la IA falló y se está recalificando en segundo plano
+    # (`_retry_ai_grading`). No se guarda en BD; al recargar llega la nota ya recalificada.
+    ai_pending: bool = False
 
 
 class ReinforcementArea(BaseModel):

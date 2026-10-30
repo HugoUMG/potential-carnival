@@ -212,7 +212,7 @@ export function GuestPage() {
   const [answers, setAnswers] = useState<StudentAnswers>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitPrompt, setSubmitPrompt] = useState<SubmitPrompt | null>(null);
-  const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number; aiPending?: boolean } | null>(null);
   const [error, setError] = useState('');
   // Primera carga desde la BD (Aiven puede tardar): spinner para hojas y para resultados.
   const [loadingWorksheets, setLoadingWorksheets] = useState(true);
@@ -280,7 +280,7 @@ export function GuestPage() {
       setResponses((prev) => [response, ...prev]);
       setAnswers({});
       const incorrect = response.details.filter((d) => d.status === 'incorrect').length;
-      setSubmitResult({ score: response.score, worksheetId: activeWorksheet.id, worksheetTitle: activeWorksheet.title, correct: response.correct_count, incorrect });
+      setSubmitResult({ score: response.score, worksheetId: activeWorksheet.id, worksheetTitle: activeWorksheet.title, correct: response.correct_count, incorrect, aiPending: response.ai_pending });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo enviar.');
     } finally {
@@ -446,6 +446,7 @@ export function GuestPage() {
           correct={submitResult.correct}
           incorrect={submitResult.incorrect}
           worksheetTitle={submitResult.worksheetTitle}
+          aiPending={submitResult.aiPending}
           onSeeAnswers={() => {
             const ws = worksheets.find((w) => w.id === submitResult.worksheetId);
             if (ws) setActiveWorksheet(ws);

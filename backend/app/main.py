@@ -1414,6 +1414,7 @@ def submit_response(payload: WorksheetResponseCreate, background: BackgroundTask
     saved = repository.add_response(response)
     if ai_failed:
         background.add_task(_retry_ai_grading, saved.id, worksheet)
+        saved.ai_pending = True
     return saved
 
 
@@ -1605,6 +1606,7 @@ def submit_guest_response(payload: GuestResponseCreate, background: BackgroundTa
     saved = repository.add_response(response)
     if ai_failed:
         background.add_task(_retry_ai_grading, saved.id, worksheet)
+        saved.ai_pending = True
     return saved
 
 

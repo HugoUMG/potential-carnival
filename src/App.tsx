@@ -250,7 +250,7 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ score: number | null; worksheetId: string; worksheetTitle: string; correct: number; incorrect: number; aiPending?: boolean } | null>(null);
   const [submitPrompt, setSubmitPrompt] = useState<SubmitPrompt | null>(null);
   const [previewWorksheet, setPreviewWorksheet] = useState<Worksheet | null>(null);
   /** Hoja recién guardada: mientras esté, el editor muestra el aviso "Guardada" con sus atajos. */
@@ -560,7 +560,7 @@ export default function App() {
       setResponses((current) => [response, ...current]);
       setAnswers({});
       const incorrect = response.details.filter((d) => d.status === 'incorrect').length;
-      setSubmitResult({ score: response.score, worksheetId: activeWorksheet.id, worksheetTitle: activeWorksheet.title, correct: response.correct_count, incorrect });
+      setSubmitResult({ score: response.score, worksheetId: activeWorksheet.id, worksheetTitle: activeWorksheet.title, correct: response.correct_count, incorrect, aiPending: response.ai_pending });
       // Refrescar lista para que attempts_remaining se actualice y la hoja se mueva de pestaña
       void refreshData(user);
     } catch (error) {
@@ -1179,6 +1179,7 @@ export default function App() {
           correct={submitResult.correct}
           incorrect={submitResult.incorrect}
           worksheetTitle={submitResult.worksheetTitle}
+          aiPending={submitResult.aiPending}
           onSeeAnswers={() => {
             const ws = [...activeWorksheets, ...gradedWorksheets].find((w) => w.id === submitResult.worksheetId);
             if (ws) setActiveWorksheet(ws);

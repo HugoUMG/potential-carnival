@@ -51,6 +51,7 @@ export type SceneProps = {
   correct: number;
   incorrect: number;
   worksheetTitle: string;
+  aiPending?: boolean; // la IA sigue calificando: la nota mostrada es provisional
   onSeeAnswers: () => void;
   onClose: () => void;
 };
@@ -159,7 +160,7 @@ function Caption({ text }: { text: ReactNode }) {
 /** Tarjeta blanca final con puntuación y botones · igual para todas las animaciones.
  *  RexLearn asoma sobre la tarjeta y reacciona a la nota (ver moodForScore); sin nota
  *  todavía, usa el resultado binario de la escena (ok). */
-function ResultCard({ ok, icon, title, score, correct, incorrect, worksheetTitle, onSeeAnswers, onClose }: SceneProps & { ok: boolean; icon: IconName; title: string }) {
+function ResultCard({ ok, icon, title, score, correct, incorrect, worksheetTitle, aiPending, onSeeAnswers, onClose }: SceneProps & { ok: boolean; icon: IconName; title: string }) {
   return (
     <div className="relative mt-16 w-full max-w-sm rounded-3xl bg-white/95 p-8 pt-14 text-center shadow-2xl backdrop-blur">
       <RexMascot
@@ -170,8 +171,13 @@ function ResultCard({ ok, icon, title, score, correct, incorrect, worksheetTitle
       <p className="mt-1 text-sm text-slate-500">{worksheetTitle}</p>
       <div className={`mt-4 rounded-2xl px-6 py-4 ${ok ? 'bg-rex-light' : 'bg-rose-50'}`}>
         <p className={`text-4xl font-black ${ok ? 'text-rex-deep' : 'text-rose-700'}`}>{score !== null ? score : '-'}</p>
-        <p className="text-sm font-semibold text-slate-500">Puntuación</p>
+        <p className="text-sm font-semibold text-slate-500">{aiPending ? 'Puntuación provisional' : 'Puntuación'}</p>
       </div>
+      {aiPending && (
+        <p role="status" className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          Tus respuestas se están calificando. Regresa en unos minutos para ver tu nota real: no se perdió nada.
+        </p>
+      )}
       <div className="mt-3 flex justify-center gap-3 text-sm font-semibold">
         <span className="flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-1 text-emerald-700"><Check size={15} /> {correct}</span>
         <span className="flex items-center gap-1 rounded-xl bg-red-50 px-3 py-1 text-red-700"><X size={15} /> {incorrect}</span>

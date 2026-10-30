@@ -135,6 +135,11 @@ DELETE /responses/{id}
 La calificación ocurre **dentro del POST**: exacta siempre, IA si la hoja tiene `ai_grading`. Ver
 [06_AI](06_AI.md) y [02_BACKEND](02_BACKEND.md#calificación-en-mainpy).
 
+Si la IA falla, el POST (`/responses` y `/public/responses`) guarda la auto-calificación, devuelve
+`ai_pending: true` y recalifica en segundo plano; el portal le dice al alumno que regrese en unos
+minutos. `ai_pending` **solo viene en la respuesta del envío**: no se guarda, los GET lo traen en
+`false` con la nota ya recalificada.
+
 ## Portal del alumno
 
 ```

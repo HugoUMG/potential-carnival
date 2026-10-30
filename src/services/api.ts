@@ -99,6 +99,7 @@ export interface RespuestaEstudiante {
   pending_count: number;
   submitted_at: string;
   student_id?: string | null;
+  ai_pending?: boolean; // solo al enviar: la IA falló y se está recalificando en segundo plano
 }
 
 export interface Classroom {

@@ -28,6 +28,28 @@ def test_si_la_ia_falla_el_error_no_se_traga(monkeypatch):
     assert main._try_ai_grade(_respuesta().details, _hoja()) is False
 
 
+def test_el_envio_avisa_al_alumno_que_la_nota_sigue_en_camino(monkeypatch):
+    from fastapi import BackgroundTasks
+    from backend.app.models import GuestResponseCreate
+
+    def caida(*a, **k):
+        raise RuntimeError("429 rate limit")
+
+    hoja = _hoja()
+    monkeypatch.setattr(ai, "_ai_call", caida)
+    monkeypatch.setattr(main.repository, "get_worksheet", lambda wid: hoja)
+    monkeypatch.setattr(main.repository, "count_guest_attempts", lambda wid, tok: 0)
+    monkeypatch.setattr(main.repository, "add_response", lambda r: r)
+
+    tareas = BackgroundTasks()
+    textbox = hoja.json_content.iter_activities()[1]
+    payload = GuestResponseCreate(worksheet_id=hoja.id, student_name="Ana", guest_token="token-de-prueba-123", answers_json={textbox.id: "I played."})
+    enviada = main.submit_guest_response(payload, tareas)
+
+    assert enviada.ai_pending is True
+    assert len(tareas.tasks) == 1  # el reintento quedó en cola
+
+
 def test_el_reintento_califica_y_guarda_la_respuesta(monkeypatch):
     guardada = _respuesta()
     actualizadas = []
