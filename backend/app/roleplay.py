@@ -597,6 +597,9 @@ Rules:
   character handles it, so judge only the English of that line.
 - If a word looks like a speech-recognition mistake caused by pronunciation (ship/sheep, seat/sit, walk/work, live/leave),
   say it in "why_es" as a pronunciation tip.
+- Spoken lines may carry "(clarity N%, low)": speech recognition was unsure of them. For those, add to "why_es" the
+  one word or sound most likely mispronounced by a Spanish speaker (th, v/b, short/long vowels, final -s/-ed, initial
+  "s+consonant") with a short how-to in Spanish, even if the line is "ok". Never invent a tip for lines without "low".
 - "grammar", "vocabulary", "communication": 0-10 for this level. "communication" = understood the AI, answered to the
   point, kept the conversation going and (if there are missions) completed them.
 - "missions": one true/false per mission, in order: did the learner do it?
@@ -614,7 +617,10 @@ def report_prompt(scenario: Scenario, built: Built, user_role: str, level: str, 
     for m in history:
         if m["who"] == "user":
             n += 1
-            lines.append(f"L{n}: {m['text']}")
+            # Solo las poco claras llevan la marca: así los consejos de pronunciación caen donde Whisper dudó.
+            low = _measured(m) and float(m["clarity"]) < LEVELS[level].clarity_ok
+            mark = f" (clarity {round(float(m['clarity']))}%, low)" if low else ""
+            lines.append(f"L{n}{mark}: {m['text']}")
         else:
             lines.append(f"AI: {m['text']}")
     user = "\n".join([

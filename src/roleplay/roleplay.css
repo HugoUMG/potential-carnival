@@ -238,6 +238,22 @@
 .rp-verdict > svg { flex: none; margin-top: 2px; }
 .rp-better { font-weight: 800; font-size: 16px; color: var(--fg); margin-top: 2px !important; }
 .rp-why { color: var(--muted); font-size: 14px; margin-top: 4px !important; line-height: 1.45; }
+.rp-turn .rp-practice-btn, .rp-turn .rp-practice-mic { width: auto; height: 30px; border-radius: 999px; padding: 0 12px; gap: 6px; display: inline-flex; align-items: center; font-weight: 800; font-size: 13px; margin: 8px 0 0; }
+.rp-turn .rp-practice-mic { margin: 0 0 0 4px; background: var(--accent); color: #fff; }
+.rp-turn .rp-practice-mic.on { background: var(--bad); }
+.rp-practice { margin-top: 8px; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); color: var(--fg); }
+.rp-practice-target { font-weight: 800; font-size: 16px; }
+.rp-practice-target .hit { color: var(--ok); }
+.rp-practice-target .miss { color: var(--bad); text-decoration: underline wavy; text-underline-offset: 4px; }
+.rp-practice-row { display: flex; align-items: center; margin-top: 6px; }
+.rp-practice-result { font-size: 14px; margin-top: 6px !important; color: var(--muted); }
+.rp-practice-result b { margin-right: 4px; }
+.rp-verdict .rp-practice-result.ok b { color: var(--ok); }
+.rp-verdict .rp-practice-result.low b { color: var(--bad); }
+.rp-unsure { display: grid; justify-items: center; gap: 8px; text-align: center; max-width: 520px; }
+.rp-unsure p { color: var(--warn); font-weight: 700; font-size: 14px; }
+.rp-unsure q { font-weight: 800; font-size: 17px; }
+.rp-unsure-btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .rp-report-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .rp-grading { min-height: 100dvh; }
 

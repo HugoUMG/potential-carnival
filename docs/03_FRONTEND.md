@@ -187,11 +187,17 @@ colgados de `.rp` en `roleplay.css` (modo oscuro solo con variables bajo `:root[
   cambian en vivo; sin subtítulos cada burbuja tiene "Ver texto". Misión e "Información para la
   conversación" (las tarjetas) en columna desde 960 px y en un panel con el botón 📋 en celular; sin
   tarjetas ni misiones no hay panel ni botón. Desde 3 respuestas se puede terminar antes.
+  Si una respuesta hablada de 3 palabras o más sale bajo `clarity_ok`, no se envía sola: aparece lo
+  que se oyó con "Grabar otra vez" / "Enviar así", para que el personaje no conteste a algo que el
+  alumno no dijo.
 - **`Report`**: pastel de "pétalos" en SVG (`GradePie`: cada rebanada mide su peso y su radio, el
   puntaje), Rex según la nota, misiones, consejos y la revisión respuesta por respuesta con 🔊/🐢. Con
   `next_level` muestra "Tu inglés va por encima de este nivel" y un botón que empieza otra partida en
   ese nivel. El chip de claridad queda neutro (sin verde/rojo) en respuestas de menos de 3 palabras,
-  igual en el chat que en el informe.
+  igual en el chat que en el informe. Cada respuesta con versión mejor o poco clara trae
+  **Practícala** (`Practice`): suena el modelo (la versión mejor, o lo que dijo), el alumno se graba
+  (`transcribeAudio`) y `matchWords` pinta en rojo las palabras que no se oyeron, como el juego
+  Pronuncia. No cambia la nota.
 - **`media.ts`**: **un solo** `<audio>` para toda la conversación, desbloqueado con un WAV de silencio
   en el primer toque (iPhone no deja sonar audio que no empezó con un toque). `roleplayTurn` lee la
   línea JSON del turno y entrega el mp3 por trozos; `playStream` los mete a un `MediaSource`

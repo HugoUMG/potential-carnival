@@ -161,6 +161,18 @@ def test_staff_notes_only_reach_the_learner_and_the_report():
     assert note in report_user
 
 
+def test_el_informe_sabe_que_lineas_se_oyeron_poco_claras():
+    """Solo las respuestas medibles bajo `clarity_ok` llevan la marca para el consejo de pronunciación."""
+    scenario, built = rp.session("restaurante", "waiter", "beginner", 7)
+    history = [{"who": "user", "text": "I would like the fish please", "clarity": 30.4},
+               {"who": "user", "text": "Yes thank you very much", "clarity": 90},
+               {"who": "user", "text": "Bye", "clarity": 10},
+               {"who": "user", "text": "I typed this answer here", "clarity": None}]
+    _, user = rp.report_prompt(scenario, built, "waiter", "beginner", history)
+    assert "L1 (clarity 30%, low): I would like" in user
+    assert "L2: Yes" in user and "L3: Bye" in user and "L4: I typed" in user
+
+
 def test_el_turno_trae_la_voz_y_sin_ella_la_conversacion_sigue(monkeypatch):
     """Una línea JSON y detrás el mp3, en la misma respuesta; si edge-tts falla, sale solo el texto."""
     import json

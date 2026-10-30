@@ -38,6 +38,9 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
   const [draft, setDraft] = useState('');
   const [panel, setPanel] = useState(false);
   const [revealed, setRevealed] = useState<Set<number>>(new Set());
+  // Lo que Whisper oyó con poca claridad: el alumno lo confirma o lo graba otra vez antes de que el
+  // personaje conteste a algo que no dijo.
+  const [unsure, setUnsure] = useState<{ text: string; clarity: number } | null>(null);
   const rec = useRecorder();
   const started = useRef(false);
   // Cada pedido al personaje lleva un número: si el alumno lo interrumpe, la frase cortada no
@@ -94,6 +97,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
 
   const send = (text: string, clarity: number | null) => {
     stopVoice();
+    setUnsure(null);
     const next: Msg[] = [...msgs, { who: 'user', text, clarity }];
     setMsgs(next);
     setDraft('');
@@ -104,6 +108,7 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
     if (rec.recording) { rec.stop(); return; }
     stopVoice();
     setNotice('');
+    setUnsure(null);
     let blob: Blob | null;
     try {
       blob = await rec.start();
@@ -121,7 +126,13 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
         setPhase('listen');
         return;
       }
-      send(transcript.trim(), clarity);
+      const heard: Msg = { who: 'user', text: transcript.trim(), clarity };
+      if (measured(heard) && clarity! < session.clarity_ok) {
+        setUnsure({ text: heard.text, clarity: clarity! });
+        setPhase('listen');
+        return;
+      }
+      send(heard.text, clarity);
     } catch {
       setNotice('No se pudo entender el audio. Intenta otra vez o escribe tu respuesta.');
       setPhase('listen');
@@ -205,6 +216,15 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
               <button type="button" className="rp-btn primary" onClick={() => void ask(failed.current)}><RotateCcw size={16} /> Reintentar</button>
             ) : phase === 'done' ? (
               <button type="button" className="rp-btn primary big" onClick={() => onFinish(msgs)}><Target size={16} /> Ver mi nota</button>
+            ) : unsure && !rec.recording ? (
+              <div className="rp-unsure" role="group" aria-label="Confirmar lo que se escuchó">
+                <p>No te entendí del todo ({Math.round(unsure.clarity)}% de claridad). ¿Dijiste esto?</p>
+                <q>{unsure.text}</q>
+                <div className="rp-unsure-btns">
+                  <button type="button" className="rp-btn" onClick={() => void talk()}><Mic size={16} /> Grabar otra vez</button>
+                  <button type="button" className="rp-btn primary" onClick={() => send(unsure.text, unsure.clarity)}><SendHorizontal size={16} /> Enviar así</button>
+                </div>
+              </div>
             ) : typing ? (
               <form className="rp-type" onSubmit={(e) => { e.preventDefault(); if (draft.trim() && yourTurn) send(draft.trim(), null); }}>
                 {canRecord && <button type="button" className="rp-icon-btn" onClick={() => setTyping(false)} aria-label="Volver al micrófono"><Mic size={18} /></button>}
