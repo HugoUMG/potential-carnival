@@ -3,8 +3,8 @@ import { Anchor, ArrowLeftRight, Bomb, Check, ChevronsLeft, ChevronsRight, Coins
 import { AppIcon, EmojiIcon } from '../components/AppIcon';
 import type { GameQuestion } from '../types';
 import { playSfx } from '../utils/sfx';
-import { CHALLENGES, PIPS, TEAM_COLORS, range, sample, shuffle, toggledList, type GameProps } from './util';
-import { Countdown, Es, Finish, Say, Sheet, Speak } from './ui';
+import { CHALLENGES, PIPS, TEAM_COLORS, range, sample, shuffle, teamName, toggledList, type GameProps } from './util';
+import { Countdown, Es, Finish, Say, Sheet, Speak, TeamCount } from './ui';
 import { useRoom, useShared } from './roomState';
 
 /* Tableros numerados, primos del corcho: casillas del 1 al N a la vista, eliges una y su pregunta
@@ -290,19 +290,6 @@ export function ScratchGame({ questions }: GameProps) {
   );
 }
 
-/** Primera pantalla de los juegos por equipos: 2, 3 o 4. */
-function TeamCount({ onPick, children }: { onPick: (teams: number) => void; children: ReactNode }) {
-  return (
-    <div className="dg-teams-setup">
-      <p className="dg-big-q">¿Cuántos equipos juegan?</p>
-      <div className="dg-row center">
-        {[2, 3, 4].map((t) => <button key={t} type="button" className="dg-btn primary big" onClick={() => onPick(t)}>{t} equipos</button>)}
-      </div>
-      <p className="dg-muted center">{children}</p>
-    </div>
-  );
-}
-
 // ── Cajas bomba ───────────────────────────────────────────────────────────────
 
 /** Lo que hay en cada caja: puntos (1–3), una estrella que duplica o una bomba que deja al equipo en 0. */
@@ -327,8 +314,10 @@ export function BombGame({ questions }: GameProps) {
   const [opened, setOpened] = useShared<number[]>('opened', []);
   const [open, setOpen] = useShared<number | null>('open', null);
   const [result, setResult] = useShared<'ok' | 'no' | null>('result', null);
+  const [names, setNames] = useShared<string[]>('names', []);
 
-  const start = (teams: number) => {
+  const start = (teams: number, nm: string[]) => {
+    setNames(nm);
     setScores(new Array(teams).fill(0));
     setTurn(0);
     setOrder(sample(range(questions.length), n));
@@ -359,25 +348,25 @@ export function BombGame({ questions }: GameProps) {
   const next = () => { setOpen(null); setResult(null); setTurn((t) => (t + 1) % scores.length); endTurn(); };
 
   const best = Math.max(...scores);
-  const winners = scores.flatMap((s, k) => (s === best ? [k + 1] : []));
+  const winners = scores.flatMap((s, k) => (s === best ? [teamName(names, k)] : []));
   const over = opened.length === order.length;
   const q = open === null ? null : questions[order[open]];
   const prize = open === null ? null : prizes[open];
-  const team = `Equipo ${turn + 1}`;
+  const team = teamName(names, turn);
 
   return (
     <div className="dg-pick">
       <div className="dg-scoreboard">
         {scores.map((s, k) => (
           <div key={k} className={`dg-team ${k === turn && !over ? 'turn' : ''}`} style={{ '--team': TEAM_COLORS[k] } as CSSProperties}>
-            <span className="inline-flex items-center gap-1">Equipo {k + 1}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
+            <span className="inline-flex items-center gap-1">{teamName(names, k)}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
             <b>{s}</b>
           </div>
         ))}
       </div>
       {over
-        ? <p className="dg-big-q inline-flex items-center gap-2"><Trophy size={22} /> {winners.length > 1 ? `Empate: equipos ${winners.join(' y ')}` : `¡Gana el Equipo ${winners[0]}!`}</p>
-        : <p className="dg-challenge center">Turno del <span style={{ color: TEAM_COLORS[turn] }}>{team}</span>: elige una caja</p>}
+        ? <p className="dg-big-q inline-flex items-center gap-2"><Trophy size={22} /> {winners.length > 1 ? `Empate: ${winners.join(' y ')}` : `¡Gana ${winners[0]}!`}</p>
+        : <p className="dg-challenge center">Turno de <span style={{ color: TEAM_COLORS[turn] }}>{team}</span>: elige una caja</p>}
       <div className="dg-boxes">
         {order.map((_, k) => (opened.includes(k) ? (
           <div key={k} className={`dg-box open ${prizes[k] === 'boom' ? 'boom' : ''}`}>{prizeLabel(prizes[k])}</div>
@@ -394,7 +383,7 @@ export function BombGame({ questions }: GameProps) {
           <Question q={q} n={open + 1} />
           {result === null ? (
             <>
-              <p className="dg-muted center">¿Respondió bien el {team}?</p>
+              <p className="dg-muted center">¿Respondió bien {team}?</p>
               <div className="dg-row">
                 <button type="button" className="dg-btn ok grow" onClick={() => grade(true)}><Check size={16} /> Bien: abrir la caja</button>
                 <button type="button" className="dg-btn grow" onClick={() => grade(false)}><X size={16} /> No</button>
@@ -404,11 +393,11 @@ export function BombGame({ questions }: GameProps) {
             <>
               <p className={`dg-prize ${result === 'no' ? 'miss' : prize === 'boom' ? 'boom' : ''}`}>
                 {result === 'no' ? 'Sin puntos: la caja sigue cerrada para otro equipo.'
-                  : prize === 'boom' ? <span className="inline-flex items-center gap-1.5"><Bomb size={18} /> ¡BOOM! El {team} se queda en 0.</span>
-                    : prize === 'star' ? <span className="inline-flex items-center gap-1.5"><Sparkles size={18} /> ¡Estrella! Los puntos del {team} se duplican.</span>
-                      : <span className="inline-flex items-center gap-1.5"><Gift size={18} /> +{prize} para el {team}</span>}
+                  : prize === 'boom' ? <span className="inline-flex items-center gap-1.5"><Bomb size={18} /> ¡BOOM! {team} se queda en 0.</span>
+                    : prize === 'star' ? <span className="inline-flex items-center gap-1.5"><Sparkles size={18} /> ¡Estrella! {team} duplica sus puntos.</span>
+                      : <span className="inline-flex items-center gap-1.5"><Gift size={18} /> +{prize} para {team}</span>}
               </p>
-              <button type="button" className="dg-btn primary" onClick={next}>Siguiente: Equipo {((turn + 1) % scores.length) + 1}</button>
+              <button type="button" className="dg-btn primary" onClick={next}>Siguiente: {teamName(names, (turn + 1) % scores.length)}</button>
             </>
           )}
         </Sheet>
@@ -435,27 +424,27 @@ function dealLoot(n: number): Loot[] {
 }
 
 /** Aplica el cofre al equipo `team` (pura). El escudo de la víctima absorbe un golpe y se gasta. */
-function settleLoot(scores: number[], shields: boolean[], team: number, loot: Loot): { scores: number[]; shields: boolean[]; note: string } {
+function settleLoot(scores: number[], shields: boolean[], team: number, loot: Loot, names: string[]): { scores: number[]; shields: boolean[]; note: string } {
   const sc = [...scores];
   const sh = [...shields];
-  const name = `Equipo ${team + 1}`;
-  if (typeof loot === 'number') { sc[team] += loot; return { scores: sc, shields: sh, note: `+${loot} para el ${name}` }; }
-  if (loot === 'shield') { sh[team] = true; return { scores: sc, shields: sh, note: `¡Escudo! El ${name} aguanta el próximo golpe.` }; }
+  const name = teamName(names, team);
+  if (typeof loot === 'number') { sc[team] += loot; return { scores: sc, shields: sh, note: `+${loot} para ${name}` }; }
+  if (loot === 'shield') { sh[team] = true; return { scores: sc, shields: sh, note: `¡Escudo! ${name} aguanta el próximo golpe.` }; }
   // Víctima: el que más puntos tiene entre los demás (el primero si hay empate).
   let victim = -1;
   sc.forEach((v, k) => { if (k !== team && (victim < 0 || v > sc[victim])) victim = k; });
-  const vname = `Equipo ${victim + 1}`;
+  const vname = teamName(names, victim);
   if (loot === 'steal') {
-    if (sc[victim] <= 0) return { scores: sc, shields: sh, note: `¡Robo! Pero el ${vname} no tiene nada que quitar.` };
-    if (sh[victim]) { sh[victim] = false; return { scores: sc, shields: sh, note: `¡Robo! El escudo del ${vname} lo detiene y se rompe.` }; }
+    if (sc[victim] <= 0) return { scores: sc, shields: sh, note: `¡Robo! Pero ${vname} no tiene nada que quitar.` };
+    if (sh[victim]) { sh[victim] = false; return { scores: sc, shields: sh, note: `¡Robo! El escudo de ${vname} lo detiene y se rompe.` }; }
     const took = Math.min(STEAL, sc[victim]);
     sc[victim] -= took; sc[team] += took;
-    return { scores: sc, shields: sh, note: `¡Robo! El ${name} le quita ${took} al ${vname}.` };
+    return { scores: sc, shields: sh, note: `¡Robo! ${name} le quita ${took} a ${vname}.` };
   }
-  if (sc[victim] <= sc[team]) return { scores: sc, shields: sh, note: `¡Trueque! Pero el ${name} ya va ganando: nada cambia.` };
-  if (sh[victim]) { sh[victim] = false; return { scores: sc, shields: sh, note: `¡Trueque! El escudo del ${vname} lo detiene y se rompe.` }; }
+  if (sc[victim] <= sc[team]) return { scores: sc, shields: sh, note: `¡Trueque! Pero ${name} ya va ganando: nada cambia.` };
+  if (sh[victim]) { sh[victim] = false; return { scores: sc, shields: sh, note: `¡Trueque! El escudo de ${vname} lo detiene y se rompe.` }; }
   [sc[team], sc[victim]] = [sc[victim], sc[team]];
-  return { scores: sc, shields: sh, note: `¡Trueque! El ${name} cambia marcador con el ${vname}.` };
+  return { scores: sc, shields: sh, note: `¡Trueque! ${name} cambia marcador con ${vname}.` };
 }
 
 export function PirateGame({ questions }: GameProps) {
@@ -470,8 +459,10 @@ export function PirateGame({ questions }: GameProps) {
   const [open, setOpen] = useShared<number | null>('open', null);
   const [result, setResult] = useShared<'ok' | 'no' | null>('result', null);
   const [note, setNote] = useShared('note', '');
+  const [names, setNames] = useShared<string[]>('names', []);
 
-  const start = (teams: number) => {
+  const start = (teams: number, nm: string[]) => {
+    setNames(nm);
     setScores(new Array(teams).fill(0));
     setShields(new Array(teams).fill(false));
     setTurn(0);
@@ -495,7 +486,7 @@ export function PirateGame({ questions }: GameProps) {
   const grade = (ok: boolean) => {
     if (open === null) return;
     if (ok) {
-      const r = settleLoot(scores, shields, turn, loot[open]);
+      const r = settleLoot(scores, shields, turn, loot[open], names);
       setScores(r.scores);
       setShields(r.shields);
       setNote(r.note);
@@ -506,24 +497,24 @@ export function PirateGame({ questions }: GameProps) {
   const next = () => { setOpen(null); setResult(null); setTurn((t) => (t + 1) % scores.length); endTurn(); };
 
   const best = Math.max(...scores);
-  const winners = scores.flatMap((s, k) => (s === best ? [k + 1] : []));
+  const winners = scores.flatMap((s, k) => (s === best ? [teamName(names, k)] : []));
   const over = opened.length === order.length;
   const q = open === null ? null : questions[order[open]];
-  const team = `Equipo ${turn + 1}`;
+  const team = teamName(names, turn);
 
   return (
     <div className="dg-pick">
       <div className="dg-scoreboard">
         {scores.map((s, k) => (
           <div key={k} className={`dg-team ${k === turn && !over ? 'turn' : ''}`} style={{ '--team': TEAM_COLORS[k] } as CSSProperties}>
-            <span className="inline-flex items-center gap-1">Equipo {k + 1}{shields[k] && <Shield size={14} aria-label="Con escudo" />}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
+            <span className="inline-flex items-center gap-1">{teamName(names, k)}{shields[k] && <Shield size={14} aria-label="Con escudo" />}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
             <b>{s}</b>
           </div>
         ))}
       </div>
       {over
-        ? <p className="dg-big-q inline-flex items-center gap-2"><Trophy size={22} /> {winners.length > 1 ? `Empate: equipos ${winners.join(' y ')}` : `¡Gana el Equipo ${winners[0]}!`}</p>
-        : <p className="dg-challenge center">Turno del <span style={{ color: TEAM_COLORS[turn] }}>{team}</span>: elige un cofre</p>}
+        ? <p className="dg-big-q inline-flex items-center gap-2"><Trophy size={22} /> {winners.length > 1 ? `Empate: ${winners.join(' y ')}` : `¡Gana ${winners[0]}!`}</p>
+        : <p className="dg-challenge center">Turno de <span style={{ color: TEAM_COLORS[turn] }}>{team}</span>: elige un cofre</p>}
       <div className="dg-boxes">
         {order.map((_, k) => (opened.includes(k) ? (
           <div key={k} className={`dg-box open ${loot[k] === 'steal' ? 'boom' : ''}`}>{lootLabel(loot[k])}</div>
@@ -540,7 +531,7 @@ export function PirateGame({ questions }: GameProps) {
           <Question q={q} n={open + 1} />
           {result === null ? (
             <>
-              <p className="dg-muted center">¿Respondió bien el {team}?</p>
+              <p className="dg-muted center">¿Respondió bien {team}?</p>
               <div className="dg-row">
                 <button type="button" className="dg-btn ok grow" onClick={() => grade(true)}><Check size={16} /> Bien: abrir el cofre</button>
                 <button type="button" className="dg-btn grow" onClick={() => grade(false)}><X size={16} /> No</button>
@@ -552,7 +543,7 @@ export function PirateGame({ questions }: GameProps) {
                 {result === 'no' ? 'Sin botín: el cofre sigue cerrado para otro equipo.'
                   : <span className="inline-flex items-center gap-1.5"><Anchor size={18} /> {note}</span>}
               </p>
-              <button type="button" className="dg-btn primary" onClick={next}>Siguiente: Equipo {((turn + 1) % scores.length) + 1}</button>
+              <button type="button" className="dg-btn primary" onClick={next}>Siguiente: {teamName(names, (turn + 1) % scores.length)}</button>
             </>
           )}
         </Sheet>
@@ -637,8 +628,10 @@ export function DinoRaceGame({ questions }: GameProps) {
   const [shownId, setShownId] = useState(move?.id);
   const heard = useRef(verdict?.id);
   const pending = move && move.id !== shownId ? move : null;
+  const [names, setNames] = useShared<string[]>('names', []);
 
-  const start = (n: number) => {
+  const start = (n: number, nm: string[]) => {
+    setNames(nm);
     setTeams(n);
     setTurn(0);
     setPos(new Array(n).fill(0));
@@ -734,7 +727,7 @@ export function DinoRaceGame({ questions }: GameProps) {
           return (
             <div key={k} className={`dg-dr-lane ${k === active && winner < 0 ? 'now' : ''} ${flash?.team === k ? (flash.ok ? 'ok' : 'miss') : ''}`}
               style={{ '--team': TEAM_COLORS[k] } as CSSProperties}>
-              <b className="dg-dr-n">{k + 1}</b>
+              <b className="dg-dr-n" title={teamName(names, k)}>{k + 1}</b>
               <div className="dg-dr-track">
                 {range(GOAL + 1).map((c) => {
                   const kind = squares[c];
@@ -742,7 +735,7 @@ export function DinoRaceGame({ questions }: GameProps) {
                   return <span key={c} className={`dg-dr-cell ${kind ?? ''} ${c === GOAL ? 'goal' : ''}`}>{Icon && <Icon size={16} />}{c === GOAL && <Flag size={16} />}</span>;
                 })}
                 <span className={`dg-dr-dino ${anim?.jump && anim.at[k] !== move?.before[k] ? 'jump' : ''} ${winner === k ? 'won' : ''}`}
-                  style={{ left: `${((p + 0.5) / (GOAL + 1)) * 100}%`, zIndex: k === active ? 3 : 2 }} role="img" aria-label={`Equipo ${k + 1}: casilla ${p}`}>
+                  style={{ left: `${((p + 0.5) / (GOAL + 1)) * 100}%`, zIndex: k === active ? 3 : 2 }} role="img" aria-label={`${teamName(names, k)}: casilla ${p}`}>
                   <span key={p}><Dino /></span>
                 </span>
               </div>
@@ -754,12 +747,14 @@ export function DinoRaceGame({ questions }: GameProps) {
       {winner >= 0 ? (
         <div className="dg-feedback" style={{ '--team': TEAM_COLORS[winner] } as CSSProperties}>
           <span className="dg-dr-me"><Dino /></span>
-          <p className="dg-ok inline-flex items-center gap-1.5"><Trophy size={18} /> ¡Gana el Equipo {winner + 1}!</p>
+          <p className="dg-ok inline-flex items-center gap-1.5"><Trophy size={18} /> ¡Gana {teamName(names, winner)}!</p>
           <button type="button" className="dg-btn primary" onClick={() => setTeams(0)}><RotateCcw size={16} /> Otra carrera</button>
         </div>
       ) : (
+        <>
+        <p className="dg-challenge center">Turno de <b style={{ color: TEAM_COLORS[active] }}>{teamName(names, active)}</b></p>
         <div className="dg-dr-turn" style={{ '--team': TEAM_COLORS[active] } as CSSProperties}>
-          <span className="dg-dr-me" aria-label={`Turno del Equipo ${active + 1}`}><Dino /><b>{active + 1}</b></span>
+          <span className="dg-dr-me" aria-hidden="true"><Dino /><b>{active + 1}</b></span>
           {phase === 'ask' && !moving ? (
             <div className="dg-dr-q">
               <p className="dg-big-q"><Say text={q.text} /></p>
@@ -778,8 +773,9 @@ export function DinoRaceGame({ questions }: GameProps) {
             </button>
           )}
         </div>
+        </>
       )}
-      {winner < 0 && <button type="button" className="dg-link center" onClick={() => setTeams(0)}><RotateCcw size={14} /> Nueva carrera</button>}
+      {winner < 0 &&<button type="button" className="dg-link center" onClick={() => setTeams(0)}><RotateCcw size={14} /> Nueva carrera</button>}
     </div>
   );
 }

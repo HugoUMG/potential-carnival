@@ -3,8 +3,8 @@ import { Check, CheckCheck, ChevronLeft, ChevronRight, Crown, Dices, Lightbulb, 
 import { EmojiIcon } from '../components/AppIcon';
 import { transcribeAudio } from '../services/api';
 import { canRecord, useRecorder } from '../utils/useRecorder';
-import { CHALLENGES, PIPS, TEAM_COLORS, copyText, matchSpoken, pick, range, reduceMotion, sample, shuffle, toggledList, useGame, words, type GameProps } from './util';
-import { Countdown, Es, Notice, Say, Sheet, Speak } from './ui';
+import { CHALLENGES, PIPS, TEAM_COLORS, copyText, matchSpoken, pick, range, reduceMotion, sample, shuffle, teamName, toggledList, useGame, words, type GameProps } from './util';
+import { Countdown, Es, Notice, Say, Sheet, Speak, TeamCount } from './ui';
 import { useRoom, useShared } from './roomState';
 
 const GRADS = ['#FFD6E0,#FFEFD6', '#D6F0FF,#E6DEFF', '#DFFAD6,#FFF6CC', '#FFE1D6,#FFD6EE', '#D9E2FF,#D3FAF1',
@@ -375,20 +375,13 @@ export function TeamsGame({ questions }: GameProps) {
   const [turn, setTurn] = useShared('turn', 0);
   const [deck, setDeck] = useShared<number[]>('deck', []);
   const [shown, setShown] = useShared<number | null>('shown', null);
+  const [names, setNames] = useShared<string[]>('names', []);
 
   if (!scores.length) {
     return (
-      <div className="dg-teams-setup">
-        <p className="dg-big-q">¿Cuántos equipos juegan?</p>
-        <div className="dg-row center">
-          {[2, 3, 4].map((n) => (
-            <button key={n} type="button" className="dg-btn primary big" onClick={() => { setScores(new Array(n).fill(0)); setTurn(0); setDeck(shuffle(range(questions.length))); setShown(null); }}>
-              {n} equipos
-            </button>
-          ))}
-        </div>
-        <p className="dg-muted center">Cada turno, el equipo responde una pregunta en 30 segundos y tú das los puntos.</p>
-      </div>
+      <TeamCount onPick={(n, nm) => { setNames(nm); setScores(new Array(n).fill(0)); setTurn(0); setDeck(shuffle(range(questions.length))); setShown(null); }}>
+        Cada turno, el equipo responde una pregunta en 30 segundos y tú das los puntos.
+      </TeamCount>
     );
   }
 
@@ -411,16 +404,16 @@ export function TeamsGame({ questions }: GameProps) {
       <div className="dg-scoreboard">
         {scores.map((s, k) => (
           <div key={k} className={`dg-team ${k === turn ? 'turn' : ''}`} style={{ '--team': TEAM_COLORS[k] } as CSSProperties}>
-            <span className="inline-flex items-center gap-1">Equipo {k + 1}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
+            <span className="inline-flex items-center gap-1">{teamName(names, k)}{s === best && s > 0 && <Crown size={14} className="text-amber-500" />}</span>
             <b>{s}</b>
           </div>
         ))}
       </div>
       {!q ? (
-        <button type="button" className="dg-btn big primary" style={{ background: TEAM_COLORS[turn] }} onClick={draw}>Pregunta para el Equipo {turn + 1}</button>
+        <button type="button" className="dg-btn big primary" style={{ background: TEAM_COLORS[turn] }} onClick={draw}>Pregunta para {teamName(names, turn)}</button>
       ) : (
         <div className="dg-dice-card">
-          <p className="dg-challenge">Turno del <b style={{ color: TEAM_COLORS[turn] }}>Equipo {turn + 1}</b></p>
+          <p className="dg-challenge">Turno de <b style={{ color: TEAM_COLORS[turn] }}>{teamName(names, turn)}</b></p>
           <p className="dg-big-q"><EmojiIcon emoji={q.emoji} size={22} className="dg-emoji inline align-[-3px]" /> <Say text={q.text} /></p>
           <div className="dg-row center"><Speak text={q.text} /><Countdown /></div>
           <Es className="center">{q.translation}</Es>

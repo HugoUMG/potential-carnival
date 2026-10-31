@@ -328,6 +328,7 @@ button.dg-box:hover { transform: translateY(-3px) rotate(-2deg); }
 .dg-challenge { font-weight: 800; font-size: 15px; }
 .dg-challenge b { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; margin-right: 6px; }
 .dg-scoreboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; width: 100%; }
+.dg-team-names { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; width: 100%; }
 .dg-team { border-radius: 18px; padding: 10px 12px; background: var(--surface); border: 2px solid var(--line); display: grid; gap: 2px; text-align: center; font-weight: 800; }
 .dg-team b { font-family: var(--f-game); font-weight: 400; font-size: 30px; color: var(--team); }
 .dg-team.turn { border-color: var(--team); box-shadow: 0 0 0 4px color-mix(in srgb, var(--team) 25%, transparent); }

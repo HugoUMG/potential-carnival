@@ -111,7 +111,10 @@ no hay que escribir nada distinto por juego.
   que se borra con `destination-out` y destapa al pasar del 55 % rascado; `shown` se comparte) y Cajas
   bomba (2–4 equipos, 20 cajas con +1/+2/+3, ⭐ que duplica y 💣 que deja en 0; si el equipo falla, la
   caja sigue cerrada). Cofres piratas (`PirateGame`, `piratas`) es su variante: 20 cofres con +1/+2/+3, 💀 que roba 2 puntos al líder, ⇄ que cambia el marcador con el líder (solo si va por delante) y 🛡️ escudo que absorbe el siguiente robo o trueque (`settleLoot`, pura). `CHALLENGES`, `TEAM_COLORS` y `PIPS` (caras del dado) viven en `util.ts` porque los
-  usan varios archivos.
+  usan varios archivos. Los cuatro juegos por equipos (Equipos, Cajas bomba, Cofres, Carrera) arrancan
+  con `TeamCount` (`ui.tsx`): el profe puede nombrar cada equipo (opcional, máx. 20 caracteres); los
+  nombres van en el estado compartido `names` y se leen con `teamName(names, k)` (`util.ts`), que cae
+  a "Equipo k+1" si está vacío.
 - **Carrera de dinos (`pick.tsx`, `dinos`, grupo `hablar`):** prima de Cajas bomba para 2–4 equipos. Un
   carril por equipo (16 casillas, meta en la 15) con 5 casillas sorpresa repartidas al azar por
   partida (`dealSquares`): 2 turbo (+2), 2 trampa (−3) y 1 cambio (cambia de lugar con el que va

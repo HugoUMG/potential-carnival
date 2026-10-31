@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { Snail, Timer, Volume2 } from 'lucide-react';
 import RexMascot from '../components/RexMascot';
 import { moodForScore } from '../utils/scoreMood';
-import { speak, tokenize, useGame } from './util';
+import { TEAM_COLORS, speak, teamName, tokenize, useGame } from './util';
 
 /** Texto en inglés con cada palabra tocable, al estilo Duolingo: abre sus significados y la pronuncia. */
 export function Say({ text, className = '' }: { text: string; className?: string }) {
@@ -156,6 +156,29 @@ export function Notice({ children }: { children: ReactNode }) {
     <div className="dg-notice">
       <RexMascot mood="thinking" className="dg-notice-rex" />
       <p>{children}</p>
+    </div>
+  );
+}
+
+/** Primera pantalla de los juegos por equipos: nombres (opcionales) y 2, 3 o 4 equipos. */
+export function TeamCount({ onPick, children }: { onPick: (teams: number, names: string[]) => void; children: ReactNode }) {
+  const [names, setNames] = useState(['', '', '', '']);
+  return (
+    <div className="dg-teams-setup">
+      <p className="dg-big-q">¿Cuántos equipos juegan?</p>
+      <div className="dg-team-names">
+        {names.map((v, k) => (
+          <input key={k} className="dg-input" style={{ borderColor: TEAM_COLORS[k] }} value={v} maxLength={20}
+            placeholder={`Equipo ${k + 1} (nombre opcional)`} aria-label={`Nombre del equipo ${k + 1}`}
+            onChange={(e) => setNames((n) => n.map((x, i) => (i === k ? e.target.value : x)))} />
+        ))}
+      </div>
+      <div className="dg-row center">
+        {[2, 3, 4].map((t) => (
+          <button key={t} type="button" className="dg-btn primary big" onClick={() => onPick(t, names.slice(0, t).map((_, k) => teamName(names, k)))}>{t} equipos</button>
+        ))}
+      </div>
+      <p className="dg-muted center">{children}</p>
     </div>
   );
 }

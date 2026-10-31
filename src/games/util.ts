@@ -95,6 +95,9 @@ export const PIPS = [[4], [0, 8], [0, 4, 8], [0, 2, 6, 8], [0, 2, 4, 6, 8], [0, 
 
 export const TEAM_COLORS = ['#FF595E', '#1982C4', '#2BB673', '#FF924C'];
 
+/** Nombre que el profe le puso al equipo `k` en la pantalla de inicio, o "Equipo k+1". */
+export const teamName = (names: readonly string[], k: number) => names[k]?.trim() || `Equipo ${k + 1}`;
+
 // ── Audio (edge-tts, gratis) ──────────────────────────────────────────────────
 
 let current: HTMLAudioElement | null = null;
