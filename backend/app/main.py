@@ -8,7 +8,7 @@ import threading
 import time
 
 import httpx
-from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
@@ -1906,9 +1906,10 @@ def room_turn(code: str, payload: RoomTurn) -> dict[str, Any]:
 
 
 @app.post("/public/transcribe")
-async def transcribe(request: Request, file: UploadFile = File(...), clarity: bool = False) -> dict[str, Any]:
+async def transcribe(request: Request, file: UploadFile = File(...), clarity: bool = False, context: str = Form("")) -> dict[str, Any]:
     """Transcribe el audio del micrófono (actividad speaking y conversación con IA) con Groq
-    Whisper. Público. Con `clarity=true` devuelve además la claridad 0-100 (ADR-39).
+    Whisper. Público. Con `clarity=true` devuelve además la claridad 0-100 (ADR-39), y acepta
+    `context` (escena + últimas líneas) para que Whisper entienda la palabra que encaja ahí.
 
     Es el endpoint sin login que cuesta DINERO (cuota de Groq), así que se acota por los dos
     lados: 4 MB por petición —de sobra para una respuesta hablada; 10 MB era diez veces lo que
@@ -1925,7 +1926,7 @@ async def transcribe(request: Request, file: UploadFile = File(...), clarity: bo
         raise HTTPException(status_code=413, detail="El audio es demasiado largo (máx 4 MB)")
     try:
         if clarity:
-            text, score = await asyncio.to_thread(transcribe_with_clarity, audio, file.filename or "speech.webm", file.content_type or "audio/webm")
+            text, score = await asyncio.to_thread(transcribe_with_clarity, audio, file.filename or "speech.webm", file.content_type or "audio/webm", context.strip())
             return {"transcript": text, "clarity": score}
         text = ai_transcribe(audio, file.filename or "speech.webm", file.content_type or "audio/webm")
     except Exception as exc:

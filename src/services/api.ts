@@ -1140,10 +1140,11 @@ export function roleplayReport(s: RoleplayStart, history: RoleplayMessage[]): Pr
 }
 
 /** Como `transcribeAudio`, más la claridad 0-100 que mide Whisper (null si no hubo voz). */
-export async function transcribeWithClarity(blob: Blob): Promise<{ transcript: string; clarity: number | null }> {
+export async function transcribeWithClarity(blob: Blob, context = ''): Promise<{ transcript: string; clarity: number | null }> {
   const ext = blob.type.includes('mp4') ? 'mp4' : blob.type.includes('ogg') ? 'ogg' : blob.type.includes('wav') ? 'wav' : 'webm';
   const form = new FormData();
   form.append('file', blob, `speech.${ext}`);
+  if (context) form.append('context', context);
   const response = await fetch(`${API_BASE_URL}/public/transcribe?clarity=true`, { method: 'POST', body: form });
   if (!response.ok) throw new Error('No se pudo transcribir el audio');
   const data = await response.json() as { transcript?: string; clarity?: number | null };

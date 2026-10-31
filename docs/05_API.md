@@ -548,7 +548,7 @@ POST   /public/guest-sessions                 — Registrar acceso de invitado
 POST   /public/responses                      — Enviar respuestas como invitado
 GET    /public/responses?guest_token=…        — Respuestas calificadas del invitado
 POST   /public/responses/{id}/reinforcement   — Plan de reforzamiento (IA) si la nota es < 75
-POST   /public/transcribe?clarity=…           — Audio (speaking) → texto vía Groq Whisper (máx 4 MB); con `clarity=true` también la claridad 0-100
+POST   /public/transcribe?clarity=…           — Audio (speaking) → texto vía Groq Whisper (máx 4 MB); con `clarity=true` también la claridad 0-100; campo de formulario opcional `context` (escena + últimas líneas) que orienta a Whisper
 GET    /public/vocabulary/{id}                — Lista de vocabulario por id (enlace /v/:vocabId)
 GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
 GET    /public/game-sets                      — Sets destacados (`featured`) para /juegos → GameSetSummary[]

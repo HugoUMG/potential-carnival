@@ -1427,9 +1427,13 @@ def transcribe_audio(audio: bytes, filename: str, content_type: str) -> str:
     return str(_whisper(audio, filename, content_type, "json").get("text", "")).strip()
 
 
-def transcribe_with_clarity(audio: bytes, filename: str, content_type: str) -> tuple[str, float | None]:
-    """Como `transcribe_audio`, más la claridad de la pronunciación (0-100) según Whisper."""
-    data = _whisper(audio, filename, content_type, "verbose_json")
+def transcribe_with_clarity(audio: bytes, filename: str, content_type: str, context: str = "") -> tuple[str, float | None]:
+    """Como `transcribe_audio`, más la claridad de la pronunciación (0-100) según Whisper.
+
+    `context` (la escena y lo último que se dijo) va como `prompt` de Whisper: sesga el vocabulario
+    hacia el tema, así «nuts» en el restaurante no sale «not». Califica la intención, a costa de que
+    una pronunciación floja pase por buena cuando el contexto la delata."""
+    data = _whisper(audio, filename, content_type, "verbose_json", context)
     return str(data.get("text", "")).strip(), speech_clarity(data.get("segments") or [])
 
 
@@ -1453,10 +1457,14 @@ def speech_clarity(segments: list[dict]) -> float | None:
     return round(max(0.0, min(1.0, (acc / total - 0.35) / 0.55)) * 100)
 
 
-def _whisper(audio: bytes, filename: str, content_type: str, response_format: str) -> dict:
+def _whisper(audio: bytes, filename: str, content_type: str, response_format: str, prompt: str = "") -> dict:
     key = os.getenv("GROQ_API_KEY", "")
     if not key:
         raise RuntimeError("GROQ_API_KEY not set")
+    data = {"model": _WHISPER_MODEL, "language": "en", "response_format": response_format}
+    if prompt:
+        # Whisper solo mira los últimos ~224 tokens del prompt: se recorta por el final, que es lo reciente.
+        data["prompt"] = prompt[-800:]
     last_error: Exception | None = None
     for attempt in range(2):
         try:
@@ -1465,7 +1473,7 @@ def _whisper(audio: bytes, filename: str, content_type: str, response_format: st
                     _GROQ_TRANSCRIBE_URL,
                     headers={"Authorization": f"Bearer {key}"},
                     files={"file": (filename, audio, content_type or "audio/webm")},
-                    data={"model": _WHISPER_MODEL, "language": "en", "response_format": response_format},
+                    data=data,
                 )
                 resp.raise_for_status()
                 return resp.json()

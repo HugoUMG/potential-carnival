@@ -600,6 +600,9 @@ Rules:
   them (e.g. as the waiter: a wrong price, a dish that does not exist or is sold out), mark it "wrong" and say in
   "why_es" what the card said. ASKING for or ordering something that is not on the cards is NOT an error: the other
   character handles it, so judge only the English of that line.
+- Read spoken lines by the scene and what was just said: if a word makes no sense there but a similar-sounding word
+  clearly does ("not" for "nuts" when asked about allergies at a restaurant), judge the line as if the learner said the
+  word that fits. Do not mark it "better"/"wrong" for that word; only say it in "why_es" as a pronunciation tip.
 - If a word looks like a speech-recognition mistake caused by pronunciation (ship/sheep, seat/sit, walk/work, live/leave),
   say it in "why_es" as a pronunciation tip.
 - Spoken lines may carry "(clarity N%, low)": speech recognition was unsure of them. For those, add to "why_es" the

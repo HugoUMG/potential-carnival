@@ -132,7 +132,9 @@ export function Conversation({ session, prefs, setPrefs, onExit, onFinish }: {
     if (!blob) { setNotice('No se grabó audio. Intenta otra vez.'); return; }
     setPhase('transcribing');
     try {
-      const { transcript, clarity } = await transcribeWithClarity(blob);
+      // La escena y las últimas líneas orientan a Whisper: «nuts» en el restaurante, no «not».
+      const context = [session.place, ...msgs.slice(-4).map((m) => m.text)].join('\n');
+      const { transcript, clarity } = await transcribeWithClarity(blob, context);
       if (!transcript.trim()) {
         setNotice('No te escuché bien. Acércate al micrófono e intenta otra vez.');
         setPhase('listen');
