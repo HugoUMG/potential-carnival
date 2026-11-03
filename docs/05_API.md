@@ -218,7 +218,7 @@ POST /rooms/{code}/say         — {token, text}: cualquier jugador, tenga o no 
   online}], said, state?}`. `online` = hizo poll en los últimos 90 s. `said` = `{pid, name, text, n}`
   con lo último que alguien publicó por `/say` (texto ≤ 400, sin espacios de más; 422 si vacío;
   `_rate_limit` 120/min). Va fuera de `state` porque quien responde casi nunca tiene el control. El `token` de cada jugador **nunca** sale aquí; es su credencial para escribir.
-- `game` debe estar en `rooms.ROOM_GAMES` (todos menos `contrarreloj`, incluidos los de mesa, los de responder y los tableros: `gato`, `conecta4`, `escaleras`, `entrevista`, `carrera`, `papa`, `puertas`, `mapa`, `sobres`, `rasca`, `bomba`, `piratas`, `dinos`) y `mode` ser `turnos` o
+- `game` debe estar en `rooms.ROOM_GAMES` (todos menos `contrarreloj`, incluidos los de mesa, los de responder, los tableros y Rana hambrienta: `gato`, `conecta4`, `escaleras`, `entrevista`, `carrera`, `papa`, `puertas`, `mapa`, `sobres`, `rasca`, `bomba`, `piratas`, `dinos`, `rana`) y `mode` ser `turnos` o
   `presentador` → 422 si no. Nombre de 1–24 caracteres (422), máximo 8 jugadores (409), blob de
   hasta 50 KB (413), 404 si la sala no existe o caducó (3 h).
 - `state`: escribe el anfitrión siempre, y el resto solo si `turn` es su id (403). `version` vieja →
@@ -553,6 +553,7 @@ GET    /public/vocabulary/{id}                — Lista de vocabulario por id (e
 GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
 GET    /public/game-sets                      — Sets destacados (`featured`) para /juegos → GameSetSummary[]
 GET    /public/game-sets/{id}                 — Set por id (enlace /j/:id) → PublicGameSet con `glossary`
+GET    /public/frog-words?level&category      — Banco de Rana hambrienta (A1…C1, tipo o "" = mixto) → FrogPool
 ```
 
 - `GET /public/game-sets/{id}` es una URL-capability como `/public/vocabulary/{id}`: el UUID no se
@@ -560,6 +561,17 @@ GET    /public/game-sets/{id}                 — Set por id (enlace /j/:id) →
   significados **ya hechos** de las palabras del set; no llama a la IA en la petición. Si faltan
   palabras, programa otro intento en segundo plano, **una vez por proceso y palabra**
   (`_words_attempted`), para que una palabra que la IA no sabe definir no cueste una llamada por visita.
+- `GET /public/frog-words` (ADR-44) → `{words: VocabWord[], generating}`. `VocabWord` = `en`, `es`
+  (traducción principal), `pos` (tipo en español) y las moscas malas `wrong_es` / `wrong_en`.
+  `level` ∈ A1…C1 y `category` ∈ `FROG_CATEGORIES` o `""` (mixto); otro valor → 422. Devuelve lo que
+  ya está en `frog_words`, en el mismo orden para todos (`ORDER BY en_key`; con más de 500 palabras,
+  una muestra fija por día). Si ese nivel y tipo no llegó a su meta (`_FROG_TARGETS`), programa
+  **una** tanda de 16 en segundo plano (`_grow_frog_words`): una sola a la vez en todo el servidor
+  (`_frog_job`); sin espera mientras el tipo tenga menos de 48 palabras, luego una cada 3 min por
+  nivel y tipo, y 10 min tras un fallo (`_frog_next`). En mixto crece el tipo más atrasado.
+  `generating: true` = la tanda es de este nivel, o está en cola detrás de otra: el cliente vuelve a
+  preguntar cada 4 s mientras tenga menos de 6 palabras. Sin login, como el resto de `/public/*`:
+  solo expone vocabulario.
 
 - `POST /public/responses/{id}/reinforcement` → `ReinforcementPlan` (`intro`, `areas[]` con
   `topic`/`mistakes`/`explanation`, `quiz[]` con `question`/`options`/`answer`/`explanation`). Lee

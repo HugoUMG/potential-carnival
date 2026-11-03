@@ -225,3 +225,16 @@ CREATE TABLE IF NOT EXISTS word_meanings (
   data       JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Banco de vocabulario de Rana hambrienta: palabras por nivel (A1 a C1) y tipo, con sus moscas
+-- malas ya revisadas por IA. Es de todo el sitio, no de un set. Cada palabra se le pide a la IA una
+-- sola vez (en_key = la palabra en inglés normalizada) y el banco crece con el uso.
+CREATE TABLE IF NOT EXISTS frog_words (
+  en_key     TEXT PRIMARY KEY,
+  level      TEXT NOT NULL,
+  category   TEXT NOT NULL,
+  data       JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_frog_words_level ON frog_words(level, category);

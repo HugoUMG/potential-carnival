@@ -9,6 +9,7 @@ import { MatchGame, MemoryGame, SpeedGame } from './meaning';
 import { ConnectFourGame, LaddersGame, TicTacToeGame } from './board';
 import { AnswerRaceGame, HotPotatoGame, InterviewGame } from './oral';
 import { BombGame, DinoRaceGame, DoorsGame, LettersGame, MapGame, PirateGame, ScratchGame } from './pick';
+import { FrogGame } from './frog';
 
 export type Skill = 'hablar' | 'tablero' | 'escuchar' | 'estructura' | 'significado' | 'mesa' | 'turnos';
 
@@ -54,7 +55,7 @@ const GRADING: Partial<Record<RoomMode, [string, string]>> = {
   turnos: ['Califica el compañero', 'Quien tiene el turno califica al siguiente; se van rotando (con 3: A→B, B→C, C→A).'],
 };
 
-/** Los 29 juegos. Todos salen de las mismas preguntas del set (texto + traducción). */
+/** Los 29 juegos de un set. Todos salen de las mismas preguntas (texto + traducción). */
 export const GAMES: GameMeta[] = [
   { id: 'tarjetas', name: 'Tarjetas', icon: 'layers', skill: 'hablar', color: '#7048E8', Component: CardsGame, room: BOTH,
     purpose: 'Conversación guiada: al voltear ves la traducción y cómo empezar tu respuesta.',
@@ -144,3 +145,11 @@ export const GAMES: GameMeta[] = [
     purpose: 'Responde antes de que la papa se queme: el tiempo es secreto (de 10 a 20 segundos).',
     howTo: 'Para soltarse a hablar rápido. Quien califica marca en cuanto termina la respuesta.' },
 ];
+
+/** Rana hambrienta (ADR-44) va aparte de los sets: no usa sus preguntas sino el banco de vocabulario
+ *  A1-C1 del sitio, y se abre en /rana (`FrogPage`). Su id sigue en `ROOM_GAMES` (rooms.py). */
+export const FROG_GAME: GameMeta = {
+  id: 'rana', name: 'Rana hambrienta', icon: 'bug', skill: 'significado', color: '#2B9348', Component: FrogGame, room: BOTH,
+  purpose: 'Vocabulario contrarreloj del A1 al C1: la rana dice una palabra y le das la mosca con su traducción. Acertar suma tiempo; fallar, resta.',
+  howTo: 'Individual: ¿quién aguanta más? En sala por turnos, cada quien juega su partida y suma sus segundos.',
+};

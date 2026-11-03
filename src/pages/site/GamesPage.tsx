@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Check, Copy, MessagesSquare, MonitorSmartphone, Play, QrCode, Smartphone, Users } from 'lucide-react';
+import { ArrowRight, Bug, Check, Copy, MessagesSquare, MonitorSmartphone, Play, QrCode, Smartphone, Users } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { AppIcon } from '../../components/AppIcon';
 import { Spinner } from '../../components/LoadingScreen';
@@ -78,6 +78,16 @@ export function GamesPage() {
           <p className="mt-1 text-site-fg/65">Role-plays por voz con personajes de IA (restaurante, aeropuerto, entrevista de trabajo…), en tres niveles y con tu nota al final.</p>
         </div>
         <span className="site-btn site-btn-spike">Probar <ArrowRight size={16} /></span>
+      </Link>
+
+      <Link to="/rana" className="site-glass site-glass-hover mt-4 flex flex-wrap items-center gap-5 p-6 sm:p-8">
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-site-acc/15 text-site-acc ring-1 ring-site-acc/30"><Bug size={28} /></span>
+        <div className="min-w-[14rem] flex-1">
+          <p className="site-eyebrow site-neon-spike">Nuevo · Vocabulario A1–C1</p>
+          <h2 className="mt-1 text-2xl font-black tracking-tight">Rana hambrienta</h2>
+          <p className="mt-1 text-site-fg/65">Contrarreloj de vocabulario: dale a la rana la mosca con la traducción correcta. Sustantivos, verbos, adjetivos, preposiciones y más, del nivel A1 al C1.</p>
+        </div>
+        <span className="site-btn site-btn-spike">Jugar <ArrowRight size={16} /></span>
       </Link>
 
       <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">

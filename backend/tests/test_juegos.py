@@ -154,3 +154,161 @@ def test_las_preguntas_generadas_no_se_repiten_y_respetan_la_cantidad(monkeypatc
     data, provider = ai.generate_game_questions("travel", "B1", "Wh- + would", 2)
     assert provider == "fake" and data["title"] == "Travel"
     assert [q["text"] for q in data["questions"]] == ["Where would you go?", "Why would you stay?"]
+
+
+# ── Rana hambrienta: banco de vocabulario por IA ──────────────────────────────
+
+def _frog_reply(n: int = 9) -> dict:
+    """`n` palabras válidas; la 0 trae las trampas de doble sentido que el filtro debe quitar."""
+    words = [{"en": "bank", "es": ["el banco", "orilla (de un río)"], "en_all": ["bank", "bench"],
+              "wrong_es": ["Orilla", "puente", "caja", "tienda", "puerto", "calle", "mesa", "silla"],
+              "wrong_en": ["Bench", "to bridge", "box", "shop", "port", "street", "table"]}]
+    words += [{"en": f"w{k}", "es": [f"p{k}"], "en_all": [f"w{k}"], "wrong_es": [f"x{k}{c}" for c in "abcde"],
+               "wrong_en": [f"y{k}{c}" for c in "abcde"]} for k in range(1, n)]
+    return {"words": words}
+
+
+def _fake_frog_ai(reply: dict, flags: dict[str, dict] | None = None, skip: str = ""):
+    """La IA de mentira: `reply` al generar; al revisar, una entrada por palabra (menos `skip`) con
+    una traducción inversa inocente de cada mosca y las marcas de `flags` según su `en`."""
+    def fake(system, user, **_):
+        if system != ai._FROG_CHECK_SYSTEM:
+            return json.dumps(reply), "fake"
+        items = json.loads(user)["items"]
+        return json.dumps({"items": [{
+            "id": w["id"], "back_es": {t: ["zz"] for t in w["wrong_es"]}, "back_en": {t: ["zz"] for t in w["wrong_en"]},
+            **(flags or {}).get(w["en"], {}),
+        } for w in items if w["en"] != skip]}), "fake"
+    return fake
+
+
+def test_rana_la_traduccion_inversa_saca_la_mosca_que_tambien_vale(monkeypatch):
+    # Medido con Gemini: para "en" lista in/inside/at y olvida "on"; al traducir "on" sí dice "en".
+    reply = {"words": [{"en": "in", "es": ["en"], "en_all": ["in"], "wrong_es": ["sobre", "bajo", "cerca", "lejos", "entre", "atrás"],
+                        "wrong_en": ["on", "under", "near", "far", "between", "behind", "around"]}]}
+    back_es = {"sobre": ["on", "about"], "bajo": ["under"], "cerca": ["near"], "lejos": ["far"], "entre": ["between"]}  # sin "atrás"
+    back_en = {"on": ["sobre", "en", "encima de"], "under": ["bajo"], "near": ["cerca"], "far": ["lejos"],
+               "between": ["entre"], "behind": ["detrás de"], "around": ["alrededor"]}
+    monkeypatch.setattr(ai, "_ai_call", _fake_frog_ai(reply, {"in": {"back_es": back_es, "back_en": back_en}}))
+    [word] = ai.generate_frog_words("A1", "preposicion", [])
+    assert word["wrong_en"] == ["under", "near", "far", "between", "behind", "around"]  # "on" también es "en"
+    assert word["wrong_es"] == ["sobre", "bajo", "cerca", "lejos", "entre"]            # "sobre" (on) no es "in": se queda
+    assert word["pos"] == "preposición"                                                # "atrás", sin traducir: fuera
+
+
+def test_rana_ningun_distractor_es_otra_traduccion_de_la_palabra(monkeypatch):
+    # La revisora marca "caja", lista "tienda" entre las traducciones (también se quita) y ve que
+    # w2 está mal traducida o no es del tipo pedido.
+    flags = {"bank": {"flag_es": ["caja"], "translations_es": ["banco", "tienda"]}, "w2": {"bad": True}}
+    monkeypatch.setattr(ai, "_ai_call", _fake_frog_ai(_frog_reply(10), flags))
+    words = ai.generate_frog_words("B1", "sustantivo", [])
+
+    bank = words[0]
+    assert (bank["en"], bank["es"], bank["pos"]) == ("bank", "el banco", "sustantivo")
+    assert bank["wrong_es"] == ["puente", "puerto", "calle", "mesa", "silla"]        # sin "orilla" (otro sentido), "caja" ni "tienda"
+    assert bank["wrong_en"] == ["to bridge", "box", "shop", "port", "street", "table"]  # sin "bench" (también es "banco")
+    assert "w2" not in [w["en"] for w in words]                                     # la revisora la marcó mal traducida
+
+
+def test_rana_una_palabra_que_la_revisora_no_devuelve_no_entra(monkeypatch):
+    # gpt-oss, con mucho que razonar, a veces devuelve solo las primeras palabras de la tanda.
+    calls: list[str] = []
+
+    def counting(system, user, **kw):
+        calls.append(system)
+        return _fake_frog_ai(_frog_reply(10), skip="w9")(system, user, **kw)
+
+    monkeypatch.setattr(ai, "_ai_call", counting)
+    words = ai.generate_frog_words("A1", "verbo", [])
+    assert "w9" not in [w["en"] for w in words] and len(words) == 9
+    assert calls.count(ai._FROG_CHECK_SYSTEM) == 2  # 10 palabras = dos tandas de revisión
+
+
+def test_rana_sin_revision_no_entra_nada_y_sin_moscas_suficientes_la_palabra_sobra(monkeypatch):
+    def review_down(system, user, **_):
+        if system == ai._FROG_CHECK_SYSTEM:
+            raise RuntimeError("Groq caído")
+        return json.dumps(_frog_reply()), "fake"
+
+    monkeypatch.setattr(ai, "_ai_call", review_down)
+    with pytest.raises(RuntimeError):
+        ai.generate_frog_words("A1", "sustantivo", [])
+
+    # Cada palabra necesita 5 moscas malas (las de Difícil): a "bank" la revisora le deja 4.
+    flags = {"bank": {"flag_es": ["caja", "calle", "mesa"]}}
+    monkeypatch.setattr(ai, "_ai_call", _fake_frog_ai(_frog_reply(3), flags))
+    assert [w["en"] for w in ai.generate_frog_words("A1", "sustantivo", [])] == ["w1", "w2"]
+
+
+def test_rana_no_repite_palabras_ni_traducciones(monkeypatch):
+    reply = _frog_reply()
+    reply["words"] += [dict(reply["words"][1]), {**reply["words"][1], "en": "bench"}]  # mismo "p1": el centro sería igual
+    monkeypatch.setattr(ai, "_ai_call", _fake_frog_ai(reply))
+    words = ai.generate_frog_words("A2", "sustantivo", ["W3"])
+    assert [w["en"] for w in words] == ["bank", "w1", "w2", "w4", "w5", "w6", "w7", "w8"]  # w3 ya estaba en el banco
+
+
+def test_rana_descarta_las_moscas_genericas_copiadas_de_otra_palabra(monkeypatch):
+    # Pasó con Groq: "book", "cat" y "water" con la misma lista (coche, árbol, silla, mesa…).
+    reply = _frog_reply(4)
+    reply["words"][3]["wrong_es"] = reply["words"][2]["wrong_es"][:4] + ["otra"]
+    reply["words"].append({**reply["words"][1], "en": "w9", "es": ["p9"], "en_all": ["w9"]})
+    monkeypatch.setattr(ai, "_ai_call", _fake_frog_ai(reply))
+    assert [w["en"] for w in ai.generate_frog_words("A1", "sustantivo", [])] == ["bank", "w1", "w2", "w3"]
+
+
+def _word(en: str, es: str) -> dict:
+    return {"en": en, "es": es, "pos": "sustantivo", "wrong_es": list("abcde"), "wrong_en": list("fghij")}
+
+
+def test_el_banco_de_la_rana_se_llena_una_vez_y_es_de_todo_el_sitio(db, monkeypatch):
+    main._frog_job.clear()
+    main._frog_next.clear()
+    monkeypatch.setattr(main, "_FROG_STARTER", 3)  # de 3 palabras en adelante, ya espera entre tandas
+    asked: list[tuple[str, str, list[str]]] = []
+    batches = iter([[_word("cat", "gato"), _word("dog", "perro")],
+                    [_word("cat", "gato"), _word("kitty", "Gato"), _word("bird", "pájaro")],  # repetida y misma traducción
+                    [_word("fish", "pez")]])
+
+    def fake_generate(level, category, avoid):
+        asked.append((level, category, list(avoid)))
+        return next(batches)
+
+    monkeypatch.setattr(main, "generate_frog_words", fake_generate)
+    first = main.public_frog_words(background := BackgroundTasks(), level="A1", category="sustantivo")
+    assert first.words == [] and first.generating
+    # Mientras hay una tanda en curso nadie lanza otra: quien estrena otro nivel queda en cola.
+    queued = main.public_frog_words(other := BackgroundTasks(), level="B2", category="verbo")
+    assert queued.generating and other.tasks == []
+    _run(background)
+    main.public_frog_words(second := BackgroundTasks(), level="A1", category="sustantivo")  # 2 < 3: sin espera
+    _run(second)
+
+    assert [sorted(a[2]) for a in asked] == [[], ["cat", "dog"]]  # no le vuelve a pedir lo que ya hay
+    again = main.public_frog_words(later := BackgroundTasks(), level="A1", category="sustantivo")
+    assert [w.en for w in again.words] == ["bird", "cat", "dog"]
+    assert not again.generating and later.tasks == []  # ya tiene 3: espera su turno, no gasta IA en cada visita
+    # El banco es de todo el sitio: no depende de ningún set ni de su tema.
+    assert [w.en for w in main.public_frog_words(BackgroundTasks(), level="A1").words] == ["bird", "cat", "dog"]
+
+    with pytest.raises(HTTPException) as exc:
+        main.public_frog_words(BackgroundTasks(), level="Z9")
+    assert exc.value.status_code == 422
+
+
+def test_rana_si_la_ia_falla_se_reintenta_mas_tarde_y_mixto_crece_lo_mas_atrasado(db, monkeypatch):
+    main._frog_job.clear()
+    main._frog_next.clear()
+    asked: list[str] = []
+
+    def failing(level, category, avoid):
+        asked.append(category)
+        raise RuntimeError("IA caída")
+
+    monkeypatch.setattr(main, "generate_frog_words", failing)
+    main.repository.put_frog_words("B1", "sustantivo", [main.VocabWord(**_word("house", "casa"))])
+    main.public_frog_words(background := BackgroundTasks(), level="B1")  # mixto
+    _run(background)
+    assert asked == ["verbo"]  # entre los tipos sin palabras, el primero; los sustantivos ya tienen una
+    assert not main.public_frog_words(again := BackgroundTasks(), level="B1", category="verbo").generating
+    assert again.tasks == []  # falló hace nada: no se reintenta en cada visita

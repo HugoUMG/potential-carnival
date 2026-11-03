@@ -501,6 +501,24 @@ class PublicGameSet(BaseModel):
     glossary: dict[str, WordMeaning] = Field(default_factory=dict)
 
 
+class VocabWord(BaseModel):
+    """Una palabra del banco de Rana hambrienta. Solo viaja la traducción principal: las demás que
+    dio la IA (todas las de `en` y todas las de `es`) se usan en el servidor para sacar de los
+    distractores lo que también sería correcto, y no se guardan."""
+    en: str = Field(min_length=1, max_length=40)
+    es: str = Field(min_length=1, max_length=40)
+    pos: str = Field(default="", max_length=40)  # tipo de palabra en español ("sustantivo")
+    wrong_es: list[str]  # moscas malas cuando la rana dice `en`: ninguna traduce `en`
+    wrong_en: list[str]  # moscas malas cuando la rana dice `es`: ninguna traduce `es`
+
+
+class FrogPool(BaseModel):
+    """Palabras del banco para un nivel y tipo. `generating`: la IA está sumando una tanda a ese
+    nivel ahora mismo (si hay pocas, el cliente vuelve a preguntar)."""
+    words: list[VocabWord] = Field(default_factory=list)
+    generating: bool = False
+
+
 class GameAiRequest(BaseModel):
     topic: str = Field(min_length=2, max_length=300)
     level: str = Field(default="B1", max_length=10)

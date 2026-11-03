@@ -1143,6 +1143,51 @@ existía para ElevenLabs; reutilizarla no cuesta una migración y convierte la s
 fallo de la base no rompe el audio: solo se pierde la caché. La clave incluye voz y velocidad, así
 que la versión lenta se guarda aparte.
 
+## 🟢 ADR-44 — Rana hambrienta: juego aparte con un banco de vocabulario A1-C1 hecho por IA una vez
+
+**Decisión.** Rana hambrienta no es un juego de preguntas: vive en `/rana`, fuera de los sets y de
+`GAMES`, y sus palabras salen de un **banco del sitio** (`frog_words`) por nivel MCER (A1 a C1) y tipo
+de palabra. La IA genera cada palabra **una sola vez** (clave = la palabra normalizada) y el banco
+crece con el uso, una tanda de 16 cuando alguien juega un nivel y tipo que no llegó a su meta
+(`_FROG_TARGETS`, ~6 700 palabras en total). Cada palabra trae **sus propias** moscas malas, nunca las
+traducciones de otras palabras, y no entra sin pasar la revisión de otra llamada (`_frog_review`).
+
+**Por qué.** El profesor pidió que el vocabulario no se le vuelva a pedir a la IA en cada sesión: lo
+verificado se guarda y se reutiliza. Y pidió cuidado con las palabras de doble sentido: una mosca
+"mala" que también es traducción válida enseña algo falso y castiga al que sabe. Cada capa de la
+revisión salió de un fallo medido con la IA real:
+- el filtro por texto (todas las traducciones de la palabra) quita lo obvio: *bank* sin "orilla";
+- la revisora lista otra vez todas las traducciones: *time* llevaba "momento" y la primera lista no;
+- la **traducción inversa** de cada mosca: para *en*, las dos IA listaron in/at y olvidaron "on",
+  pero al traducir "on" sí dicen "en";
+- una palabra que la revisora no devuelve no entra: con 16 en una respuesta, gpt-oss devolvía solo
+  las primeras, de ahí las tandas de 8;
+- se descartan las listas genéricas copiadas (coche, árbol, silla… para *book* y para *cat*): no son
+  ambiguas, pero hacen el juego obvio.
+Gemini va primero en la revisión: gpt-oss dejaba la traducción inversa a medias y se perdían 12 de 16
+palabras.
+
+**Alternativas descartadas.**
+- *Vocabulario por set, a partir de su tema* (la primera versión, nunca desplegada). Cada set nuevo
+  volvía a gastar IA en palabras que ya existían, y el juego quedaba atado a un set cuando es de
+  vocabulario general.
+- *Sacar las palabras del `glossary` del set y usar de distractores las traducciones de las otras.*
+  El glosario está lleno de palabras de función (*the*, *would*), no tiene niveles, y dos palabras
+  del mismo tema se solapan (*big*/*large* → "grande") sin que nada lo revise.
+- *Llenar el banco de golpe al desplegar.* Unas 1 300 llamadas seguidas acapararían `_ai_lock` y la
+  calificación esperaría. Crecer con el uso reparte el costo y no gasta en niveles que nadie juega.
+- *Sin sala, como Contrarreloj (ADR-40).* Aquí cada turno es una partida entera de un jugador, y el
+  reloj viaja como "ms que quedaban" que cada navegador descuenta solo (`useLeft`): quien mira lo ve
+  fluido aunque el poll sea de 1 s. La clase virtual pide poder jugar en pareja desde casa.
+
+**Consecuencias.** Quien estrena un nivel y tipo espera ~45 s la primera tanda; una sola tanda corre a
+la vez en todo el servidor y los demás quedan en cola. Sin espera mientras un tipo tenga menos de 48
+palabras, luego una tanda cada 3 min por nivel y tipo, y 10 min tras un fallo (en memoria: un
+redeploy lo reinicia). Por la revisión estricta una tanda deja entre 4 y 16 palabras. Las moscas por
+dificultad y los tipos están duplicados entre el front y el back (regla 50). Techo: la revisión es
+otra IA, no un diccionario; reduce mucho los dobles sentidos, no los imposibilita, sobre todo en
+matices de B2/C1 (*compelling* llevó "fascinante" en una prueba).
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

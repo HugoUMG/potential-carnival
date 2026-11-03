@@ -46,7 +46,8 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji o
 nombre de icono) que se
 juega con **29 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 6 tableros numerados + Carrera de dinos) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
-no hay que escribir nada distinto por juego.
+no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de ellos: va aparte, en
+`/rana`, con su propio banco de vocabulario (ver abajo).
 
 - **Profesor:** sección `juegos` del portal → `GameSetsManager`. Lista de sets (Jugar, Copiar enlace,
   QR, Editar, Borrar con segundo toque) y editor: título, tema, nivel, "mostrar en /juegos"
@@ -98,7 +99,7 @@ no hay que escribir nada distinto por juego.
   `endTurn()` (pura: `nextTurn`) y `addPoint()`. `speak()` pasa por `setSpeakGate`: quien mueve
   suena y lo anuncia en `__say`; los demás suenan al recibirlo (`playAudio` suena solo aquí, sin
   anunciar). Cambiar de juego saca de la sala. **Todos los juegos tienen `room` salvo
-  Contrarreloj**; Equipos y Bingo solo en modo presentador. Bingo es `roomFree`: no queda `inert`,
+  Contrarreloj** (Rana hambrienta, aparte, también tiene sala: cada turno es una partida entera, ADR-44); Equipos y Bingo solo en modo presentador. Bingo es `roomFree`: no queda `inert`,
   porque cada uno marca su propio cartón (local) y solo las cantadas (`called`) se comparten. Lo que
   es de un solo navegador (arrastre, "escribiendo…" del bot, micrófono, errores) sigue en
   `useState`; la tabla por juego está en `docs/plans/salas-juegos.md`.
@@ -123,6 +124,28 @@ no hay que escribir nada distinto por juego.
   otra (`race`, pura). Anima igual que Serpientes y escaleras: quien mueve guarda `pos` y `move`
   (`before`, `path`, `after`, `kind`) y cada navegador anima por `move.id`; el veredicto también es
   compartido (`verdict`) para que todos oigan el acierto o el fallo y vean el carril brillar o temblar.
+- **Rana hambrienta (`/rana`, `frog.tsx`, ADR-44): juego aparte de los sets.** No usa preguntas: sus
+  palabras salen del banco del sitio (`getFrogWords` → `/public/frog-words`). Está fuera de `GAMES`
+  (`FROG_GAME` en `registry.ts`) y se abre desde la tarjeta de `/juegos` (como Conversación).
+  `FrogPage` monta `GamePlayer` con `solo`: sin lista ni barra lateral, sin ES ni cronómetro de
+  preguntas, pero con sala (el "set" es `{id: 'rana'}`, solo para crear salas). Se elige el **modo**
+  (Español → Inglés, la rana habla español; Inglés → Español, con 🔊), el **nivel** (A1 a C1), el
+  **tipo de palabra** (`CATS`: mixto, sustantivos, verbos, adjetivos, adverbios, preposiciones,
+  conectores) y la **dificultad** (`DIFFS`: 3/4/6 moscas, +3/+2.5/+2 s por acierto, −3/−4/−5 s por
+  fallo; cada 10 aciertos la mosca buena da 0.25 s menos, mínimo 1 s; el reloj no pasa de 60 s).
+  `useWords` pide el banco al cambiar nivel o tipo y **no durante una partida** (la cola guarda
+  índices); con menos de 6 palabras mientras la IA genera, vuelve a pedir cada 4 s. Al tocar una
+  mosca, la lengua sale hasta ella (`<line>` con `pathLength=1`) y la rana se la come: feliz si era
+  buena; enferma (verde oliva, ojos en espiral) si era mala, y la buena se ilumina en verde, con el
+  reloj parado durante la animación. La palabra fallada vuelve tras dos (`nextWord`) y la pantalla
+  final la lista para repasar. "Terminar" es un botón discreto en la barra de arriba. Récord por
+  modo, nivel, tipo y dificultad en `localStorage` (`dg-rana-…`, en segundos, solo sin sala).
+  **Estanque cuadrado:** `SPOTS` (sitios de las moscas), `MOUTH` y la lengua usan el mismo %; si
+  cambia el tamaño de la rana (`.fr-frog`), cambia `MOUTH`. En sala (turnos y presentador) **cada
+  turno es una partida entera**: el estado va en `useShared` y el reloj viaja como
+  `clock = {left, n, run}`; cada navegador cuenta hacia atrás desde que le llega un `n` nuevo
+  (`useLeft`), así quien mira ve el reloj fluido aunque el poll sea de 1 s. Al terminar suma sus
+  segundos (`addPoint`) y pasa el turno.
 - **Juegos de mesa (`board.tsx`, grupo `mesa`):** Gato (3×3), Conecta 4 (7×6) y Serpientes y
   escaleras (30 casillas, tablero distinto en cada partida). Para mover, quien tiene el turno acierta qué significa una
   pregunta (`ChallengeCard`: la pregunta y 3 traducciones). Si acierta, aplica la jugada; si falla,

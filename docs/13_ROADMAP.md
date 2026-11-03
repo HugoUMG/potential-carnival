@@ -97,6 +97,13 @@ Jugar en grupo un juego de `/j/:setId`: por turnos o con un presentador que pued
 Después, sin compromiso: WebSockets si la latencia de 1 s molesta y un modo "libre" (todos tocan a
 la vez).
 
+### Rana hambrienta (hecho, noviembre 2026, ADR-44)
+
+Juego aparte de los sets (`/rana`): vocabulario contrarreloj ES→EN y EN→ES, niveles A1 a C1, por tipo
+de palabra o mixto, 3 dificultades y sala por turnos. El banco `frog_words` lo llena la IA una sola
+vez por palabra y crece con el uso hasta ~6 700 palabras. Pendiente sin compromiso: que el profesor
+pueda ver y borrar palabras del banco, y pre-llenarlo de golpe en vez de esperar al uso.
+
 ---
 
 ## Cerrado: edge-tts recuperado con la 7.3.1 (octubre 2026)

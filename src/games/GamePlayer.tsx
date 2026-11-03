@@ -4,7 +4,7 @@ import { ChevronLeft, Users } from 'lucide-react';
 import { AppIcon } from '../components/AppIcon';
 import { getRoom } from '../services/api';
 import type { PublicGameSet, RoomState } from '../types';
-import { GAMES, SKILLS } from './registry';
+import { GAMES, SKILLS, type GameMeta } from './registry';
 import { RoomGate, RoomProvider } from './room';
 import { dropSeat, loadSeat } from './roomState';
 import { GameContext, type GameCtx, stopAudio } from './util';
@@ -27,7 +27,9 @@ const gameFromHash = () => {
 /** `?sala=K7QF` en la URL: el enlace de una sala de juego (ADR-40). */
 const roomFromUrl = () => new URLSearchParams(window.location.search).get('sala')?.trim().toUpperCase() || null;
 
-export function GamePlayer({ set }: { set: PublicGameSet }) {
+/** `solo`: un juego que va aparte de los sets (Rana hambrienta, /rana). Sin lista de juegos ni
+ *  barra lateral, y sin ES ni cronómetro, que son de las preguntas; la sala funciona igual. */
+export function GamePlayer({ set, solo }: { set: PublicGameSet; solo?: GameMeta }) {
   const [es, setEs] = useState(readEs);
   const [active, setActive] = useState(gameFromHash);
   const [word, setWord] = useState<{ word: string; anchor: HTMLElement } | null>(null);
@@ -78,11 +80,11 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
 
   const openWord = useCallback((w: string, anchor: HTMLElement) => setWord({ word: w, anchor }), []);
   const closeWord = useCallback(() => setWord(null), []);
-  const canGroup = Boolean(GAMES.find((g) => g.id === active)?.room) && !roomCode && !gate;
+  const game = solo ?? GAMES.find((g) => g.id === active) ?? null;
+  const canGroup = Boolean(game?.room) && !roomCode && !gate;
   const openGroup = useCallback(() => setGate(true), []);
   const ctx = useMemo<GameCtx>(() => ({ glossary: set.glossary, es, setId: set.id, openWord, openGroup: canGroup ? openGroup : undefined }),
     [set, es, openWord, canGroup, openGroup]);
-  const game = GAMES.find((g) => g.id === active) ?? null;
   const inRoom = Boolean(roomCode && game?.room);
 
   const open = (id: string | null) => {
@@ -105,12 +107,12 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
 
   return (
     <GameContext.Provider value={ctx}>
-      <div className={`dg ${game ? 'in-game' : ''}`} style={{ '--accent': game?.color ?? '#7048E8' } as CSSProperties}>
+      <div className={`dg ${game && !solo ? 'in-game' : ''}`} style={{ '--accent': game?.color ?? '#7048E8' } as CSSProperties}>
         <header className="dg-top">
-          {game ? (
+          {game && !solo ? (
             <button type="button" className="dg-home" onClick={() => open(null)} aria-label="Volver a los juegos"><ChevronLeft size={20} /><span>Juegos</span></button>
           ) : (
-            <Link className="dg-home" to="/juegos" aria-label="Volver a MyDinoEnglish"><ChevronLeft size={20} /><span>MyDinoEnglish</span></Link>
+            <Link className="dg-home" to="/juegos" aria-label="Volver a MyDinoEnglish"><ChevronLeft size={20} /><span>{solo ? 'Juegos' : 'MyDinoEnglish'}</span></Link>
           )}
           {game && <span className="dg-ttl-ico" aria-hidden="true"><AppIcon name={game.icon} size={32} /></span>}
           <div className="dg-ttl">
@@ -125,13 +127,13 @@ export function GamePlayer({ set }: { set: PublicGameSet }) {
             {game?.room && !roomCode && !gate && (
               <button type="button" className="dg-es-btn dg-group-btn" onClick={() => setGate(true)} title="Jugar en grupo" aria-label="Jugar en grupo"><Users size={16} /><span>En grupo</span></button>
             )}
-            <Countdown compact />
-            <button type="button" className="dg-es-btn" aria-pressed={es} onClick={toggleEs} title={es ? 'Ocultar traducciones' : 'Mostrar traducciones'}>ES</button>
+            {!solo && <Countdown compact />}
+            {!solo && <button type="button" className="dg-es-btn" aria-pressed={es} onClick={toggleEs} title={es ? 'Ocultar traducciones' : 'Mostrar traducciones'}>ES</button>}
           </div>
         </header>
 
         <div className="dg-body">
-          {game && (
+          {game && !solo && (
             <nav className="dg-side" aria-label="Juegos">
               {SKILLS.map((s) => (
                 <div key={s.id}>

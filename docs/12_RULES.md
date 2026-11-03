@@ -78,6 +78,13 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
     escenario/rol). No convertir a iconos los literales `AVATARS`/`REACTIONS` de `LivePage.tsx`:
     `test_live_session.py` los compara con `backend/app/live.py`.
 
+50. **Las moscas de Rana hambrienta están duplicadas:** la dificultad con más moscas (`DIFFS[3].flies`
+    en `src/games/frog.tsx`) y `FROG_MIN_WRONG` en `backend/app/ai.py` (moscas malas = moscas − 1),
+    y los tipos de palabra (`CATS` en el `.tsx`, `FROG_CATEGORIES` en ai.py y `_FROG_TARGETS` en
+    main.py). Si sube una sin la otra, una ronda sale con menos moscas o un tipo no se puede pedir,
+    sin error. Y las moscas malas de una palabra salen **solo** de su propia lista revisada, nunca de
+    las traducciones de otras palabras (ADR-44).
+
 ## Contenido de las hojas
 
 29. **Los distractores deben ser plausibles** y del mismo tipo que la respuesta correcta.

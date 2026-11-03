@@ -22,12 +22,13 @@ from typing import Any
 from .live import CODE_ALPHABET, LiveError
 
 # Juegos que admiten sala. Duplicado del campo `room` de `GAMES` en `src/games/registry.ts`.
-# Contrarreloj queda fuera: es una carrera de 60 s y con polling de 1 s se vería a saltos.
+# Contrarreloj queda fuera: es una carrera de 60 s y con polling de 1 s se vería a saltos. Rana sí
+# entra: cada turno es una partida entera de un jugador y su reloj corre en cada navegador (ADR-44).
 ROOM_GAMES = frozenset({
     "memorama", "tarjetas", "chat", "ruleta", "corcho", "dados", "equipos", "pronuncia",
     "escucha", "dictado", "bingo", "ordena", "completa", "globos", "coincide",
     "gato", "conecta4", "escaleras", "entrevista", "carrera", "papa",
-    "puertas", "mapa", "sobres", "rasca", "bomba", "piratas", "dinos",
+    "puertas", "mapa", "sobres", "rasca", "bomba", "piratas", "dinos", "rana",
 })
 MODES = ("turnos", "presentador")
 LENDS = ("once", "always")

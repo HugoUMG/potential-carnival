@@ -5,6 +5,7 @@ import os
 import re
 import threading
 import time
+import unicodedata
 from typing import Any
 
 import httpx
@@ -731,7 +732,7 @@ def _grade_system(tolerance: int) -> str:
 
 
 # ── HTTP helpers ───────────────────────────────────────────────────────────────
-def _call_groq(system: str, user: str, temperature: float = 0.4, json_mode: bool = False, model: str = "") -> str:
+def _call_groq(system: str, user: str, temperature: float = 0.4, json_mode: bool = False, model: str = "", reasoning: str = "") -> str:
     key = os.getenv("GROQ_API_KEY", "")
     if not key:
         raise RuntimeError("GROQ_API_KEY not set")
@@ -742,7 +743,13 @@ def _call_groq(system: str, user: str, temperature: float = 0.4, json_mode: bool
     }
     if json_mode:  # el modelo solo puede devolver un objeto JSON válido
         body["response_format"] = {"type": "json_object"}
-    with httpx.Client(timeout=30) as client:
+    if reasoning and "gpt-oss" in body["model"]:
+        # Sin esto gpt-oss corta la salida en ~3072 tokens y casi todos se le van razonando: un JSON
+        # largo (Rana hambrienta) llegaba con 2 de 16 palabras (medido). Solo los modelos gpt-oss
+        # entienden `reasoning_effort`.
+        body["reasoning_effort"] = reasoning
+        body["max_completion_tokens"] = 8192
+    with httpx.Client(timeout=60 if reasoning else 30) as client:
         resp = client.post(
             _GROQ_URL,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
@@ -772,9 +779,11 @@ def _call_gemini(prompt: str, temperature: float = 0.4, json_mode: bool = False)
     if json_mode:
         config["responseMimeType"] = "application/json"
     with httpx.Client(timeout=30) as client:
+        # La clave va en la cabecera, no en `?key=`: httpx pone la URL en el mensaje de cada error,
+        # y ese mensaje acaba en los logs de Render y en el `detail` de algunos 502.
         resp = client.post(
-            f"{_GEMINI_URL}?key={key}",
-            headers={"Content-Type": "application/json"},
+            _GEMINI_URL,
+            headers={"Content-Type": "application/json", "x-goog-api-key": key},
             json={
                 "contents": [{"role": "user", "parts": [{"text": prompt}]}],
                 "generationConfig": config,
@@ -799,7 +808,7 @@ _ai_lock = threading.Lock()
 
 
 def _ai_call(system: str, user: str, prefer_fast: bool = False, temperature: float = 0.4,
-             json_mode: bool = False, serialize: bool = True, chat: bool = False) -> tuple[str, str]:
+             json_mode: bool = False, serialize: bool = True, chat: bool = False, reasoning: str = "") -> tuple[str, str]:
     """Llama a la IA (serializado, con reintentos). Devuelve (texto, etiqueta_del_proveedor)
     para poder mostrar qué IA/modelo respondió. prefer_fast=True usa Groq primero (más rápido,
     ideal para calificar); por defecto Gemini primero (mejor para generar).
@@ -818,7 +827,7 @@ def _ai_call(system: str, user: str, prefer_fast: bool = False, temperature: flo
                 try:
                     if name == "groq":
                         model = _GROQ_CHAT_MODEL if chat else _GROQ_MODEL
-                        return _call_groq(system, user, temperature, json_mode, model), f"Groq · {model}"
+                        return _call_groq(system, user, temperature, json_mode, model, reasoning), f"Groq · {model}"
                     return _call_gemini(f"{system}\n\n{user}", temperature, json_mode), f"Gemini · {_GEMINI_MODEL}"
                 except Exception as exc:
                     last_error = exc
@@ -1411,6 +1420,206 @@ def define_words(words: list[str]) -> list[dict]:
                 wanted.discard(word)  # una sola entrada por palabra aunque la IA la repita
                 result.append({"word": word, "lemma": str(item.get("lemma", "")).strip().lower()[:40], "senses": senses})
     return result
+
+
+# ── Rana hambrienta: vocabulario con distractores revisados ───────────────────
+
+_FROG_SYSTEM = """You build the word bank of a vocabulary game for Spanish-speaking learners of English.
+A frog sits in the middle showing ONE word. Flies around it carry possible translations and the
+player must catch the ONLY correct one. It is played both ways: the English word with Spanish
+flies, and its Spanish translation with English flies. A wrong fly that is ALSO a valid translation
+ruins the game, so be extremely careful with words that have several meanings.
+
+Output ONLY valid JSON, no markdown:
+{"words": [{"en": "bank",
+            "es": ["banco", "orilla", "ribera"],
+            "en_all": ["bank", "bench", "pew"],
+            "wrong_es": ["puente", "caja", "tienda", "puerto", "cuenta", "billete", "calle"],
+            "wrong_en": ["bridge", "box", "shop", "port", "chair", "wallet", "street"]}]}
+
+Rules:
+- Every word must be of the requested CEFR level and word type, and useful in real life.
+- "en": one English word (or a very common two-word expression: "next to", "give up"), lowercase,
+  verbs in base form without "to". No proper nouns, no numbers.
+- "es": EVERY common Latin American Spanish translation of "en", in ANY of its meanings, most
+  common first. es[0] is the main one and must be the natural answer. No articles.
+- "en_all": EVERY common English translation of es[0], in ANY of its meanings, including "en".
+- "wrong_es": 7 Spanish words of the same word type that are NOT a translation of "en" in ANY
+  meaning, context or country, and are not synonyms of any word in "es" (for "car" never "auto",
+  "coche" or "carro").
+- "wrong_en": 7 English words of the same word type that are NOT a translation of es[0] in ANY
+  meaning, and are not synonyms of any word in "en_all".
+- Before choosing wrong options, think of EVERY sense of the word, the rare ones too: "fare" is the
+  price of a ticket AND food ("local fare" = cocina local), so "cocina" or "comida" can never be a
+  wrong option for "fare". Prepositions and connectors have many translations ("since" = desde AND
+  ya que): list them all in "es" and never use any of them as a wrong option.
+- Each word gets its OWN wrong options from its own field and level: for "apple" other fruits
+  (pera, uva, fresa…), for "blue" other colours, for "consider" other thinking verbs (decide,
+  suggest, doubt), never basic unrelated words (run, sing). Never reuse a generic list (coche,
+  árbol, silla…) for several words: it makes the game trivial.
+- Wrong options must be plausible (same word type, similar level), never absurd or offensive.
+- From B1 on, a false friend is welcome (embarrassed, actual, library, carpet): put the misleading
+  Spanish look-alike among its wrong_es (embarazada, actual, librería, carpeta).
+- No repeated words. Return EXACTLY the requested number of words."""
+
+# Qué palabras pide cada nivel del MCER (cada nivel trae las suyas, no repite las de abajo).
+FROG_LEVELS = {
+    "A1": "A1 (beginner): the most basic everyday words: family, home, food, colours, body, clothes, time, school, simple actions and feelings.",
+    "A2": "A2 (elementary): common words for routines, shopping, travel, health, weather, work, and for describing people and places.",
+    "B1": "B1 (intermediate): words to talk about experiences, plans, opinions, feelings, news, the environment and technology.",
+    "B2": "B2 (upper intermediate): more precise and abstract words for arguments, society, science, work and culture.",
+    "C1": "C1 (advanced): sophisticated, nuanced and idiomatic words, academic and professional vocabulary.",
+}
+# Tipo de palabra → (nombre en español que ve el alumno, qué se le pide a la IA).
+FROG_CATEGORIES = {
+    "sustantivo": ("sustantivo", "nouns"),
+    "verbo": ("verbo", "verbs in base form (phrasal verbs welcome from B1)"),
+    "adjetivo": ("adjetivo", "adjectives"),
+    "adverbio": ("adverbio", "adverbs (of frequency, manner, time, degree…)"),
+    "preposicion": ("preposición", "prepositions and prepositional phrases (under, next to, according to…)"),
+    "conector": ("conector", "connectors and linking words (because, however, although, as a result…)"),
+}
+
+_FROG_CHECK_SYSTEM = """You are a strict bilingual reviewer (English and Latin American / Spain Spanish)
+of a vocabulary game. For each item, "es" must be a correct translation of "en", and every wrong
+option must be CLEARLY wrong. The player sees "en" with the Spanish options, and "es" with the
+English options.
+
+For EVERY item give:
+- "translations_es": EVERY Spanish word that can translate "en" in some context, the rare ones
+  too ("time" → tiempo, vez, hora, momento, época);
+- "translations_en": EVERY English word that can translate "es" ("en" → in, on, at, inside);
+- "back_es": for EVERY option in "wrong_es", all its English translations
+  ({"momento": ["moment", "time"], "reloj": ["clock", "watch"]});
+- "back_en": for EVERY option in "wrong_en", all its Spanish translations
+  ({"on": ["sobre", "en", "encima de"], "under": ["bajo", "debajo de"]});
+- "flag_es" / "flag_en": any other option that could be correct or is a near-synonym;
+- "bad": true when "es" is not a natural translation of "en", when "en" is not a real, common
+  English word, or when it is not of the given "type" ("blue" is not a noun).
+The program removes every option whose back translation is the word itself. When in doubt, flag
+it: a flagged option is only removed, a missed one confuses a student.
+
+Output ONLY valid JSON, no markdown, one entry per item:
+{"items": [{"id": 3, "translations_es": ["en", "dentro de"], "translations_en": ["in", "on", "at"],
+            "back_es": {"sobre": ["on", "about"]}, "back_en": {"on": ["sobre", "en"]},
+            "bad": false, "flag_es": [], "flag_en": ["on"]}]}"""
+
+_FROG_WORDS = 16
+# Moscas malas que necesita cada palabra: 5, las de la dificultad con más moscas (6 en
+# `DIFFS` de src/games/frog.tsx, regla 50). Se piden 7 para que el filtro y la revisión tengan margen.
+FROG_MIN_WRONG = 5
+_FROG_REVIEW_CHUNK = 8  # con 16 palabras y sus sentidos, gpt-oss devolvía solo las primeras
+_ARTICLE = re.compile(r"^(?:to|the|a|an|el|la|los|las|lo|un|una|unos|unas)\s+")
+
+
+def frog_norm(term: str) -> str:
+    """Forma para comparar traducciones: sin tildes, mayúsculas, paréntesis, signos ni artículo o
+    "to". Quitar tildes junta "papa" y "papá": de sobra está bien, solo descarta un distractor."""
+    s = unicodedata.normalize("NFKD", re.sub(r"\([^)]*\)", " ", term.lower())).encode("ascii", "ignore").decode()
+    return _ARTICLE.sub("", " ".join(re.findall(r"[a-z0-9]+", s)))
+
+
+def _frog_terms(value: Any) -> list[str]:
+    """Lista de la IA → términos limpios y sin repetir. Acepta "banco / orilla" en un solo texto."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in value if isinstance(value, list) else [value]:
+        for part in re.split(r"[/,;]", re.sub(r"\([^)]*\)", " ", str(item or ""))):
+            part = " ".join(part.split())[:40]
+            key = frog_norm(part)
+            if key and key not in seen:
+                seen.add(key)
+                out.append(part)
+    return out
+
+
+def _frog_item(raw: Any) -> dict | None:
+    """Una palabra de la IA con los distractores ya filtrados por texto: ninguno puede coincidir con
+    NINGUNA traducción (todas las de `en` y todas las de es[0]), no solo con la que se muestra."""
+    if not isinstance(raw, dict):
+        return None
+    en = (_frog_terms(raw.get("en")) or [""])[0]
+    es_all = _frog_terms(raw.get("es"))
+    if not en or not es_all:
+        return None
+    no_es = {frog_norm(t) for t in es_all}
+    no_en = {frog_norm(t) for t in [en, *_frog_terms(raw.get("en_all"))]}
+    return {
+        "en": en, "es": es_all[0],
+        "wrong_es": [t for t in _frog_terms(raw.get("wrong_es")) if frog_norm(t) not in no_es][:7],
+        "wrong_en": [t for t in _frog_terms(raw.get("wrong_en")) if frog_norm(t) not in no_en][:7],
+    }
+
+
+def _frog_review(items: list[dict], kind: str) -> None:
+    """Segunda opinión, en tandas: quita los distractores que la revisora ve
+    dudosos y marca las palabras mal traducidas. Una palabra que la revisora no devuelve queda
+    marcada mala: con respuestas largas gpt-oss a veces devuelve solo las primeras (medido), y una
+    palabra sin revisar no entra. Gemini va primero: traduce todas las moscas, mientras que gpt-oss
+    dejaba la traducción inversa a medias y se perdían 12 de 16 palabras (medido). Si la llamada
+    falla, se propaga: sin revisión no se guarda nada."""
+    for start in range(0, len(items), _FROG_REVIEW_CHUNK):
+        chunk = items[start:start + _FROG_REVIEW_CHUNK]
+        payload = [{"id": k, "type": kind, "en": w["en"], "es": w["es"], "wrong_es": w["wrong_es"], "wrong_en": w["wrong_en"]} for k, w in enumerate(chunk)]
+        raw, _ = _ai_call(_FROG_CHECK_SYSTEM, json.dumps({"items": payload}, ensure_ascii=False),
+                          temperature=0.1, json_mode=True, reasoning="medium")
+        reviewed: set[int] = set()
+        for flag in _json_from_ai(raw).get("items") or []:
+            k = flag.get("id") if isinstance(flag, dict) else None
+            if not isinstance(k, int) or not 0 <= k < len(chunk):
+                continue
+            reviewed.add(k)
+            if flag.get("bad"):
+                chunk[k]["bad"] = True
+            for side, other in (("es", "en"), ("en", "es")):
+                # Fuera lo que marca y TODA traducción que ella misma lista: dos listas hechas por
+                # separado ("time": la primera olvidó "momento", la revisora no).
+                out = {frog_norm(t) for t in _frog_terms(flag.get(f"flag_{side}")) + _frog_terms(flag.get(f"translations_{side}"))}
+                # Traducción inversa: una mosca mala cuya traducción es la palabra de la rana, fuera.
+                # Es la que salva las preposiciones: para "en", la revisora lista in/at y olvida
+                # "on", pero al traducir "on" sí dice "en" (medido). Sin traducción inversa, tampoco entra.
+                # Solo contra la palabra misma: "sobre" → on no es "in", aunque "en" sea las dos.
+                word = {frog_norm(chunk[k][other])}
+                back = flag.get(f"back_{side}") if isinstance(flag.get(f"back_{side}"), dict) else {}
+                back = {frog_norm(str(o)): {frog_norm(t) for t in _frog_terms(v)} for o, v in back.items()}
+                chunk[k][f"wrong_{side}"] = [t for t in chunk[k][f"wrong_{side}"]
+                                             if frog_norm(t) not in out and frog_norm(t) in back and not back[frog_norm(t)] & word]
+        for k, w in enumerate(chunk):
+            if k not in reviewed:
+                w["bad"] = True
+
+
+def generate_frog_words(level: str, category: str, avoid: list[str]) -> list[dict]:
+    """Nivel MCER + tipo de palabra → palabras nuevas para el banco de Rana hambrienta
+    [{"en", "es", "pos", "wrong_es", "wrong_en"}]: generadas, filtradas por texto y revisadas por
+    una segunda llamada. `avoid` = las que ya están en el banco. Puede devolver menos de las
+    pedidas (o ninguna): solo entra lo que pasa la revisión."""
+    label, kind = FROG_CATEGORIES[category]
+    user = f"Level: {FROG_LEVELS[level]}\nWord type: {kind}\nNumber of words: {_FROG_WORDS}"
+    if avoid:
+        user += "\nDo NOT use these words, they are already in the game: " + ", ".join(avoid)
+    raw, _ = _ai_call(_FROG_SYSTEM, user, temperature=0.6, json_mode=True, reasoning="low")
+    taken_en, taken_es = {frog_norm(w) for w in avoid}, set()
+    items: list[dict] = []
+    for item in (_frog_item(x) for x in _json_from_ai(raw).get("words") or []):
+        # Una palabra repetida, o dos con la misma traducción ("bank" y "bench" → "banco"), harían
+        # que la rana diga lo mismo con dos respuestas distintas.
+        if item and frog_norm(item["en"]) not in taken_en and frog_norm(item["es"]) not in taken_es:
+            taken_en.add(frog_norm(item["en"]))
+            taken_es.add(frog_norm(item["es"]))
+            items.append(item)
+    _frog_review(items, kind)
+    words: list[dict] = []
+    for w in items:
+        if w.get("bad") or len(w["wrong_es"]) < FROG_MIN_WRONG or len(w["wrong_en"]) < FROG_MIN_WRONG:
+            continue
+        # Moscas genéricas copiadas de otra palabra (coche, árbol, silla… para "book" y para "cat"):
+        # el juego se volvería obvio. Se queda la primera que las usó.
+        mine = {frog_norm(t) for t in w["wrong_es"]}
+        if any(len(mine & {frog_norm(t) for t in o["wrong_es"]}) >= 5 for o in words):
+            continue
+        words.append({**{k: w[k] for k in ("en", "es", "wrong_es", "wrong_en")}, "pos": label})
+    return words
 
 
 def _json_from_ai(raw: str) -> dict:

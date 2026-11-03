@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .database import get_connection, get_database_backend
-from .models import GameQuestion, GameSet, GameSetPayload, PublicUser, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, TeacherImage, UserRole, UserSession, WordMeaning, Worksheet, WorksheetResponse
+from .models import GameQuestion, GameSet, GameSetPayload, PublicUser, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, TeacherImage, UserRole, UserSession, VocabWord, WordMeaning, Worksheet, WorksheetResponse
 from .security import hash_password, needs_password_rehash, verify_password
 
 
@@ -1531,5 +1531,46 @@ class WorksheetRepository:
             for meaning in meanings:  # regla 8: execute fila a fila, no executemany
                 connection.execute(insert, (meaning.word, self._json_param(meaning.model_dump())))
 
+
+    def get_frog_words(self, level: str, category: str | None = None) -> list[VocabWord]:
+        """Banco de Rana hambrienta, siempre en el mismo orden (todos los de una sala ven la misma lista)."""
+        p = self._placeholder
+        where, params = f"level = {p}", [level]
+        if category:
+            where += f" AND category = {p}"
+            params.append(category)
+        with get_connection() as connection:
+            rows = connection.execute(f"SELECT data FROM frog_words WHERE {where} ORDER BY en_key", tuple(params)).fetchall()
+        return [VocabWord(**_decode_json(dict(r)["data"], {})) for r in rows]
+
+    def count_frog_words(self, level: str) -> dict[str, int]:
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT category, COUNT(*) AS n FROM frog_words WHERE level = {self._placeholder} GROUP BY category", (level,)
+            ).fetchall()
+        return {dict(r)["category"]: int(dict(r)["n"]) for r in rows}
+
+    def frog_word_keys(self, category: str) -> list[str]:
+        """Las palabras en inglés de un tipo, de todos los niveles, las más nuevas al final."""
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"SELECT en_key FROM frog_words WHERE category = {self._placeholder} ORDER BY created_at, en_key", (category,)
+            ).fetchall()
+        return [dict(r)["en_key"] for r in rows]
+
+    def put_frog_words(self, level: str, category: str, words: list[VocabWord]) -> int:
+        """Guarda las palabras nuevas y devuelve cuántas entraron. Una que ya está en el banco (en
+        cualquier nivel) no se pisa: `en_key` es la clave."""
+        from .ai import frog_norm  # el mismo normalizado con el que se filtran las moscas
+
+        added = 0
+        with get_connection() as connection:
+            for word in words:  # regla 8: execute fila a fila, no executemany
+                cursor = connection.execute(
+                    f"INSERT INTO frog_words (en_key, level, category, data) VALUES ({self._placeholders(4)}) ON CONFLICT (en_key) DO NOTHING",
+                    (frog_norm(word.en), level, category, self._json_param(word.model_dump())),
+                )
+                added += max(cursor.rowcount, 0)
+        return added
 
 repository = WorksheetRepository()

@@ -2,6 +2,7 @@ from typing import Any
 import asyncio
 import hashlib
 import os
+import random
 import re
 import secrets
 import threading
@@ -13,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, ai_json, define_words, transcribe_with_clarity, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import ai_grade_activities, ai_json, define_words, transcribe_with_clarity, FROG_CATEGORIES, frog_norm, generate_frog_words, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import get_connection, initialize_database
 from . import live
 from . import roleplay
@@ -35,6 +36,7 @@ from .models import (
     GameSet,
     GameSetPayload,
     GameSetSummary,
+    FrogPool,
     GoogleAuthRequest,
     PublicGameSet,
     RoleplayReply,
@@ -43,6 +45,7 @@ from .models import (
     RoleplayStart,
     RoleplayStartRequest,
     RoleplayTurnRequest,
+    VocabWord,
     WordMeaning,
     LiveAnswer,
     LiveEmoji,
@@ -2273,6 +2276,81 @@ def public_game_set(set_id: str, background: BackgroundTasks) -> PublicGameSet:
         id=game_set.id, title=game_set.title, topic=game_set.topic, level=game_set.level,
         questions=game_set.questions, glossary=glossary,
     )
+
+
+
+# ── Rana hambrienta: banco de vocabulario A1-C1 (ADR-44) ─────────────────────
+# Un solo banco para todo el sitio, fuera de los sets: cada palabra se le pide a la IA UNA vez, pasa
+# la revisión y queda en `frog_words`. Crece con el uso, una tanda de 16 cuando alguien juega un
+# nivel y tipo de palabra que aún no llega a su meta.
+
+# Palabras nuevas que aporta cada nivel (no repite las de abajo): A1 ≈ 500, A2 ≈ 860, B1 ≈ 1330,
+# B2 ≈ 1775, C1 ≈ 2200, unas 6 700 en total, el orden de las listas del MCER. Las preposiciones y
+# los conectores se acaban pronto: su meta es baja para no pedirle a la IA lo que no existe.
+_FROG_TARGETS = {
+    "A1": {"sustantivo": 250, "verbo": 120, "adjetivo": 80, "adverbio": 30, "preposicion": 15, "conector": 10},
+    "A2": {"sustantivo": 400, "verbo": 220, "adjetivo": 150, "adverbio": 50, "preposicion": 20, "conector": 20},
+    "B1": {"sustantivo": 600, "verbo": 350, "adjetivo": 250, "adverbio": 80, "preposicion": 20, "conector": 30},
+    "B2": {"sustantivo": 800, "verbo": 450, "adjetivo": 350, "adverbio": 120, "preposicion": 15, "conector": 40},
+    "C1": {"sustantivo": 1000, "verbo": 550, "adjetivo": 450, "adverbio": 150, "preposicion": 10, "conector": 40},
+}
+_FROG_STARTER = 48        # por debajo, sin espera entre tandas: cada visita suma una
+_FROG_COOLDOWN_S = 180    # por encima, entre tandas del mismo nivel y tipo: crece con el uso sin acaparar la IA
+_FROG_RETRY_S = 600       # tras un fallo de la IA
+_FROG_POOL_MAX = 500      # palabras por respuesta: un C1 completo pesaría ~400 KB
+_frog_job: set[tuple[str, str]] = set()          # la tanda en curso (una a la vez en todo el servidor)
+_frog_next: dict[tuple[str, str], float] = {}   # (nivel, tipo) → desde cuándo puede pedir otra
+
+
+def _frog_gap(level: str, category: str, counts: dict[str, int]) -> str | None:
+    """Qué tipo de palabra crecer: el pedido si no llegó a su meta; en "mixto", el más atrasado."""
+    targets = _FROG_TARGETS[level]
+    if category:
+        return category if counts.get(category, 0) < targets[category] else None
+    # Empate (todo vacío): en el orden de la tabla, primero sustantivos y verbos.
+    gaps = [(counts.get(c, 0) / t, i, c) for i, (c, t) in enumerate(targets.items()) if counts.get(c, 0) < t]
+    return min(gaps)[2] if gaps else None
+
+
+def _grow_frog_words(level: str, category: str) -> None:
+    """Una tanda de 16. Una a la vez y de una en una: si varios alumnos estrenan niveles distintos,
+    se turnan en vez de esperar a que uno llene el suyo."""
+    key = (level, category)
+    try:
+        # Se evita lo que ya hay de ese tipo en TODOS los niveles: una palabra vive en un solo nivel.
+        avoid = repository.frog_word_keys(category)[-400:]
+        taken_es = {frog_norm(w.es) for w in repository.get_frog_words(level)}
+        words = [VocabWord(**w) for w in generate_frog_words(level, category, avoid) if frog_norm(w["es"]) not in taken_es]
+        if not repository.put_frog_words(level, category, words):
+            raise ValueError("la IA no dejó ninguna palabra nueva")
+        full = repository.count_frog_words(level).get(category, 0) >= _FROG_STARTER
+        _frog_next[key] = time.time() + (_FROG_COOLDOWN_S if full else 0)
+    except Exception as exc:
+        _frog_next[key] = time.time() + _FROG_RETRY_S
+        print(f"[juegos] rana: no se pudo ampliar {level}/{category}: {exc!r}")
+    finally:
+        _frog_job.clear()
+
+
+@app.get("/public/frog-words", response_model=FrogPool)
+def public_frog_words(background: BackgroundTasks, level: str = "A1", category: str = "") -> FrogPool:
+    """Palabras del banco para un nivel y tipo ("" = mixto). Si ese nivel aún no llega a su meta,
+    programa una tanda nueva en segundo plano; si la IA está con otra, `generating` sigue en true
+    (en cola) y la siguiente visita la lanza. La lista sale en el mismo orden para todos los que la
+    piden el mismo día (en una sala, los índices de la cola coinciden)."""
+    if level not in _FROG_TARGETS or (category and category not in FROG_CATEGORIES):
+        raise HTTPException(status_code=422, detail="Nivel o tipo de palabra desconocido")
+    grow = _frog_gap(level, category, repository.count_frog_words(level))
+    due = grow is not None and time.time() >= _frog_next.get((level, grow), 0)
+    if due and not _frog_job:
+        _frog_job.add((level, grow))
+        background.add_task(_grow_frog_words, level, grow)
+    words = repository.get_frog_words(level, category or None)
+    if len(words) > _FROG_POOL_MAX:
+        words = random.Random(f"{time.strftime('%Y-%m-%d')}|{level}|{category}").sample(words, _FROG_POOL_MAX)
+    busy = next(iter(_frog_job), None)
+    mine = busy is not None and busy[0] == level and category in ("", busy[1])
+    return FrogPool(words=words, generating=mine or (due and busy is not None))
 
 
 def _norm_answer(v: Any) -> str:

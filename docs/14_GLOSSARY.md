@@ -174,8 +174,19 @@ confundir con la **sesión en vivo**, que es de hojas de trabajo.
 (`lend = once`: al terminar su turno vuelve solo al anfitrión) o **sin límite** (`lend = always`:
 hasta que el anfitrión lo recupere).
 
-**Juego** — Cada una de las 22 formas de jugar un set (tarjetas, ruleta, bingo, dictado, gato, entrevista…). Vive en
+**Juego** — Cada una de las 29 formas de jugar un set (tarjetas, ruleta, bingo, dictado, gato, entrevista…). Vive en
 `GAMES` (`src/games/registry.ts`) con su habilidad, su propósito y cómo usarlo en clase.
+
+**Rana hambrienta** — Juego de vocabulario contrarreloj **aparte de los sets** (`/rana`,
+`src/games/frog.tsx`, ADR-44): la rana dice una palabra y el alumno toca la **mosca** con su
+traducción. Mosca buena = suma tiempo; mosca mala = resta y la rana se enferma.
+
+**Banco de vocabulario (de la rana)** — `frog_words`: las palabras de Rana hambrienta por nivel
+(A1–C1) y tipo, hechas por IA **una vez** y compartidas por todo el sitio. Crece con el uso.
+
+**Mosca mala (distractor)** — En Rana hambrienta, una opción incorrecta. Debe ser incorrecta en
+**todos** los sentidos de la palabra: la IA la filtra, la revisa y la traduce de vuelta
+(`_frog_item` y `_frog_review`).
 
 **Glosario de un set (`glossary`)** — Los significados de las palabras del set, sacados de
 `word_meanings` (hechos por IA una vez por palabra). Es lo que muestra `WordPopover` al tocar una
