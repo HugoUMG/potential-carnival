@@ -134,7 +134,8 @@ no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de el
   conectores) y la **dificultad** (`DIFFS`: 3/4/6 moscas, +3/+2.5/+2 s por acierto, −3/−4/−5 s por
   fallo; cada 10 aciertos la mosca buena da 0.25 s menos, mínimo 1 s; el reloj no pasa de 60 s).
   `useWords` pide el banco al cambiar nivel o tipo y **no durante una partida** (la cola guarda
-  índices); con menos de 6 palabras mientras la IA genera, vuelve a pedir cada 4 s. Al tocar una
+  índices); con menos de 6 palabras mientras la IA genera, vuelve a pedir cada 4 s (desde la semilla
+  de ADR-45 cada nivel y tipo arranca con al menos 6: no debería pasar). Al tocar una
   mosca, la lengua sale hasta ella (`<line>` con `pathLength=1`) y la rana se la come: feliz si era
   buena; enferma (verde oliva, ojos en espiral) si era mala, y la buena se ilumina en verde, con el
   reloj parado durante la animación. La palabra fallada vuelve tras dos (`nextWord`) y la pantalla

@@ -1180,13 +1180,44 @@ palabras.
   reloj viaja como "ms que quedaban" que cada navegador descuenta solo (`useLeft`): quien mira lo ve
   fluido aunque el poll sea de 1 s. La clase virtual pide poder jugar en pareja desde casa.
 
-**Consecuencias.** Quien estrena un nivel y tipo espera ~45 s la primera tanda; una sola tanda corre a
+**Consecuencias.** Quien estrenaba un nivel y tipo esperaba ~45 s la primera tanda (ya no: la semilla
+de ADR-45 trae al menos 6 palabras de cada uno); una sola tanda corre a
 la vez en todo el servidor y los demás quedan en cola. Sin espera mientras un tipo tenga menos de 48
 palabras, luego una tanda cada 3 min por nivel y tipo, y 10 min tras un fallo (en memoria: un
 redeploy lo reinicia). Por la revisión estricta una tanda deja entre 4 y 16 palabras. Las moscas por
 dificultad y los tipos están duplicados entre el front y el back (regla 50). Techo: la revisión es
 otra IA, no un diccionario; reduce mucho los dobles sentidos, no los imposibilita, sobre todo en
 matices de B2/C1 (*compelling* llevó "fascinante" en una prueba).
+
+## 🟢 ADR-45 — Semilla del banco de la rana: 242 palabras en el repo, insertadas al arrancar
+
+**Decisión.** El banco `frog_words` ya no arranca vacío: `backend/app/frog_seed.json` trae 242
+palabras (A1 54, A2 52, B1 48, B2 44, C1 44), **al menos 6 por nivel y tipo** (el `MIN_WORDS` del
+front), con 6 moscas malas por lado. Las escribió y revisó Claude Code, a pedido del profesor, con
+las mismas reglas que la revisión de la IA (ningún otro sentido, ni sinónimos, ni falsos amigos
+como respuesta). `startup` llama a `seed_frog_words()`, que inserta **solo lo que falta**: se salta
+la palabra que ya está en el banco (en cualquier nivel) y la que repetiría la traducción de otra del
+mismo nivel. La IA sigue creciendo encima como antes (ADR-44).
+
+**Por qué.** Con el banco vacío, el primer alumno de cada nivel y tipo esperaba ~45 s por la primera
+tanda, y los demás quedaban en cola detrás de él. Con la semilla nadie espera; la IA va sumando
+después y la meta de `_FROG_TARGETS` sigue igual.
+
+**Alternativas descartadas.**
+- *Insertarlas en producción con un script.* Importar `backend.app` carga el `.env` real y escribe en
+  Aiven (regla 2): un script así no se puede probar ni repetir. Al arrancar, entra en cada entorno
+  (local, tests, Render) por el mismo camino y queda en el repo, revisable.
+- *Pedírselas a la IA de golpe* (ya descartado en ADR-44): acapara `_ai_lock` y la revisión deja
+  entre 4 y 16 palabras por tanda.
+- *Meterlas en `initialize_database`.* Los tests del banco parten de una base vacía; `startup` no
+  corre en los tests (ninguno usa `with TestClient`).
+
+**Consecuencias.** Cada arranque hace ~11 lecturas y, ya cargada, ninguna escritura; el primero
+inserta las 242 fila a fila (regla 8). Una palabra de la semilla que alguien borre del banco
+**vuelve en el siguiente deploy**: para quitarla de verdad se borra también del JSON.
+`test_la_semilla_de_la_rana_cumple_las_reglas_del_banco` valida el JSON (niveles, tipos, mínimo
+por tipo, `FROG_MIN_WRONG`, claves únicas, sin listas copiadas); que cada mosca sea incorrecta en
+todos sus sentidos lo revisó Claude Code a mano al escribirla, no un diccionario.
 
 ## Cómo añadir una decisión
 

@@ -101,8 +101,9 @@ la vez).
 
 Juego aparte de los sets (`/rana`): vocabulario contrarreloj ES→EN y EN→ES, niveles A1 a C1, por tipo
 de palabra o mixto, 3 dificultades y sala por turnos. El banco `frog_words` lo llena la IA una sola
-vez por palabra y crece con el uso hasta ~6 700 palabras. Pendiente sin compromiso: que el profesor
-pueda ver y borrar palabras del banco, y pre-llenarlo de golpe en vez de esperar al uso.
+vez por palabra y crece con el uso hasta ~6 700 palabras. Desde noviembre 2026 arranca con una
+**semilla de 242 palabras** (al menos 6 por nivel y tipo, ADR-45): nadie espera a la IA al estrenar
+un nivel. Pendiente sin compromiso: que el profesor pueda ver y borrar palabras del banco.
 
 ---
 

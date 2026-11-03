@@ -184,6 +184,9 @@ traducción. Mosca buena = suma tiempo; mosca mala = resta y la rana se enferma.
 **Banco de vocabulario (de la rana)** — `frog_words`: las palabras de Rana hambrienta por nivel
 (A1–C1) y tipo, hechas por IA **una vez** y compartidas por todo el sitio. Crece con el uso.
 
+**Semilla (de la rana)** — `backend/app/frog_seed.json`: las palabras con las que arranca el banco
+(ADR-45), al menos 6 por nivel y tipo. `seed_frog_words()` las inserta al arrancar si faltan.
+
 **Mosca mala (distractor)** — En Rana hambrienta, una opción incorrecta. Debe ser incorrecta en
 **todos** los sentidos de la palabra: la IA la filtra, la revisa y la traduce de vuelta
 (`_frog_item` y `_frog_review`).

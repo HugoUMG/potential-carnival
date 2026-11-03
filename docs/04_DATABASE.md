@@ -95,7 +95,8 @@ word_meanings (word PK, data, created_at)
 -- Banco de vocabulario de Rana hambrienta (ADR-44), de TODO el sitio (no de un set). Una fila por
 -- palabra: en_key = la palabra en inglés normalizada (frog_norm), así nunca se pide dos veces.
 -- level = A1…C1, category = sustantivo | verbo | adjetivo | adverbio | preposicion | conector.
--- data = {en, es, pos, wrong_es[], wrong_en[]}, ya revisado por la IA. Crece con el uso
+-- data = {en, es, pos, wrong_es[], wrong_en[]}, ya revisado por la IA. Crece con el uso.
+-- Arranca con la semilla backend/app/frog_seed.json (ADR-45): `startup` inserta lo que falta
 frog_words (en_key PK, level, category, data, created_at), índice (level, category)
 ```
 
