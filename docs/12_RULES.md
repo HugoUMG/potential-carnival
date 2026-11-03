@@ -85,6 +85,13 @@ El *por qué* de las que no son obvias está en [15_DECISIONS](15_DECISIONS.md).
     sin error. Y las moscas malas de una palabra salen **solo** de su propia lista revisada, nunca de
     las traducciones de otras palabras (ADR-44).
 
+51. **Un `<button>` con `position: absolute` se centra con `translate`, nunca con `transform`.**
+    `app.css` le pone `transform` a todo `button` en `:hover`, `:active` y `:disabled`
+    (`translateY(-1px)`, `none`), con más especificidad que una clase sola: el `translate(-50%, …)`
+    desaparece, el botón salta media anchura bajo el puntero, parpadea y el clic cae fuera. Las
+    propiedades sueltas `translate`/`scale` se componen con ese `transform` en vez de perderse. Pasó
+    con las moscas de Rana hambrienta (`.fr-fly`) y el SPIN de la ruleta (`.dg-hub`).
+
 ## Contenido de las hojas
 
 29. **Los distractores deben ser plausibles** y del mismo tipo que la respuesta correcta.
@@ -173,3 +180,4 @@ Detalle completo en [07_DSL §14](07_DSL.md#14-guía-de-calidad-al-generar-hojas
 | Escribir `info { - Campo }` en vez de `info { fields: - Campo }` | `_parse_info_fields` devuelve `[]` **sin error**: la hoja se guarda sin campos de identificación y no se nota |
 | Un `;` en un comentario de `schema.postgres.sql` (`… /juegos; sin eso …`) | Deploy de Render caído con `syntax error at or near "sin"`; el servicio siguió con la versión anterior |
 | Declarar `/live/{code}` antes que `/live/sessions` | FastAPI resuelve por orden: `"sessions"` entraría como código de sesión |
+| Centrar un `<button>` absoluto con `transform: translate(-50%, …)` | Las moscas de Rana hambrienta saltaban al pasar el mouse y el clic se perdía; al comer una, las demás se corrían (regla 51) |
