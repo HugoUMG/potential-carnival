@@ -136,6 +136,7 @@ export function FrogGame() {
   const [stats, setStats] = useShared<Stats>('stats', EMPTY);
   const [pick, setPick] = useShared<Pick | null>('pick', null);
   const [record, setRecord] = useState(false); // solo de este navegador: el récord es personal
+  const [look, setLook] = useState<number | null>(null);
   const left = useLeft(clock);
   const { pool, error } = useWords(cfg.level, cfg.cat, phase === 'play');
   const words = pool?.words;
@@ -193,6 +194,7 @@ export function FrogGame() {
     setQueue(rest);
     setRound(makeRound(words, k, cfg, round.turn + 1));
     setPick(null);
+    setLook(null);
     setClock({ left: clock.left, n: clock.n + 1, run: true });
   };
 
@@ -257,9 +259,9 @@ export function FrogGame() {
   }
 
   const mood: Mood = pick ? (pick.ok ? 'happy' : 'sick') : left < WORRY_MS ? 'worried' : 'idle';
-  // Los ojos miran a la mosca que se come, no al mouse: seguirlo hacía saltar las pupilas de una
-  // mosca a otra cada vez que el puntero cruzaba el estanque.
-  const eye: [number, number] = pick ? [(SPOTS[round.spots[pick.fly]][0] - 50) / 34, (SPOTS[round.spots[pick.fly]][1] - MOUTH[1]) / 40] : [0, 0.3];
+  const lookAt = pick ? pick.fly : look;
+  const eye: [number, number] = lookAt === null ? [0, 0.3]
+    : [(SPOTS[round.spots[lookAt]][0] - 50) / 34, (SPOTS[round.spots[lookAt]][1] - MOUTH[1]) / 40];
   const survived = stats.ms + (clock.run ? clock.left - left : 0);
   const tone = left >= 15_000 ? 'ok' : left >= WORRY_MS ? 'warn' : 'low';
   const right = round.flies[round.answer];
@@ -306,7 +308,7 @@ export function FrogGame() {
           return (
             <button key={`${round.turn}-${i}`} type="button" className={`fr-fly ${state}`} disabled={Boolean(pick)}
               style={{ left: `${eaten ? MOUTH[0] : x}%`, top: `${eaten ? MOUTH[1] : y}%`, '--d': `${-i * 0.37}s`, '--i': i } as CSSProperties}
-              onClick={() => answer(i)}>
+              onClick={() => answer(i)} onPointerEnter={() => setLook(i)} onPointerLeave={() => setLook(null)} onFocus={() => setLook(i)}>
               <span className="fr-fly-bob"><Fly /></span>
               <span className="fr-fly-word" lang={cfg.lang === 'es' ? 'en' : 'es'}>{text}</span>
             </button>
@@ -399,7 +401,7 @@ function FrogStart({ pool, cfg, onCfg, onStart }: { pool: Pool | null; cfg: Cfg;
   );
 }
 
-/** La rana, en SVG. `look` mueve las pupilas hacia la mosca que se come (−1…1 en cada eje). */
+/** La rana, en SVG. `look` mueve las pupilas hacia la mosca (−1…1 en cada eje). */
 function Frog({ mood, look = [0, 0.3] }: { mood: Mood; look?: [number, number] }) {
   const pupils = { transform: `translate(${look[0] * 5}px, ${look[1] * 4}px)` };
   const openEyes = mood === 'idle' || mood === 'worried' || mood === 'sad';
