@@ -141,7 +141,8 @@ no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de el
   final la lista para repasar. "Terminar" es un botón discreto en la barra de arriba. Récord por
   modo, nivel, tipo y dificultad en `localStorage` (`dg-rana-…`, en segundos, solo sin sala).
   **Estanque cuadrado:** `SPOTS` (sitios de las moscas), `MOUTH` y la lengua usan el mismo %; si
-  cambia el tamaño de la rana (`.fr-frog`), cambia `MOUTH`. En sala (turnos y presentador) **cada
+  cambia el tamaño de la rana (`.fr-frog`), cambia `MOUTH`. Cada mosca es un `<button>` centrado en
+  su sitio con la propiedad `translate`, no con `transform` (regla 51). En sala (turnos y presentador) **cada
   turno es una partida entera**: el estado va en `useShared` y el reloj viaja como
   `clock = {left, n, run}`; cada navegador cuenta hacia atrás desde que le llega un `n` nuevo
   (`useLeft`), así quien mira ve el reloj fluido aunque el poll sea de 1 s. Al terminar suma sus

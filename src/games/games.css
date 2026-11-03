@@ -218,7 +218,7 @@
 .dg-light { fill: #FFE9A8; animation: dg-glow 1.1s infinite alternate; }
 .dg-light.b { animation-delay: .55s; }
 .dg-pointer { position: absolute; left: 50%; top: -8px; transform: translateX(-50%); border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 34px solid #E4572E; filter: drop-shadow(0 2px 0 #fff); z-index: 2; }
-.dg-hub { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 23%; aspect-ratio: 1; border-radius: 50%; border: 4px solid #fff; background: #1B1F3B; color: #FFCA3A !important; font: 400 clamp(11px, 3.4vw, 14px) var(--f-game); box-shadow: 0 4px 12px rgba(0, 0, 0, .3); }
+.dg-hub { position: absolute; left: 50%; top: 50%; translate: -50% -50%; /* no `transform`: lo pisa button:hover (regla 51) */ width: 23%; aspect-ratio: 1; border-radius: 50%; border: 4px solid #fff; background: #1B1F3B; color: #FFCA3A !important; font: 400 clamp(11px, 3.4vw, 14px) var(--f-game); box-shadow: 0 4px 12px rgba(0, 0, 0, .3); }
 .dg-wheel-side { display: grid; gap: 6px; width: min(100%, 360px); }
 .dg-spin { height: 54px; border: 2px solid #FFCA3A; border-radius: 999px; background: #1B1F3B; color: #FFCA3A !important; font: 400 17px var(--f-game); box-shadow: 0 4px 0 #FFCA3A; }
 .dg-spin:disabled { opacity: .6; }
@@ -721,8 +721,11 @@ button.dg-box:hover { transform: translateY(-3px) rotate(-2deg); }
 .fr-tongue .fr-tongue-edge { stroke: #C2255C; stroke-width: 2.9; }
 
 /* `width: max-content`: con `left: 83%` el ancho disponible sería el 17% que queda a la derecha y la
-   palabra se partía ("camb-io"); el translate la centra después. */
-.fr-fly { position: absolute; z-index: 4; width: max-content; max-width: 32%; padding: 0; border: 0; background: none; display: grid; justify-items: center; gap: 2px; transform: translate(-50%, calc(var(--fly) / -2)); animation: fr-fly-in .35s calc(var(--i) * 60ms) ease-out backwards; transition: opacity .15s; }
+   palabra se partía ("camb-io"); el translate la centra después.
+   Se centra con `translate`, NO con `transform`: `button:hover`/`button:disabled` de app.css pisan
+   el `transform` de cualquier botón; la mosca saltaba media anchura bajo el puntero, parpadeaba y
+   el clic caía al agua (regla 51). */
+.fr-fly { position: absolute; z-index: 4; width: max-content; max-width: 32%; padding: 0; border: 0; background: none; display: grid; justify-items: center; gap: 2px; translate: -50% calc(var(--fly) / -2); user-select: none; -webkit-user-select: none; animation: fr-fly-in .35s calc(var(--i) * 60ms) ease-out backwards; transition: opacity .15s; }
 .fr-fly:disabled { cursor: default; }
 .fr-fly-bob { display: block; width: var(--fly); height: var(--fly); animation: fr-bob 1.8s var(--d) ease-in-out infinite; }
 .fr-fly-svg { width: 100%; height: 100%; display: block; overflow: visible; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .22)); }
@@ -737,7 +740,7 @@ button.dg-box:hover { transform: translateY(-3px) rotate(-2deg); }
 .fr-fly:focus-visible { outline: none; }
 .fr-fly:focus-visible .fr-fly-word { outline: 3px solid var(--accent); outline-offset: 2px; }
 .fr-fly.away { opacity: .4; }
-.fr-fly.eaten { opacity: 0; transform: translate(-50%, -50%) scale(.15); transition: left .2s .17s ease-in, top .2s .17s ease-in, transform .2s .17s ease-in, opacity .12s .34s; }
+.fr-fly.eaten { opacity: 0; translate: -50% -50%; transform: scale(.15); transition: left .2s .17s ease-in, top .2s .17s ease-in, translate .2s .17s ease-in, transform .2s .17s ease-in, opacity .12s .34s; }
 .fr-fly.eaten.bad .fr-fly-body { fill: #7C8A2A; }
 .fr-fly.reveal .fr-fly-word { background: var(--ok); border-color: transparent; color: #fff; }
 .fr-fly.reveal .fr-fly-bob { animation: fr-glow .9s ease-in-out infinite; }
@@ -811,7 +814,7 @@ button.dg-box:hover { transform: translateY(-3px) rotate(-2deg); }
 @keyframes fr-spark { from { transform: scale(0) rotate(-45deg); } }
 @keyframes fr-card-in { from { transform: translate(-50%, -30%) scale(.9); opacity: 0; } }
 @keyframes fr-lick { 45% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 1; } }
-@keyframes fr-fly-in { from { transform: translate(-50%, calc(var(--fly) / -2)) scale(.4); opacity: 0; } }
+@keyframes fr-fly-in { from { transform: scale(.4); opacity: 0; } }
 @keyframes fr-bob { 50% { transform: translateY(-6px) rotate(3deg); } }
 @keyframes fr-flap { to { transform: scaleY(.55); } }
 @keyframes fr-glow { 50% { transform: scale(1.18); filter: drop-shadow(0 0 10px #FFD43B); } }
