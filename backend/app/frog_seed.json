@@ -1,0 +1,314 @@
+{
+  "A1": {
+    "sustantivo": [
+      {"en": "milk", "es": "leche", "wrong_es": ["agua", "jugo", "té", "café", "sopa", "vino"], "wrong_en": ["water", "juice", "tea", "coffee", "soup", "wine"]},
+      {"en": "dog", "es": "perro", "wrong_es": ["gato", "caballo", "conejo", "ratón", "pájaro", "vaca"], "wrong_en": ["cat", "horse", "rabbit", "mouse", "bird", "cow"]},
+      {"en": "apple", "es": "manzana", "wrong_es": ["pera", "uva", "fresa", "naranja", "plátano", "durazno"], "wrong_en": ["pear", "grape", "strawberry", "orange", "banana", "peach"]},
+      {"en": "house", "es": "casa", "wrong_es": ["escuela", "tienda", "iglesia", "oficina", "hospital", "hotel"], "wrong_en": ["school", "shop", "church", "office", "hospital", "hotel"]},
+      {"en": "book", "es": "libro", "wrong_es": ["cuaderno", "revista", "periódico", "lápiz", "mochila", "carta"], "wrong_en": ["notebook", "magazine", "newspaper", "pencil", "backpack", "letter"]},
+      {"en": "mother", "es": "madre", "wrong_es": ["padre", "hermana", "abuela", "tía", "hija", "prima"], "wrong_en": ["father", "sister", "grandmother", "aunt", "daughter", "cousin"]},
+      {"en": "bread", "es": "pan", "wrong_es": ["queso", "arroz", "huevo", "carne", "pastel", "galleta"], "wrong_en": ["cheese", "rice", "egg", "meat", "cake", "cookie"]},
+      {"en": "chair", "es": "silla", "wrong_es": ["mesa", "cama", "sofá", "puerta", "ventana", "lámpara"], "wrong_en": ["table", "bed", "sofa", "door", "window", "lamp"]},
+      {"en": "shirt", "es": "camisa", "wrong_es": ["pantalón", "falda", "zapato", "vestido", "abrigo", "sombrero"], "wrong_en": ["pants", "skirt", "shoe", "dress", "coat", "hat"]},
+      {"en": "head", "es": "cabeza", "wrong_es": ["mano", "pie", "brazo", "pierna", "espalda", "rodilla"], "wrong_en": ["hand", "foot", "arm", "leg", "back", "knee"]},
+      {"en": "day", "es": "día", "wrong_es": ["noche", "semana", "mes", "año", "hora", "tarde"], "wrong_en": ["night", "week", "month", "year", "hour", "afternoon"]},
+      {"en": "car", "es": "carro", "wrong_es": ["bicicleta", "tren", "avión", "barco", "moto", "autobús"], "wrong_en": ["bike", "train", "plane", "boat", "motorcycle", "bus"]},
+      {"en": "school", "es": "escuela", "wrong_es": ["biblioteca", "parque", "mercado", "hospital", "museo", "tienda"], "wrong_en": ["library", "park", "market", "hospital", "museum", "shop"]},
+      {"en": "kitchen", "es": "cocina", "wrong_es": ["habitación", "baño", "sala", "jardín", "garaje", "comedor"], "wrong_en": ["bedroom", "bathroom", "living room", "garden", "garage", "dining room"]},
+      {"en": "teacher", "es": "maestro", "wrong_es": ["alumno", "doctor", "enfermero", "cocinero", "policía", "granjero"], "wrong_en": ["student", "doctor", "nurse", "cook", "police officer", "farmer"]},
+      {"en": "eye", "es": "ojo", "wrong_es": ["oreja", "nariz", "boca", "diente", "pelo", "cara"], "wrong_en": ["ear", "nose", "mouth", "tooth", "hair", "face"]}
+    ],
+    "verbo": [
+      {"en": "eat", "es": "comer", "wrong_es": ["beber", "dormir", "cocinar", "correr", "leer", "jugar"], "wrong_en": ["drink", "sleep", "cook", "run", "read", "play"]},
+      {"en": "sleep", "es": "dormir", "wrong_es": ["despertar", "soñar", "cantar", "comer", "caminar", "bailar"], "wrong_en": ["wake up", "dream", "sing", "eat", "walk", "dance"]},
+      {"en": "run", "es": "correr", "wrong_es": ["caminar", "saltar", "nadar", "volar", "sentarse", "subir"], "wrong_en": ["walk", "jump", "swim", "fly", "sit", "climb"]},
+      {"en": "write", "es": "escribir", "wrong_es": ["leer", "dibujar", "borrar", "pintar", "contar", "copiar"], "wrong_en": ["read", "draw", "erase", "paint", "count", "copy"]},
+      {"en": "drink", "es": "beber", "wrong_es": ["comer", "cocinar", "lavar", "servir", "comprar", "probar"], "wrong_en": ["eat", "cook", "wash", "serve", "buy", "taste"]},
+      {"en": "open", "es": "abrir", "wrong_es": ["cerrar", "empujar", "romper", "llenar", "jalar", "tocar"], "wrong_en": ["close", "push", "break", "fill", "pull", "touch"]},
+      {"en": "buy", "es": "comprar", "wrong_es": ["vender", "prestar", "cobrar", "ahorrar", "regalar", "alquilar"], "wrong_en": ["sell", "lend", "charge", "save", "give", "rent"]},
+      {"en": "sing", "es": "cantar", "wrong_es": ["bailar", "gritar", "tocar", "escuchar", "hablar", "silbar"], "wrong_en": ["dance", "shout", "play", "listen", "talk", "whistle"]},
+      {"en": "swim", "es": "nadar", "wrong_es": ["bucear", "flotar", "pescar", "navegar", "correr", "saltar"], "wrong_en": ["dive", "float", "fish", "sail", "run", "jump"]},
+      {"en": "listen", "es": "escuchar", "wrong_es": ["mirar", "hablar", "leer", "cantar", "oler", "tocar"], "wrong_en": ["look", "speak", "read", "sing", "smell", "touch"]}
+    ],
+    "adjetivo": [
+      {"en": "big", "es": "grande", "wrong_es": ["pequeño", "alto", "bajo", "largo", "corto", "ancho"], "wrong_en": ["small", "tall", "short", "long", "wide", "thin"]},
+      {"en": "happy", "es": "feliz", "wrong_es": ["triste", "enojado", "cansado", "aburrido", "nervioso", "asustado"], "wrong_en": ["sad", "angry", "tired", "bored", "nervous", "scared"]},
+      {"en": "cold", "es": "frío", "wrong_es": ["caliente", "tibio", "seco", "mojado", "suave", "duro"], "wrong_en": ["hot", "warm", "dry", "wet", "soft", "hard"]},
+      {"en": "new", "es": "nuevo", "wrong_es": ["viejo", "roto", "limpio", "sucio", "caro", "bonito"], "wrong_en": ["old", "broken", "clean", "dirty", "expensive", "pretty"]},
+      {"en": "red", "es": "rojo", "wrong_es": ["azul", "verde", "amarillo", "negro", "blanco", "morado"], "wrong_en": ["blue", "green", "yellow", "black", "white", "purple"]},
+      {"en": "tired", "es": "cansado", "wrong_es": ["enfermo", "hambriento", "despierto", "ocupado", "tranquilo", "fuerte"], "wrong_en": ["sick", "hungry", "awake", "busy", "calm", "strong"]},
+      {"en": "beautiful", "es": "hermoso", "wrong_es": ["feo", "sucio", "raro", "viejo", "triste", "aburrido"], "wrong_en": ["ugly", "dirty", "strange", "old", "sad", "boring"]},
+      {"en": "small", "es": "pequeño", "wrong_es": ["grande", "alto", "ancho", "pesado", "largo", "gordo"], "wrong_en": ["big", "tall", "wide", "heavy", "long", "fat"]},
+      {"en": "fast", "es": "rápido", "wrong_es": ["lento", "fuerte", "débil", "ruidoso", "pesado", "tranquilo"], "wrong_en": ["slow", "strong", "weak", "loud", "heavy", "calm"]},
+      {"en": "hungry", "es": "hambriento", "wrong_es": ["sediento", "lleno", "cansado", "enfermo", "feliz", "aburrido"], "wrong_en": ["thirsty", "full", "tired", "sick", "happy", "bored"]}
+    ],
+    "adverbio": [
+      {"en": "always", "es": "siempre", "wrong_es": ["nunca", "a veces", "casi", "pronto", "ya", "rara vez"], "wrong_en": ["never", "sometimes", "almost", "soon", "already", "rarely"]},
+      {"en": "today", "es": "hoy", "wrong_es": ["ayer", "mañana", "anoche", "tarde", "temprano", "pronto"], "wrong_en": ["yesterday", "tomorrow", "last night", "late", "early", "soon"]},
+      {"en": "here", "es": "aquí", "wrong_es": ["allí", "allá", "lejos", "cerca", "arriba", "abajo"], "wrong_en": ["there", "far", "near", "up", "down", "outside"]},
+      {"en": "very", "es": "muy", "wrong_es": ["poco", "nada", "casi", "también", "demasiado", "solo"], "wrong_en": ["a little", "almost", "also", "too", "only", "enough"]},
+      {"en": "slowly", "es": "despacio", "wrong_es": ["rápido", "pronto", "fuerte", "mal", "bien", "tarde"], "wrong_en": ["fast", "soon", "loudly", "badly", "well", "late"]},
+      {"en": "well", "es": "bien", "wrong_es": ["mal", "peor", "mejor", "poco", "despacio", "apenas"], "wrong_en": ["badly", "worse", "better", "little", "slowly", "hardly"]}
+    ],
+    "preposicion": [
+      {"en": "under", "es": "debajo de", "wrong_es": ["encima de", "detrás de", "delante de", "al lado de", "dentro de", "lejos de"], "wrong_en": ["above", "behind", "in front of", "next to", "inside", "far from"]},
+      {"en": "behind", "es": "detrás de", "wrong_es": ["delante de", "debajo de", "encima de", "cerca de", "entre", "fuera de"], "wrong_en": ["in front of", "under", "above", "near", "between", "outside"]},
+      {"en": "next to", "es": "al lado de", "wrong_es": ["detrás de", "debajo de", "dentro de", "lejos de", "enfrente de", "sobre"], "wrong_en": ["behind", "under", "inside", "far from", "opposite", "on"]},
+      {"en": "between", "es": "entre", "wrong_es": ["sobre", "debajo de", "detrás de", "al lado de", "dentro de", "hacia"], "wrong_en": ["on", "under", "behind", "next to", "inside", "toward"]},
+      {"en": "with", "es": "con", "wrong_es": ["sin", "para", "contra", "desde", "hacia", "según"], "wrong_en": ["without", "for", "against", "from", "toward", "according to"]},
+      {"en": "without", "es": "sin", "wrong_es": ["con", "para", "contra", "durante", "hacia", "según"], "wrong_en": ["with", "for", "against", "during", "toward", "according to"]}
+    ],
+    "conector": [
+      {"en": "and", "es": "y", "wrong_es": ["o", "pero", "porque", "si", "cuando", "aunque"], "wrong_en": ["or", "but", "because", "if", "when", "although"]},
+      {"en": "but", "es": "pero", "wrong_es": ["y", "o", "porque", "si", "cuando", "entonces"], "wrong_en": ["and", "or", "because", "if", "when", "then"]},
+      {"en": "or", "es": "o", "wrong_es": ["y", "pero", "porque", "cuando", "también", "entonces"], "wrong_en": ["and", "but", "because", "when", "also", "then"]},
+      {"en": "because", "es": "porque", "wrong_es": ["aunque", "pero", "si", "cuando", "entonces", "mientras"], "wrong_en": ["although", "but", "if", "when", "so", "while"]},
+      {"en": "so", "es": "así que", "wrong_es": ["porque", "aunque", "mientras", "también", "donde", "sino"], "wrong_en": ["because", "although", "but", "or", "if", "also"]},
+      {"en": "when", "es": "cuando", "wrong_es": ["donde", "porque", "aunque", "pero", "como", "y"], "wrong_en": ["where", "because", "although", "but", "how", "and"]}
+    ]
+  },
+  "A2": {
+    "sustantivo": [
+      {"en": "weather", "es": "clima", "wrong_es": ["estación", "cielo", "nube", "viento", "lluvia", "sol"], "wrong_en": ["season", "sky", "cloud", "wind", "rain", "sun"]},
+      {"en": "ticket", "es": "boleto", "wrong_es": ["maleta", "mapa", "asiento", "horario", "pasaporte", "andén"], "wrong_en": ["suitcase", "map", "seat", "schedule", "passport", "platform"]},
+      {"en": "headache", "es": "dolor de cabeza", "wrong_es": ["fiebre", "resfriado", "tos", "gripe", "herida", "dolor de estómago"], "wrong_en": ["fever", "cold", "cough", "flu", "wound", "stomachache"]},
+      {"en": "neighbor", "es": "vecino", "wrong_es": ["amigo", "primo", "compañero", "extraño", "jefe", "huésped"], "wrong_en": ["friend", "cousin", "classmate", "stranger", "boss", "guest"]},
+      {"en": "bill", "es": "cuenta", "wrong_es": ["propina", "menú", "mesero", "plato", "cambio", "reserva"], "wrong_en": ["tip", "menu", "waiter", "dish", "change", "reservation"]},
+      {"en": "vacation", "es": "vacaciones", "wrong_es": ["trabajo", "fin de semana", "excursión", "tarea", "reunión", "horario"], "wrong_en": ["work", "weekend", "outing", "homework", "meeting", "schedule"]},
+      {"en": "luggage", "es": "equipaje", "wrong_es": ["pasaporte", "boleto", "aeropuerto", "aduana", "vuelo", "mapa"], "wrong_en": ["passport", "ticket", "airport", "customs", "flight", "map"]},
+      {"en": "medicine", "es": "medicina", "wrong_es": ["venda", "receta", "termómetro", "vacuna", "enfermera", "inyección"], "wrong_en": ["bandage", "prescription", "thermometer", "vaccine", "nurse", "injection"]},
+      {"en": "price", "es": "precio", "wrong_es": ["dinero", "descuento", "tienda", "cambio", "oferta", "cliente"], "wrong_en": ["money", "discount", "shop", "change", "sale", "customer"]},
+      {"en": "job", "es": "trabajo", "wrong_es": ["jefe", "sueldo", "oficina", "empresa", "entrevista", "horario"], "wrong_en": ["boss", "salary", "office", "company", "interview", "schedule"]},
+      {"en": "island", "es": "isla", "wrong_es": ["playa", "montaña", "río", "lago", "bosque", "desierto"], "wrong_en": ["beach", "mountain", "river", "lake", "forest", "desert"]},
+      {"en": "cousin", "es": "primo", "wrong_es": ["sobrino", "tío", "abuelo", "nieto", "hermano", "suegro"], "wrong_en": ["nephew", "uncle", "grandfather", "grandson", "brother", "father-in-law"]},
+      {"en": "dentist", "es": "dentista", "wrong_es": ["médico", "enfermero", "farmacéutico", "veterinario", "cirujano", "mecánico"], "wrong_en": ["doctor", "nurse", "pharmacist", "vet", "surgeon", "mechanic"]},
+      {"en": "umbrella", "es": "paraguas", "wrong_es": ["abrigo", "bufanda", "guantes", "botas", "gorra", "impermeable"], "wrong_en": ["coat", "scarf", "gloves", "boots", "cap", "raincoat"]}
+    ],
+    "verbo": [
+      {"en": "borrow", "es": "pedir prestado", "wrong_es": ["devolver", "robar", "alquilar", "vender", "guardar", "perder"], "wrong_en": ["return", "steal", "rent", "sell", "keep", "lose"]},
+      {"en": "arrive", "es": "llegar", "wrong_es": ["salir", "partir", "volver", "entrar", "subir", "esperar"], "wrong_en": ["leave", "depart", "return", "enter", "climb", "wait"]},
+      {"en": "forget", "es": "olvidar", "wrong_es": ["recordar", "aprender", "perder", "pensar", "entender", "repetir"], "wrong_en": ["remember", "learn", "lose", "think", "understand", "repeat"]},
+      {"en": "send", "es": "enviar", "wrong_es": ["recibir", "escribir", "guardar", "borrar", "contestar", "llamar"], "wrong_en": ["receive", "write", "save", "delete", "answer", "call"]},
+      {"en": "win", "es": "ganar", "wrong_es": ["perder", "jugar", "empatar", "competir", "intentar", "entrenar"], "wrong_en": ["lose", "play", "tie", "compete", "try", "train"]},
+      {"en": "wait", "es": "esperar", "wrong_es": ["llegar", "correr", "buscar", "descansar", "sentarse", "salir"], "wrong_en": ["arrive", "run", "look for", "rest", "sit down", "leave"]},
+      {"en": "clean", "es": "limpiar", "wrong_es": ["romper", "cocinar", "pintar", "planchar", "cortar", "arreglar"], "wrong_en": ["break", "cook", "paint", "iron", "cut", "fix"]},
+      {"en": "travel", "es": "viajar", "wrong_es": ["volar", "manejar", "caminar", "nadar", "quedarse", "mudarse"], "wrong_en": ["fly", "drive", "walk", "swim", "stay", "move"]},
+      {"en": "pay", "es": "pagar", "wrong_es": ["cobrar", "comprar", "gastar", "ahorrar", "deber", "prestar"], "wrong_en": ["charge", "buy", "spend", "save", "owe", "lend"]},
+      {"en": "cook", "es": "cocinar", "wrong_es": ["comer", "servir", "lavar", "cortar", "probar", "pedir"], "wrong_en": ["eat", "serve", "wash", "cut", "taste", "order"]}
+    ],
+    "adjetivo": [
+      {"en": "dangerous", "es": "peligroso", "wrong_es": ["seguro", "difícil", "extraño", "ruidoso", "oscuro", "aburrido"], "wrong_en": ["safe", "difficult", "strange", "noisy", "dark", "boring"]},
+      {"en": "expensive", "es": "caro", "wrong_es": ["barato", "gratis", "nuevo", "rico", "pobre", "raro"], "wrong_en": ["cheap", "free", "new", "rich", "poor", "rare"]},
+      {"en": "busy", "es": "ocupado", "wrong_es": ["libre", "cansado", "aburrido", "tranquilo", "enfermo", "listo"], "wrong_en": ["free", "tired", "bored", "calm", "sick", "ready"]},
+      {"en": "sunny", "es": "soleado", "wrong_es": ["nublado", "lluvioso", "ventoso", "frío", "húmedo", "nevado"], "wrong_en": ["cloudy", "rainy", "windy", "cold", "humid", "snowy"]},
+      {"en": "friendly", "es": "amable", "wrong_es": ["grosero", "tímido", "serio", "aburrido", "perezoso", "celoso"], "wrong_en": ["rude", "shy", "serious", "boring", "lazy", "jealous"]},
+      {"en": "empty", "es": "vacío", "wrong_es": ["lleno", "roto", "limpio", "pesado", "abierto", "cerrado"], "wrong_en": ["full", "broken", "clean", "heavy", "open", "closed"]},
+      {"en": "delicious", "es": "delicioso", "wrong_es": ["salado", "amargo", "dulce", "picante", "crudo", "quemado"], "wrong_en": ["salty", "bitter", "sweet", "spicy", "raw", "burnt"]},
+      {"en": "quiet", "es": "silencioso", "wrong_es": ["ruidoso", "oscuro", "rápido", "frío", "brillante", "sucio"], "wrong_en": ["noisy", "dark", "fast", "cold", "bright", "dirty"]},
+      {"en": "wet", "es": "mojado", "wrong_es": ["seco", "sucio", "caliente", "frío", "duro", "suave"], "wrong_en": ["dry", "dirty", "hot", "cold", "hard", "soft"]},
+      {"en": "famous", "es": "famoso", "wrong_es": ["rico", "joven", "desconocido", "tímido", "viejo", "pobre"], "wrong_en": ["rich", "young", "unknown", "shy", "old", "poor"]}
+    ],
+    "adverbio": [
+      {"en": "sometimes", "es": "a veces", "wrong_es": ["siempre", "nunca", "casi", "todavía", "otra vez", "pronto"], "wrong_en": ["always", "never", "almost", "still", "again", "soon"]},
+      {"en": "usually", "es": "normalmente", "wrong_es": ["nunca", "rara vez", "ya", "ahora", "apenas", "otra vez"], "wrong_en": ["never", "rarely", "already", "now", "hardly", "again"]},
+      {"en": "tomorrow", "es": "mañana", "wrong_es": ["ayer", "hoy", "anoche", "pronto", "tarde", "ahora"], "wrong_en": ["yesterday", "today", "last night", "soon", "late", "now"]},
+      {"en": "already", "es": "ya", "wrong_es": ["todavía", "nunca", "siempre", "otra vez", "a menudo", "rara vez"], "wrong_en": ["still", "never", "always", "again", "often", "rarely"]},
+      {"en": "together", "es": "juntos", "wrong_es": ["solos", "lejos", "separados", "adentro", "afuera", "arriba"], "wrong_en": ["alone", "far", "apart", "inside", "outside", "upstairs"]},
+      {"en": "quickly", "es": "rápidamente", "wrong_es": ["lentamente", "tarde", "temprano", "tranquilamente", "mal", "suavemente"], "wrong_en": ["slowly", "late", "early", "calmly", "badly", "gently"]}
+    ],
+    "preposicion": [
+      {"en": "inside", "es": "dentro de", "wrong_es": ["fuera de", "encima de", "debajo de", "detrás de", "alrededor de", "lejos de"], "wrong_en": ["outside", "above", "under", "behind", "around", "far from"]},
+      {"en": "around", "es": "alrededor de", "wrong_es": ["dentro de", "encima de", "debajo de", "detrás de", "lejos de", "enfrente de"], "wrong_en": ["inside", "above", "under", "behind", "far from", "opposite"]},
+      {"en": "outside", "es": "fuera de", "wrong_es": ["dentro de", "sobre", "entre", "hacia", "durante", "antes de"], "wrong_en": ["inside", "on", "between", "toward", "during", "before"]},
+      {"en": "during", "es": "durante", "wrong_es": ["antes de", "después de", "desde", "hasta", "hacia", "sin"], "wrong_en": ["before", "after", "since", "until", "toward", "without"]},
+      {"en": "until", "es": "hasta", "wrong_es": ["desde", "durante", "sin", "después de", "hacia", "entre"], "wrong_en": ["since", "during", "without", "after", "toward", "between"]},
+      {"en": "toward", "es": "hacia", "wrong_es": ["desde", "contra", "entre", "sin", "durante", "sobre"], "wrong_en": ["from", "against", "between", "without", "during", "on"]}
+    ],
+    "conector": [
+      {"en": "then", "es": "luego", "wrong_es": ["antes", "porque", "aunque", "pero", "también", "mientras"], "wrong_en": ["before", "because", "although", "but", "also", "while"]},
+      {"en": "also", "es": "también", "wrong_es": ["tampoco", "pero", "solo", "porque", "aunque", "o"], "wrong_en": ["neither", "but", "only", "because", "although", "or"]},
+      {"en": "before", "es": "antes de", "wrong_es": ["después de", "durante", "mientras", "desde", "cuando", "aunque"], "wrong_en": ["after", "during", "while", "since", "when", "although"]},
+      {"en": "after", "es": "después de", "wrong_es": ["antes de", "durante", "mientras", "desde", "hasta", "cuando"], "wrong_en": ["before", "during", "while", "since", "until", "when"]},
+      {"en": "while", "es": "mientras", "wrong_es": ["después de", "porque", "antes de", "si", "entonces", "así que"], "wrong_en": ["after", "because", "before", "if", "then", "so"]},
+      {"en": "if", "es": "si", "wrong_es": ["porque", "aunque", "pero", "entonces", "mientras", "o"], "wrong_en": ["because", "although", "but", "then", "while", "or"]}
+    ]
+  },
+  "B1": {
+    "sustantivo": [
+      {"en": "environment", "es": "medio ambiente", "wrong_es": ["contaminación", "clima", "basura", "energía", "recurso", "paisaje"], "wrong_en": ["pollution", "climate", "garbage", "energy", "resource", "landscape"]},
+      {"en": "advice", "es": "consejo", "wrong_es": ["advertencia", "pregunta", "opinión", "regla", "respuesta", "orden"], "wrong_en": ["warning", "question", "opinion", "rule", "answer", "order"]},
+      {"en": "experience", "es": "experiencia", "wrong_es": ["conocimiento", "habilidad", "recuerdo", "aventura", "costumbre", "logro"], "wrong_en": ["knowledge", "skill", "memory", "adventure", "habit", "achievement"]},
+      {"en": "argument", "es": "discusión", "wrong_es": ["acuerdo", "broma", "queja", "disculpa", "saludo", "chisme"], "wrong_en": ["agreement", "joke", "complaint", "apology", "greeting", "gossip"]},
+      {"en": "library", "es": "biblioteca", "wrong_es": ["librería", "museo", "galería", "laboratorio", "papelería", "aula"], "wrong_en": ["bookstore", "museum", "gallery", "laboratory", "stationery store", "classroom"]},
+      {"en": "skill", "es": "habilidad", "wrong_es": ["conocimiento", "experiencia", "costumbre", "meta", "título", "defecto"], "wrong_en": ["knowledge", "experience", "habit", "goal", "degree", "flaw"]},
+      {"en": "news", "es": "noticias", "wrong_es": ["anuncio", "rumor", "periódico", "entrevista", "revista", "mensaje"], "wrong_en": ["advertisement", "rumor", "newspaper", "interview", "magazine", "message"]},
+      {"en": "goal", "es": "meta", "wrong_es": ["sueño", "problema", "resultado", "reto", "premio", "duda"], "wrong_en": ["dream", "problem", "result", "challenge", "prize", "doubt"]},
+      {"en": "health", "es": "salud", "wrong_es": ["enfermedad", "peso", "dieta", "fuerza", "sangre", "dolor"], "wrong_en": ["disease", "weight", "diet", "strength", "blood", "pain"]},
+      {"en": "relationship", "es": "relación", "wrong_es": ["amistad", "matrimonio", "cita", "divorcio", "boda", "familia"], "wrong_en": ["friendship", "marriage", "date", "divorce", "wedding", "family"]},
+      {"en": "journey", "es": "viaje", "wrong_es": ["destino", "llegada", "salida", "mapa", "maleta", "carretera"], "wrong_en": ["destination", "arrival", "departure", "map", "suitcase", "road"]},
+      {"en": "waste", "es": "desperdicio", "wrong_es": ["ahorro", "reciclaje", "recurso", "energía", "beneficio", "uso"], "wrong_en": ["saving", "recycling", "resource", "energy", "benefit", "use"]}
+    ],
+    "verbo": [
+      {"en": "improve", "es": "mejorar", "wrong_es": ["empeorar", "cambiar", "aumentar", "reducir", "mantener", "intentar"], "wrong_en": ["worsen", "change", "increase", "reduce", "maintain", "try"]},
+      {"en": "avoid", "es": "evitar", "wrong_es": ["buscar", "enfrentar", "permitir", "causar", "aceptar", "provocar"], "wrong_en": ["look for", "face", "allow", "cause", "accept", "provoke"]},
+      {"en": "complain", "es": "quejarse", "wrong_es": ["agradecer", "felicitar", "disculparse", "discutir", "explicar", "rechazar"], "wrong_en": ["thank", "congratulate", "apologize", "argue", "explain", "refuse"]},
+      {"en": "look for", "es": "buscar", "wrong_es": ["encontrar", "perder", "mirar", "esconder", "guardar", "olvidar"], "wrong_en": ["find", "lose", "look at", "hide", "keep", "forget"]},
+      {"en": "give up", "es": "rendirse", "wrong_es": ["seguir", "intentar", "ganar", "empezar", "insistir", "luchar"], "wrong_en": ["keep going", "try", "win", "start", "insist", "fight"]},
+      {"en": "save", "es": "ahorrar", "wrong_es": ["gastar", "ganar", "deber", "invertir", "perder", "cobrar"], "wrong_en": ["spend", "earn", "owe", "invest", "lose", "charge"]},
+      {"en": "explain", "es": "explicar", "wrong_es": ["preguntar", "entender", "aprender", "repetir", "adivinar", "ignorar"], "wrong_en": ["ask", "understand", "learn", "repeat", "guess", "ignore"]},
+      {"en": "share", "es": "compartir", "wrong_es": ["guardar", "robar", "esconder", "vender", "pedir", "recibir"], "wrong_en": ["keep", "steal", "hide", "sell", "ask for", "receive"]},
+      {"en": "recycle", "es": "reciclar", "wrong_es": ["tirar", "quemar", "contaminar", "desperdiciar", "romper", "enterrar"], "wrong_en": ["throw away", "burn", "pollute", "waste", "break", "bury"]}
+    ],
+    "adjetivo": [
+      {"en": "embarrassed", "es": "avergonzado", "wrong_es": ["embarazada", "orgulloso", "enojado", "confundido", "aliviado", "celoso"], "wrong_en": ["pregnant", "proud", "angry", "confused", "relieved", "jealous"]},
+      {"en": "actual", "es": "real", "wrong_es": ["actual", "falso", "antiguo", "posible", "futuro", "simple"], "wrong_en": ["current", "fake", "old", "possible", "future", "simple"]},
+      {"en": "worried", "es": "preocupado", "wrong_es": ["tranquilo", "aliviado", "orgulloso", "emocionado", "sorprendido", "aburrido"], "wrong_en": ["calm", "relieved", "proud", "excited", "surprised", "bored"]},
+      {"en": "reliable", "es": "confiable", "wrong_es": ["perezoso", "grosero", "débil", "raro", "caro", "descuidado"], "wrong_en": ["lazy", "rude", "weak", "strange", "expensive", "careless"]},
+      {"en": "healthy", "es": "sano", "wrong_es": ["enfermo", "débil", "gordo", "pesado", "cansado", "delgado"], "wrong_en": ["sick", "weak", "fat", "heavy", "tired", "thin"]},
+      {"en": "crowded", "es": "lleno de gente", "wrong_es": ["vacío", "tranquilo", "limpio", "oscuro", "cerrado", "lejano"], "wrong_en": ["empty", "quiet", "clean", "dark", "closed", "distant"]},
+      {"en": "boring", "es": "aburrido", "wrong_es": ["divertido", "interesante", "emocionante", "gracioso", "extraño", "útil"], "wrong_en": ["fun", "interesting", "exciting", "funny", "strange", "useful"]},
+      {"en": "polite", "es": "educado", "wrong_es": ["grosero", "tímido", "serio", "orgulloso", "nervioso", "egoísta"], "wrong_en": ["rude", "shy", "serious", "proud", "nervous", "selfish"]},
+      {"en": "available", "es": "disponible", "wrong_es": ["ocupado", "lleno", "cerrado", "ausente", "prohibido", "caro"], "wrong_en": ["busy", "full", "closed", "absent", "forbidden", "expensive"]}
+    ],
+    "adverbio": [
+      {"en": "probably", "es": "probablemente", "wrong_es": ["nunca", "apenas", "finalmente", "exactamente", "raramente", "inmediatamente"], "wrong_en": ["never", "hardly", "finally", "exactly", "rarely", "immediately"]},
+      {"en": "suddenly", "es": "de repente", "wrong_es": ["lentamente", "poco a poco", "siempre", "finalmente", "a tiempo", "otra vez"], "wrong_en": ["slowly", "little by little", "always", "finally", "on time", "again"]},
+      {"en": "finally", "es": "finalmente", "wrong_es": ["primero", "todavía", "de repente", "pronto", "nunca", "antes"], "wrong_en": ["first", "still", "suddenly", "soon", "never", "before"]},
+      {"en": "hardly", "es": "apenas", "wrong_es": ["duramente", "mucho", "siempre", "totalmente", "bastante", "fácilmente"], "wrong_en": ["hard", "a lot", "always", "totally", "quite", "easily"]},
+      {"en": "abroad", "es": "en el extranjero", "wrong_es": ["en casa", "cerca", "adentro", "aquí", "abajo", "arriba"], "wrong_en": ["at home", "nearby", "inside", "here", "downstairs", "upstairs"]},
+      {"en": "actually", "es": "en realidad", "wrong_es": ["actualmente", "ahora", "pronto", "casi", "quizás", "afortunadamente"], "wrong_en": ["currently", "now", "soon", "almost", "maybe", "fortunately"]}
+    ],
+    "preposicion": [
+      {"en": "according to", "es": "según", "wrong_es": ["contra", "sin", "hacia", "durante", "sobre", "desde"], "wrong_en": ["against", "without", "toward", "during", "about", "since"]},
+      {"en": "despite", "es": "a pesar de", "wrong_es": ["gracias a", "debido a", "además de", "en vez de", "antes de", "junto con"], "wrong_en": ["thanks to", "due to", "besides", "instead of", "before", "along with"]},
+      {"en": "instead of", "es": "en vez de", "wrong_es": ["además de", "a pesar de", "gracias a", "antes de", "después de", "a causa de"], "wrong_en": ["besides", "despite", "thanks to", "before", "after", "because of"]},
+      {"en": "because of", "es": "a causa de", "wrong_es": ["a pesar de", "en vez de", "además de", "sin", "hacia", "contra"], "wrong_en": ["despite", "instead of", "besides", "without", "toward", "against"]},
+      {"en": "beyond", "es": "más allá de", "wrong_es": ["dentro de", "antes de", "cerca de", "debajo de", "junto a", "a pesar de"], "wrong_en": ["inside", "before", "near", "under", "next to", "despite"]},
+      {"en": "throughout", "es": "a lo largo de", "wrong_es": ["alrededor de", "a pesar de", "en vez de", "cerca de", "frente a", "en contra de"], "wrong_en": ["around", "despite", "instead of", "near", "opposite", "against"]}
+    ],
+    "conector": [
+      {"en": "however", "es": "sin embargo", "wrong_es": ["además", "por lo tanto", "porque", "por ejemplo", "así que", "mientras"], "wrong_en": ["moreover", "therefore", "because", "for example", "so", "while"]},
+      {"en": "although", "es": "aunque", "wrong_es": ["porque", "así que", "por lo tanto", "o sea", "cuando", "ya que"], "wrong_en": ["because", "so", "therefore", "that is", "when", "since"]},
+      {"en": "unless", "es": "a menos que", "wrong_es": ["porque", "aunque", "cuando", "así que", "mientras", "en cuanto"], "wrong_en": ["because", "although", "when", "so", "while", "as soon as"]},
+      {"en": "therefore", "es": "por lo tanto", "wrong_es": ["sin embargo", "aunque", "además", "en cambio", "mientras que", "a pesar de que"], "wrong_en": ["however", "although", "moreover", "on the other hand", "whereas", "even though"]},
+      {"en": "moreover", "es": "además", "wrong_es": ["sin embargo", "por lo tanto", "aunque", "en cambio", "es decir", "sino"], "wrong_en": ["however", "therefore", "although", "on the other hand", "that is", "instead"]},
+      {"en": "as soon as", "es": "en cuanto", "wrong_es": ["aunque", "porque", "a menos que", "mientras", "sin embargo", "hasta que"], "wrong_en": ["although", "because", "unless", "while", "however", "until"]}
+    ]
+  },
+  "B2": {
+    "sustantivo": [
+      {"en": "research", "es": "investigación", "wrong_es": ["encuesta", "informe", "hipótesis", "conclusión", "teoría", "prueba"], "wrong_en": ["survey", "report", "hypothesis", "conclusion", "theory", "test"]},
+      {"en": "evidence", "es": "evidencia", "wrong_es": ["opinión", "rumor", "sospecha", "teoría", "duda", "excusa"], "wrong_en": ["opinion", "rumor", "suspicion", "theory", "doubt", "excuse"]},
+      {"en": "growth", "es": "crecimiento", "wrong_es": ["caída", "disminución", "pérdida", "crisis", "estancamiento", "deuda"], "wrong_en": ["fall", "decrease", "loss", "crisis", "stagnation", "debt"]},
+      {"en": "awareness", "es": "conciencia", "wrong_es": ["ignorancia", "indiferencia", "miedo", "orgullo", "olvido", "desconfianza"], "wrong_en": ["ignorance", "indifference", "fear", "pride", "forgetfulness", "distrust"]},
+      {"en": "issue", "es": "asunto", "wrong_es": ["solución", "respuesta", "acuerdo", "resultado", "ventaja", "logro"], "wrong_en": ["solution", "answer", "agreement", "result", "advantage", "achievement"]},
+      {"en": "lack", "es": "falta", "wrong_es": ["exceso", "abundancia", "cantidad", "presencia", "riqueza", "ganancia"], "wrong_en": ["excess", "abundance", "amount", "presence", "wealth", "gain"]},
+      {"en": "tool", "es": "herramienta", "wrong_es": ["máquina", "material", "mueble", "juguete", "pieza", "envase"], "wrong_en": ["machine", "material", "furniture", "toy", "part", "container"]},
+      {"en": "employee", "es": "empleado", "wrong_es": ["jefe", "cliente", "socio", "dueño", "candidato", "proveedor"], "wrong_en": ["boss", "customer", "partner", "owner", "candidate", "supplier"]},
+      {"en": "challenge", "es": "reto", "wrong_es": ["ventaja", "ayuda", "éxito", "recompensa", "rutina", "descanso"], "wrong_en": ["advantage", "help", "success", "reward", "routine", "rest"]},
+      {"en": "behavior", "es": "comportamiento", "wrong_es": ["personalidad", "actitud", "aspecto", "costumbre", "creencia", "valor"], "wrong_en": ["personality", "attitude", "appearance", "habit", "belief", "value"]}
+    ],
+    "verbo": [
+      {"en": "achieve", "es": "lograr", "wrong_es": ["fracasar", "intentar", "abandonar", "perder", "posponer", "evitar"], "wrong_en": ["fail", "try", "abandon", "lose", "postpone", "avoid"]},
+      {"en": "require", "es": "requerir", "wrong_es": ["ofrecer", "rechazar", "permitir", "sugerir", "prohibir", "ignorar"], "wrong_en": ["offer", "reject", "allow", "suggest", "forbid", "ignore"]},
+      {"en": "increase", "es": "aumentar", "wrong_es": ["disminuir", "reducir", "mantener", "bajar", "eliminar", "dividir"], "wrong_en": ["decrease", "reduce", "maintain", "lower", "eliminate", "divide"]},
+      {"en": "warn", "es": "advertir", "wrong_es": ["felicitar", "prometer", "negar", "convencer", "permitir", "perdonar"], "wrong_en": ["congratulate", "promise", "deny", "convince", "allow", "forgive"]},
+      {"en": "rely on", "es": "depender de", "wrong_es": ["dudar de", "desconfiar de", "renunciar a", "ignorar", "separarse de", "competir con"], "wrong_en": ["doubt", "distrust", "give up", "ignore", "separate from", "compete with"]},
+      {"en": "reduce", "es": "reducir", "wrong_es": ["aumentar", "ampliar", "mantener", "duplicar", "acelerar", "sumar"], "wrong_en": ["increase", "expand", "maintain", "double", "speed up", "add"]},
+      {"en": "persuade", "es": "convencer", "wrong_es": ["obligar", "engañar", "amenazar", "prohibir", "desanimar", "ignorar"], "wrong_en": ["force", "deceive", "threaten", "forbid", "discourage", "ignore"]},
+      {"en": "deal with", "es": "lidiar con", "wrong_es": ["evitar", "ignorar", "olvidar", "posponer", "causar", "provocar"], "wrong_en": ["avoid", "ignore", "forget", "postpone", "cause", "provoke"]}
+    ],
+    "adjetivo": [
+      {"en": "sensible", "es": "sensato", "wrong_es": ["sensible", "tonto", "impulsivo", "ingenuo", "terco", "imprudente"], "wrong_en": ["sensitive", "silly", "impulsive", "naive", "stubborn", "reckless"]},
+      {"en": "aware", "es": "consciente", "wrong_es": ["ignorante", "distraído", "indiferente", "confundido", "dormido", "cansado"], "wrong_en": ["ignorant", "distracted", "indifferent", "confused", "asleep", "tired"]},
+      {"en": "harmful", "es": "dañino", "wrong_es": ["útil", "beneficioso", "inofensivo", "saludable", "seguro", "necesario"], "wrong_en": ["useful", "beneficial", "harmless", "healthy", "safe", "necessary"]},
+      {"en": "accurate", "es": "preciso", "wrong_es": ["aproximado", "vago", "falso", "confuso", "dudoso", "lento"], "wrong_en": ["approximate", "vague", "false", "confusing", "doubtful", "slow"]},
+      {"en": "willing", "es": "dispuesto", "wrong_es": ["reacio", "incapaz", "obligado", "cansado", "ocupado", "ausente"], "wrong_en": ["reluctant", "unable", "forced", "tired", "busy", "absent"]},
+      {"en": "challenging", "es": "desafiante", "wrong_es": ["sencillo", "aburrido", "cómodo", "rutinario", "inútil", "relajante"], "wrong_en": ["simple", "boring", "comfortable", "routine", "useless", "relaxing"]},
+      {"en": "outstanding", "es": "sobresaliente", "wrong_es": ["mediocre", "común", "regular", "deficiente", "normal", "típico"], "wrong_en": ["mediocre", "common", "average", "poor", "normal", "typical"]},
+      {"en": "eager", "es": "ansioso", "wrong_es": ["indiferente", "aburrido", "temeroso", "tranquilo", "harto", "cansado"], "wrong_en": ["indifferent", "bored", "fearful", "calm", "fed up", "tired"]}
+    ],
+    "adverbio": [
+      {"en": "eventually", "es": "al final", "wrong_es": ["eventualmente", "inmediatamente", "nunca", "pronto", "raramente", "antes"], "wrong_en": ["occasionally", "immediately", "never", "soon", "rarely", "before"]},
+      {"en": "nearly", "es": "casi", "wrong_es": ["totalmente", "apenas", "solamente", "exactamente", "demasiado", "además"], "wrong_en": ["totally", "hardly", "only", "exactly", "too", "besides"]},
+      {"en": "thoroughly", "es": "a fondo", "wrong_es": ["superficialmente", "rápidamente", "apenas", "parcialmente", "vagamente", "brevemente"], "wrong_en": ["superficially", "quickly", "hardly", "partly", "vaguely", "briefly"]},
+      {"en": "merely", "es": "simplemente", "wrong_es": ["totalmente", "además", "sobre todo", "especialmente", "incluso", "profundamente"], "wrong_en": ["totally", "moreover", "above all", "especially", "even", "deeply"]},
+      {"en": "widely", "es": "ampliamente", "wrong_es": ["raramente", "apenas", "estrechamente", "localmente", "brevemente", "escasamente"], "wrong_en": ["rarely", "hardly", "narrowly", "locally", "briefly", "scarcely"]},
+      {"en": "otherwise", "es": "de lo contrario", "wrong_es": ["por lo tanto", "además", "sin embargo", "igualmente", "también", "entonces"], "wrong_en": ["therefore", "moreover", "however", "likewise", "also", "then"]}
+    ],
+    "preposicion": [
+      {"en": "regarding", "es": "con respecto a", "wrong_es": ["a pesar de", "junto con", "a favor de", "dentro de", "alrededor de", "debajo de"], "wrong_en": ["despite", "along with", "in favor of", "inside", "around", "under"]},
+      {"en": "unlike", "es": "a diferencia de", "wrong_es": ["igual que", "como", "junto con", "además de", "a pesar de", "según"], "wrong_en": ["like", "as", "along with", "besides", "despite", "according to"]},
+      {"en": "apart from", "es": "aparte de", "wrong_es": ["en vez de", "a causa de", "a favor de", "en contra de", "a pesar de", "antes de"], "wrong_en": ["instead of", "because of", "in favor of", "against", "despite", "before"]},
+      {"en": "on behalf of", "es": "en nombre de", "wrong_es": ["en contra de", "a pesar de", "alrededor de", "a causa de", "después de", "dentro de"], "wrong_en": ["against", "despite", "around", "because of", "after", "inside"]},
+      {"en": "alongside", "es": "junto a", "wrong_es": ["lejos de", "en contra de", "detrás de", "en vez de", "por encima de", "a pesar de"], "wrong_en": ["far from", "against", "behind", "instead of", "above", "despite"]},
+      {"en": "against", "es": "en contra de", "wrong_es": ["a favor de", "a través de", "debajo de", "dentro de", "después de", "gracias a"], "wrong_en": ["in favor of", "through", "under", "inside", "after", "thanks to"]}
+    ],
+    "conector": [
+      {"en": "whereas", "es": "mientras que", "wrong_es": ["porque", "por lo tanto", "además", "así que", "ya que", "de modo que"], "wrong_en": ["because", "therefore", "moreover", "so", "since", "so that"]},
+      {"en": "nevertheless", "es": "no obstante", "wrong_es": ["por lo tanto", "además", "así que", "por eso", "es decir", "por ejemplo"], "wrong_en": ["therefore", "moreover", "so", "that's why", "that is", "for example"]},
+      {"en": "as long as", "es": "siempre que", "wrong_es": ["aunque", "a menos que", "porque", "sin embargo", "así que", "por lo tanto"], "wrong_en": ["although", "unless", "because", "however", "so", "therefore"]},
+      {"en": "in order to", "es": "para", "wrong_es": ["porque", "aunque", "sin embargo", "mientras", "en cuanto", "a pesar de"], "wrong_en": ["because", "although", "however", "while", "as soon as", "despite"]},
+      {"en": "as a result", "es": "como resultado", "wrong_es": ["sin embargo", "aunque", "en cambio", "por ejemplo", "a menos que", "mientras que"], "wrong_en": ["however", "although", "on the other hand", "for example", "unless", "whereas"]},
+      {"en": "on the other hand", "es": "por otro lado", "wrong_es": ["por lo tanto", "por ejemplo", "es decir", "así que", "en resumen", "porque"], "wrong_en": ["therefore", "for example", "that is", "so", "in short", "because"]}
+    ]
+  },
+  "C1": {
+    "sustantivo": [
+      {"en": "drawback", "es": "desventaja", "wrong_es": ["ventaja", "beneficio", "logro", "recompensa", "virtud", "garantía"], "wrong_en": ["advantage", "benefit", "achievement", "reward", "virtue", "guarantee"]},
+      {"en": "bias", "es": "sesgo", "wrong_es": ["neutralidad", "objetividad", "equilibrio", "justicia", "imparcialidad", "rigor"], "wrong_en": ["neutrality", "objectivity", "balance", "fairness", "impartiality", "rigor"]},
+      {"en": "outcome", "es": "resultado", "wrong_es": ["causa", "origen", "intento", "propósito", "proceso", "comienzo"], "wrong_en": ["cause", "origin", "attempt", "purpose", "process", "beginning"]},
+      {"en": "threat", "es": "amenaza", "wrong_es": ["promesa", "protección", "refugio", "garantía", "alivio", "ayuda"], "wrong_en": ["promise", "protection", "shelter", "guarantee", "relief", "help"]},
+      {"en": "shortage", "es": "escasez", "wrong_es": ["abundancia", "exceso", "superávit", "reserva", "oferta", "demanda"], "wrong_en": ["abundance", "excess", "surplus", "reserve", "supply", "demand"]},
+      {"en": "fallacy", "es": "falacia", "wrong_es": ["verdad", "hecho", "premisa", "conclusión", "certeza", "axioma"], "wrong_en": ["truth", "fact", "premise", "conclusion", "certainty", "axiom"]},
+      {"en": "foresight", "es": "previsión", "wrong_es": ["descuido", "nostalgia", "imprudencia", "retraso", "olvido", "improvisación"], "wrong_en": ["carelessness", "nostalgia", "recklessness", "delay", "forgetfulness", "improvisation"]},
+      {"en": "breakthrough", "es": "avance", "wrong_es": ["retroceso", "fracaso", "estancamiento", "obstáculo", "error", "demora"], "wrong_en": ["setback", "failure", "stagnation", "obstacle", "mistake", "delay"]},
+      {"en": "accountability", "es": "rendición de cuentas", "wrong_es": ["impunidad", "secreto", "privilegio", "corrupción", "negligencia", "inmunidad"], "wrong_en": ["impunity", "secrecy", "privilege", "corruption", "negligence", "immunity"]},
+      {"en": "hindsight", "es": "retrospectiva", "wrong_es": ["previsión", "intuición", "sospecha", "expectativa", "presagio", "profecía"], "wrong_en": ["foresight", "intuition", "suspicion", "expectation", "omen", "prophecy"]}
+    ],
+    "verbo": [
+      {"en": "undermine", "es": "socavar", "wrong_es": ["fortalecer", "reforzar", "apoyar", "impulsar", "consolidar", "respaldar"], "wrong_en": ["strengthen", "reinforce", "support", "boost", "consolidate", "back"]},
+      {"en": "foster", "es": "fomentar", "wrong_es": ["impedir", "frenar", "desalentar", "prohibir", "reprimir", "obstaculizar"], "wrong_en": ["prevent", "curb", "discourage", "forbid", "repress", "hinder"]},
+      {"en": "tackle", "es": "abordar", "wrong_es": ["ignorar", "posponer", "eludir", "empeorar", "ocultar", "delegar"], "wrong_en": ["ignore", "postpone", "evade", "worsen", "hide", "delegate"]},
+      {"en": "overlook", "es": "pasar por alto", "wrong_es": ["notar", "examinar", "destacar", "revisar", "señalar", "subrayar"], "wrong_en": ["notice", "examine", "highlight", "review", "point out", "underline"]},
+      {"en": "comply", "es": "cumplir", "wrong_es": ["infringir", "violar", "desobedecer", "rechazar", "incumplir", "desafiar"], "wrong_en": ["infringe", "violate", "disobey", "reject", "breach", "defy"]},
+      {"en": "enhance", "es": "potenciar", "wrong_es": ["empeorar", "deteriorar", "disminuir", "debilitar", "limitar", "estropear"], "wrong_en": ["worsen", "deteriorate", "diminish", "weaken", "limit", "spoil"]},
+      {"en": "hinder", "es": "obstaculizar", "wrong_es": ["facilitar", "favorecer", "acelerar", "permitir", "agilizar", "apoyar"], "wrong_en": ["facilitate", "favor", "accelerate", "allow", "speed up", "support"]},
+      {"en": "convey", "es": "transmitir", "wrong_es": ["ocultar", "silenciar", "malinterpretar", "olvidar", "retener", "censurar"], "wrong_en": ["conceal", "silence", "misinterpret", "forget", "retain", "censor"]}
+    ],
+    "adjetivo": [
+      {"en": "ubiquitous", "es": "omnipresente", "wrong_es": ["escaso", "raro", "inusual", "aislado", "esporádico", "exclusivo"], "wrong_en": ["scarce", "rare", "unusual", "isolated", "sporadic", "exclusive"]},
+      {"en": "thorough", "es": "minucioso", "wrong_es": ["superficial", "descuidado", "apresurado", "vago", "incompleto", "somero"], "wrong_en": ["superficial", "careless", "hasty", "vague", "incomplete", "cursory"]},
+      {"en": "reluctant", "es": "reacio", "wrong_es": ["dispuesto", "entusiasta", "decidido", "impaciente", "resuelto", "motivado"], "wrong_en": ["willing", "enthusiastic", "determined", "impatient", "resolute", "motivated"]},
+      {"en": "compelling", "es": "convincente", "wrong_es": ["débil", "dudoso", "confuso", "aburrido", "irrelevante", "absurdo"], "wrong_en": ["weak", "doubtful", "confusing", "boring", "irrelevant", "absurd"]},
+      {"en": "feasible", "es": "viable", "wrong_es": ["imposible", "absurdo", "utópico", "inútil", "arriesgado", "costoso"], "wrong_en": ["impossible", "absurd", "utopian", "useless", "risky", "costly"]},
+      {"en": "ambiguous", "es": "ambiguo", "wrong_es": ["claro", "preciso", "explícito", "evidente", "rotundo", "literal"], "wrong_en": ["clear", "precise", "explicit", "obvious", "emphatic", "literal"]},
+      {"en": "resilient", "es": "resiliente", "wrong_es": ["frágil", "vulnerable", "débil", "delicado", "quebradizo", "sensible"], "wrong_en": ["fragile", "vulnerable", "weak", "delicate", "brittle", "sensitive"]},
+      {"en": "shrewd", "es": "astuto", "wrong_es": ["ingenuo", "torpe", "crédulo", "despistado", "inocente", "tonto"], "wrong_en": ["naive", "clumsy", "gullible", "absent-minded", "innocent", "foolish"]}
+    ],
+    "adverbio": [
+      {"en": "seldom", "es": "rara vez", "wrong_es": ["a menudo", "siempre", "constantemente", "a diario", "frecuentemente", "habitualmente"], "wrong_en": ["often", "always", "constantly", "daily", "frequently", "usually"]},
+      {"en": "thereby", "es": "de ese modo", "wrong_es": ["sin embargo", "aun así", "a pesar de ello", "en cambio", "mientras tanto", "no obstante"], "wrong_en": ["however", "even so", "despite that", "on the other hand", "meanwhile", "nevertheless"]},
+      {"en": "hence", "es": "por ende", "wrong_es": ["sin embargo", "aunque", "de lo contrario", "por el contrario", "sin duda", "es decir"], "wrong_en": ["however", "although", "otherwise", "on the contrary", "undoubtedly", "that is"]},
+      {"en": "inevitably", "es": "inevitablemente", "wrong_es": ["ocasionalmente", "accidentalmente", "raramente", "opcionalmente", "casualmente", "difícilmente"], "wrong_en": ["occasionally", "accidentally", "rarely", "optionally", "by chance", "hardly"]},
+      {"en": "deliberately", "es": "a propósito", "wrong_es": ["sin querer", "por accidente", "por casualidad", "por error", "involuntariamente", "de repente"], "wrong_en": ["unintentionally", "accidentally", "by chance", "by mistake", "involuntarily", "suddenly"]},
+      {"en": "hitherto", "es": "hasta ahora", "wrong_es": ["en adelante", "en el futuro", "nunca más", "de nuevo", "al instante", "a veces"], "wrong_en": ["henceforth", "in the future", "never again", "anew", "instantly", "sometimes"]}
+    ],
+    "preposicion": [
+      {"en": "notwithstanding", "es": "pese a", "wrong_es": ["gracias a", "debido a", "a raíz de", "en virtud de", "junto con", "a favor de"], "wrong_en": ["thanks to", "due to", "in the wake of", "by virtue of", "along with", "in favor of"]},
+      {"en": "amid", "es": "en medio de", "wrong_es": ["lejos de", "fuera de", "después de", "antes de", "en lugar de", "a raíz de"], "wrong_en": ["far from", "outside", "after", "before", "instead of", "in the wake of"]},
+      {"en": "in the wake of", "es": "a raíz de", "wrong_es": ["antes de", "a pesar de", "en vez de", "en contra de", "a favor de", "en medio de"], "wrong_en": ["before", "despite", "instead of", "against", "in favor of", "amid"]},
+      {"en": "by virtue of", "es": "en virtud de", "wrong_es": ["a pesar de", "en contra de", "en lugar de", "lejos de", "sin", "antes de"], "wrong_en": ["despite", "against", "instead of", "far from", "without", "before"]},
+      {"en": "in lieu of", "es": "en lugar de", "wrong_es": ["además de", "junto con", "a raíz de", "gracias a", "a pesar de", "por encima de"], "wrong_en": ["in addition to", "along with", "in the wake of", "thanks to", "despite", "above"]},
+      {"en": "pursuant to", "es": "conforme a", "wrong_es": ["en contra de", "al margen de", "a raíz de", "en medio de", "fuera de", "a favor de"], "wrong_en": ["against", "regardless of", "in the wake of", "amid", "outside", "in favor of"]}
+    ],
+    "conector": [
+      {"en": "albeit", "es": "si bien", "wrong_es": ["puesto que", "por ende", "de modo que", "es decir", "por consiguiente", "dado que"], "wrong_en": ["since", "hence", "so that", "that is", "consequently", "given that"]},
+      {"en": "whereby", "es": "mediante el cual", "wrong_es": ["a pesar de que", "aunque", "mientras que", "siempre que", "a menos que", "en cuanto"], "wrong_en": ["even though", "although", "whereas", "as long as", "unless", "as soon as"]},
+      {"en": "provided that", "es": "con tal de que", "wrong_es": ["a menos que", "puesto que", "por más que", "de modo que", "en cambio", "es decir"], "wrong_en": ["unless", "since", "no matter how", "so that", "on the other hand", "that is"]},
+      {"en": "insofar as", "es": "en la medida en que", "wrong_es": ["aunque", "a menos que", "sin embargo", "en cambio", "por más que", "mientras tanto"], "wrong_en": ["although", "unless", "however", "on the other hand", "no matter how", "meanwhile"]},
+      {"en": "nonetheless", "es": "aun así", "wrong_es": ["por consiguiente", "por ende", "es decir", "por ejemplo", "de hecho", "en resumen"], "wrong_en": ["consequently", "hence", "that is", "for example", "in fact", "in short"]},
+      {"en": "given that", "es": "dado que", "wrong_es": ["aunque", "si bien", "a pesar de que", "por más que", "de lo contrario", "sin embargo"], "wrong_en": ["although", "albeit", "even though", "no matter how", "otherwise", "however"]}
+    ]
+  }
+}

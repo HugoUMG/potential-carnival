@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Any
 import asyncio
 import hashlib
+import json
 import os
 import random
 import re
@@ -143,6 +145,12 @@ app.add_middleware(
 @app.on_event("startup")
 def startup() -> None:
     initialize_database()
+    try:
+        added = seed_frog_words()
+        if added:
+            print(f"[juegos] rana: {added} palabras nuevas de la semilla")
+    except Exception as exc:  # sin semilla el juego sigue: la IA llena el banco como antes
+        print(f"[juegos] rana: no se pudo cargar la semilla: {exc!r}")
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])
@@ -2330,6 +2338,34 @@ def _grow_frog_words(level: str, category: str) -> None:
         print(f"[juegos] rana: no se pudo ampliar {level}/{category}: {exc!r}")
     finally:
         _frog_job.clear()
+
+
+# Semilla del banco (ADR-45): unas 240 palabras escritas y revisadas a mano, al menos 6 por nivel y
+# tipo, para que nadie espere a la IA al estrenar uno. Entra al arrancar y la IA sigue sumando encima.
+FROG_SEED = Path(__file__).with_name("frog_seed.json")
+
+
+def seed_frog_words() -> int:
+    """Guarda las palabras de la semilla que falten y devuelve cuántas entraron. No pisa nada: se
+    salta la palabra que ya está en el banco (en cualquier nivel) y la que repetiría la traducción
+    de otra del mismo nivel, igual que una tanda de la IA. Con todo ya guardado, solo lee."""
+    seed: dict[str, dict[str, list[dict]]] = json.loads(FROG_SEED.read_text(encoding="utf-8"))
+    taken_en = {key for category in FROG_CATEGORIES for key in repository.frog_word_keys(category)}
+    added = 0
+    for level, by_category in seed.items():
+        taken_es = {frog_norm(w.es) for w in repository.get_frog_words(level)}
+        for category, raw_words in by_category.items():
+            fresh: list[VocabWord] = []
+            for raw in raw_words:
+                word = VocabWord(**raw, pos=FROG_CATEGORIES[category][0])
+                if frog_norm(word.en) in taken_en or frog_norm(word.es) in taken_es:
+                    continue
+                taken_en.add(frog_norm(word.en))
+                taken_es.add(frog_norm(word.es))
+                fresh.append(word)
+            if fresh:
+                added += repository.put_frog_words(level, category, fresh)
+    return added
 
 
 @app.get("/public/frog-words", response_model=FrogPool)

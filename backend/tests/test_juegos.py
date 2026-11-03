@@ -4,6 +4,7 @@ Nada toca la red ni la base real: SQLite temporal (como test_teacher_images.py) 
 """
 import asyncio
 import json
+import re
 
 import pytest
 from fastapi import BackgroundTasks, HTTPException
@@ -312,3 +313,71 @@ def test_rana_si_la_ia_falla_se_reintenta_mas_tarde_y_mixto_crece_lo_mas_atrasad
     assert asked == ["verbo"]  # entre los tipos sin palabras, el primero; los sustantivos ya tienen una
     assert not main.public_frog_words(again := BackgroundTasks(), level="B1", category="verbo").generating
     assert again.tasks == []  # falló hace nada: no se reintenta en cada visita
+
+
+# ── Rana hambrienta: semilla del banco (ADR-45) ───────────────────────────────
+
+MIN_WORDS = 6  # `MIN_WORDS` de src/games/frog.tsx: con menos, el juego espera a la IA
+
+
+def _seed() -> dict[str, dict[str, list[dict]]]:
+    return json.loads(main.FROG_SEED.read_text(encoding="utf-8"))
+
+
+def test_la_semilla_de_la_rana_cumple_las_reglas_del_banco():
+    seed = _seed()
+    assert set(seed) == set(ai.FROG_LEVELS)
+    words: list[tuple[str, str, main.VocabWord]] = []
+    for level, by_category in seed.items():
+        assert set(by_category) == set(ai.FROG_CATEGORIES), level
+        for category, raw_words in by_category.items():
+            assert len(raw_words) >= MIN_WORDS, (level, category)  # ningún nivel ni tipo espera a la IA
+            words += [(level, category, main.VocabWord(**w, pos="")) for w in raw_words]
+    assert len(words) >= 200
+
+    n = ai.frog_norm
+    en_keys = [n(w.en) for _, _, w in words]
+    assert len(set(en_keys)) == len(en_keys)  # una palabra vive en un solo nivel (en_key)
+    for level in seed:
+        es_keys = [n(w.es) for lv, _, w in words if lv == level]
+        assert len(set(es_keys)) == len(es_keys), level  # la rana no dice lo mismo con dos respuestas
+    for level, category, w in words:
+        for side, answer in (("es", w.es), ("en", w.en)):
+            wrong = getattr(w, f"wrong_{side}")
+            keys = [n(t) for t in wrong]
+            assert len(set(keys)) == len(keys) >= ai.FROG_MIN_WRONG, (w.en, side)  # alcanza para Difícil
+            assert n(answer) not in keys, (w.en, side)
+            for term in [answer, *wrong]:
+                assert term == term.strip() and term and not re.search(r"[/,;()]", term), term  # como _frog_terms
+        # Una mosca mala que es otra palabra de la semilla con la misma traducción también valdría.
+        for _, _, other in words:
+            assert not (n(other.es) == n(w.es) and n(other.en) in {n(t) for t in w.wrong_en}), (w.en, other.en)
+    # Sin listas genéricas copiadas: la misma regla que una tanda de la IA (≥5 moscas iguales).
+    for level, category, w in words:
+        for lv, cat, other in words:
+            if (lv, cat) == (level, category) and other is not w:
+                shared = {n(t) for t in w.wrong_es} & {n(t) for t in other.wrong_es}
+                assert len(shared) < 5, (w.en, other.en)
+
+
+def test_la_semilla_entra_una_vez_sin_pisar_el_banco_y_la_ia_sigue_sumando(db, monkeypatch):
+    main._frog_job.clear()
+    main._frog_next.clear()
+    total = sum(len(ws) for by_category in _seed().values() for ws in by_category.values())
+    # Ya en el banco: la misma palabra (no se pisa) y otra con la misma traducción ("carro").
+    main.repository.put_frog_words("A1", "sustantivo", [main.VocabWord(**_word("dog", "can")), main.VocabWord(**_word("auto", "carro"))])
+
+    assert main.seed_frog_words() == total - 2
+    assert main.seed_frog_words() == 0  # en cada arranque: lo que ya está no se vuelve a escribir
+    a1 = {w.en: w for w in main.repository.get_frog_words("A1", "sustantivo")}
+    assert a1["dog"].es == "can" and "car" not in a1
+    assert {w.pos for w in main.repository.get_frog_words("B1", "preposicion")} == {"preposición"}
+
+    monkeypatch.setattr(main, "generate_frog_words", lambda *a: [])
+    for level in ai.FROG_LEVELS:
+        for category in ai.FROG_CATEGORIES:
+            assert len(main.public_frog_words(BackgroundTasks(), level=level, category=category).words) >= MIN_WORDS
+    # Con la semilla nadie espera, pero el banco no está en su meta: la IA sigue sumando tandas.
+    main._frog_job.clear()
+    first = main.public_frog_words(background := BackgroundTasks(), level="A1")
+    assert len(first.words) >= 50 and first.generating and background.tasks
