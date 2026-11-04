@@ -554,6 +554,7 @@ GET    /public/readers-vocabulary             — Vocabulario público (/vocab)
 GET    /public/game-sets                      — Sets destacados (`featured`) para /juegos → GameSetSummary[]
 GET    /public/game-sets/{id}                 — Set por id (enlace /j/:id) → PublicGameSet con `glossary`
 GET    /public/frog-words?level&category      — Banco de Rana hambrienta (A1…C1, tipo o "" = mixto) → FrogPool
+GET    /public/frog-words/example?en          — Oración de ejemplo de una palabra del banco → FrogExample
 ```
 
 - `GET /public/game-sets/{id}` es una URL-capability como `/public/vocabulary/{id}`: el UUID no se
@@ -572,6 +573,11 @@ GET    /public/frog-words?level&category      — Banco de Rana hambrienta (A1�
   `generating: true` = la tanda es de este nivel, o está en cola detrás de otra: el cliente vuelve a
   preguntar cada 4 s mientras tenga menos de 6 palabras. Sin login, como el resto de `/public/*`:
   solo expone vocabulario.
+- `GET /public/frog-words/example?en=` → `{en, es}`: una oración de ejemplo en inglés y su
+  traducción. `en` (1–40 caracteres) se busca por `frog_norm` en `frog_words`; si no está en el
+  banco → 404 (nadie gasta IA con texto libre). La primera vez la escribe `frog_example` (ai.py) y
+  queda en `data` (`example_en` / `example_es`); las demás, sin IA. Si la IA falla o la oración no
+  trae la palabra → 503 y no se guarda. No viaja en `VocabWord`: el banco que baja cada partida no crece.
 
 - `POST /public/responses/{id}/reinforcement` → `ReinforcementPlan` (`intro`, `areas[]` con
   `topic`/`mistakes`/`explanation`, `quiz[]` con `question`/`options`/`answer`/`explanation`). Lee

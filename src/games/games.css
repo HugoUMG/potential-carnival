@@ -801,6 +801,18 @@ button.dg-box:hover { transform: translateY(-3px) rotate(-2deg); }
 .fr-review li { display: flex; justify-content: space-between; gap: 10px; padding-bottom: 4px; border-bottom: 1px solid var(--line); font-size: 14px; }
 .fr-review li span { color: var(--muted); font-weight: 700; }
 .fr-review li b { color: var(--ok); }
+/* Las acertadas: la lista se desplaza sola para que "Jugar otra vez" no quede al fondo. */
+.fr-hits ul { max-height: 340px; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.fr-hits li { display: grid; gap: 4px; }
+.fr-hit { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fr-hit span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fr-hit-say { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--surface); color: var(--accent); display: grid; place-items: center; }
+.fr-hit-ai { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--surface-2); color: var(--accent); font-size: 12.5px; font-weight: 800; }
+.fr-hit-ex { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; margin-left: 36px; padding: 6px 10px; border-radius: 12px; background: var(--surface-2); font-size: 13.5px; }
+.fr-hit-ex .fr-hit-say { width: 24px; height: 24px; grid-row: span 2; }
+.fr-hit-ex p[lang='es'] { grid-column: 2; color: var(--muted); }
+.fr-review .fr-hit-ex p { font-weight: 600; font-size: 13.5px; margin: 0; }
+.fr-hit-err { margin-left: 36px; color: var(--muted); }
 
 @keyframes fr-throb { 50% { transform: scale(1.1); } }
 @keyframes fr-delta { from { transform: translateY(6px); opacity: 0; } 20% { transform: none; opacity: 1; } to { transform: translateY(-16px); opacity: 0; } }

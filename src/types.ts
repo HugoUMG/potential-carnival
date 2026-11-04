@@ -372,6 +372,12 @@ export interface FrogPool {
   generating: boolean;
 }
 
+/** Oración de ejemplo de una palabra de la rana: se pide con un botón y queda en el banco. */
+export interface FrogExample {
+  en: string;
+  es: string;
+}
+
 // ─── Salas de juego (ADR-40, backend/app/rooms.py) ─────────────────────────
 
 export type RoomMode = 'turnos' | 'presentador';

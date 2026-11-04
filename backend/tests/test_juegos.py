@@ -297,6 +297,30 @@ def test_el_banco_de_la_rana_se_llena_una_vez_y_es_de_todo_el_sitio(db, monkeypa
     assert exc.value.status_code == 422
 
 
+def test_rana_la_oracion_de_ejemplo_se_pide_una_vez_y_solo_de_palabras_del_banco(db, monkeypatch):
+    calls: list[str] = []
+    replies = iter([{"en": "My cat sleeps.", "es": "Mi gato duerme.", "used": "dog"},  # no usa la palabra: no se guarda
+                    {"en": "My cat sleeps.", "es": "Mi gato duerme.", "used": "cat"}])
+
+    def fake_ai(system, user, **kw):
+        calls.append(user)
+        return json.dumps(next(replies)), "fake"
+
+    monkeypatch.setattr(ai, "_ai_call", fake_ai)
+    main.repository.put_frog_words("A1", "sustantivo", [main.VocabWord(**_word("cat", "gato"))])
+    with pytest.raises(HTTPException) as exc:
+        main.public_frog_example(en="cat")
+    assert exc.value.status_code == 503
+    assert main.public_frog_example(en="Cat").model_dump() == {"en": "My cat sleeps.", "es": "Mi gato duerme."}
+    assert main.public_frog_example(en="cat").en == "My cat sleeps." and len(calls) == 2  # la tercera sale del banco
+    assert "Level: A1" in calls[0] and "gato" in calls[0]
+    # La oración no viaja en el banco que baja cada partida.
+    assert main.public_frog_words(BackgroundTasks(), level="A1").words[0].model_dump().keys() == {"en", "es", "pos", "wrong_es", "wrong_en"}
+    with pytest.raises(HTTPException) as exc:
+        main.public_frog_example(en="anything goes")
+    assert exc.value.status_code == 404 and len(calls) == 2
+
+
 def test_rana_si_la_ia_falla_se_reintenta_mas_tarde_y_mixto_crece_lo_mas_atrasado(db, monkeypatch):
     main._frog_job.clear()
     main._frog_next.clear()

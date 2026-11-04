@@ -1622,6 +1622,28 @@ def generate_frog_words(level: str, category: str, avoid: list[str]) -> list[dic
     return words
 
 
+_FROG_EXAMPLE_SYSTEM = """Write ONE example sentence for a Spanish-speaking learner of English.
+Use the given English word with the meaning of the given Spanish translation, at the given CEFR
+level: natural, everyday, at most 14 words. Then translate it into natural Latin American Spanish.
+
+Output ONLY valid JSON, no markdown:
+{"en": "I keep my money in the bank.", "es": "Guardo mi dinero en el banco.", "used": "bank"}
+"used" = the word exactly as it appears in "en" ("went" for "go", "children" for "child")."""
+
+
+def frog_example(en: str, es: str, pos: str, level: str) -> dict:
+    """Oración de ejemplo (inglés y español) de una palabra del banco de la rana. Solo cuando el
+    alumno la pide; main.py la guarda con la palabra y no se le vuelve a pedir a la IA."""
+    user = f"Word: {en}\nMeaning (Spanish): {es}\nWord type: {pos}\nLevel: {level}"
+    raw, _ = _ai_call(_FROG_EXAMPLE_SYSTEM, user, prefer_fast=True, temperature=0.5, json_mode=True)
+    data = _json_from_ai(raw)
+    out = {k: " ".join(str(data.get(k) or "").split())[:200] for k in ("en", "es", "used")}
+    # Revisión sin otra llamada: la oración tiene que traer la palabra con la forma que dice la IA.
+    if not out["en"] or not out["es"] or not out["used"] or out["used"].lower() not in out["en"].lower():
+        raise ValueError(f"la IA no dio una oración con {en!r}")
+    return {"example_en": out["en"], "example_es": out["es"]}
+
+
 def _json_from_ai(raw: str) -> dict:
     """El JSON que devuelve la IA, sin los fences de markdown que a veces agrega pese al prompt."""
     raw = raw.strip()
