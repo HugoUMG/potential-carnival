@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, ai_json, define_words, transcribe_with_clarity, FROG_CATEGORIES, frog_example, frog_norm, generate_frog_words, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import _ai_lock as ai_lock, ai_grade_activities, ai_json, define_words, transcribe_with_clarity, FROG_CATEGORIES, frog_example, frog_norm, generate_frog_words, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import get_connection, initialize_database
 from . import live
 from . import roleplay
@@ -152,6 +152,10 @@ def startup() -> None:
             print(f"[juegos] rana: {added} palabras nuevas de la semilla")
     except Exception as exc:  # sin semilla el juego sigue: la IA llena el banco como antes
         print(f"[juegos] rana: no se pudo cargar la semilla: {exc!r}")
+    # Solo en Render (lo define Render): en local el .env apunta a Aiven y gastaría IA de producción
+    # con el servidor de desarrollo abierto (regla 2).
+    if os.getenv("RENDER"):
+        threading.Thread(target=_frog_passive_loop, name="frog-passive", daemon=True).start()
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])
@@ -2309,6 +2313,19 @@ _FROG_RETRY_S = 600       # tras un fallo de la IA
 _FROG_POOL_MAX = 500      # palabras por respuesta: un C1 completo pesaría ~400 KB
 _frog_job: set[tuple[str, str]] = set()          # la tanda en curso (una a la vez en todo el servidor)
 _frog_next: dict[tuple[str, str], float] = {}   # (nivel, tipo) → desde cuándo puede pedir otra
+# Crecimiento pasivo (solo en Render): sin que nadie juegue, una tanda cada 3 min para el tipo más
+# atrasado de TODO el banco. Techo diario de 40 tandas (~120 llamadas) para no comerse el plan
+# gratuito de la IA; la calificación va primero (no arranca si `_ai_lock` está ocupado).
+_FROG_PASSIVE_S = 180
+_FROG_PASSIVE_DAY = 40
+
+
+def _frog_need(count: int, target: int) -> float:
+    """Qué tan atrasado va un nivel y tipo (menor = más urgente). Primero todos llegan a su piso
+    (48, o su meta si es menor: los conectores de A1 son 10), del más vacío al menos; después,
+    hacia la meta. Así 6 conectores van antes que 40 sustantivos de 250."""
+    floor = min(target, _FROG_STARTER)
+    return count / floor if count < floor else 1 + count / target
 
 
 def _frog_gap(level: str, category: str, counts: dict[str, int]) -> str | None:
@@ -2317,8 +2334,35 @@ def _frog_gap(level: str, category: str, counts: dict[str, int]) -> str | None:
     if category:
         return category if counts.get(category, 0) < targets[category] else None
     # Empate (todo vacío): en el orden de la tabla, primero sustantivos y verbos.
-    gaps = [(counts.get(c, 0) / t, i, c) for i, (c, t) in enumerate(targets.items()) if counts.get(c, 0) < t]
+    gaps = [(_frog_need(counts.get(c, 0), t), i, c) for i, (c, t) in enumerate(targets.items()) if counts.get(c, 0) < t]
     return min(gaps)[2] if gaps else None
+
+
+def _frog_passive_pick(counts: dict[str, dict[str, int]], now: float) -> tuple[str, str] | None:
+    """El nivel y tipo más atrasado de todo el banco que no esté esperando tras un fallo o una tanda."""
+    gaps = [(_frog_need(counts[lv].get(c, 0), t), lv, c) for lv, targets in _FROG_TARGETS.items()
+            for c, t in targets.items() if counts[lv].get(c, 0) < t and now >= _frog_next.get((lv, c), 0)]
+    return min(gaps)[1:] if gaps else None
+
+
+def _frog_passive_loop() -> None:
+    """Hilo de fondo: el banco crece aunque nadie estrene un nivel. Render apaga el servidor gratuito
+    tras ~15 min sin visitas, así que solo crece mientras el sitio está en uso."""
+    done: dict[str, int] = {}  # día → tandas pasivas
+    while True:
+        time.sleep(_FROG_PASSIVE_S)
+        today = time.strftime("%Y-%m-%d")
+        if done.get(today, 0) >= _FROG_PASSIVE_DAY or _frog_job or ai_lock.locked():
+            continue
+        try:
+            pick = _frog_passive_pick({lv: repository.count_frog_words(lv) for lv in _FROG_TARGETS}, time.time())
+        except Exception as exc:  # la base caída no tumba el hilo
+            print(f"[juegos] rana: crecimiento pasivo sin base: {exc!r}")
+            continue
+        if pick and not _frog_job:
+            _frog_job.add(pick)
+            done = {today: done.get(today, 0) + 1}
+            _grow_frog_words(*pick)
 
 
 def _grow_frog_words(level: str, category: str) -> None:

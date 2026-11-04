@@ -75,6 +75,7 @@ Sin `DATABASE_URL` el backend usa SQLite en `data/worksheet_builder.db`. Con ell
 | `CLOUDINARY_API_KEY` | No | Se envía al navegador (es pública) |
 | `CLOUDINARY_API_SECRET` | No | **Nunca sale del backend**: solo se usa para firmar |
 | `SEED_DEMO_USERS` | — | `false` en producción |
+| `RENDER` | — | La pone Render sola (no se configura). Con ella, `startup` arranca el crecimiento pasivo del banco de la rana (una tanda de IA cada 3 min, máx. 40 al día, ADR-44). En local no existe: el servidor de desarrollo no gasta IA en segundo plano |
 
 ### Frontend (build time)
 

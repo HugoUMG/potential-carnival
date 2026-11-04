@@ -297,6 +297,22 @@ def test_el_banco_de_la_rana_se_llena_una_vez_y_es_de_todo_el_sitio(db, monkeypa
     assert exc.value.status_code == 422
 
 
+def test_rana_el_crecimiento_pasivo_llena_primero_lo_mas_vacio_de_todo_el_banco():
+    main._frog_next.clear()
+    counts = {lv: dict(t) for lv, t in main._FROG_TARGETS.items()}  # todo en su meta
+    assert main._frog_passive_pick(counts, 0) is None
+    counts["A1"]["sustantivo"] = 40  # 40 de su piso de 48: 0.83
+    counts["A1"]["conector"] = 6     # 6 de 10: 0.6
+    counts["B2"]["conector"] = 7     # 7 de 40: 0.18, el más atrasado aunque sea de otro nivel
+    assert main._frog_passive_pick(counts, 0) == ("B2", "conector")
+    main._frog_next[("B2", "conector")] = 100  # falló hace poco: espera su turno
+    assert main._frog_passive_pick(counts, 50) == ("A1", "conector")
+    # Con todo en su piso, sigue hacia la meta el que más lejos está de ella.
+    floors = {lv: {c: min(t, main._FROG_STARTER) for c, t in targets.items()} for lv, targets in main._FROG_TARGETS.items()}
+    assert main._frog_passive_pick(floors, 200) == ("C1", "sustantivo")
+    main._frog_next.clear()
+
+
 def test_rana_la_oracion_de_ejemplo_se_pide_una_vez_y_solo_de_palabras_del_banco(db, monkeypatch):
     calls: list[str] = []
     replies = iter([{"en": "My cat sleeps.", "es": "Mi gato duerme.", "used": "dog"},  # no usa la palabra: no se guarda

@@ -1195,7 +1195,19 @@ sitio. Descartado: *generarlas junto con el banco* (16 oraciones más por tanda 
 y la tanda ya pesa ~45 s) y *pedirlas todas al terminar la partida* (una llamada por palabra en cada
 partida, compitiendo con la calificación en `_ai_lock`). No viajan en `VocabWord` para que el banco
 que baja cada partida no crezca. Techo: dos alumnos pidiendo la misma palabra en el mismo segundo
-pagan dos llamadas.
+pagan dos llamadas. El repaso final muestra también las falladas, con su tipo de palabra.
+
+**Crecimiento pasivo (noviembre 2026).** Crecer solo con las visitas dejaba atrás lo que casi nadie
+elige: los conectores y preposiciones seguían con las 6-7 palabras de la semilla, porque en mixto
+crecía primero el tipo con menor proporción (6 de 10 conectores pierde contra 40 de 250
+sustantivos). Ahora, en Render, `_frog_passive_loop` suma cada 3 min una tanda al nivel y tipo más
+atrasado de **todo** el banco, y `_frog_need` ordena primero por piso (48, o la meta si es menor) y
+luego hacia la meta, también en mixto. Techo de 40 tandas pasivas por día (~120 llamadas) y no
+arranca si `_ai_lock` está ocupado: la calificación va primero. Descartado: *sin techo diario*
+(agotaría el plan gratuito de Gemini y la calificación caería a Groq) y *también en local* (el `.env`
+apunta a Aiven: el servidor de desarrollo abierto gastaría IA de producción, regla 2). Consecuencia:
+el servidor gratuito de Render se apaga tras ~15 min sin visitas, así que el banco solo crece
+mientras el sitio está en uso; el contador diario vive en memoria y un redeploy lo reinicia.
 
 ## 🟢 ADR-45 — Semilla del banco de la rana: 242 palabras en el repo, insertadas al arrancar
 
