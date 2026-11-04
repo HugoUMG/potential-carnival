@@ -569,7 +569,10 @@ GET    /public/frog-words/example?en          — Oración de ejemplo de una pal
   una muestra fija por día). Si ese nivel y tipo no llegó a su meta (`_FROG_TARGETS`), programa
   **una** tanda de 16 en segundo plano (`_grow_frog_words`): una sola a la vez en todo el servidor
   (`_frog_job`); sin espera mientras el tipo tenga menos de 48 palabras, luego una cada 3 min por
-  nivel y tipo, y 10 min tras un fallo (`_frog_next`). En mixto crece el tipo más atrasado.
+  nivel y tipo, y 10 min tras un fallo (`_frog_next`). En mixto crece el tipo más atrasado
+  (`_frog_need`: primero todos hasta su piso de 48, o su meta si es menor). Aparte, en Render un hilo
+  (`_frog_passive_loop`) suma una tanda cada 3 min al nivel y tipo más atrasado de **todo** el banco,
+  aunque nadie lo juegue (ver ADR-44).
   `generating: true` = la tanda es de este nivel, o está en cola detrás de otra: el cliente vuelve a
   preguntar cada 4 s mientras tenga menos de 6 palabras. Sin login, como el resto de `/public/*`:
   solo expone vocabulario.

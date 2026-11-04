@@ -53,8 +53,10 @@ interface Cfg { lang: Lang; level: FrogLevel; cat: FrogCategory | ''; diff: Diff
 interface Round { k: number; turn: number; word: string; pos: string; en: string; es: string; flies: string[]; spots: number[]; answer: number }
 /** `left` = ms que quedaban al escribirlo; cada navegador cuenta desde que le llega un `n` nuevo. */
 interface Clock { left: number; n: number; run: boolean }
-/** `hits` = [en, es] de cada palabra acertada, sin repetir (opcional: una sala abierta antes no lo trae). */
-interface Stats { ok: number; bad: number; streak: number; best: number; ms: number; missed: [string, string][]; hits?: [string, string][] }
+/** Una palabra para el repaso final: [en, es, tipo de palabra]. */
+type Seen = [string, string, string];
+/** `missed` / `hits` = cada palabra fallada / acertada, sin repetir (`hits` es opcional: una sala abierta antes no lo trae). */
+interface Stats { ok: number; bad: number; streak: number; best: number; ms: number; missed: Seen[]; hits?: Seen[] }
 interface Pick { fly: number; ok: boolean; delta: number }
 
 const EMPTY: Stats = { ok: 0, bad: 0, streak: 0, best: 0, ms: 0, missed: [], hits: [] };
@@ -177,13 +179,12 @@ export function FrogGame() {
     if (!canAct || !round || pick || phase !== 'play') return;
     const ok = i === round.answer;
     const delta = ok ? gainMs(cfg.diff, stats.ok) : -DIFFS[cfg.diff].loss * 1000;
-    const missed: [string, string][] = ok || stats.missed.some(([w]) => w === round.word)
-      ? stats.missed : [...stats.missed, [round.word, round.flies[round.answer]]];
-    const hits = stats.hits ?? [];
+    const seen: Seen = [round.en, round.es, round.pos];
+    const add = (list: Seen[], yes: boolean) => (yes && !list.some(([en]) => en === round.en) ? [...list, seen] : list);
     setStats({
       ok: stats.ok + (ok ? 1 : 0), bad: stats.bad + (ok ? 0 : 1), streak: ok ? stats.streak + 1 : 0,
-      best: Math.max(stats.best, ok ? stats.streak + 1 : 0), ms: stats.ms + (clock.left - left), missed: missed.slice(-12),
-      hits: ok && !hits.some(([en]) => en === round.en) ? [...hits, [round.en, round.es]] : hits,
+      best: Math.max(stats.best, ok ? stats.streak + 1 : 0), ms: stats.ms + (clock.left - left),
+      missed: add(stats.missed, !ok), hits: add(stats.hits ?? [], ok),
     });
     setClock({ left: Math.min(MAX_MS, Math.max(0, left + delta)), n: clock.n + 1, run: false });
     setPick({ fly: i, ok, delta });
@@ -247,13 +248,7 @@ export function FrogGame() {
           <span><b>{stats.bad}</b> moscas malas</span>
           <span><b>{stats.best}</b> mejor racha</span>
         </div>
-        {stats.missed.length > 0 && (
-          <div className="fr-review">
-            <p>Repasa estas palabras</p>
-            <ul>{stats.missed.map(([w, a]) => <li key={w}><span>{w}</span><b>{a}</b></li>)}</ul>
-          </div>
-        )}
-        {(stats.hits?.length ?? 0) > 0 && <FrogHits hits={stats.hits ?? []} />}
+        <FrogReview missed={stats.missed} hits={stats.hits ?? []} />
         <div className="dg-row center wrap">
           <button type="button" className="dg-btn primary big" onClick={start} disabled={!words}><RotateCcw size={18} /> Jugar otra vez</button>
           <button type="button" className="dg-btn" onClick={() => setPhase('ready')}>Cambiar modo</button>
@@ -407,26 +402,32 @@ function FrogStart({ pool, cfg, onCfg, onStart }: { pool: Pool | null; cfg: Cfg;
 
 type Example = FrogExample | 'loading' | 'error';
 
-/** Las palabras acertadas: se escuchan y, solo si el alumno lo pide, la IA escribe una oración de
+/** El repaso final: las falladas y las acertadas (una que fallaste y luego acertaste va solo arriba).
+ *  Cada palabra se escucha, dice su tipo y, solo si el alumno lo pide, la IA escribe una oración de
  *  ejemplo (una por palabra para todo el sitio: la segunda vez sale del banco, sin IA). Suena solo
  *  en este navegador (`playAudio`, no `speak`): en sala cada uno repasa a su ritmo. */
-function FrogHits({ hits }: { hits: [string, string][] }) {
+function FrogReview({ missed, hits }: { missed: Seen[]; hits: Seen[] }) {
   const [ex, setEx] = useState<Record<string, Example>>({});
   const ask = (en: string) => {
     setEx((m) => ({ ...m, [en]: 'loading' }));
     getFrogExample(en).then((e) => setEx((m) => ({ ...m, [en]: e })), () => setEx((m) => ({ ...m, [en]: 'error' })));
   };
-  return (
-    <div className="fr-review fr-hits">
-      <p>Las que acertaste ({hits.length})</p>
+  const lists: [string, string, Seen[]][] = [
+    ['miss', 'Repasa estas palabras', missed],
+    ['hit', 'Las que acertaste', hits.filter(([en]) => !missed.some(([m]) => m === en))],
+  ];
+  return lists.filter(([, , words]) => words.length > 0).map(([kind, title, words]) => (
+    <div key={kind} className={`fr-review fr-hits ${kind}`}>
+      <p>{title} ({words.length})</p>
       <ul>
-        {hits.map(([en, es]) => {
+        {words.map(([en, es, pos]) => {
           const e = ex[en];
           return (
             <li key={en}>
               <div className="fr-hit">
                 <button type="button" className="fr-hit-say" onClick={() => playAudio(en)} aria-label={`Escuchar ${en}`}><Volume2 size={15} /></button>
                 <b lang="en">{en}</b>
+                {pos && <em className="fr-hit-pos">{pos}</em>}
                 <span>{es}</span>
                 {e === 'loading' ? <Loader2 size={15} className="fr-spin" aria-label="Escribiendo la oración" />
                   : typeof e !== 'object' && (
@@ -448,7 +449,7 @@ function FrogHits({ hits }: { hits: [string, string][] }) {
         })}
       </ul>
     </div>
-  );
+  ));
 }
 
 /** La rana, en SVG. `look` mueve las pupilas hacia la mosca (−1…1 en cada eje). */

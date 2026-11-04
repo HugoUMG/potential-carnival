@@ -1623,8 +1623,11 @@ def generate_frog_words(level: str, category: str, avoid: list[str]) -> list[dic
 
 
 _FROG_EXAMPLE_SYSTEM = """Write ONE example sentence for a Spanish-speaking learner of English.
-Use the given English word with the meaning of the given Spanish translation, at the given CEFR
-level: natural, everyday, at most 14 words. Then translate it into natural Latin American Spanish.
+Use the given English word with the meaning of the given Spanish translation and AS the given word
+type (sustantivo = noun, verbo = verb, adjetivo = adjective, adverbio = adverb, preposición =
+preposition, conector = connector): for the verb "run" write "I run every morning", never "a morning
+run". At the given CEFR level: natural, everyday, at most 14 words. Then translate it into natural
+Latin American Spanish.
 
 Output ONLY valid JSON, no markdown:
 {"en": "I keep my money in the bank.", "es": "Guardo mi dinero en el banco.", "used": "bank"}
