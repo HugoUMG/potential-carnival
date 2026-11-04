@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
-import { Bug, Flag, Flame, Loader2, Play, RotateCcw, Timer, Trophy, Volume2 } from 'lucide-react';
-import { getFrogWords } from '../services/api';
-import type { FrogCategory, FrogLevel, VocabWord } from '../types';
+import { Bug, Flag, Flame, Loader2, Play, RotateCcw, Sparkles, Timer, Trophy, Volume2 } from 'lucide-react';
+import { getFrogExample, getFrogWords } from '../services/api';
+import type { FrogCategory, FrogExample, FrogLevel, VocabWord } from '../types';
 import { playSfx } from '../utils/sfx';
-import { range, sample, shuffle, speak } from './util';
+import { playAudio, range, sample, shuffle, speak } from './util';
 import { Notice } from './ui';
 import { useRoom, useShared } from './roomState';
 
@@ -50,13 +50,14 @@ const LAYOUTS: Record<number, number[][]> = { 3: [[0, 3, 4], [1, 2, 5]], 4: [[1,
 const MOUTH: [number, number] = [50, 42.6];
 
 interface Cfg { lang: Lang; level: FrogLevel; cat: FrogCategory | ''; diff: Diff }
-interface Round { k: number; turn: number; word: string; pos: string; en: string; flies: string[]; spots: number[]; answer: number }
+interface Round { k: number; turn: number; word: string; pos: string; en: string; es: string; flies: string[]; spots: number[]; answer: number }
 /** `left` = ms que quedaban al escribirlo; cada navegador cuenta desde que le llega un `n` nuevo. */
 interface Clock { left: number; n: number; run: boolean }
-interface Stats { ok: number; bad: number; streak: number; best: number; ms: number; missed: [string, string][] }
+/** `hits` = [en, es] de cada palabra acertada, sin repetir (opcional: una sala abierta antes no lo trae). */
+interface Stats { ok: number; bad: number; streak: number; best: number; ms: number; missed: [string, string][]; hits?: [string, string][] }
 interface Pick { fly: number; ok: boolean; delta: number }
 
-const EMPTY: Stats = { ok: 0, bad: 0, streak: 0, best: 0, ms: 0, missed: [] };
+const EMPTY: Stats = { ok: 0, bad: 0, streak: 0, best: 0, ms: 0, missed: [], hits: [] };
 
 function makeRound(words: VocabWord[], k: number, { lang, diff }: Cfg, turn: number): Round {
   // `% length`: en sala, quien recibe el control a media partida pudo bajar el banco ya crecido.
@@ -64,7 +65,7 @@ function makeRound(words: VocabWord[], k: number, { lang, diff }: Cfg, turn: num
   const right = lang === 'es' ? w.en : w.es;
   const flies = shuffle([right, ...sample(lang === 'es' ? w.wrong_en : w.wrong_es, DIFFS[diff].flies - 1)]);
   const layouts = LAYOUTS[flies.length] ?? LAYOUTS[6];
-  return { k, turn, word: lang === 'es' ? w.es : w.en, pos: w.pos, en: w.en, flies, spots: layouts[Math.floor(Math.random() * layouts.length)], answer: flies.indexOf(right) };
+  return { k, turn, word: lang === 'es' ? w.es : w.en, pos: w.pos, en: w.en, es: w.es, flies, spots: layouts[Math.floor(Math.random() * layouts.length)], answer: flies.indexOf(right) };
 }
 
 /** Siguiente palabra: la cola barajada, sin repetir la última; la que se falló vuelve tras dos. */
@@ -178,9 +179,11 @@ export function FrogGame() {
     const delta = ok ? gainMs(cfg.diff, stats.ok) : -DIFFS[cfg.diff].loss * 1000;
     const missed: [string, string][] = ok || stats.missed.some(([w]) => w === round.word)
       ? stats.missed : [...stats.missed, [round.word, round.flies[round.answer]]];
+    const hits = stats.hits ?? [];
     setStats({
       ok: stats.ok + (ok ? 1 : 0), bad: stats.bad + (ok ? 0 : 1), streak: ok ? stats.streak + 1 : 0,
       best: Math.max(stats.best, ok ? stats.streak + 1 : 0), ms: stats.ms + (clock.left - left), missed: missed.slice(-12),
+      hits: ok && !hits.some(([en]) => en === round.en) ? [...hits, [round.en, round.es]] : hits,
     });
     setClock({ left: Math.min(MAX_MS, Math.max(0, left + delta)), n: clock.n + 1, run: false });
     setPick({ fly: i, ok, delta });
@@ -250,6 +253,7 @@ export function FrogGame() {
             <ul>{stats.missed.map(([w, a]) => <li key={w}><span>{w}</span><b>{a}</b></li>)}</ul>
           </div>
         )}
+        {(stats.hits?.length ?? 0) > 0 && <FrogHits hits={stats.hits ?? []} />}
         <div className="dg-row center wrap">
           <button type="button" className="dg-btn primary big" onClick={start} disabled={!words}><RotateCcw size={18} /> Jugar otra vez</button>
           <button type="button" className="dg-btn" onClick={() => setPhase('ready')}>Cambiar modo</button>
@@ -397,6 +401,52 @@ function FrogStart({ pool, cfg, onCfg, onStart }: { pool: Pool | null; cfg: Cfg;
             : pool.generating ? <><Loader2 size={13} className="fr-spin inline align-[-2px]" /> La IA está preparando las palabras de {cfg.level} · {catName(cfg.cat).toLowerCase()} y revisando que cada una tenga una sola respuesta. Solo pasa la primera vez (menos de un minuto).</>
               : <>Aún hay pocas palabras de {cfg.level} · {catName(cfg.cat).toLowerCase()}. Prueba otro tipo de palabra o vuelve en unos minutos: el banco crece solo.</>}
       </p>
+    </div>
+  );
+}
+
+type Example = FrogExample | 'loading' | 'error';
+
+/** Las palabras acertadas: se escuchan y, solo si el alumno lo pide, la IA escribe una oración de
+ *  ejemplo (una por palabra para todo el sitio: la segunda vez sale del banco, sin IA). Suena solo
+ *  en este navegador (`playAudio`, no `speak`): en sala cada uno repasa a su ritmo. */
+function FrogHits({ hits }: { hits: [string, string][] }) {
+  const [ex, setEx] = useState<Record<string, Example>>({});
+  const ask = (en: string) => {
+    setEx((m) => ({ ...m, [en]: 'loading' }));
+    getFrogExample(en).then((e) => setEx((m) => ({ ...m, [en]: e })), () => setEx((m) => ({ ...m, [en]: 'error' })));
+  };
+  return (
+    <div className="fr-review fr-hits">
+      <p>Las que acertaste ({hits.length})</p>
+      <ul>
+        {hits.map(([en, es]) => {
+          const e = ex[en];
+          return (
+            <li key={en}>
+              <div className="fr-hit">
+                <button type="button" className="fr-hit-say" onClick={() => playAudio(en)} aria-label={`Escuchar ${en}`}><Volume2 size={15} /></button>
+                <b lang="en">{en}</b>
+                <span>{es}</span>
+                {e === 'loading' ? <Loader2 size={15} className="fr-spin" aria-label="Escribiendo la oración" />
+                  : typeof e !== 'object' && (
+                    <button type="button" className="fr-hit-ai" onClick={() => ask(en)}>
+                      <Sparkles size={13} /> {e === 'error' ? 'Reintentar' : 'Oración'}
+                    </button>
+                  )}
+              </div>
+              {typeof e === 'object' && (
+                <div className="fr-hit-ex">
+                  <button type="button" className="fr-hit-say" onClick={() => playAudio(e.en)} aria-label="Escuchar la oración"><Volume2 size={13} /></button>
+                  <p lang="en">{e.en}</p>
+                  <p lang="es">{e.es}</p>
+                </div>
+              )}
+              {e === 'error' && <small className="fr-hit-err">La IA no pudo escribirla ahora.</small>}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

@@ -139,7 +139,10 @@ no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de el
   mosca, la lengua sale hasta ella (`<line>` con `pathLength=1`) y la rana se la come: feliz si era
   buena; enferma (verde oliva, ojos en espiral) si era mala, y la buena se ilumina en verde, con el
   reloj parado durante la animación. La palabra fallada vuelve tras dos (`nextWord`) y la pantalla
-  final la lista para repasar. "Terminar" es un botón discreto en la barra de arriba. Récord por
+  final la lista para repasar. También lista **todas las acertadas** (`stats.hits`, [en, es] sin
+  repetir; `FrogHits`): 🔊 por palabra y un botón **Oración** que pide a la IA un ejemplo en inglés y
+  español (`getFrogExample`) **solo si el alumno lo toca**, y también se escucha. Suena con
+  `playAudio`, no `speak`: en sala cada uno repasa en su navegador. "Terminar" es un botón discreto en la barra de arriba. Récord por
   modo, nivel, tipo y dificultad en `localStorage` (`dg-rana-…`, en segundos, solo sin sala).
   **Estanque cuadrado:** `SPOTS` (sitios de las moscas), `MOUTH` y la lengua usan el mismo %; si
   cambia el tamaño de la rana (`.fr-frog`), cambia `MOUTH`. Cada mosca es un `<button>` centrado en

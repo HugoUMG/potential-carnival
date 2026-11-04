@@ -1,4 +1,4 @@
-import type { ActivityBlock, ActivityType, GameQuestion, GameSet, GameSetDraft, GameSetSummary, FrogCategory, FrogLevel, FrogPool, PublicGameSet, RoleplayMessage, RoleplayReply, RoleplayReport, RoleplayScenario, RoleplayStart, RoleplayLevel, RoomLend, RoomMode, RoomState, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
+import type { ActivityBlock, ActivityType, GameQuestion, GameSet, GameSetDraft, GameSetSummary, FrogCategory, FrogExample, FrogLevel, FrogPool, PublicGameSet, RoleplayMessage, RoleplayReply, RoleplayReport, RoleplayScenario, RoleplayStart, RoleplayLevel, RoomLend, RoomMode, RoomState, StudentAnswers, VocabularyItem, VocabularyList, Worksheet, WorksheetActivity } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const AUTH_STORAGE_KEY = 'worksheet_auth_session';
@@ -1045,6 +1045,11 @@ export function getPublicGameSet(id: string): Promise<PublicGameSet> {
  *  a su meta, el servidor suma una tanda en segundo plano (`generating`). */
 export function getFrogWords(level: FrogLevel, category: FrogCategory | ''): Promise<FrogPool> {
   return request<FrogPool>(`/public/frog-words?${new URLSearchParams({ level, category })}`);
+}
+
+/** Oración de ejemplo de una palabra del banco. La primera vez la escribe la IA; después sale guardada. */
+export function getFrogExample(en: string): Promise<FrogExample> {
+  return request<FrogExample>(`/public/frog-words/example?${new URLSearchParams({ en })}`);
 }
 
 /** URL del audio de una pregunta o palabra para un <audio>. Siempre edge-tts (gratis): los juegos

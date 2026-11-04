@@ -519,6 +519,13 @@ class FrogPool(BaseModel):
     generating: bool = False
 
 
+class FrogExample(BaseModel):
+    """Oración de ejemplo de una palabra de la rana (`en`) y su traducción (`es`). Se guarda dentro
+    de `frog_words.data` pero no viaja en `VocabWord`: el banco que baja cada partida no crece."""
+    en: str
+    es: str
+
+
 class GameAiRequest(BaseModel):
     topic: str = Field(min_length=2, max_length=300)
     level: str = Field(default="B1", max_length=10)

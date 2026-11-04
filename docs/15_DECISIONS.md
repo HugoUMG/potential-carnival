@@ -1189,6 +1189,14 @@ dificultad y los tipos están duplicados entre el front y el back (regla 50). Te
 otra IA, no un diccionario; reduce mucho los dobles sentidos, no los imposibilita, sobre todo en
 matices de B2/C1 (*compelling* llevó "fascinante" en una prueba).
 
+**Oraciones de ejemplo (noviembre 2026).** La pantalla final ofrece una oración por palabra acertada,
+pero **solo si el alumno toca el botón**, y una vez escrita queda en `frog_words.data` para todo el
+sitio. Descartado: *generarlas junto con el banco* (16 oraciones más por tanda que casi nadie leería,
+y la tanda ya pesa ~45 s) y *pedirlas todas al terminar la partida* (una llamada por palabra en cada
+partida, compitiendo con la calificación en `_ai_lock`). No viajan en `VocabWord` para que el banco
+que baja cada partida no crezca. Techo: dos alumnos pidiendo la misma palabra en el mismo segundo
+pagan dos llamadas.
+
 ## 🟢 ADR-45 — Semilla del banco de la rana: 242 palabras en el repo, insertadas al arrancar
 
 **Decisión.** El banco `frog_words` ya no arranca vacío: `backend/app/frog_seed.json` trae 242

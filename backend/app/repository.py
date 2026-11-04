@@ -1558,6 +1558,18 @@ class WorksheetRepository:
             ).fetchall()
         return [dict(r)["en_key"] for r in rows]
 
+    def get_frog_word(self, en_key: str) -> tuple[str, dict] | None:
+        """(nivel, `data` entero) de una palabra del banco, con lo que `VocabWord` no lleva."""
+        with get_connection() as connection:
+            row = connection.execute(f"SELECT level, data FROM frog_words WHERE en_key = {self._placeholder}", (en_key,)).fetchone()
+        return (dict(row)["level"], _decode_json(dict(row)["data"], {})) if row else None
+
+    def set_frog_word_data(self, en_key: str, data: dict) -> None:
+        with get_connection() as connection:
+            connection.execute(
+                f"UPDATE frog_words SET data = {self._placeholder} WHERE en_key = {self._placeholder}", (self._json_param(data), en_key)
+            )
+
     def put_frog_words(self, level: str, category: str, words: list[VocabWord]) -> int:
         """Guarda las palabras nuevas y devuelve cuántas entraron. Una que ya está en el banco (en
         cualquier nivel) no se pisa: `en_key` es la clave."""

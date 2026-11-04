@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer
 
-from .ai import ai_grade_activities, ai_json, define_words, transcribe_with_clarity, FROG_CATEGORIES, frog_norm, generate_frog_words, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
+from .ai import ai_grade_activities, ai_json, define_words, transcribe_with_clarity, FROG_CATEGORIES, frog_example, frog_norm, generate_frog_words, generate_game_questions, generate_reinforcement_plan, generate_vocabulary_csv, generate_worksheet_script, edit_worksheet_script, review_worksheet_script, summarize_worksheet_performance as ai_summarize, transcribe_audio as ai_transcribe
 from .database import get_connection, initialize_database
 from . import live
 from . import roleplay
@@ -38,6 +38,7 @@ from .models import (
     GameSet,
     GameSetPayload,
     GameSetSummary,
+    FrogExample,
     FrogPool,
     GoogleAuthRequest,
     PublicGameSet,
@@ -2387,6 +2388,27 @@ def public_frog_words(background: BackgroundTasks, level: str = "A1", category: 
     busy = next(iter(_frog_job), None)
     mine = busy is not None and busy[0] == level and category in ("", busy[1])
     return FrogPool(words=words, generating=mine or (due and busy is not None))
+
+
+@app.get("/public/frog-words/example", response_model=FrogExample)
+def public_frog_example(en: str = Query(min_length=1, max_length=40)) -> FrogExample:
+    """Oración de ejemplo de una palabra del banco. La IA la escribe la primera vez que alguien la
+    pide (un botón al final de la partida, nunca sola) y queda en `frog_words.data`: las demás veces
+    no hay llamada. Solo palabras del banco, así nadie gasta la IA con texto libre."""
+    # ponytail: dos alumnos pidiendo la misma palabra en el mismo segundo pagan dos llamadas; candado por palabra si pasa.
+    key = frog_norm(en)
+    found = repository.get_frog_word(key)
+    if not found:
+        raise HTTPException(status_code=404, detail="Esa palabra no está en el banco")
+    level, data = found
+    if not data.get("example_en"):
+        try:
+            data |= frog_example(data["en"], data["es"], data.get("pos", ""), level)
+        except Exception as exc:
+            print(f"[juegos] rana: sin oración para {en!r}: {exc!r}")
+            raise HTTPException(status_code=503, detail="La IA no pudo escribir la oración. Prueba en un momento.") from exc
+        repository.set_frog_word_data(key, data)
+    return FrogExample(en=data["example_en"], es=data["example_es"])
 
 
 def _norm_answer(v: Any) -> str:
