@@ -11,6 +11,9 @@ import { Muxer, ArrayBufferTarget } from '../vendor/mp4-muxer.mjs';
 const params = new URLSearchParams(location.search);
 const EXPORT = params.get('export') === '1';
 const STILL = params.has('t');
+// ?mbps=N baja el bitrate (por defecto 9) y guarda spot-ligero.mp4, p. ej. para subidas con límite de tamaño
+const MBPS = parseFloat(params.get('mbps')) || 9;
+const OUT_NAME = params.has('mbps') ? 'spot-ligero.mp4' : 'spot.mp4';
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -295,7 +298,7 @@ async function exportVideo() {
       codec: 'avc1.4d0028',
       width: W,
       height: H,
-      bitrate: 9_000_000,
+      bitrate: MBPS * 1e6,
       framerate: FPS,
       avc: { format: 'avc' },
       latencyMode: 'quality',
@@ -324,19 +327,19 @@ async function exportVideo() {
     muxer.finalize();
     const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
     log(`MP4: ${(blob.size / 1024 / 1024).toFixed(1)} MB. Enviando…`);
-    const res = await fetch('/save?name=spot.mp4', { method: 'POST', body: blob }).catch(() => null);
+    const res = await fetch(`/save?name=${OUT_NAME}`, { method: 'POST', body: blob }).catch(() => null);
     if (res?.ok) {
       log('Guardado. Puedes cerrar esta pestaña.');
     } else {
       // ponytail: /save solo existe con render.mjs; con `npm run dev` (Vite) el navegador lo descarga
       const a = Object.assign(document.createElement('a'), {
         href: URL.createObjectURL(blob),
-        download: 'spot.mp4',
+        download: OUT_NAME,
       });
       a.click();
-      log('Descargado como spot.mp4 (sin render.mjs no se guarda en el proyecto).');
+      log(`Descargado como ${OUT_NAME} (sin render.mjs no se guarda en el proyecto).`);
     }
-    document.title = 'Listo · spot.mp4';
+    document.title = `Listo · ${OUT_NAME}`;
   } catch (e) {
     log('ERROR: ' + (e?.stack || e?.message || e));
     console.error(e);

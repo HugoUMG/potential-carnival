@@ -9,6 +9,7 @@ proyecto. No hay editor de vídeo ni material de stock: cada fotograma se pinta 
 | Archivo | Qué es |
 |---------|--------|
 | `spot.mp4` | Vídeo final: 1920×1080, 30 fps, H.264 + AAC, 50 s. |
+| `spot-ligero.mp4` | El mismo vídeo con `--mbps 0.8` (≈15 MB), para subidas con límite de tamaño. |
 | `index.html` | Reproductor interactivo con timeline, mute y descarga. |
 | `spot.wav` | Pista de audio suelta para revisión (48 kHz, estéreo, 16 bit). |
 | `stills/` | Fotogramas de control generados con `--stills`. |
@@ -44,6 +45,10 @@ Desde `design/spot`:
 # Exportar el MP4 (tarda ~1–2 min)
 node render.mjs
 
+# Versión ligera (≈15 MB) en spot-ligero.mp4. El codificador de Chrome se pasa del
+# bitrate pedido: 0.8 da ≈2,4 Mbps reales, 1.8 da ≈3,4 (21 MB)
+node render.mjs --mbps 0.8
+
 # Solo audio, para revisar niveles
 node render.mjs --audio
 
@@ -54,6 +59,11 @@ node render.mjs --stills 1,8.5,15,30.8,49.5
 `render.mjs` levanta un servidor local, lanza Chrome en modo headless y espera a que el
 navegador codifique y envíe el archivo. Si Chrome no está en una ruta estándar, define
 `CHROME_PATH`. El perfil temporal se crea en `.chrome-profile/`.
+
+Si el Chrome headless se queda en «Sintetizando música…» y vence el tiempo (pasó en Windows
+en nov. 2026), deja `render.mjs` corriendo y abre la misma URL en un Chrome normal:
+`http://127.0.0.1:4178/design/spot/index.html?export=1` (añade `&mbps=0.8` para la ligera).
+El archivo se guarda igual en `design/spot/`.
 
 ## Dónde se toca
 

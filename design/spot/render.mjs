@@ -1,6 +1,7 @@
 /* Servidor local + lanzador de Chrome para renderizar el spot.
    Uso:
      node render.mjs                 → exporta design/spot/spot.mp4
+     node render.mjs --mbps 0.8      → versión ligera (≈15 MB) en design/spot/spot-ligero.mp4
      node render.mjs --stills 1,12   → guarda fotogramas sueltos en design/spot/stills/
 */
 
@@ -121,6 +122,8 @@ async function main() {
   const args = process.argv.slice(2);
   const stillsArg = args.indexOf('--stills');
   const audioMode = args.includes('--audio');
+  const mbpsArg = args.indexOf('--mbps');
+  const mbps = mbpsArg !== -1 ? `&mbps=${Number(args[mbpsArg + 1])}` : '';
 
   await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
   console.log(`Servidor en http://127.0.0.1:${PORT}`);
@@ -157,7 +160,7 @@ async function main() {
     '--disable-background-timer-throttling',
     '--disable-renderer-backgrounding',
     '--disable-backgrounding-occluded-windows',
-    `${base}${audioMode ? '?audio=1' : '?export=1'}`,
+    `${base}${audioMode ? '?audio=1' : '?export=1' + mbps}`,
   ]);
   chrome.on('exit', (code) => {
     console.log('Chrome terminó con código', code);
