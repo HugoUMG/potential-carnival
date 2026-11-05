@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyDinoEnglish · Spot 50 s</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div class="brand">
+        <img src="../../public/mascot/rex-logo.svg" alt="" class="brand-logo" />
+        <div>
+          <p class="brand-name"><span>My</span>Dino<span class="g">English</span></p>
+          <p class="brand-sub">Spot · 50 segundos · hecho con código</p>
+        </div>
+      </div>
+      <div class="meta">1920 × 1080 · 30 fps · H.264 + AAC</div>
+    </header>
+
+    <section class="stage">
+      <canvas id="c" width="1920" height="1080"></canvas>
+
+      <button id="play" class="bigplay" aria-label="Reproducir" disabled>
+        <span class="ring"></span>
+        <span class="tri"></span>
+      </button>
+
+      <div id="overlay" class="overlay">
+        <div class="overlay-tag">Pulsa play para ver el spot</div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <button id="smallPlay" class="ctrl" disabled aria-label="Reproducir">▶</button>
+      <span id="cur" class="time">0:00.00</span>
+      <input id="timeline" class="timeline" type="range" min="0" max="50" step="0.02" value="0" aria-label="Línea de tiempo" />
+      <span class="time">0:50.00</span>
+      <button id="mute" class="ctrl" aria-label="Silenciar">🔊</button>
+      <button id="download" class="download">Descargar MP4</button>
+    </section>
+
+    <p id="status" class="status">Cargando…</p>
+    <p class="note">
+      El video y la música se generan en el navegador. «Descargar MP4» abre el render
+      (≈1 minuto) y descarga <code>spot.mp4</code>; con <code>node render.mjs</code> se guarda en el proyecto.
+    </p>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
