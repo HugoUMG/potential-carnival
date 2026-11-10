@@ -11,6 +11,7 @@ import { AnswerRaceGame, HotPotatoGame, InterviewGame } from './oral';
 import { BombGame, DinoRaceGame, DoorsGame, LettersGame, MapGame, PirateGame, ScratchGame } from './pick';
 import { BetGame, ConquestGame, NavalGame, PenaltyGame, VolcanoGame } from './teams';
 import { FrogGame } from './frog';
+import { CaterpillarGame, ChameleonGame } from './verbs';
 
 export type Skill = 'hablar' | 'tablero' | 'escuchar' | 'estructura' | 'significado' | 'mesa' | 'turnos';
 
@@ -168,4 +169,17 @@ export const FROG_GAME: GameMeta = {
   id: 'rana', name: 'Rana hambrienta', icon: 'bug', skill: 'significado', color: '#2B9348', Component: FrogGame, room: BOTH,
   purpose: 'Vocabulario contrarreloj del A1 al C1: la rana dice una palabra y le das la mosca con su traducción. Acertar suma tiempo; fallar, resta.',
   howTo: 'Individual: ¿quién aguanta más? En sala por turnos, cada quien juega su partida y suma sus segundos.',
+};
+
+/** Camaleón y Oruga (verbs.tsx): las 5 formas del verbo, con su propio banco fijo (`verbData.ts`).
+ *  Aparte de los sets como la rana: /camaleon y /oruga (`VerbGamesPage`). Ids en `ROOM_GAMES`. */
+export const CHAMELEON_GAME: GameMeta = {
+  id: 'camaleon', name: 'Camaleón', icon: 'leaf', skill: 'estructura', color: '#2F9E44', Component: ChameleonGame, room: BOTH,
+  purpose: 'Cuándo va cada forma del verbo: a la oración le falta el verbo y atrapas la única forma que encaja (go, goes, went, gone o going).',
+  howTo: 'Individual o en sala por turnos: cada mosca es un turno. Lean en voz alta la regla que sale al responder.',
+};
+export const CATERPILLAR_GAME: GameMeta = {
+  id: 'oruga', name: 'Oruga', icon: 'worm', skill: 'estructura', color: '#7048E8', Component: CaterpillarGame, room: BOTH,
+  purpose: 'Escribir las formas del verbo: te dan la base y escribes he/she/it, pasado, participio e -ing. Con las cuatro bien, la oruga se vuelve mariposa.',
+  howTo: 'Individual como tarea, o en sala por turnos: cada verbo es un turno y todos ven lo que se escribe.',
 };

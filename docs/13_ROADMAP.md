@@ -97,6 +97,15 @@ Jugar en grupo un juego de `/j/:setId`: por turnos o con un presentador que pued
 Después, sin compromiso: WebSockets si la latencia de 1 s molesta y un modo "libre" (todos tocan a
 la vez).
 
+### Camaleón y Oruga (hecho, noviembre 2026, ADR-46)
+
+Dos juegos aparte de los sets para las 5 formas del verbo: `/camaleon` (elegir la forma que pide la
+oración) y `/oruga` (escribirlas). Banco fijo de 46 verbos en el front, sin IA ni backend, con sala
+por turnos. Ideas del mismo lote que quedaron sin hacer, sin compromiso: Nido (clasificar formas de
+varios verbos), Araña (familias de irregulares: sing-sang-sung), Topo (encontrar la forma mal
+escrita) y Murciélago (de oído, pronunciación del -ed). También: que las falladas vuelvan dentro de
+la misma partida y que el profesor elija los verbos.
+
 ### Rana hambrienta (hecho, noviembre 2026, ADR-44)
 
 Juego aparte de los sets (`/rana`): vocabulario contrarreloj ES→EN y EN→ES, niveles A1 a C1, por tipo

@@ -1,0 +1,85 @@
+/* Camaleón y Oruga (verbs.tsx). `--form` = el color de una forma del verbo (`FORMS` en verbData.ts),
+   igual en los dos juegos. Las moscas reutilizan `.fr-fly-bob` y `.fr-fly-word` de games.css, y las
+   animaciones `fr-*` / `dg-*` también salen de allí. */
+.vb-game { display: grid; gap: 12px; max-width: 600px; margin: 0 auto; }
+.fr-hero.vb-hero { background: radial-gradient(circle at 18% 60%, #E6F7D6, #A9DB8C); }
+.vb-hero-art { flex: none; width: 130px; }
+.vb-hero-art svg { width: 100%; display: block; overflow: visible; }
+.vb-legend, .vb-forms { display: flex; flex-wrap: wrap; gap: 6px; }
+.vb-forms { justify-content: center; }
+.vb-legend span, .vb-forms b { padding: 3px 10px; border-radius: 999px; border: 1.5px solid color-mix(in srgb, var(--form) 45%, transparent); background: color-mix(in srgb, var(--form) 14%, var(--surface)); color: color-mix(in srgb, var(--form) 80%, var(--fg)); font-weight: 800; font-size: 13px; }
+
+.vb-scene { --fly: 40px; --cham: #5CC053; display: grid; gap: 4px; padding: 16px 12px 6px; border-radius: 28px; background: linear-gradient(#D9F1F6, #CDECC2); box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .35), var(--shadow); }
+.vb-scene.is-ok { --cham: var(--form); }
+.vb-scene.is-bad { --cham: #9AA29A; animation: dg-shake .35s; }
+.vb-flies { display: flex; flex-wrap: wrap; justify-content: center; align-items: start; gap: 10px 14px; min-height: 84px; }
+.vb-fly { padding: 0; border: 0; background: none; display: grid; justify-items: center; gap: 2px; transition: opacity .2s, scale .3s; }
+.vb-fly:disabled { cursor: default; }
+.vb-fly .fr-fly-word { font-size: clamp(14px, 3.8vw, 17px); }
+.vb-fly:not(:disabled):hover .fr-fly-word { border-color: var(--accent); transform: scale(1.06); }
+.vb-fly:focus-visible { outline: none; }
+.vb-fly:focus-visible .fr-fly-word { outline: 3px solid var(--accent); outline-offset: 2px; }
+.vb-fly.away { opacity: .35; }
+.vb-fly.eaten { opacity: 0; scale: .2; }
+.vb-fly.bad .fr-fly-word { background: var(--bad); border-color: transparent; color: #fff; }
+.vb-fly.reveal .fr-fly-word { background: var(--ok); border-color: transparent; color: #fff; }
+.vb-fly.reveal .fr-fly-bob { animation: fr-glow .9s ease-in-out infinite; }
+
+.vb-cham { width: min(250px, 70%); margin: 0 auto; }
+.vb-cham-svg { width: 100%; display: block; overflow: visible; transform-origin: 50% 95%; }
+.vb-cham-svg.happy { animation: fr-jump .5s ease-out; }
+.vb-body, .vb-lid { fill: var(--cham, #5CC053); transition: fill .4s; }
+.vb-tail, .vb-leg { fill: none; stroke: var(--cham, #5CC053); stroke-width: 9; stroke-linecap: round; transition: stroke .4s; }
+.vb-stripe { fill: none; stroke: rgba(0, 0, 0, .14); stroke-width: 5; stroke-linecap: round; }
+.vb-branch { fill: none; stroke: #8A5A2B; stroke-width: 8; stroke-linecap: round; }
+.vb-leaf { fill: #4E9F45; }
+.vb-eye { fill: #fff; stroke: rgba(0, 0, 0, .25); stroke-width: 2; }
+.vb-pupil { fill: #1D1B2F; }
+.vb-mouth { fill: none; stroke: #1E3A1C; stroke-width: 3; stroke-linecap: round; }
+.vb-tongue { fill: none; stroke: #FF6B8B; stroke-width: 4; /* sin punta redonda: recogida dejaría un punto */ stroke-dasharray: 1; stroke-dashoffset: 1; animation: fr-lick .5s ease-in-out forwards; }
+
+.vb-sentence { text-align: center; font: 800 clamp(18px, 4.6vw, 23px)/1.6 var(--f-display); }
+.vb-gap { display: inline-block; min-width: 76px; margin: 0 4px; padding: 0 8px; border-bottom: 3px dashed var(--muted); border-radius: 8px 8px 0 0; line-height: 1.3; }
+.vb-gap:empty::before { content: '\00a0'; }
+.vb-gap.done { border-bottom: 3px solid var(--form); background: color-mix(in srgb, var(--form) 14%, transparent); color: color-mix(in srgb, var(--form) 80%, var(--fg)); animation: dg-pop .25s ease-out; }
+.vb-verb { text-align: center; color: var(--muted); font-size: 14px; }
+.vb-verb b { color: var(--fg); }
+.vb-tip { display: grid; gap: 8px; justify-items: center; text-align: center; padding: 12px 14px; border-radius: 18px; background: var(--ok-bg); animation: dg-pop .25s ease-out; }
+.vb-tip.bad { background: var(--bad-bg); }
+.vb-tip p { font-weight: 700; font-size: 14.5px; line-height: 1.45; }
+.vb-tip p svg { display: inline; vertical-align: -3px; color: var(--ok); }
+.vb-tip.bad p svg { color: var(--bad); }
+.vb-tip p b { color: color-mix(in srgb, var(--form, var(--fg)) 80%, var(--fg)); }
+.vb-tip .dg-row { margin-top: 0; }
+
+.vb-worm { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 20px; }
+.vb-head, .vb-seg { flex: 1 1 104px; max-width: 150px; min-height: 112px; display: grid; align-content: center; justify-items: center; gap: 4px; padding: 10px 8px; border-radius: 34px; border: 3px solid var(--form); background: color-mix(in srgb, var(--form) 13%, var(--surface)); text-align: center; }
+.vb-head { position: relative; background: var(--form); color: #fff; }
+.vb-head svg { position: absolute; left: 50%; top: -22px; width: 56px; translate: -50% 0; fill: var(--form); stroke: var(--form); stroke-width: 3; stroke-linecap: round; }
+.vb-head svg path { fill: none; }
+.vb-head b { font: 800 22px/1.1 var(--f-display); overflow-wrap: anywhere; }
+.vb-head span { font-size: 12.5px; font-weight: 700; opacity: .92; }
+.vb-seg > span { font-size: 11.5px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; color: color-mix(in srgb, var(--form) 80%, var(--fg)); }
+.vb-seg input { width: 100%; min-width: 0; height: 40px; border: 2px solid color-mix(in srgb, var(--form) 40%, var(--line)); border-radius: 12px; background: var(--surface); color: var(--fg); font: 700 16px var(--f-body); text-align: center; }
+.vb-seg input:focus { outline: 3px solid color-mix(in srgb, var(--form) 45%, transparent); }
+.vb-seg.ok { background: var(--form); }
+.vb-seg.ok > span { color: #fff; }
+.vb-seg.bad { border-color: var(--bad); background: var(--bad-bg); animation: dg-shake .35s; }
+.vb-seg.bad input { color: var(--bad); text-decoration: line-through; }
+.vb-seg.bad > b { color: var(--ok); font-size: 15.5px; }
+.vb-worm.is-ok > * { animation: vb-wiggle .5s ease-in-out; }
+.vb-fly-away { width: 104px; margin: 0 auto -14px; animation: vb-rise .7s ease-out; }
+.vb-butterfly { width: 100%; display: block; overflow: visible; }
+.vb-butterfly path { fill: none; stroke: #3B3552; stroke-width: 2.5; stroke-linecap: round; }
+.vb-wings { opacity: .92; transform-origin: 50% 50%; animation: vb-flap .5s ease-in-out infinite alternate; }
+
+.fr-review.vb-review { max-width: 520px; }
+.fr-review.vb-review li { align-items: center; flex-wrap: wrap; font-size: 14.5px; }
+.fr-review.vb-review li > span:first-child { flex: 1 1 220px; color: var(--fg); font-weight: 600; }
+.fr-review.vb-review li b { color: color-mix(in srgb, var(--form) 80%, var(--fg)); }
+.fr-review.vb-review em { font-style: normal; font-size: 12.5px; font-weight: 800; color: color-mix(in srgb, var(--form, var(--muted)) 80%, var(--fg)); }
+.fr-review.vb-review .vb-forms { justify-content: flex-start; }
+
+@keyframes vb-flap { to { transform: scaleX(.72); } }
+@keyframes vb-rise { from { transform: translateY(40px) scale(.3); opacity: 0; } }
+@keyframes vb-wiggle { 30% { transform: translateY(-6px); } 60% { transform: translateY(3px); } }

@@ -545,7 +545,7 @@ function Frog({ mood, look = [0, 0.3] }: { mood: Mood; look?: [number, number] }
   );
 }
 
-function Fly() {
+export function Fly() {
   return (
     <svg className="fr-fly-svg" viewBox="0 0 48 42" aria-hidden="true">
       <g transform="rotate(-28 15 14)"><ellipse className="fr-wing" cx="15" cy="14" rx="12" ry="7" /></g>

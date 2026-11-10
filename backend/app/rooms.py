@@ -30,6 +30,7 @@ ROOM_GAMES = frozenset({
     "gato", "conecta4", "escaleras", "entrevista", "carrera", "papa",
     "puertas", "mapa", "sobres", "rasca", "bomba", "piratas", "dinos", "rana",
     "naval", "conquista", "volcan", "apuesta", "penales",
+    "camaleon", "oruga",  # las 5 formas del verbo (verbs.tsx): aparte de los sets, como la rana
 })
 MODES = ("turnos", "presentador")
 LENDS = ("once", "always")

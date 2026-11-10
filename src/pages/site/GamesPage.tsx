@@ -4,7 +4,7 @@ import { ArrowRight, Bug, Check, Copy, MessagesSquare, MonitorSmartphone, Play, 
 import { QRCodeSVG } from 'qrcode.react';
 import { AppIcon } from '../../components/AppIcon';
 import { Spinner } from '../../components/LoadingScreen';
-import { GAMES, SKILLS } from '../../games/registry';
+import { CATERPILLAR_GAME, CHAMELEON_GAME, GAMES, SKILLS } from '../../games/registry';
 import { listFeaturedGameSets } from '../../services/api';
 import type { GameSetSummary } from '../../types';
 
@@ -89,6 +89,20 @@ export function GamesPage() {
         </div>
         <span className="site-btn site-btn-spike">Jugar <ArrowRight size={16} /></span>
       </Link>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        {[CHAMELEON_GAME, CATERPILLAR_GAME].map((g) => (
+          <Link key={g.id} to={`/${g.id}`} className="site-glass site-glass-hover flex flex-wrap items-center gap-5 p-6">
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-site-acc/15 text-site-acc ring-1 ring-site-acc/30"><AppIcon name={g.icon} size={28} /></span>
+            <div className="min-w-[12rem] flex-1">
+              <p className="site-eyebrow site-neon-spike">Nuevo · Las 5 formas del verbo</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight">{g.name}</h2>
+              <p className="mt-1 text-site-fg/65">{g.purpose}</p>
+            </div>
+            <span className="site-btn site-btn-spike">Jugar <ArrowRight size={16} /></span>
+          </Link>
+        ))}
+      </div>
 
       <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {!sets && !error && <div className="grid place-items-center py-10 md:col-span-2 xl:col-span-3"><Spinner /></div>}

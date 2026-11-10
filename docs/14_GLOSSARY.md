@@ -187,6 +187,15 @@ traducción. Mosca buena = suma tiempo; mosca mala = resta y la rana se enferma.
 **Semilla (de la rana)** — `backend/app/frog_seed.json`: las palabras con las que arranca el banco
 (ADR-45), al menos 6 por nivel y tipo. `seed_frog_words()` las inserta al arrancar si faltan.
 
+**Camaleón** — Juego de las 5 formas del verbo **aparte de los sets** (`/camaleon`, `verbs.tsx`,
+ADR-46): una oración con hueco y las formas del verbo como moscas; solo una encaja.
+
+**Oruga** — Su pareja (`/oruga`): se da la base y el alumno **escribe** las otras cuatro formas. Con
+las cuatro bien, la oruga se vuelve mariposa.
+
+**Las 5 formas (del verbo)** — Base, he/she/it (-s), pasado, participio e -ing, en ese orden
+(`FORMS` en `src/games/verbData.ts`). Cada una tiene un color fijo en Camaleón y Oruga.
+
 **Mosca mala (distractor)** — En Rana hambrienta, una opción incorrecta. Debe ser incorrecta en
 **todos** los sentidos de la palabra: la IA la filtra, la revisa y la traduce de vuelta
 (`_frog_item` y `_frog_review`).

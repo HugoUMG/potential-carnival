@@ -1239,6 +1239,32 @@ inserta las 242 fila a fila (regla 8). Una palabra de la semilla que alguien bor
 por tipo, `FROG_MIN_WRONG`, claves únicas, sin listas copiadas); que cada mosca sea incorrecta en
 todos sus sentidos lo revisó Claude Code a mano al escribirla, no un diccionario.
 
+## 🟢 ADR-46 — Camaleón y Oruga: banco de verbos fijo en el front, sin IA ni backend
+
+**Decisión.** Los dos juegos de las 5 formas del verbo (`verbs.tsx`) leen un banco escrito a mano en
+`src/games/verbData.ts`: 46 verbos con sus formas, su traducción y una oración con hueco por forma.
+No hay tabla, endpoint ni llamada a la IA. Lo único que tocan del backend es `ROOM_GAMES`.
+
+**Por qué.** Las formas de un verbo son un dato cerrado, no algo que generar, y lo delicado son las
+oraciones: en cada hueco tiene que caber **una sola** de las 5 formas. Eso se cumple con reglas de
+redacción (ancla de presente en la de -s, `have/has` o pasiva en el participio, nada de -ing tras
+`be` si el participio también cabría) que una persona revisa una vez; la IA de la rana necesita una
+segunda llamada revisora para algo parecido y aun así descarta la mayoría. Y sin backend el juego
+abre al instante y funciona aunque Render esté dormido.
+
+**Alternativas descartadas.**
+- *Un banco en la BD que crece con IA, como `frog_words` (ADR-44).* Para 46 verbos es una tabla, una
+  migración doble, un endpoint, una semilla y un revisor que no hacen falta. Es el camino si algún
+  día se quieren cientos de verbos o niveles (lo dice el comentario `ponytail:` del archivo).
+- *Reloj como en la rana.* La rana entrena reconocer rápido; aquí hay que razonar por qué va esa
+  forma. Con reloj se adivina. Por eso tampoco avanza solo: la regla se lee y se toca "Siguiente".
+- *Verbos con dos formas válidas* (got/gotten, learned/learnt, showed/shown). Oruga compara texto
+  exacto; quedaron fuera en vez de añadir listas de alternativas.
+
+**Consecuencias.** Las respuestas viajan en el bundle: no importa, no es una evaluación (la regla 13
+habla de las hojas). Añadir un verbo es un cambio de código y un deploy. `scripts/check-verbs.ts`
+valida la forma del banco, pero que cada hueco admita una sola forma se revisó a mano.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

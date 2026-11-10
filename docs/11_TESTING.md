@@ -58,10 +58,14 @@ Además, dos checks de TypeScript que se corren a mano:
 ```bash
 npx tsx scripts/check-dsl-serializer.ts
 npx tsx scripts/check-spoken.ts
+npx tsx scripts/check-verbs.ts
 ```
 
 Verifica el round-trip del constructor visual → DSL (fue lo que detectó que `esc()` escapaba el
-backslash antes que la comilla) y la comparación hablada de `spoken.ts` (cifras y contracciones).
+backslash antes que la comilla) y la comparación hablada de `spoken.ts` (cifras y contracciones). `check-verbs.ts` valida el banco de
+Camaleón y Oruga (`verbData.ts`): 5 formas y 5 oraciones por verbo, un solo hueco, ancla de presente
+en la oración de -s y verbos sin repetir. **No** puede comprobar que en cada hueco quepa una sola
+forma: eso se revisa a mano al añadir un verbo.
 
 ## El test que más protege
 

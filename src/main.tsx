@@ -19,6 +19,7 @@ import { LearnPage } from './pages/site/LearnPage';
 import { GamesPage } from './pages/site/GamesPage';
 import { GamePage } from './pages/GamePage';
 import { FrogPage } from './pages/FrogPage';
+import { CaterpillarPage, ChameleonPage } from './pages/VerbGamesPage';
 import { RoleplayPage } from './roleplay/RoleplayPage';
 import { DevShots } from './pages/DevShots';
 import { polyfillCountryFlagEmojis } from 'country-flag-emoji-polyfill';
@@ -98,6 +99,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Route path="/j/:setId" element={<GamePage />} />
         {/* Rana hambrienta: vocabulario A1-C1 aparte de los sets, sin cuenta (ADR-44). */}
         <Route path="/rana" element={<FrogPage />} />
+        {/* Camaleón y Oruga: las 5 formas del verbo, aparte de los sets y sin cuenta. */}
+        <Route path="/camaleon" element={<ChameleonPage />} />
+        <Route path="/oruga" element={<CaterpillarPage />} />
         {/* Conversación con IA por role-play, sin cuenta (ADR-39). */}
         <Route path="/conversacion/:scenarioId?" element={<RoleplayPage />} />
         {/* Banco de capturas del editor para /aprende. Solo en dev: no entra al build. */}
