@@ -194,6 +194,11 @@ tabla. Convierte los `Set` en arrays.
 | 🪙 Rasca y gana | ambos | order, done[], open, shown[] | lo rascado del lienzo | cierra el boleto | — |
 | 🏴‍☠️ Cofres piratas | ambos | scores, shields, turn, order, loot, opened[], open, result, note | — | pasa al siguiente equipo | — (tiene sus propios equipos) |
 | 💣 Cajas bomba | ambos | scores, turn, order, prizes, opened[], open, result | — | pasa al siguiente equipo | — (tiene sus propios equipos) |
+| Batalla naval | ambos | names, scores, turn, deck, qn, played (`useMatch`) + ships, shots[], open, out | — | pasa al siguiente equipo | — (tiene sus propios equipos) |
+| Conquista | ambos | `useMatch` + own[], fort[], open, out | — | pasa al siguiente equipo | — |
+| Volcán | ambos | `useMatch` + pot, streak, gem, out | — | guarda, falla o hay erupción | — |
+| Apuesta | ambos | `useMatch` + bet, out | — | pasa al siguiente equipo | — |
+| Tanda de penales | ambos | `useMatch` + aim, shot, out | — | pasa al siguiente equipo | — |
 
 Notas por juego:
 - **Bingo:** en sala, el que tiene el control "canta" y `teacherCalls` queda forzado a `false`.

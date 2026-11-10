@@ -29,6 +29,7 @@ ROOM_GAMES = frozenset({
     "escucha", "dictado", "bingo", "ordena", "completa", "globos", "coincide",
     "gato", "conecta4", "escaleras", "entrevista", "carrera", "papa",
     "puertas", "mapa", "sobres", "rasca", "bomba", "piratas", "dinos", "rana",
+    "naval", "conquista", "volcan", "apuesta", "penales",
 })
 MODES = ("turnos", "presentador")
 LENDS = ("once", "always")
