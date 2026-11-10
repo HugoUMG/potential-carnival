@@ -9,6 +9,7 @@ import { MatchGame, MemoryGame, SpeedGame } from './meaning';
 import { ConnectFourGame, LaddersGame, TicTacToeGame } from './board';
 import { AnswerRaceGame, HotPotatoGame, InterviewGame } from './oral';
 import { BombGame, DinoRaceGame, DoorsGame, LettersGame, MapGame, PirateGame, ScratchGame } from './pick';
+import { BetGame, ConquestGame, NavalGame, PenaltyGame, VolcanoGame } from './teams';
 import { FrogGame } from './frog';
 
 export type Skill = 'hablar' | 'tablero' | 'escuchar' | 'estructura' | 'significado' | 'mesa' | 'turnos';
@@ -55,7 +56,7 @@ const GRADING: Partial<Record<RoomMode, [string, string]>> = {
   turnos: ['Califica el compañero', 'Quien tiene el turno califica al siguiente; se van rotando (con 3: A→B, B→C, C→A).'],
 };
 
-/** Los 29 juegos de un set. Todos salen de las mismas preguntas (texto + traducción). */
+/** Los 34 juegos de un set. Todos salen de las mismas preguntas (texto + traducción). */
 export const GAMES: GameMeta[] = [
   { id: 'tarjetas', name: 'Tarjetas', icon: 'layers', skill: 'hablar', color: '#7048E8', Component: CardsGame, room: BOTH,
     purpose: 'Conversación guiada: al voltear ves la traducción y cómo empezar tu respuesta.',
@@ -87,6 +88,21 @@ export const GAMES: GameMeta[] = [
   { id: 'piratas', name: 'Cofres piratas', icon: 'crown', skill: 'tablero', color: '#0B7285', Component: PirateGame, room: BOTH,
     purpose: 'Por equipos: si responden bien abren el cofre y se llevan puntos, roban al líder, cambian de marcador o ganan un escudo.',
     howTo: 'Divide el salón en 2–4 equipos. Tú decides si la respuesta es buena; el botín puede cambiar quién va ganando.' },
+  { id: 'naval', name: 'Batalla naval', icon: 'ship', skill: 'tablero', color: '#1971C2', Component: NavalGame, room: BOTH,
+    purpose: 'Por equipos: si responden bien disparan a una casilla. Tocado +1, hundido +3; hay 3 barcos escondidos.',
+    howTo: 'Divide el salón en 2–4 equipos. El equipo dice la casilla (B3), responde y tú marcas si estuvo bien.' },
+  { id: 'conquista', name: 'Conquista', icon: 'castle', skill: 'tablero', color: '#2F9E44', Component: ConquestGame, room: BOTH,
+    purpose: 'Por equipos: cada respuesta buena pinta una casilla de tu color, o le quita al rival una vecina y la fortifica.',
+    howTo: 'Divide el salón en 2–4 equipos. Gana quien tenga más casillas cuando no quede ninguna libre.' },
+  { id: 'volcan', name: 'Volcán', icon: 'mountain', skill: 'hablar', color: '#E8590C', Component: VolcanoGame, room: BOTH,
+    purpose: 'Por equipos: cada respuesta buena saca gemas; guardas o arriesgas con otra pregunta. Si fallas o hay erupción, pierdes lo no guardado.',
+    howTo: 'Divide el salón en 2–4 equipos. Quien arriesga responde más preguntas seguidas: gana el primero con 15 puntos.' },
+  { id: 'apuesta', name: 'Apuesta', icon: 'banknote', skill: 'hablar', color: '#0CA678', Component: BetGame, room: BOTH,
+    purpose: 'Por equipos: apuestas de 1 a 5 puntos antes de ver la pregunta. Si respondes bien los ganas; si no, los pierdes.',
+    howTo: 'Divide el salón en 2–4 equipos. Son 5 rondas; solo ven el tema antes de apostar.' },
+  { id: 'penales', name: 'Tanda de penales', icon: 'volleyball', skill: 'hablar', color: '#37B24D', Component: PenaltyGame, room: BOTH,
+    purpose: 'Por equipos: responder bien da derecho a patear un penal. Eliges el lado y el portero se lanza al azar.',
+    howTo: 'Divide el salón en 2–4 equipos. Cada equipo tiene 5 turnos; gana quien meta más goles.' },
   { id: 'dinos', name: 'Carrera de dinos', icon: 'footprints', skill: 'hablar', color: '#5C940D', Component: DinoRaceGame, room: BOTH,
     purpose: 'Por equipos: responder bien da derecho a tirar el dado; la suerte y las casillas sorpresa (turbo, trampa, cambio) deciden la carrera.',
     howTo: 'Divide el salón en 2–4 equipos y comparte la pantalla. Tú marcas si la respuesta es buena; gana el primer dino en llegar a la meta.' },

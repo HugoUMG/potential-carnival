@@ -24,7 +24,7 @@ function useRound(total: number, size: number) {
 }
 
 /** La pregunta abierta, como la nota del corcho: número, audio, traducción y pista. */
-function Question({ q, n }: { q: GameQuestion; n?: number }) {
+export function Question({ q, n }: { q: GameQuestion; n?: number | string }) {
   return (
     <>
       {n !== undefined && <div className="dg-sheet-num">{n}</div>}
