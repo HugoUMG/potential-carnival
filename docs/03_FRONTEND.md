@@ -45,7 +45,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 
 Un **set** es una lista de preguntas (texto en inglés + traducción + pista + subtema + emoji o
 nombre de icono) que se
-juega con **29 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 6 tableros numerados + Carrera de dinos) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
+juega con **34 juegos** (16 originales + 3 de mesa + 3 de responder por turnos + 6 tableros numerados + Carrera de dinos + 5 competencias por equipos) (ADR-38 en [15_DECISIONS](15_DECISIONS.md)). Todos salen de los mismos campos:
 no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de ellos: va aparte, en
 `/rana`, con su propio banco de vocabulario (ver abajo).
 
@@ -124,6 +124,29 @@ no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de el
   otra (`race`, pura). Anima igual que Serpientes y escaleras: quien mueve guarda `pos` y `move`
   (`before`, `path`, `after`, `kind`) y cada navegador anima por `move.id`; el veredicto también es
   compartido (`verdict`) para que todos oigan el acierto o el fallo y vean el carril brillar o temblar.
+- **Competencias por equipos (`teams.tsx`):** cinco primas de Cajas bomba para 2–4 equipos. Todas
+  arrancan con `TeamCount` (nombres), enseñan la pregunta con `Question` (exportada de `pick.tsx`:
+  texto, audio, traducción y `hint`, que es cómo empezar la respuesta) y quien tiene el control marca
+  ✓ o ✕ (`Grade`); el resultado sale en `Outcome` con "Siguiente: {equipo}". `useMatch(total)` lleva lo
+  común en `useShared`: `names`, `scores`, `turn`, `deck` (mazo barajado que da la vuelta, así valen
+  sets de 4 preguntas), `qn` y `played` (turnos jugados); `pass()` cambia de pregunta y de equipo y
+  llama a `endTurn()`. `Header` pinta el marcador con nombres y "Turno de {equipo}" siempre a la vista.
+  - **Batalla naval** (`naval`, grupo `tablero`): mar 5×5 con coordenadas A1–E5 y 3 barcos escondidos
+    (3, 2 y 2 casillas, `dealFleet`). Responder bien = disparar: agua 0, tocado +1, hundido +3. Si
+    falla, la casilla sigue tapada. Termina al hundir el último barco.
+  - **Conquista** (`conquista`, grupo `tablero`): 25 casillas. Responder bien pinta una libre, o
+    quita al rival una **vecina** de las tuyas (`around`), que queda con castillo (`fort`) y ya no se
+    roba. Los puntos son las casillas (`counts`, calculado). Termina cuando no queda ninguna libre.
+    `.dg-grid5` es de 5 columnas fijas: las vecinas dependen de eso.
+  - **Volcán** (`volcan`, grupo `hablar`): arriesga o guarda. Cada respuesta buena saca 1–3 gemas al
+    `pot`; el equipo guarda o pide otra pregunta. El riesgo de erupción sube 15 % por gema seguida
+    (`risk`, tope 60 %, la primera nunca explota) y se enseña antes de decidir. Fallar o la erupción
+    pierden el `pot`. Gana el primero con 15.
+  - **Apuesta** (`apuesta`, grupo `hablar`): todos empiezan con 5. El equipo ve solo el emoji y el
+    `tag` de la pregunta y apuesta 1–5 (hasta lo que tenga, mínimo 1); acierto suma, fallo resta
+    (nunca bajo 0). 5 rondas.
+  - **Tanda de penales** (`penales`, grupo `hablar`): responder bien da derecho a patear; se elige
+    izquierda, centro o derecha y el portero se lanza al azar (gol 2 de cada 3). 5 turnos por equipo.
 - **Rana hambrienta (`/rana`, `frog.tsx`, ADR-44): juego aparte de los sets.** No usa preguntas: sus
   palabras salen del banco del sitio (`getFrogWords` → `/public/frog-words`). Está fuera de `GAMES`
   (`FROG_GAME` en `registry.ts`) y se abre desde la tarjeta de `/juegos` (como Conversación).

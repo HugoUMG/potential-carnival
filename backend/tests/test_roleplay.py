@@ -327,6 +327,13 @@ def test_el_cierre_no_se_adelanta_y_el_personaje_contesta_primero():
     assert "answer it FIRST" in system and "open questions" in system and "will, going to" in system
 
 
+def test_avanzado_no_se_desvia_de_la_escena():
+    scenario, built = rp.session("hotel", "guest", "advanced", 2)
+    system, _, _ = rp.turn_prompt(scenario, built, "guest", "advanced", _history("Hi, I have a reservation"))
+    assert "Stay on the scene and your goal" in system and "explicitly asks" in system
+    assert "small talk" not in system and "hypotheticals" not in system
+
+
 def test_una_palabra_no_mide_la_pronunciacion_y_la_nota_alta_propone_subir():
     history = _history("I would like a lemonade, please", clarity=90) + [{"who": "user", "text": "Bye!", "clarity": 30}]
     ask = _fake({"turns": [], "grammar": 10, "vocabulary": 10, "communication": 10})
