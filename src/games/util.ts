@@ -149,6 +149,32 @@ export function playAudio(text: string, slow = false): void {
   audio.play().catch(() => { /* autoplay bloqueado o error: `onerror` decide el respaldo */ });
 }
 
+// Precarga: pide en segundo plano los mp3 que el juego va a tocar, así el toque suena al instante
+// (el navegador lo guarda por `Cache-Control`) y de paso queda en `tts_cache` para la clase.
+// ponytail: cola de 1 a la vez y tope de 40 por llamada para no gastar el rate limit de /tts (300/min
+// por IP, compartido por un colegio tras NAT). Si hace falta más, subir el tope, no la concurrencia.
+const preloaded = new Set<string>();
+const preloadQueue: string[] = [];
+let preloading = false;
+
+export function preloadAudio(texts: readonly string[]): void {
+  for (const text of texts.slice(0, 40)) {
+    const url = gameAudioUrl(text); // la misma URL que pide `playAudio`, o no se aprovecha la caché
+    if (text.trim() && !preloaded.has(url)) { preloaded.add(url); preloadQueue.push(url); }
+  }
+  void drainPreload();
+}
+
+async function drainPreload(): Promise<void> {
+  if (preloading) return;
+  preloading = true;
+  while (preloadQueue.length && !serverTtsDown()) {
+    const url = preloadQueue.shift()!;
+    try { await (await fetch(url)).blob(); } catch { preloaded.delete(url); }
+  }
+  preloading = false;
+}
+
 export function copyText(text: string): Promise<boolean> {
   return navigator.clipboard.writeText(text).then(() => true, () => false);
 }

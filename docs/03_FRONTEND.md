@@ -83,6 +83,13 @@ no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de el
   u otro dispositivo, salen en milisegundos. `edge-tts>=7.3.1` es obligatorio desde octubre 2026:
   Microsoft exige el token `Sec-MS-GEC` v2 (7.3.0) y 7.3.1 corrige el parseo de la fecha del
   servidor; las versiones viejas reciben 403.
+- **Precarga (`preloadAudio`, `util.ts`):** edge tarda ~0,7 s por audio nuevo, casi todo en abrir la
+  conexión (medido nov-2026), así que el juego pide en segundo plano lo que va a sonar y el toque sale
+  de la caché del navegador. `GamePlayer` precarga las preguntas del set al abrir un juego; Camaleón
+  y Oruga, las 12 oraciones o verbos de la partida; Rana, la palabra en pantalla y las dos siguientes
+  (solo con la tarjeta en inglés). Va de **una en una**, sin repetir URL y con un tope de 40 por
+  llamada, para no gastar el rate limit de `/tts` (300/min por IP, compartido tras un NAT). Solo
+  velocidad normal: el 🐢 se pide al tocarlo.
 - **Añadir un juego:** un componente que recibe `{ questions }` (`GameProps`) y una entrada en
   `GAMES`. El catálogo, el panel y la barra lateral lo pintan solos. Para que admita sala: usa
   `useShared` en el estado que deben ver todos, llama a `endTurn()` al final de cada turno, añade

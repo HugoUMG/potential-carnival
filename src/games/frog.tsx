@@ -3,7 +3,7 @@ import { Bug, Flag, Flame, Loader2, Play, RotateCcw, Sparkles, Timer, Trophy, Vo
 import { getFrogExample, getFrogWords } from '../services/api';
 import type { FrogCategory, FrogExample, FrogLevel, VocabWord } from '../types';
 import { playSfx } from '../utils/sfx';
-import { playAudio, range, sample, shuffle, speak } from './util';
+import { playAudio, preloadAudio, range, sample, shuffle, speak } from './util';
 import { Notice } from './ui';
 import { useRoom, useShared } from './roomState';
 
@@ -226,6 +226,11 @@ export function FrogGame() {
   const second = Math.ceil(left / 1000);
   const ticking = phase === 'play' && clock.run && second <= 5 && second > 0;
   useEffect(() => { if (ticking) playSfx('tick'); }, [ticking, second]);
+
+  // La palabra en pantalla y las dos que vienen, para que 🔊 suene al instante (solo con la tarjeta en inglés).
+  const upcoming = cfg.lang === 'en' && round && words?.length
+    ? [round.k, ...queue.slice(0, 2)].map((k) => words[k % words.length].en).join('\n') : '';
+  useEffect(() => { if (upcoming) preloadAudio(upcoming.split('\n')); }, [upcoming]);
 
   if (error) return <Notice>{error}</Notice>;
 

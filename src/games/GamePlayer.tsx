@@ -7,7 +7,7 @@ import type { PublicGameSet, RoomState } from '../types';
 import { GAMES, SKILLS, type GameMeta } from './registry';
 import { RoomGate, RoomProvider } from './room';
 import { dropSeat, loadSeat } from './roomState';
-import { GameContext, type GameCtx, stopAudio } from './util';
+import { GameContext, type GameCtx, preloadAudio, stopAudio } from './util';
 import { Countdown, WordPopover } from './ui';
 import './games.css';
 
@@ -56,6 +56,8 @@ export function GamePlayer({ set, solo }: { set: PublicGameSet; solo?: GameMeta 
 
   // Al cambiar de juego o salir del reproductor, la voz que estaba sonando se corta.
   useEffect(() => () => stopAudio(), [active]);
+  // Al abrir un juego del set se precargan sus preguntas (las que lee 🔊); los `solo` precargan las suyas.
+  useEffect(() => { if (active && !solo) preloadAudio(set.questions.map((q) => q.text)); }, [active, solo, set]);
 
   // Con asiento guardado (F5 o enlace tras unirse en otra página), se pide el estado y se entra.
   useEffect(() => {
