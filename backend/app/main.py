@@ -2427,8 +2427,8 @@ def _grow_frog_words(level: str, category: str) -> None:
         _frog_job.clear()
 
 
-# Semilla del banco (ADR-45): unas 240 palabras escritas y revisadas a mano, al menos 6 por nivel y
-# tipo, para que nadie espere a la IA al estrenar uno. Entra al arrancar y la IA sigue sumando encima.
+# Semilla del banco (ADR-45): unas 1 980 palabras escritas y revisadas a mano, más de 370 por nivel
+# y al menos 6 por nivel y tipo, para que nadie espere a la IA al jugar. Entra al arrancar y la IA sigue sumando encima.
 FROG_SEED = Path(__file__).with_name("frog_seed.json")
 
 

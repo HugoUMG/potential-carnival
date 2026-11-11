@@ -373,7 +373,8 @@ def test_la_semilla_de_la_rana_cumple_las_reglas_del_banco():
         for category, raw_words in by_category.items():
             assert len(raw_words) >= MIN_WORDS, (level, category)  # ningún nivel ni tipo espera a la IA
             words += [(level, category, main.VocabWord(**w, pos="")) for w in raw_words]
-    assert len(words) >= 200
+        # El profesor pidió al menos 300 por nivel para no depender de la IA (ADR-45, ampliación).
+        assert sum(len(ws) for ws in by_category.values()) >= 300, level
 
     n = ai.frog_norm
     en_keys = [n(w.en) for _, _, w in words]

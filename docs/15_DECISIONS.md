@@ -1209,10 +1209,10 @@ apunta a Aiven: el servidor de desarrollo abierto gastaría IA de producción, r
 el servidor gratuito de Render se apaga tras ~15 min sin visitas, así que el banco solo crece
 mientras el sitio está en uso; el contador diario vive en memoria y un redeploy lo reinicia.
 
-## 🟢 ADR-45 — Semilla del banco de la rana: 242 palabras en el repo, insertadas al arrancar
+## 🟢 ADR-45 — Semilla del banco de la rana: 1 980 palabras en el repo, insertadas al arrancar
 
-**Decisión.** El banco `frog_words` ya no arranca vacío: `backend/app/frog_seed.json` trae 242
-palabras (A1 54, A2 52, B1 48, B2 44, C1 44), **al menos 6 por nivel y tipo** (el `MIN_WORDS` del
+**Decisión.** El banco `frog_words` ya no arranca vacío: `backend/app/frog_seed.json` traía 242
+palabras (A1 54, A2 52, B1 48, B2 44, C1 44; hoy 1 980, ver la ampliación al final), **al menos 6 por nivel y tipo** (el `MIN_WORDS` del
 front), con 6 moscas malas por lado. Las escribió y revisó Claude Code, a pedido del profesor, con
 las mismas reglas que la revisión de la IA (ningún otro sentido, ni sinónimos, ni falsos amigos
 como respuesta). `startup` llama a `seed_frog_words()`, que inserta **solo lo que falta**: se salta
@@ -1233,11 +1233,26 @@ después y la meta de `_FROG_TARGETS` sigue igual.
   corre en los tests (ninguno usa `with TestClient`).
 
 **Consecuencias.** Cada arranque hace ~11 lecturas y, ya cargada, ninguna escritura; el primero
-inserta las 242 fila a fila (regla 8). Una palabra de la semilla que alguien borre del banco
+inserta todas fila a fila (regla 8). Una palabra de la semilla que alguien borre del banco
 **vuelve en el siguiente deploy**: para quitarla de verdad se borra también del JSON.
 `test_la_semilla_de_la_rana_cumple_las_reglas_del_banco` valida el JSON (niveles, tipos, mínimo
 por tipo, `FROG_MIN_WRONG`, claves únicas, sin listas copiadas); que cada mosca sea incorrecta en
 todos sus sentidos lo revisó Claude Code a mano al escribirla, no un diccionario.
+
+**Ampliación (noviembre 2026): de 242 a 1 980 palabras.** A pedido del profesor (la IA tardaba
+demasiado en llenar el banco), la semilla pasó a tener **más de 300 palabras por nivel**: A1 378,
+A2 412, B1 427, B2 387, C1 376. Las 1 738 nuevas son sustantivos, verbos, adjetivos y adverbios;
+preposiciones y conectores siguen con las 6 originales por nivel (son clases cerradas y cada par
+nuevo arriesga una mosca que también vale: *from* → «desde» con «de» al lado). Las nuevas se
+escribieron como pares `en=es` en **grupos temáticos de 20 a 45 palabras** del mismo nivel y tipo
+(comida, cuerpo, trabajo, emociones…), y las 6 moscas malas de cada una son otras 6 palabras **de
+su mismo grupo**, con su par inglés-español, elegidas al azar de modo que dos palabras no compartan
+5 o más. Por eso cada grupo se revisó a mano para que no hubiera dentro sinónimos ni dos sentidos
+de la misma traducción (fuera *wife* por «mujer», *like* por «querer», *clear* por *bright*…).
+Esto no contradice la regla 50: las moscas quedan escritas en el JSON, la lista revisada de cada
+palabra; lo que sigue prohibido es armarlas en vivo con las traducciones de otras. El primer
+arranque tras el deploy inserta ~1 740 filas una a una (regla 8) antes de aceptar visitas; los
+siguientes no escriben nada. Las metas de `_FROG_TARGETS` no cambian: la IA sigue sumando encima.
 
 ## 🟢 ADR-46 — Camaleón y Oruga: banco de verbos escrito a mano, sin IA, con la semilla al mando
 
