@@ -3,7 +3,7 @@ import { ArrowRight, Check, Loader2, Play, X } from 'lucide-react';
 import { getVerbs } from '../services/api';
 import type { Verb } from '../types';
 import { playSfx } from '../utils/sfx';
-import { pick as pickOne, range, sample, shuffle } from './util';
+import { pick as pickOne, preloadAudio, range, sample, shuffle } from './util';
 import { Finish, Notice, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
 import { Fly } from './frog';
@@ -129,6 +129,7 @@ export function ChameleonGame() {
     setShots(makeShots(verbs, kind)); setPos(0); setPick(null); setScore(0); setMissed([]); setPhase('play');
   };
 
+  useEffect(() => preloadAudio(shots.map((s) => s.gap.replace('___', s.forms[s.f]))), [shots]);
   const shot = shots[pos];
   if (phase === 'ready' || !shot) {
     if (error) return <Notice>{error}</Notice>;
@@ -261,6 +262,7 @@ export function CaterpillarGame() {
     setPos(0); setTyped(BLANK); setMarks(null); setScore(0); setMissed([]); setPhase('play');
   };
 
+  useEffect(() => preloadAudio(order.map((w) => w.forms.join(', '))), [order]);
   const verb = order[pos];
   if (phase === 'ready' || !verb) {
     if (error) return <Notice>{error}</Notice>;
