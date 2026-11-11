@@ -14,7 +14,7 @@ proyecto. No hay editor de vídeo ni material de stock: cada fotograma se pinta 
 | `spot.wav` | Pista de audio suelta para revisión (48 kHz, estéreo, 16 bit). |
 | `stills/` | Fotogramas de control generados con `--stills`. |
 
-Los MP4 y `spot.wav` son artefactos generados; no hacen falta para editar el spot.
+`spot.mp4` y `spot.wav` son artefactos generados; no hacen falta para editar el spot.
 
 ## Ver el spot
 
@@ -97,7 +97,6 @@ Para cambiar la duración, edita `DURATION` en `js/util.js` y revisa los tiempos
 - Audio: AAC, 48 kHz, 2 canales.
 - Pico de audio: −1,0 dBFS; sin muestras recortadas.
 - 1.500 fotogramas de vídeo y pista de audio completa.
-- `spot-ligero.mp4`: 14,7 MB, misma duración y códecs.
 
 ## Documentación
 

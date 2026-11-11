@@ -6,8 +6,8 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   // `scripts/` son utilidades de Node (fetch, Buffer, process…), no código de la app.
   // `.claude/worktrees/` son copias del repo: lintarlas duplica cada error del árbol.
-  // `design/spot/` es un asset autónomo de navegador/Node, fuera del build de la app.
-  { ignores: ['dist', 'scripts', '.claude', 'design/spot'] },
+  // `design/` son assets promocionales (el spot), con código vendorizado y globals de navegador.
+  { ignores: ['dist', 'scripts', '.claude', 'design'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
