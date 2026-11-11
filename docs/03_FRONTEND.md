@@ -179,24 +179,30 @@ no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de el
 - **Camaleón y Oruga (`/camaleon` y `/oruga`, `verbs.tsx`, ADR-46): las 5 formas del verbo, aparte de
   los sets.** Como la rana, están fuera de `GAMES` (`CHAMELEON_GAME` y `CATERPILLAR_GAME` en
   `registry.ts`), se abren desde sus tarjetas de `/juegos` y `VerbGamesPage` monta `GamePlayer` con
-  `solo`. **No usan backend ni IA**: el banco es `src/games/verbData.ts` (46 verbos, 32 irregulares y
-  14 regulares; cada uno con sus 5 formas, su traducción y **una oración con hueco por forma**).
-  `FORMS` fija el orden (base, he/she/it, pasado, participio, -ing) y **un color por forma, el mismo
-  en los dos juegos**; llega al CSS como `--form` (`tint(f)`). Se elige Mixto, Irregulares o Regulares.
-  - **Camaleón** (cuándo va cada forma): 12 oraciones (`makeShots`: verbos distintos y las 5 formas
-    repartidas parejo). Las moscas son las formas del verbo **sin repetir** (4 si pasado = participio,
-    3 en `cut`). Al responder, el camaleón se pinta del color de la forma, sale la **regla**
-    (`FORMS[f].tip`), las 5 formas y el audio de la oración. Sin reloj: aquí se piensa. Al final, las
-    oraciones falladas con su forma.
+  `solo`. Los verbos salen del **banco del sitio** (`getVerbs` → `/public/verbs`, tabla `verb_bank`):
+  200 verbos (96 irregulares, 104 regulares), cada uno con sus 5 formas, su traducción y **2
+  oraciones con hueco por forma** (2 000 en total), sin IA. `useVerbs` lo baja **una vez por visita**
+  (promesa de módulo, compartida por los dos juegos; si falla, la siguiente vez reintenta) y mientras
+  tanto el botón de empezar queda deshabilitado con "Cargando los verbos…". `FORMS` (en `verbs.tsx`)
+  fija el orden (base, he/she/it, pasado, participio, -ing: el mismo de `Verb.forms` y `Verb.gaps`
+  del backend) y **un color por forma, el mismo en los dos juegos**; llega al CSS como `--form`
+  (`tint(f)`). Se elige Mixto, Irregulares o Regulares.
+  - **Camaleón** (cuándo va cada forma): 12 oraciones (`makeShots`: verbos distintos, las 5 formas
+    repartidas parejo y una de las oraciones de esa forma al azar). Las moscas son las formas del
+    verbo **sin repetir** (4 si pasado = participio, 3 en `cut`). Al responder, el camaleón se pinta
+    del color de la forma, sale la **regla** (`FORMS[f].tip`), las 5 formas y el audio de la oración.
+    Sin reloj: aquí se piensa. Al final, las oraciones falladas con su forma.
   - **Oruga** (escribirlas): 8 verbos; la cabeza trae la base y se escriben las otras 4 en un
     `<form>` (Enter con un hueco vacío salta a ese hueco; con todo lleno, revisa). Se compara en
     minúsculas y sin espacios sobrantes. Con las 4 bien sale la mariposa; si no, la correcta bajo la
     tachada. Nota = formas bien de 32. Al final, los verbos con algún fallo.
   - **Sala:** cada jugada (una mosca / un verbo) es un turno: `endTurn()` va en "Siguiente", después
-    de leer la regla. Lo que se escribe en Oruga viaja letra a letra (`useShared`, como Dictado).
-  - **Añadir un verbo:** una línea en `verbData.ts` siguiendo las reglas de su cabecera (un solo hueco
-    donde quepa **una** forma; ancla de presente en la de -s; sin verbos con dos formas válidas) y
-    `npx tsx scripts/check-verbs.ts`. Los estilos van en `verbs.css` (`vb-*`), no en `games.css`.
+    de leer la regla. Lo que se escribe en Oruga viaja letra a letra (`useShared`, como Dictado). El
+    estado compartido lleva **el verbo entero** (formas, traducción, oración), no su índice en el
+    banco: quien mira no depende de haber bajado la misma lista.
+  - **Añadir o corregir un verbo:** se edita `backend/app/verb_seed.json` (ver
+    [04_DATABASE](04_DATABASE.md) y ADR-46 para las reglas de las oraciones) y entra en el siguiente
+    arranque. Los estilos van en `verbs.css` (`vb-*`), no en `games.css`.
 - **Juegos de mesa (`board.tsx`, grupo `mesa`):** Gato (3×3), Conecta 4 (7×6) y Serpientes y
   escaleras (30 casillas, tablero distinto en cada partida). Para mover, quien tiene el turno acierta qué significa una
   pregunta (`ChallengeCard`: la pregunta y 3 traducciones). Si acierta, aplica la jugada; si falla,

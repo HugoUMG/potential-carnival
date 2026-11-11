@@ -58,14 +58,16 @@ Además, dos checks de TypeScript que se corren a mano:
 ```bash
 npx tsx scripts/check-dsl-serializer.ts
 npx tsx scripts/check-spoken.ts
-npx tsx scripts/check-verbs.ts
 ```
 
 Verifica el round-trip del constructor visual → DSL (fue lo que detectó que `esc()` escapaba el
-backslash antes que la comilla) y la comparación hablada de `spoken.ts` (cifras y contracciones). `check-verbs.ts` valida el banco de
-Camaleón y Oruga (`verbData.ts`): 5 formas y 5 oraciones por verbo, un solo hueco, ancla de presente
-en la oración de -s y verbos sin repetir. **No** puede comprobar que en cada hueco quepa una sola
-forma: eso se revisa a mano al añadir un verbo.
+backslash antes que la comilla) y la comparación hablada de `spoken.ts` (cifras y contracciones).
+
+El banco de verbos de Camaleón y Oruga se valida en `pytest`
+(`test_la_semilla_de_verbos_cumple_las_reglas_del_banco`, en `test_juegos.py`): 5 formas en
+minúsculas, al menos 2 oraciones por forma con un solo hueco que no va al principio, ancla de
+presente en las de -s, `have/has/had` o pasiva en las de participio y verbos sin repetir. **No**
+puede comprobar que en cada hueco quepa una sola forma: eso se revisa a mano al añadir un verbo.
 
 ## El test que más protege
 

@@ -99,6 +99,14 @@ word_meanings (word PK, data, created_at)
 -- Arranca con la semilla backend/app/frog_seed.json (ADR-45): `startup` inserta lo que falta
 -- Opcional en data: example_en / example_es, la oración que pidió un alumno (/public/frog-words/example)
 frog_words (en_key PK, level, category, data, created_at), índice (level, category)
+
+-- Banco de verbos de Camaleón y Oruga (ADR-46). De todo el sitio, sin IA. base = el infinitivo.
+-- data = {forms: [base, he/she/it, pasado, participio, -ing], es, irregular,
+--         gaps: [[oración con ___, …] por forma, en el mismo orden]}  (modelo `Verb`)
+-- La semilla backend/app/verb_seed.json MANDA: `startup` → `seed_verbs()` escribe los verbos que
+-- falten o que difieran del JSON (una lectura si todo está al día). Un verbo corregido en el JSON
+-- se corrige en la base al siguiente deploy. Los que no están en la semilla no se tocan.
+verb_bank (base PK, data, created_at)
 ```
 
 ### Convenciones

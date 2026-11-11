@@ -1239,31 +1239,48 @@ inserta las 242 fila a fila (regla 8). Una palabra de la semilla que alguien bor
 por tipo, `FROG_MIN_WRONG`, claves únicas, sin listas copiadas); que cada mosca sea incorrecta en
 todos sus sentidos lo revisó Claude Code a mano al escribirla, no un diccionario.
 
-## 🟢 ADR-46 — Camaleón y Oruga: banco de verbos fijo en el front, sin IA ni backend
+## 🟢 ADR-46 — Camaleón y Oruga: banco de verbos escrito a mano, sin IA, con la semilla al mando
 
-**Decisión.** Los dos juegos de las 5 formas del verbo (`verbs.tsx`) leen un banco escrito a mano en
-`src/games/verbData.ts`: 46 verbos con sus formas, su traducción y una oración con hueco por forma.
-No hay tabla, endpoint ni llamada a la IA. Lo único que tocan del backend es `ROOM_GAMES`.
+**Decisión.** Los dos juegos de las 5 formas del verbo (`verbs.tsx`) leen el banco `verb_bank` por
+`GET /public/verbs`: 200 verbos (96 irregulares, 104 regulares) con sus formas, su traducción y **2
+oraciones con hueco por forma** (2 000). Todo lo escribió y revisó Claude Code a pedido del profesor
+y vive en `backend/app/verb_seed.json`; `startup` llama a `seed_verbs()`, que deja en la base cada
+verbo **tal como está en el JSON**. No hay ninguna llamada a la IA.
 
-**Por qué.** Las formas de un verbo son un dato cerrado, no algo que generar, y lo delicado son las
-oraciones: en cada hueco tiene que caber **una sola** de las 5 formas. Eso se cumple con reglas de
-redacción (ancla de presente en la de -s, `have/has` o pasiva en el participio, nada de -ing tras
-`be` si el participio también cabría) que una persona revisa una vez; la IA de la rana necesita una
-segunda llamada revisora para algo parecido y aun así descarta la mayoría. Y sin backend el juego
-abre al instante y funciona aunque Render esté dormido.
+**Historia.** La primera versión (el mismo día) eran 46 verbos con una oración por forma en un
+archivo del front, sin backend. Al pedir 200 verbos con más variedad, el profesor pidió también
+montarlo en la base.
+
+**Por qué sin IA.** Las formas de un verbo son un dato cerrado, y lo delicado son las oraciones: en
+cada hueco tiene que caber **una sola** de las 5 formas. Eso se cumple con reglas de redacción que
+una persona revisa una vez: ancla de presente en la de -s (`now`, `these days`, `when` + presente:
+sin ella el pasado también vale), `have/has/had` o pasiva con agente en el participio, marca de
+tiempo en el pasado, y nada de `be + ___` en la de -ing si el participio también cabría (`is
+stopped`, `are hidden`, `I'm frozen`). La IA de la rana necesita una segunda llamada revisora para
+algo parecido y aun así descarta la mayoría.
+
+**Por qué la semilla manda** (al revés que ADR-45). En la rana la IA añade palabras encima, así que
+la semilla solo inserta lo que falta. Aquí el JSON es la única fuente: si se corrige una oración,
+tiene que corregirse en producción sin un script contra Aiven (regla 2). `seed_verbs()` compara y
+escribe solo lo que falta o difiere: con todo al día es una lectura.
 
 **Alternativas descartadas.**
-- *Un banco en la BD que crece con IA, como `frog_words` (ADR-44).* Para 46 verbos es una tabla, una
-  migración doble, un endpoint, una semilla y un revisor que no hacen falta. Es el camino si algún
-  día se quieren cientos de verbos o niveles (lo dice el comentario `ponytail:` del archivo).
+- *5 oraciones por forma (5 000).* Se le ofreció al profesor y eligió 2: con 200 verbos ya son 1 000
+  combinaciones verbo-forma, y cada oración de más es una posible ambigüedad que revisar a mano.
 - *Reloj como en la rana.* La rana entrena reconocer rápido; aquí hay que razonar por qué va esa
   forma. Con reloj se adivina. Por eso tampoco avanza solo: la regla se lee y se toca "Siguiente".
-- *Verbos con dos formas válidas* (got/gotten, learned/learnt, showed/shown). Oruga compara texto
-  exacto; quedaron fuera en vez de añadir listas de alternativas.
+- *Verbos con dos formas válidas* (got/gotten, learned/learnt, showed/shown, dreamed/dreamt). Oruga
+  compara texto exacto y en Camaleón las dos moscas serían correctas; quedaron fuera en vez de
+  añadir listas de alternativas. `be` tampoco está: tiene 8 formas.
+- *Filtrar por tipo en el endpoint.* El banco entero pesa ~100 kB y se baja una vez por visita; el
+  filtro (mixto, irregulares, regulares) se hace en el navegador.
 
-**Consecuencias.** Las respuestas viajan en el bundle: no importa, no es una evaluación (la regla 13
-habla de las hojas). Añadir un verbo es un cambio de código y un deploy. `scripts/check-verbs.ts`
-valida la forma del banco, pero que cada hueco admita una sola forma se revisó a mano.
+**Consecuencias.** Un verbo borrado de la base **vuelve en el siguiente deploy** si sigue en el
+JSON, y uno editado a mano en la base se pisa: para cambiarlo de verdad se cambia el JSON. Los
+verbos que alguien añada a la base y no estén en la semilla se respetan. Las respuestas viajan al
+navegador: no importa, no es una evaluación (la regla 13 habla de las hojas). El test de la semilla
+valida la forma del banco; que cada hueco admita una sola forma se revisó a mano. El orden de las 5
+formas está en dos sitios: `FORMS` (`verbs.tsx`) y el modelo `Verb`.
 
 ## Cómo añadir una decisión
 

@@ -171,7 +171,7 @@ export const FROG_GAME: GameMeta = {
   howTo: 'Individual: ¿quién aguanta más? En sala por turnos, cada quien juega su partida y suma sus segundos.',
 };
 
-/** Camaleón y Oruga (verbs.tsx): las 5 formas del verbo, con su propio banco fijo (`verbData.ts`).
+/** Camaleón y Oruga (verbs.tsx): las 5 formas del verbo, con el banco de verbos del sitio (`/public/verbs`).
  *  Aparte de los sets como la rana: /camaleon y /oruga (`VerbGamesPage`). Ids en `ROOM_GAMES`. */
 export const CHAMELEON_GAME: GameMeta = {
   id: 'camaleon', name: 'Camaleón', icon: 'leaf', skill: 'estructura', color: '#2F9E44', Component: ChameleonGame, room: BOTH,

@@ -238,3 +238,12 @@ CREATE TABLE IF NOT EXISTS frog_words (
 );
 
 CREATE INDEX IF NOT EXISTS idx_frog_words_level ON frog_words(level, category);
+
+-- Banco de verbos de Camaleon y Oruga (ADR-46): las 5 formas de cada verbo y varias oraciones con
+-- hueco por forma. Es de todo el sitio. Lo llena la semilla backend/app/verb_seed.json al arrancar
+-- (base = el verbo en infinitivo, en minusculas).
+CREATE TABLE IF NOT EXISTS verb_bank (
+  base       TEXT PRIMARY KEY,
+  data       JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

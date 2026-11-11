@@ -365,6 +365,16 @@ export type FrogLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 /** Tipos de palabra del banco: `FROG_CATEGORIES` en backend/app/ai.py. */
 export type FrogCategory = 'sustantivo' | 'verbo' | 'adjetivo' | 'adverbio' | 'preposicion' | 'conector';
 
+/** Un verbo del banco de Camaleón y Oruga (`GET /public/verbs`, ADR-46). */
+export interface Verb {
+  /** base, he/she/it, pasado, participio, -ing. */
+  forms: string[];
+  es: string;
+  irregular: boolean;
+  /** Por forma (mismo orden), oraciones con un hueco `___` donde solo cabe esa forma. */
+  gaps: string[][];
+}
+
 /** `GET /public/frog-words`: las palabras del banco para un nivel y tipo. `generating` = la IA está
  *  sumando una tanda a ese nivel ahora mismo. */
 export interface FrogPool {

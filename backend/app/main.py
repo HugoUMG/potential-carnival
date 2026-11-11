@@ -48,6 +48,7 @@ from .models import (
     RoleplayStart,
     RoleplayStartRequest,
     RoleplayTurnRequest,
+    Verb,
     VocabWord,
     WordMeaning,
     LiveAnswer,
@@ -152,6 +153,12 @@ def startup() -> None:
             print(f"[juegos] rana: {added} palabras nuevas de la semilla")
     except Exception as exc:  # sin semilla el juego sigue: la IA llena el banco como antes
         print(f"[juegos] rana: no se pudo cargar la semilla: {exc!r}")
+    try:
+        changed = seed_verbs()
+        if changed:
+            print(f"[juegos] verbos: {changed} verbos nuevos o cambiados de la semilla")
+    except Exception as exc:  # sin semilla, Camaleón y Oruga avisan de que no hay verbos
+        print(f"[juegos] verbos: no se pudo cargar la semilla: {exc!r}")
     # Solo en Render (lo define Render): en local el .env apunta a Aiven y gastaría IA de producción
     # con el servidor de desarrollo abierto (regla 2).
     if os.getenv("RENDER"):
@@ -2411,6 +2418,32 @@ def seed_frog_words() -> int:
             if fresh:
                 added += repository.put_frog_words(level, category, fresh)
     return added
+
+
+# Banco de verbos de Camaleón y Oruga (ADR-46): 200 verbos con sus 5 formas y 2 oraciones con hueco
+# por forma, escritos y revisados a mano. Sin IA: en cada hueco tiene que caber UNA sola forma.
+VERB_SEED = Path(__file__).with_name("verb_seed.json")
+
+
+def seed_verbs() -> int:
+    """Deja en `verb_bank` los verbos de la semilla tal como están en el JSON y devuelve cuántos
+    escribió. Al revés que la rana, aquí la semilla manda: un verbo corregido en el JSON se corrige
+    en la base en el siguiente arranque. Los que no están en la semilla no se tocan. Con todo al
+    día hace una sola lectura."""
+    current = repository.get_verbs()
+    changed = 0
+    for raw in json.loads(VERB_SEED.read_text(encoding="utf-8")):
+        verb = Verb(**(raw | {"forms": raw["forms"].split()})).model_dump()
+        if current.get(verb["forms"][0]) != verb:
+            repository.put_verb(verb["forms"][0], verb)
+            changed += 1
+    return changed
+
+
+@app.get("/public/verbs", response_model=list[Verb])
+def public_verbs() -> list[Verb]:
+    """El banco de verbos entero, en orden alfabético. Lo bajan Camaleón y Oruga una vez por visita."""
+    return [Verb(**data) for data in repository.get_verbs().values()]
 
 
 @app.get("/public/frog-words", response_model=FrogPool)

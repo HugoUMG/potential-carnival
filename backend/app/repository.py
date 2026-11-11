@@ -1585,4 +1585,18 @@ class WorksheetRepository:
                 added += max(cursor.rowcount, 0)
         return added
 
+    def get_verbs(self) -> dict[str, dict]:
+        """Banco de verbos de Camaleón y Oruga: base → `data`, en orden alfabético."""
+        with get_connection() as connection:
+            rows = connection.execute("SELECT base, data FROM verb_bank ORDER BY base").fetchall()
+        return {dict(r)["base"]: _decode_json(dict(r)["data"], {}) for r in rows}
+
+    def put_verb(self, base: str, data: dict) -> None:
+        """Guarda un verbo del banco. Si ya estaba, lo reemplaza: la semilla manda sobre sus verbos."""
+        with get_connection() as connection:
+            connection.execute(
+                f"INSERT INTO verb_bank (base, data) VALUES ({self._placeholders(2)}) ON CONFLICT (base) DO UPDATE SET data = excluded.data",
+                (base, self._json_param(data)),
+            )
+
 repository = WorksheetRepository()

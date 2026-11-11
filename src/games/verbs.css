@@ -1,4 +1,4 @@
-/* Camaleón y Oruga (verbs.tsx). `--form` = el color de una forma del verbo (`FORMS` en verbData.ts),
+/* Camaleón y Oruga (verbs.tsx). `--form` = el color de una forma del verbo (`FORMS` en verbs.tsx),
    igual en los dos juegos. Las moscas reutilizan `.fr-fly-bob` y `.fr-fly-word` de games.css, y las
    animaciones `fr-*` / `dg-*` también salen de allí. */
 .vb-game { display: grid; gap: 12px; max-width: 600px; margin: 0 auto; }

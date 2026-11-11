@@ -194,7 +194,12 @@ ADR-46): una oración con hueco y las formas del verbo como moscas; solo una enc
 las cuatro bien, la oruga se vuelve mariposa.
 
 **Las 5 formas (del verbo)** — Base, he/she/it (-s), pasado, participio e -ing, en ese orden
-(`FORMS` en `src/games/verbData.ts`). Cada una tiene un color fijo en Camaleón y Oruga.
+(`FORMS` en `src/games/verbs.tsx`, `Verb.forms` en el backend). Cada una tiene un color fijo en
+Camaleón y Oruga.
+
+**Banco de verbos** — `verb_bank`: los 200 verbos de Camaleón y Oruga con sus 5 formas y 2 oraciones
+con hueco por forma. Lo carga al arrancar la semilla `backend/app/verb_seed.json`, que **manda**
+sobre la base (al revés que la de la rana).
 
 **Mosca mala (distractor)** — En Rana hambrienta, una opción incorrecta. Debe ser incorrecta en
 **todos** los sentidos de la palabra: la IA la filtra, la revisa y la traduce de vuelta

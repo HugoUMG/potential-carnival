@@ -1,23 +1,54 @@
-import type { CSSProperties, FormEvent, ReactNode } from 'react';
-import { ArrowRight, Check, Play, X } from 'lucide-react';
+import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { ArrowRight, Check, Loader2, Play, X } from 'lucide-react';
+import { getVerbs } from '../services/api';
+import type { Verb } from '../types';
 import { playSfx } from '../utils/sfx';
-import { range, sample, shuffle } from './util';
-import { Finish, Speak } from './ui';
+import { pick as pickOne, range, sample, shuffle } from './util';
+import { Finish, Notice, Speak } from './ui';
 import { useRoom, useShared } from './roomState';
 import { Fly } from './frog';
-import { FORMS, VERBS } from './verbData';
 import './verbs.css';
 
-/* Camaleón y Oruga: las 5 formas del verbo (base, he/she/it, pasado, participio, -ing), aparte de
- * los sets como Rana hambrienta (/camaleon y /oruga). Camaleón entrena CUÁNDO va cada forma (una
- * oración con hueco y las formas del verbo volando); Oruga, ESCRIBIRLAS. Cada forma tiene siempre
- * el mismo color en los dos juegos (`FORMS`). El banco es fijo (`verbData.ts`): sin IA ni backend.
- * En sala por turnos, cada jugada (una mosca / un verbo) es un turno. */
+/* Camaleón y Oruga (ADR-46): las 5 formas del verbo, aparte de los sets como Rana hambrienta
+ * (/camaleon y /oruga). Camaleón entrena CUÁNDO va cada forma (una oración con hueco y las formas
+ * del verbo volando); Oruga, ESCRIBIRLAS. Cada forma tiene siempre el mismo color en los dos juegos
+ * (`FORMS`). Los verbos salen del banco del sitio (`verb_bank` → `/public/verbs`, 200 verbos con
+ * varias oraciones por forma), escrito a mano y sin IA.
+ * En sala por turnos, cada jugada (una mosca / un verbo) es un turno. Lo que se comparte lleva el
+ * verbo entero, no su índice: quien mira no depende de haber bajado el mismo banco. */
+
+/** Las 5 formas, en el orden de `Verb.forms` y `Verb.gaps` (el del backend: models.py `Verb`). */
+const FORMS = [
+  { id: 'base', name: 'Base', color: '#2F9E44', tip: 'Después de to, can, should, don’t, let’s… va la forma base.' },
+  { id: 's', name: 'He / she / it', color: '#1C7ED6', tip: 'Presente con he, she o it: el verbo lleva -s.' },
+  { id: 'past', name: 'Pasado', color: '#E8590C', tip: 'Acción terminada (yesterday, last…, ago): pasado simple.' },
+  { id: 'pp', name: 'Participio', color: '#7048E8', tip: 'Después de have / has / had, o en voz pasiva (was made): participio.' },
+  { id: 'ing', name: '-ing', color: '#D6336C', tip: 'Después de am / is / are, o de palabras como enjoy, keep, at, without: -ing.' },
+] as const;
 
 type Kind = '' | 'irr' | 'reg';
 const KINDS: { id: Kind; name: string }[] = [{ id: '', name: 'Mixto' }, { id: 'irr', name: 'Irregulares' }, { id: 'reg', name: 'Regulares' }];
-const pool = (kind: Kind) => range(VERBS.length).filter((i) => !kind || VERBS[i].irregular === (kind === 'irr'));
+const pool = (verbs: Verb[], kind: Kind) => verbs.filter((v) => !kind || v.irregular === (kind === 'irr'));
 const tint = (f: number) => ({ '--form': FORMS[f].color }) as CSSProperties;
+/** Lo que viaja de un verbo en el estado de una partida. */
+type Word = Pick<Verb, 'forms' | 'es'>;
+
+/** El banco se baja una vez por visita y lo comparten los dos juegos. Si falla, la próxima vez reintenta. */
+let bank: Promise<Verb[]> | null = null;
+function useVerbs() {
+  const [verbs, setVerbs] = useState<Verb[] | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let alive = true;
+    bank ??= getVerbs();
+    bank.then((v) => { if (alive) setVerbs(v); }, (e: unknown) => {
+      bank = null;
+      if (alive) setError(e instanceof Error ? e.message : 'No se pudieron cargar los verbos');
+    });
+    return () => { alive = false; };
+  }, []);
+  return { verbs, error };
+}
 
 function Legend() {
   return (
@@ -27,7 +58,11 @@ function Legend() {
   );
 }
 
-function Start({ art, title, children, kind, onKind, go, onStart }: { art: ReactNode; title: string; children: ReactNode; kind: Kind; onKind: (k: Kind) => void; go: string; onStart: () => void }) {
+/** Pantalla de inicio. `need` = verbos que gasta una partida: con menos de un tipo, no se puede elegir. */
+function Start({ art, title, children, verbs, need, kind, onKind, go, onStart }: {
+  art: ReactNode; title: string; children: ReactNode; verbs: Verb[] | null; need: number; kind: Kind; onKind: (k: Kind) => void; go: string; onStart: () => void;
+}) {
+  const ready = verbs !== null && pool(verbs, kind).length >= need;
   return (
     <div className="fr-start">
       <div className="fr-hero vb-hero">
@@ -41,33 +76,46 @@ function Start({ art, title, children, kind, onKind, go, onStart }: { art: React
       <div className="fr-pick">
         <p className="fr-pick-t">Verbos</p>
         <div className="fr-chips">
-          {KINDS.map((k) => <button key={k.id || 'mixto'} type="button" className="fr-chip" aria-pressed={kind === k.id} onClick={() => onKind(k.id)}>{k.name} ({pool(k.id).length})</button>)}
+          {KINDS.map((k) => (
+            <button key={k.id || 'mixto'} type="button" className="fr-chip" aria-pressed={kind === k.id} onClick={() => onKind(k.id)}>
+              {k.name}{verbs && ` (${pool(verbs, k.id).length})`}
+            </button>
+          ))}
         </div>
       </div>
-      <button type="button" className="dg-btn primary big fr-go" onClick={onStart}><Play size={18} /> {go}</button>
+      <button type="button" className="dg-btn primary big fr-go" disabled={!ready} onClick={onStart}><Play size={18} /> {go}</button>
+      {!ready && (
+        <p className="dg-muted center" aria-live="polite">
+          {verbs ? 'Aún no hay suficientes verbos de este tipo.' : <><Loader2 size={13} className="fr-spin inline align-[-2px]" /> Cargando los verbos…</>}
+        </p>
+      )}
     </div>
   );
 }
 
 /** Las 5 formas de un verbo, cada una con su color. */
-function Forms({ v }: { v: number }) {
-  return <span className="vb-forms" lang="en">{VERBS[v].forms.map((form, f) => <b key={f} style={tint(f)}>{form}</b>)}</span>;
+function Forms({ forms }: { forms: string[] }) {
+  return <span className="vb-forms" lang="en">{forms.map((form, f) => <b key={f} style={tint(f)}>{form}</b>)}</span>;
 }
 
 // ── Camaleón ──────────────────────────────────────────────────────────────────
 
 const SHOTS = 12;
-/** Una jugada: verbo, forma que pide la oración y las moscas (las formas del verbo, sin repetir). */
-interface Shot { v: number; f: number; flies: string[] }
+/** Una jugada: el verbo, la forma que pide la oración y las moscas (sus formas, sin repetir). */
+interface Shot extends Word { f: number; gap: string; flies: string[] }
 
 /** Verbos distintos y las 5 formas repartidas parejo: nadie acierta diciendo siempre "pasado". */
-function makeShots(kind: Kind): Shot[] {
+function makeShots(verbs: Verb[], kind: Kind): Shot[] {
   const cycle = shuffle(range(FORMS.length));
-  return sample(pool(kind), SHOTS).map((v, i) => ({ v, f: cycle[i % cycle.length], flies: shuffle([...new Set(VERBS[v].forms)]) }));
+  return sample(pool(verbs, kind), SHOTS).map(({ forms, es, gaps }, i) => {
+    const f = cycle[i % cycle.length];
+    return { forms, es, f, gap: pickOne(gaps[f]), flies: shuffle([...new Set(forms)]) };
+  });
 }
 
 export function ChameleonGame() {
   const { canAct, endTurn, addPoint } = useRoom();
+  const { verbs, error } = useVerbs();
   const [phase, setPhase] = useShared<'ready' | 'play' | 'over'>('phase', 'ready');
   const [kind, setKind] = useShared<Kind>('kind', '');
   const [shots, setShots] = useShared<Shot[]>('shots', []);
@@ -76,12 +124,16 @@ export function ChameleonGame() {
   const [score, setScore] = useShared('score', 0);
   const [missed, setMissed] = useShared<number[]>('missed', []);
 
-  const start = () => { setShots(makeShots(kind)); setPos(0); setPick(null); setScore(0); setMissed([]); setPhase('play'); };
+  const start = () => {
+    if (!verbs) return;
+    setShots(makeShots(verbs, kind)); setPos(0); setPick(null); setScore(0); setMissed([]); setPhase('play');
+  };
 
   const shot = shots[pos];
   if (phase === 'ready' || !shot) {
+    if (error) return <Notice>{error}</Notice>;
     return (
-      <Start art={<Chameleon mood="idle" />} title="¡Dale al camaleón la forma correcta!" kind={kind} onKind={setKind} go="¡A cazar!" onStart={start}>
+      <Start art={<Chameleon mood="idle" />} title="¡Dale al camaleón la forma correcta!" verbs={verbs} need={SHOTS} kind={kind} onKind={setKind} go="¡A cazar!" onStart={start}>
         A la oración le falta el verbo y las moscas traen sus formas. Atrapa la <b>única</b> que encaja: si aciertas, el camaleón se pinta del color de esa forma.
       </Start>
     );
@@ -95,13 +147,13 @@ export function ChameleonGame() {
             <p>Repasa estas oraciones ({missed.length})</p>
             <ul>
               {missed.map((p) => {
-                const { v, f } = shots[p];
-                const [before, after] = VERBS[v].gaps[f].split('___');
+                const { forms, f, gap } = shots[p];
+                const [before, after] = gap.split('___');
                 return (
                   <li key={p}>
-                    <span lang="en">{before}<b style={tint(f)}>{VERBS[v].forms[f]}</b>{after}</span>
+                    <span lang="en">{before}<b style={tint(f)}>{forms[f]}</b>{after}</span>
                     <em style={tint(f)}>{FORMS[f].name}</em>
-                    <Speak text={VERBS[v].gaps[f].replace('___', VERBS[v].forms[f])} />
+                    <Speak text={gap.replace('___', forms[f])} />
                   </li>
                 );
               })}
@@ -113,10 +165,9 @@ export function ChameleonGame() {
     );
   }
 
-  const verb = VERBS[shot.v];
-  const right = verb.forms[shot.f];
+  const right = shot.forms[shot.f];
   const ok = pick === right;
-  const [before, after] = verb.gaps[shot.f].split('___');
+  const [before, after] = shot.gap.split('___');
 
   const answer = (text: string) => {
     if (!canAct || pick !== null) return;
@@ -149,14 +200,14 @@ export function ChameleonGame() {
       <p className="vb-sentence" lang="en">
         {before}<span className={`vb-gap ${pick === null ? '' : 'done'}`} style={pick === null ? undefined : tint(shot.f)}>{pick === null ? '' : right}</span>{after}
       </p>
-      <p className="vb-verb"><b lang="en">to {verb.forms[0]}</b> · {verb.es}</p>
+      <p className="vb-verb"><b lang="en">to {shot.forms[0]}</b> · {shot.es}</p>
 
       {pick !== null && (
         <div className={`vb-tip ${ok ? 'ok' : 'bad'}`} aria-live="polite">
           <p>{ok ? <Check size={17} /> : <X size={17} />} <b style={tint(shot.f)}>{FORMS[shot.f].name}</b> {FORMS[shot.f].tip}</p>
-          <Forms v={shot.v} />
+          <Forms forms={shot.forms} />
           <div className="dg-row center">
-            <Speak text={verb.gaps[shot.f].replace('___', right)} label="Escuchar la oración" />
+            <Speak text={shot.gap.replace('___', right)} label="Escuchar la oración" />
             <button type="button" className="dg-btn primary" onClick={next}>{pos + 1 >= shots.length ? 'Ver resultado' : 'Siguiente'} <ArrowRight size={16} /></button>
           </div>
         </div>
@@ -194,20 +245,27 @@ const norm = (text: string) => text.trim().toLowerCase().replace(/\s+/g, ' ');
 
 export function CaterpillarGame() {
   const { canAct, endTurn, addPoint } = useRoom();
+  const { verbs, error } = useVerbs();
   const [phase, setPhase] = useShared<'ready' | 'play' | 'over'>('phase', 'ready');
   const [kind, setKind] = useShared<Kind>('kind', '');
-  const [order, setOrder] = useShared<number[]>('order', []);
+  const [order, setOrder] = useShared<Word[]>('order', []);
   const [pos, setPos] = useShared('pos', 0);
   const [typed, setTyped] = useShared<string[]>('typed', BLANK);
   const [marks, setMarks] = useShared<boolean[] | null>('marks', null);
   const [score, setScore] = useShared('score', 0);
-  const [missed, setMissed] = useShared<number[]>('missed', []);
+  const [missed, setMissed] = useShared<Word[]>('missed', []);
 
-  const start = () => { setOrder(sample(pool(kind), CRAWL)); setPos(0); setTyped(BLANK); setMarks(null); setScore(0); setMissed([]); setPhase('play'); };
+  const start = () => {
+    if (!verbs) return;
+    setOrder(sample(pool(verbs, kind), CRAWL).map(({ forms, es }) => ({ forms, es })));
+    setPos(0); setTyped(BLANK); setMarks(null); setScore(0); setMissed([]); setPhase('play');
+  };
 
-  if (phase === 'ready' || order[pos] === undefined) {
+  const verb = order[pos];
+  if (phase === 'ready' || !verb) {
+    if (error) return <Notice>{error}</Notice>;
     return (
-      <Start art={<Butterfly />} title="¡Convierte la oruga en mariposa!" kind={kind} onKind={setKind} go="¡A escribir!" onStart={start}>
+      <Start art={<Butterfly />} title="¡Convierte la oruga en mariposa!" verbs={verbs} need={CRAWL} kind={kind} onKind={setKind} go="¡A escribir!" onStart={start}>
         La cabeza de la oruga trae el verbo. Escribe sus otras <b>cuatro formas</b>, una en cada parte del cuerpo. Si las cuatro están bien, la oruga se vuelve mariposa.
       </Start>
     );
@@ -221,8 +279,8 @@ export function CaterpillarGame() {
           <div className="fr-review vb-review">
             <p>Repasa estos verbos ({missed.length})</p>
             <ul>
-              {missed.map((v) => (
-                <li key={v}><Forms v={v} /><em>{VERBS[v].es}</em><Speak text={VERBS[v].forms.join(', ')} /></li>
+              {missed.map(({ forms, es }) => (
+                <li key={forms[0]}><Forms forms={forms} /><em>{es}</em><Speak text={forms.join(', ')} /></li>
               ))}
             </ul>
           </div>
@@ -232,8 +290,6 @@ export function CaterpillarGame() {
     );
   }
 
-  const v = order[pos];
-  const verb = VERBS[v];
   const all = marks?.every(Boolean) ?? false;
 
   const check = (e: FormEvent<HTMLFormElement>) => {
@@ -247,7 +303,7 @@ export function CaterpillarGame() {
     setMarks(m);
     setScore(score + hits);
     if (hits) addPoint(hits);
-    if (hits < m.length) setMissed([...missed, v]);
+    if (hits < m.length) setMissed([...missed, verb]);
     playSfx(hits === m.length ? 'win' : hits ? 'ok' : 'miss');
   };
   const next = () => {
@@ -282,7 +338,7 @@ export function CaterpillarGame() {
       ) : (
         <div className={`vb-tip ${all ? 'ok' : 'bad'}`} aria-live="polite">
           <p>{all ? <><Check size={17} /> ¡Mariposa! Las cuatro formas están bien.</> : <><X size={17} /> {marks.filter(Boolean).length} de 4. En rojo, la forma correcta.</>}</p>
-          <Forms v={v} />
+          <Forms forms={verb.forms} />
           <div className="dg-row center">
             <Speak text={verb.forms.join(', ')} label="Escuchar las cinco formas" />
             <button type="button" className="dg-btn primary" onClick={next}>{pos + 1 >= order.length ? 'Ver resultado' : 'Siguiente'} <ArrowRight size={16} /></button>

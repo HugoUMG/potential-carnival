@@ -421,3 +421,47 @@ def test_la_semilla_entra_una_vez_sin_pisar_el_banco_y_la_ia_sigue_sumando(db, m
     main._frog_job.clear()
     first = main.public_frog_words(background := BackgroundTasks(), level="A1")
     assert len(first.words) >= 50 and first.generating and background.tasks
+
+
+# ── Banco de verbos de Camaleón y Oruga (ADR-46) ──────────────────────────────
+
+def test_la_semilla_de_verbos_cumple_las_reglas_del_banco():
+    """Lo que se puede comprobar sin entender inglés. Que en cada hueco quepa UNA sola forma se
+    revisó a mano; estas reglas atrapan los descuidos que lo rompen."""
+    seed = json.loads(main.VERB_SEED.read_text(encoding="utf-8"))
+    assert len(seed) >= 200
+    assert len({raw["forms"].split()[0] for raw in seed}) == len(seed)  # sin verbos repetidos
+    kinds = [raw["irregular"] for raw in seed]
+    assert kinds.count(True) >= 12 and kinds.count(False) >= 12  # una partida de Camaleón por tipo
+    present = re.compile(r"\b(now|nowadays|these days|when|every time|if|before|so|that)\b", re.I)
+    perfect = re.compile(r"\b(have|has|had|haven’t|hasn’t|was|were|is|are|been|be)\b", re.I)
+    for raw in seed:
+        verb = main.Verb(**(raw | {"forms": raw["forms"].split()}))
+        base, s, past, pp, ing = verb.forms
+        assert all(re.fullmatch(r"[a-z]+", form) for form in verb.forms), base  # Oruga compara texto exacto
+        assert s != base and ing.endswith("ing") and verb.es, base
+        assert verb.irregular or (past == pp and past.endswith("ed")), base
+        for f, sentences in enumerate(verb.gaps):
+            assert len(sentences) >= 2 and len(set(sentences)) == len(sentences), (base, f)
+            for sentence in sentences:
+                # Un solo hueco y nunca al principio: la mosca va en minúsculas.
+                assert sentence.count("___") == 1 and not sentence.startswith("___"), sentence
+        # Sin ancla de presente, en el hueco de -s también cabría el pasado.
+        assert all(present.search(g) for g in verb.gaps[1]), verb.gaps[1]
+        assert all(perfect.search(g) for g in verb.gaps[3]), verb.gaps[3]
+        assert not any(re.search(r"\b(have|has|had)\s+___", g, re.I) for g in verb.gaps[2]), verb.gaps[2]
+
+
+def test_la_semilla_de_verbos_manda_sobre_la_base_y_no_reescribe_lo_que_esta_al_dia(db):
+    total = main.seed_verbs()
+    assert total >= 200 and main.seed_verbs() == 0  # ya cargada: ninguna escritura
+    verbs = main.public_verbs()
+    assert len(verbs) == total and [v.forms[0] for v in verbs] == sorted(v.forms[0] for v in verbs)
+    go = next(v for v in verbs if v.forms[0] == "go")
+    assert go.forms == ["go", "goes", "went", "gone", "going"] and go.irregular and len(go.gaps) == 5
+    # Un verbo tocado en la base vuelve a quedar como en el JSON; uno que no es de la semilla se queda.
+    main.repository.put_verb("go", go.model_dump() | {"es": "otra cosa"})
+    main.repository.put_verb("zzz", go.model_dump() | {"forms": ["zzz", "zzzs", "zzzed", "zzzed", "zzzing"]})
+    assert main.seed_verbs() == 1
+    after = {v.forms[0]: v for v in main.public_verbs()}
+    assert after["go"].es == "ir" and "zzz" in after

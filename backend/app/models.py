@@ -512,6 +512,14 @@ class VocabWord(BaseModel):
     wrong_en: list[str]  # moscas malas cuando la rana dice `es`: ninguna traduce `es`
 
 
+class Verb(BaseModel):
+    """Un verbo del banco de Camaleón y Oruga (`verb_bank`, ADR-46)."""
+    forms: list[str] = Field(min_length=5, max_length=5)  # base, he/she/it, pasado, participio, -ing
+    es: str
+    irregular: bool
+    gaps: list[list[str]] = Field(min_length=5, max_length=5)  # por forma, oraciones con un hueco `___`
+
+
 class FrogPool(BaseModel):
     """Palabras del banco para un nivel y tipo. `generating`: la IA está sumando una tanda a ese
     nivel ahora mismo (si hay pocas, el cliente vuelve a preguntar)."""

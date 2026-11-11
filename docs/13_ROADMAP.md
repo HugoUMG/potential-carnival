@@ -100,8 +100,10 @@ la vez).
 ### Camaleón y Oruga (hecho, noviembre 2026, ADR-46)
 
 Dos juegos aparte de los sets para las 5 formas del verbo: `/camaleon` (elegir la forma que pide la
-oración) y `/oruga` (escribirlas). Banco fijo de 46 verbos en el front, sin IA ni backend, con sala
-por turnos. Ideas del mismo lote que quedaron sin hacer, sin compromiso: Nido (clasificar formas de
+oración) y `/oruga` (escribirlas). Banco del sitio de **200 verbos y 2 000 oraciones** (`verb_bank`,
+cargado desde `verb_seed.json` al arrancar), sin IA, con sala por turnos. Quedaron fuera a propósito
+los verbos con dos formas válidas (get, learn, show, dream, burn…): para meterlos, Oruga tiene que
+aceptar alternativas. Ideas del mismo lote que quedaron sin hacer, sin compromiso: Nido (clasificar formas de
 varios verbos), Araña (familias de irregulares: sing-sang-sung), Topo (encontrar la forma mal
 escrita) y Murciélago (de oído, pronunciación del -ed). También: que las falladas vuelvan dentro de
 la misma partida y que el profesor elija los verbos.
