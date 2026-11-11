@@ -1282,6 +1282,40 @@ navegador: no importa, no es una evaluación (la regla 13 habla de las hojas). E
 valida la forma del banco; que cada hueco admita una sola forma se revisó a mano. El orden de las 5
 formas está en dos sitios: `FORMS` (`verbs.tsx`) y el modelo `Verb`.
 
+## 🟢 ADR-47 — El audio de los juegos se baja con `fetch` a un blob, no va como `src` del `<audio>`
+
+**Decisión.** `playAudio` (`src/games/util.ts`) ya no pone la URL de `/tts` en el `src`: la baja con
+`fetch`, la guarda en memoria como blob (`clip`, hasta 300) y reproduce el blob. La precarga llena
+ese mismo mapa, de 3 en 3. Si `/tts` no contesta en 7 s suena la voz del navegador. En el servidor,
+`_edge_stream` tiene tope de espera (5 s conectando, 8 s callado), reintenta una vez si falla antes
+del primer trozo, y los últimos 300 mp3 de edge quedan en la memoria del proceso delante de
+`tts_cache`.
+
+**Motivo.** El audio de un juego tardaba ~3 s y a veces se quedaba colgado. Tres causas sumadas:
+(1) con la URL directa el `<audio>` espera el archivo entero y aún arranca 2-3 s después de tenerlo,
+lo mismo que ya se había medido en la conversación con IA (`roleplay/media.ts`), y no siempre
+aprovechaba lo que la precarga había dejado en la caché del navegador; (2) la precarga iba de una en
+una: 40 frases nuevas son ~2 min y el alumno tocaba antes de que llegara la suya; (3) edge-tts no
+tenía tope: la librería espera 10 s la conexión y 60 s de silencio, y el lock por frase dejaba
+esperando también a los demás que pedían la misma.
+
+**Alternativas descartadas.**
+- *Seguir con el `src` directo y confiar en `Cache-Control`.* Es lo que había: depende de que el
+  elemento de audio reutilice una respuesta sin `Content-Length` bajada por `fetch`, y el arranque
+  lento del `<audio>` con una respuesta por trozos no se arregla desde el servidor.
+- *Una conexión con Microsoft ya abierta en el servidor (como ADR-39).* Quitaría el segundo de la
+  conexión en la frase nueva, pero no se sabe cuánto la mantiene Microsoft sin uso y no se pudo
+  medir. Queda como siguiente paso si la primera reproducción de una palabra suelta sigue molestando.
+- *Precargar también cada palabra de cada pregunta.* Son cientos de peticiones por set contra un
+  rate limit de 300/min por IP que un colegio comparte.
+
+**Consecuencias.** Lo precargado suena dentro del mismo toque (también en iPhone, que exige que el
+`play()` nazca del toque). Una frase nueva se oye cuando termina de bajar, no con el primer trozo:
+se pierde el streaming en los juegos, a cambio de no esperar el arranque del `<audio>`. Los `fetch`
+no se cortan al cambiar de juego: terminan y dejan el mp3 en memoria y en `tts_cache`. La memoria del
+servidor es por proceso (~6 MB como mucho) y se vacía en cada despliegue; la base sigue siendo la
+caché de verdad.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

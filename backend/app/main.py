@@ -1,4 +1,5 @@
 from pathlib import Path
+from collections import OrderedDict
 from typing import Any
 import asyncio
 import hashlib
@@ -578,14 +579,28 @@ def _conversation_parts(lines: list[dict], male: str, female: str) -> list[tuple
 
 
 async def _edge_stream(text: str, voice: str, rate: str):
-    """Los trozos de mp3 según llegan de edge-tts."""
+    """Los trozos de mp3 según llegan de edge-tts.
+
+    Con tope de espera: la librería aguanta 10 s conectando y 60 s callada, y mientras tanto el
+    alumno ve el juego "pillado". Si falla antes del primer trozo se reintenta una vez con otra
+    conexión (los picos son de la conexión, no del texto); después ya no, o el mp3 saldría repetido.
+    """
     if _ELEVEN_ID_RE.match(voice):  # un voice_id de ElevenLabs fijado en el DSL: edge no lo conoce
         voice = "en-US-AndrewNeural"
     import edge_tts
-    communicate = edge_tts.Communicate(text, voice, **_tts_params(voice, rate))
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            yield chunk["data"]
+    for attempt in (1, 2):
+        sent = False
+        try:
+            communicate = edge_tts.Communicate(text, voice, connect_timeout=5, receive_timeout=8, **_tts_params(voice, rate))
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    sent = True
+                    yield chunk["data"]
+            return
+        except Exception as exc:
+            if sent or attempt == 2:
+                raise
+            print(f"[tts] edge-tts falló antes de dar audio, se reintenta: {exc!r}")
 
 
 async def _edge_synth(text: str, voice: str, rate: str) -> bytes:
@@ -616,16 +631,36 @@ def _edge_cache_key(text: str, voice: str, rate: str) -> str:
     return hashlib.sha256(f"edge|{voice}|{_tts_rate(rate)}|{text}".encode()).hexdigest()
 
 
+# Delante de la base, los últimos mp3 en la memoria del proceso: leer `tts_cache` es un viaje a la
+# base por cada toque, y en un juego la clase entera repite las mismas frases.
+_EDGE_MEMORY_MAX = 300  # ~20 KB cada uno
+_edge_memory: OrderedDict[str, bytes] = OrderedDict()
+
+
+def _edge_remember(key: str, audio: bytes) -> None:
+    _edge_memory[key] = audio
+    _edge_memory.move_to_end(key)
+    while len(_edge_memory) > _EDGE_MEMORY_MAX:
+        _edge_memory.popitem(last=False)
+
+
 async def _read_edge_cache(key: str) -> bytes | None:
     """La caché es una optimización: si la base falla, el audio sigue saliendo de edge."""
+    if audio := _edge_memory.get(key):
+        _edge_memory.move_to_end(key)
+        return audio
     try:
-        return await asyncio.to_thread(repository.get_tts_audio, key)
+        audio = await asyncio.to_thread(repository.get_tts_audio, key)
     except Exception as exc:
         print(f"[tts] no se pudo leer la caché de edge: {exc!r}")
         return None
+    if audio:
+        _edge_remember(key, audio)
+    return audio
 
 
 async def _write_edge_cache(key: str, audio: bytes) -> None:
+    _edge_remember(key, audio)
     try:
         await asyncio.to_thread(repository.put_tts_audio, key, audio)
     except Exception as exc:

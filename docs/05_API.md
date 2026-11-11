@@ -303,7 +303,10 @@ ElevenLabs, que queda para las hojas. El mp3 se guarda **también en el servidor
 con clave `sha256(edge|voz|rate|texto)` (ADR-43): el primero que pide una frase la sintetiza y los
 demás la leen de la base, aunque estén en otro dispositivo. `_edge_cached_stream` mantiene un lock
 por clave: si 30 alumnos tocan la misma palabra a la vez, uno sintetiza y los otros 29 esperan y
-reciben el mp3 ya hecho; la versión lenta se cachea aparte porque `rate` forma parte de la clave. Si
+reciben el mp3 ya hecho; la versión lenta se cachea aparte porque `rate` forma parte de la clave.
+Delante de la base hay una memoria en el proceso con los últimos 300 mp3 (`_edge_memory`): una frase
+repetida no viaja a la base. `_edge_stream` tiene tope de espera (5 s para conectar, 8 s de silencio)
+y, si falla antes del primer trozo, reintenta una vez con otra conexión (ADR-47). Si
 la base falla, el audio sigue saliendo de edge: la caché es solo una optimización. En un fallo de
 caché va **en streaming** (`StreamingResponse` sobre `_edge_stream`): el `<audio>` empieza a sonar
 con el primer trozo (~1 s) en vez de esperar la frase entera. El primer trozo se pide antes de

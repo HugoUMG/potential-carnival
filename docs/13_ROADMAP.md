@@ -131,6 +131,15 @@ guarda en `tts_cache` (ADR-43): la primera reproducción de una frase la sinteti
 clase la recibe de la base en milisegundos. No se cambió de proveedor de TTS: la versión nueva
 arregla el bloqueo sin tocar voces ni URLs.
 
+## Cerrado: el audio de los juegos ya no tarda 3 s ni se queda colgado (noviembre 2026)
+
+El mp3 se baja con `fetch` a un blob en memoria en vez de ir como `src` del `<audio>`, la precarga
+va de 3 en 3 y comparte ese mapa, y a los 7 s sin respuesta suena la voz del navegador. En el
+servidor edge-tts tiene tope de espera y un reintento, y los mp3 repetidos salen de la memoria del
+proceso sin viajar a la base (ADR-47). **Sin medir en producción**: desde el entorno donde se hizo
+no se llega a Microsoft; se probó con `/tts` simulado. Pendiente si hiciera falta: una conexión con
+edge ya abierta para la primera reproducción de una palabra suelta.
+
 ## En cola
 
 ### ElevenLabs en Render

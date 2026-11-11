@@ -133,46 +133,90 @@ export function speak(text: string, slow = false): void {
   playAudio(text, slow);
 }
 
-/** Suena solo en este navegador. Un solo elemento de audio, reutilizado. Si `/tts` falla, usa la
- *  voz del navegador y reintenta el servidor tras un minuto (`browserSpeech.ts`). */
-export function playAudio(text: string, slow = false): void {
-  stopAudio();
-  if (serverTtsDown() && browserSpeak(text, slow ? 0.6 : 0.9)) return;
-  const audio = audioElement();
-  const id = playId;
-  audio.onerror = () => {
-    if (id !== playId) return;
-    markServerTtsDown();
-    browserSpeak(text, slow ? 0.6 : 0.9);
-  };
-  audio.src = gameAudioUrl(text, slow);
-  audio.play().catch(() => { /* autoplay bloqueado o error: `onerror` decide el respaldo */ });
+// Los mp3 se bajan con `fetch` y se guardan en memoria como blob (url de /tts → url del blob). Con la
+// URL de /tts directa en el `src`, el <audio> esperaba el archivo entero y aún tardaba 2-3 s más en
+// arrancar, y no siempre aprovechaba lo precargado. La precarga y el toque comparten este mapa: un
+// mp3 se pide una sola vez por sesión y lo ya bajado suena dentro del mismo toque.
+const CLIP_LIMIT = 300; // ~20 KB cada uno
+const clips = new Map<string, Promise<string>>();
+const ready = new Map<string, string>();
+
+function clip(url: string): Promise<string> {
+  let pending = clips.get(url);
+  if (pending) return pending;
+  pending = fetch(url).then(async (res) => {
+    if (!res.ok) throw new Error(`tts ${res.status}`);
+    const src = URL.createObjectURL(await res.blob());
+    if (clips.get(url) === pending) ready.set(url, src);
+    return src;
+  });
+  pending.catch(() => { if (clips.get(url) === pending) clips.delete(url); }); // el próximo toque reintenta
+  clips.set(url, pending);
+  if (clips.size > CLIP_LIMIT) {
+    const [oldest, gone] = clips.entries().next().value!;
+    clips.delete(oldest);
+    ready.delete(oldest);
+    gone.then((src) => URL.revokeObjectURL(src), () => {});
+  }
+  return pending;
 }
 
-// Precarga: pide en segundo plano los mp3 que el juego va a tocar, así el toque suena al instante
-// (el navegador lo guarda por `Cache-Control`) y de paso queda en `tts_cache` para la clase.
-// ponytail: cola de 1 a la vez y tope de 40 por llamada para no gastar el rate limit de /tts (300/min
-// por IP, compartido por un colegio tras NAT). Si hace falta más, subir el tope, no la concurrencia.
-const preloaded = new Set<string>();
+/** Lo que se espera a /tts antes de pasar a la voz del navegador. Una frase nueva tarda 1-3 s. */
+const TTS_WAIT_MS = 7000;
+
+/** Suena solo en este navegador. Un solo elemento de audio, reutilizado. Si `/tts` falla o no
+ *  contesta a tiempo, usa la voz del navegador y reintenta el servidor tras un minuto
+ *  (`browserSpeech.ts`). */
+export function playAudio(text: string, slow = false): void {
+  stopAudio();
+  const rate = slow ? 0.6 : 0.9;
+  if (serverTtsDown() && browserSpeak(text, rate)) return;
+  const audio = audioElement();
+  const id = playId;
+  let settled = false;
+  const fallback = () => {
+    if (settled || id !== playId) return;
+    settled = true;
+    markServerTtsDown();
+    browserSpeak(text, rate);
+  };
+  const start = (src: string) => {
+    if (settled || id !== playId) return;
+    settled = true;
+    audio.onerror = () => { if (id === playId) browserSpeak(text, rate); };
+    audio.src = src;
+    audio.play().catch(() => { /* autoplay bloqueado: no hay nada que hacer sin un toque */ });
+  };
+  const url = gameAudioUrl(text, slow);
+  const src = ready.get(url);
+  if (src) { start(src); return; } // precargado: suena dentro del toque, sin esperar nada
+  const timer = setTimeout(fallback, TTS_WAIT_MS);
+  clip(url).then(start, fallback).finally(() => clearTimeout(timer));
+}
+
+// Precarga: baja en segundo plano los mp3 que el juego va a tocar, así el toque suena al instante,
+// y de paso quedan en `tts_cache` para la clase.
+// ponytail: 3 a la vez y tope de 40 por llamada. El tope cuida el rate limit de /tts (300/min por
+// IP, compartido por un colegio tras NAT); de una en una, 40 frases nuevas tardaban ~2 min y el
+// alumno tocaba antes de que llegara su turno.
+const PRELOAD_PARALLEL = 3;
 const preloadQueue: string[] = [];
-let preloading = false;
+let preloading = 0;
 
 export function preloadAudio(texts: readonly string[]): void {
   for (const text of texts.slice(0, 40)) {
-    const url = gameAudioUrl(text); // la misma URL que pide `playAudio`, o no se aprovecha la caché
-    if (text.trim() && !preloaded.has(url)) { preloaded.add(url); preloadQueue.push(url); }
+    const url = gameAudioUrl(text); // la misma URL que pide `playAudio`
+    if (text.trim() && !clips.has(url) && !preloadQueue.includes(url)) preloadQueue.push(url);
   }
-  void drainPreload();
+  while (preloading < PRELOAD_PARALLEL && preloadQueue.length) void drainPreload();
 }
 
 async function drainPreload(): Promise<void> {
-  if (preloading) return;
-  preloading = true;
+  preloading++;
   while (preloadQueue.length && !serverTtsDown()) {
-    const url = preloadQueue.shift()!;
-    try { await (await fetch(url)).blob(); } catch { preloaded.delete(url); }
+    try { await clip(preloadQueue.shift()!); } catch { /* se reintenta si el alumno la toca */ }
   }
-  preloading = false;
+  preloading--;
 }
 
 export function copyText(text: string): Promise<boolean> {

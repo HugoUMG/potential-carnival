@@ -262,6 +262,74 @@ def test_si_la_cache_de_edge_falla_el_audio_sigue_saliendo(monkeypatch):
     assert asyncio.run(audio()) == b"ID3"
 
 
+def test_el_mp3_de_edge_repetido_sale_de_la_memoria_sin_ir_a_la_base(monkeypatch):
+    store: dict[str, bytes] = {}
+    reads = 0
+
+    def get(key: str) -> bytes | None:
+        nonlocal reads
+        reads += 1
+        return store.get(key)
+
+    monkeypatch.setattr(repository, "get_tts_audio", get)
+    monkeypatch.setattr(repository, "put_tts_audio", store.__setitem__)
+    monkeypatch.setattr(main, "_edge_memory", main.OrderedDict())
+    monkeypatch.setattr(main, "_EDGE_MEMORY_MAX", 2)
+
+    async def stream(text: str, voice: str, rate: str):
+        yield text.encode()
+
+    monkeypatch.setattr(main, "_edge_stream", stream)
+
+    async def audio(text: str) -> bytes:
+        return b"".join([chunk async for chunk in main._edge_cached_stream(text, "en-US-AndrewNeural", "-10%")])
+
+    assert asyncio.run(audio("uno")) == b"uno"
+    before = reads
+    assert asyncio.run(audio("uno")) == b"uno" and reads == before  # ni una lectura a la base
+    # La memoria tiene tope: lo más viejo sale y vuelve a leerse de la base, no a sintetizarse.
+    asyncio.run(audio("dos"))
+    asyncio.run(audio("tres"))
+    assert len(main._edge_memory) == 2
+    assert asyncio.run(audio("uno")) == b"uno" and reads > before and len(store) == 3
+
+
+def test_edge_se_reintenta_una_vez_si_falla_antes_del_primer_trozo(monkeypatch):
+    import edge_tts
+
+    made: list[dict] = []
+    plans: list[list] = []
+
+    class FakeCommunicate:
+        def __init__(self, text, voice, **kwargs):
+            made.append(kwargs)
+
+        async def stream(self):
+            for step in plans.pop(0):
+                if isinstance(step, Exception):
+                    raise step
+                yield {"type": "audio", "data": step}
+
+    monkeypatch.setattr(edge_tts, "Communicate", FakeCommunicate)
+
+    async def audio() -> bytes:
+        return b"".join([chunk async for chunk in main._edge_stream("Hi", "en-US-AndrewNeural", "-10%")])
+
+    plans[:] = [[TimeoutError()], [b"ID3", b"-mp3"]]
+    assert asyncio.run(audio()) == b"ID3-mp3" and len(made) == 2
+    # Con tope de espera: sin él, un edge callado dejaba la petición colgada un minuto.
+    assert made[0]["connect_timeout"] <= 5 and made[0]["receive_timeout"] <= 10
+
+    plans[:] = [[TimeoutError()], [TimeoutError()]]  # dos fallos: se rinde (y /tts responde 503)
+    with pytest.raises(TimeoutError):
+        asyncio.run(audio())
+
+    plans[:] = [[b"ID3", TimeoutError()], [b"no"]]  # ya salió audio: no se repite el principio
+    with pytest.raises(TimeoutError):
+        asyncio.run(audio())
+    assert len(plans) == 1
+
+
 @pytest.fixture
 def db(tmp_path, monkeypatch):
     # Mismo motivo que en test_teacher_images.py: sin esto el test correría contra la base de

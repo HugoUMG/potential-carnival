@@ -76,20 +76,22 @@ no hay que escribir nada distinto por juego. **Rana hambrienta** no es uno de el
   **La regex de `tokenize` es la misma que `_WORD_RE` del backend**; si cambia una, cambia la otra.
 - **Audio:** `speak(text, slow)` → `gameAudioUrl` (`api.ts`) → `/tts?…&engine=edge`. Siempre
   edge-tts: un juego no gasta créditos de ElevenLabs. 🔊 = `-10%`, 🐢 = `-40%`. `playAudio` usa
-  **un solo** `<audio>` reutilizado y lo corta al cambiar o cerrar el juego (`stopAudio`). Si `/tts`
-  falla, lee con la voz del navegador (`utils/browserSpeech.ts`) y **reintenta edge-tts al minuto**,
-  en vez de quedarse con la voz del navegador el resto de la sesión. El backend guarda el mp3 de
+  **un solo** `<audio>` reutilizado y lo corta al cambiar o cerrar el juego (`stopAudio`). El mp3
+  **no** va como `src` directo: se baja con `fetch` y se guarda en memoria como blob (`clip`, mapa
+  url → blob compartido con la precarga, ADR-47); lo ya bajado suena en el mismo toque. Si `/tts`
+  falla **o no contesta en 7 s**, lee con la voz del navegador (`utils/browserSpeech.ts`) y
+  **reintenta edge-tts al minuto**, en vez de quedarse con la voz del navegador el resto de la sesión. El backend guarda el mp3 de
   edge en `tts_cache` (ADR-43): la primera reproducción tarda ~1-3 s y las siguientes, de otro alumno
   u otro dispositivo, salen en milisegundos. `edge-tts>=7.3.1` es obligatorio desde octubre 2026:
   Microsoft exige el token `Sec-MS-GEC` v2 (7.3.0) y 7.3.1 corrige el parseo de la fecha del
   servidor; las versiones viejas reciben 403.
 - **Precarga (`preloadAudio`, `util.ts`):** edge tarda ~0,7 s por audio nuevo, casi todo en abrir la
-  conexión (medido nov-2026), así que el juego pide en segundo plano lo que va a sonar y el toque sale
-  de la caché del navegador. `GamePlayer` precarga las preguntas del set al abrir un juego; Camaleón
+  conexión (medido nov-2026), así que el juego baja en segundo plano lo que va a sonar y el toque sale
+  de la memoria (el mismo mapa de blobs que usa `playAudio`). `GamePlayer` precarga las preguntas del set al abrir un juego; Camaleón
   y Oruga, las 12 oraciones o verbos de la partida; Rana, la palabra en pantalla y las dos siguientes
-  (solo con la tarjeta en inglés). Va de **una en una**, sin repetir URL y con un tope de 40 por
+  (solo con la tarjeta en inglés). Van **3 a la vez**, sin repetir URL y con un tope de 40 por
   llamada, para no gastar el rate limit de `/tts` (300/min por IP, compartido tras un NAT). Solo
-  velocidad normal: el 🐢 se pide al tocarlo.
+  velocidad normal: el 🐢 se pide al tocarlo. Las palabras sueltas (`WordPopover`) no se precargan.
 - **Añadir un juego:** un componente que recibe `{ questions }` (`GameProps`) y una entrada en
   `GAMES`. El catálogo, el panel y la barra lateral lo pintan solos. Para que admita sala: usa
   `useShared` en el estado que deben ver todos, llama a `endTurn()` al final de cada turno, añade
