@@ -51,7 +51,8 @@ autenticados (profesor / admin / alumno) y las páginas sueltas viven en `src/pa
 main.tsx           Rutas + initTheme() antes del primer render
   ├── SiteLayout   Sitio público (/, /acerca, /actividades, /aprende)
   ├── LoginPage / RegisterPage
-  ├── App.tsx      Portales /teacher/:section, /admin/:section, /student/:section
+  ├── App.tsx      Portales /teacher/:section y /student/:section
+  ├── AdminPortal  /admin/:section — administración de profesores, aulas y alumnos
   ├── ReaderPortal, VocabPublicPage, VocabDirectPage
   ├── GuestPage, DirectWorksheetPage
   └── services/api.ts   Cliente HTTP único (JWT desde localStorage)
@@ -114,7 +115,7 @@ potential-carnival/
 │   ├── tests/             pytest
 │   └── requirements.txt
 ├── src/
-│   ├── App.tsx            Portales profesor/admin/alumno (incluye revisión de respuestas)
+│   ├── App.tsx            Portales profesor/alumno (incluye revisión de respuestas)
 │   ├── main.tsx           Rutas
 │   ├── pages/             Páginas sueltas y sitio público
 │   ├── components/        Renderer, editor, constructor visual, impresión, etc.

@@ -321,6 +321,14 @@ de teclado.
 
 ## Cerrado recientemente
 
+### Varios profesores: compartir aulas y alumnos, y panel de administración (noviembre 2026)
+
+- Aulas y alumnos se comparten entre profesores; el admin tiene su portal (`/admin`) con vista de
+  profesor, crea aulas y les asigna profesores y alumnos (ADR-48).
+- Pendiente si se pide: auditar lo que el admin hace en la vista de profesor (el claim `imp` ya viaja
+  en el token), dar dueño a los lectores, y acotar `/vocabulary` y `/game-sets` del admin a lo suyo.
+- Sin resolver: en un aula compartida cada profesor revisa solo las respuestas de **sus** hojas.
+
 ### Plan de reforzamiento en el enlace directo (octubre 2026)
 
 - Con nota < 75 y alguna incorrecta, los resultados de `/w/:id` terminan con un plan generado por IA:

@@ -70,11 +70,40 @@ Cubierto por `backend/tests/test_google_auth.py`.
 
 ## Aislamiento entre profesores
 
-Cada profesor ve y administra **solo lo suyo**: sus aulas, sus hojas y sus alumnos
-(`users.created_by`). **No hay excepción para `created_by IS NULL`** — un alumno sin dueño solo lo ve
-el admin. Detalles y backfill en [04_DATABASE](04_DATABASE.md#aislamiento-de-alumnos-por-profesor-userscreated_by).
+Cada profesor ve y administra **solo lo suyo** —sus aulas, sus hojas y sus alumnos
+(`users.created_by`)— **y lo que otro profesor le compartió**. **No hay excepción para
+`created_by IS NULL`** — un alumno sin dueño solo lo ve el admin. Detalles y backfill en
+[04_DATABASE](04_DATABASE.md#aislamiento-de-alumnos-por-profesor-userscreated_by).
 
-Cubierto por `backend/tests/test_student_isolation.py`.
+### Compartir da alcance, no propiedad (ADR-48)
+
+- **Aula compartida** (`classroom_teachers`): el invitado ve el detalle y asigna alumnos y **sus**
+  hojas. No la borra, no la renombra, no la comparte a su vez ni la abre a invitados.
+- **Alumno compartido** (`student_teachers`) o **alumno de un aula que el profesor alcanza**: lo ve,
+  lo edita, le cambia la contraseña y lo asigna a sus aulas. No lo borra ni lo comparte.
+- Las **hojas no se comparten**: las respuestas siguen siendo del dueño de la hoja.
+- **Se comparte por usuario o correo exacto**, no eligiendo de una lista: el registro por Google es
+  abierto, así que un directorio de profesores se lo enseñaría a cualquier desconocido. `teacher_id`
+  directo solo lo acepta el backend si quien llama es admin.
+- Para meter un alumno en un aula hay que alcanzar **las dos cosas**. Antes bastaba ser dueño del
+  aula: cualquier profesor asignaba a un alumno ajeno con su id — y estar en el aula da alcance.
+- Cerrado de paso: `/students/activity`, `/students/{id}/sessions|responses|worksheets|classrooms`,
+  el feed de ingresos y el total de alumnos del dashboard devolvían datos de **todos** los alumnos a
+  cualquier profesor. Ahora filtran por alcance.
+
+### El admin y la vista de profesor (ADR-48)
+
+El admin **administra profesores**; en los listados del portal docente es un profesor más. Para ver
+el portal de un profesor pide `POST /admin/teachers/{id}/impersonate`, que le entrega **un token de
+ese profesor**:
+
+- Solo `require_admin`, solo hacia rol `teacher` (nunca otro admin).
+- El token lleva el claim `imp` con el id del admin; no abre `user_sessions` (no es un ingreso del
+  profesor). Caduca como cualquier otro.
+- Hoy `imp` **no se registra en ninguna parte**: lo que el admin haga en esa vista queda como hecho
+  por el profesor. Si hace falta auditoría, el claim ya está para leerlo en `get_current_user`.
+
+Cubierto por `backend/tests/test_student_isolation.py` y `backend/tests/test_aulas_compartidas.py`.
 
 ### Invitados: el dueño es el aula
 

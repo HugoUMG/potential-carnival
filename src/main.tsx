@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import App from './App';
+import { AdminPortal } from './pages/AdminPortal';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -73,7 +74,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           path="/admin/:section?"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <App />
+              <AdminPortal />
             </ProtectedRoute>
           }
         />

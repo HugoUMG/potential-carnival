@@ -1,7 +1,7 @@
-import { Activity, BarChart3, BookOpenCheck, ClipboardCheck, Database, FolderArchive, Gamepad2, LogOut, PlusCircle, Radio, School, UserCog, UserPlus, UserRoundCheck, Users } from 'lucide-react';
+import { Activity, BarChart3, BookOpenCheck, ClipboardCheck, Database, FolderArchive, Gamepad2, LogOut, PlusCircle, Radio, School, UserPlus, UserRoundCheck, Users } from 'lucide-react';
 import type { UsuarioSesion } from '../services/api';
 
-export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'archivadas' | 'envivo' | 'aulas' | 'estudiantes' | 'profesores' | 'revision' | 'invitados' | 'actividad' | 'vocabulario' | 'imagenes' | 'juegos';
+export type TeacherMenu = 'dashboard' | 'crear' | 'evaluaciones' | 'archivadas' | 'envivo' | 'aulas' | 'estudiantes' | 'revision' | 'invitados' | 'actividad' | 'vocabulario' | 'imagenes' | 'juegos';
 
 interface TeacherDashboardProps {
   user: UsuarioSesion;
@@ -15,7 +15,7 @@ interface TeacherDashboardProps {
 
 /** El menú va agrupado por momento del trabajo (crear → repartir → revisar → seguimiento):
  *  antes eran diez botones seguidos y había que leerlos todos para encontrar uno. */
-const GROUPS: { label: string; items: { id: TeacherMenu; label: string; icon: typeof BarChart3; adminOnly?: boolean }[] }[] = [
+const GROUPS: { label: string; items: { id: TeacherMenu; label: string; icon: typeof BarChart3 }[] }[] = [
   {
     label: 'Resumen',
     items: [{ id: 'dashboard', label: 'Dashboard', icon: BarChart3 }],
@@ -40,7 +40,6 @@ const GROUPS: { label: string; items: { id: TeacherMenu; label: string; icon: ty
     items: [
       { id: 'aulas', label: 'Aulas', icon: School },
       { id: 'estudiantes', label: 'Estudiantes', icon: UserPlus },
-      { id: 'profesores', label: 'Profesores', icon: UserCog, adminOnly: true },
     ],
   },
   {
@@ -59,7 +58,7 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
       <div className="flex items-center gap-3">
         <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rex text-white"><UserRoundCheck size={24} /></span>
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-rex">Menú {user.role === 'admin' ? 'admin' : 'profesor'}</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-rex">Menú profesor</p>
           <h2 className="text-lg font-bold text-ink">{user.name}</h2>
           <p className="text-sm text-slate-500">@{user.username}</p>
         </div>
@@ -67,8 +66,7 @@ export function TeacherDashboard({ user, totalWorksheets, publishedCount, select
 
       <nav className="mt-6 grid gap-5">
         {GROUPS.map((group) => {
-          const items = group.items.filter((item) => !item.adminOnly || user.role === 'admin');
-          if (!items.length) return null;
+          const items = group.items;
           return (
             <div key={group.label} className="grid gap-2">
               <p className="px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{group.label}</p>

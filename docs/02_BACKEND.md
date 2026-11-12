@@ -19,7 +19,7 @@ responsabilidad.
 | `settings.py` | 42 | Carga de `.env` y orígenes CORS |
 | `__init__.py` | 10 | Llama a `_load_dotenv()` **al importar el paquete** |
 
-No hay `routers/` ni `services/`: la app es un solo `FastAPI()` en `main.py` con **99 rutas**. No fue
+No hay `routers/` ni `services/`: la app es un solo `FastAPI()` en `main.py` con **134 rutas**. No fue
 una decisión de diseño: creció por fases (alumnos registrados primero, invitados después) y cada una
 añadió sus rutas al final del mismo módulo. Ver [15_DECISIONS, ADR-12](15_DECISIONS.md), que además
 dice cuál sería el primer corte sensato si algún día se parte.
@@ -77,10 +77,21 @@ Y comprobaciones de propiedad, que lanzan 403/404:
 
 | Función | Regla |
 |---------|-------|
-| `require_student_owner_or_staff(student_id, user)` | El propio alumno o un profesor/admin |
-| `require_student_manager(student_id, user)` | Solo el profesor que creó al alumno (`users.created_by`) o el admin |
+| `require_student_owner_or_staff(student_id, user)` | El propio alumno, el admin, o un profesor que **alcance** a ese alumno |
+| `require_student_access(student_id, user)` | **Alcance**: dueño, profesor con quien se compartió, o profesor de un aula donde está el alumno. Ver, editar, contraseña, asignar a un aula |
+| `require_student_manager(student_id, user)` | **Propiedad**: solo el dueño (`users.created_by`) o el admin. Borrar y compartir |
 | `require_worksheet_manager(worksheet_id, user)` | Solo el dueño de la hoja o el admin |
-| `require_classroom_manager(classroom_id, user)` | Solo el dueño del aula o el admin |
+| `require_classroom_access(classroom_id, user)` | **Alcance**: dueño, profesor invitado (`classroom_teachers`) o admin. Ver el detalle, asignar alumnos y hojas propias |
+| `require_classroom_manager(classroom_id, user)` | **Propiedad**: solo el dueño o el admin. Borrar, renombrar, compartir, abrir a invitados |
+
+"Qué alcanza un profesor" se define en **un solo sitio**: `_classroom_access_sql` y
+`_student_access_sql` (`repository.py`). Las listas, los permisos por id y los feeds salen de ahí.
+
+**El admin no ve "lo de todos" en los endpoints del portal docente**: en `/students`, `/classrooms`,
+`/worksheets`, el dashboard y los feeds es un profesor más y recibe lo suyo. Lo de todos va por
+`GET /admin/overview`, y para trabajar el contenido de un profesor usa
+`POST /admin/teachers/{id}/impersonate` (ADR-48). Las comprobaciones **por id** sí le siguen dejando
+pasar. Quedan con el alcance global de antes: `/vocabulary`, `/game-sets` y `/live/*`.
 
 **Todo endpoint nuevo lleva una de estas dependencias.** Las excepciones son las rutas `/public/*`,
 que existen a propósito sin JWT para el modo invitado y el enlace directo.

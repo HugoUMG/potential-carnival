@@ -1331,6 +1331,41 @@ no se cortan al cambiar de juego: terminan y dejan el mp3 en memoria y en `tts_c
 servidor es por proceso (~6 MB como mucho) y se vacía en cada despliegue; la base sigue siendo la
 caché de verdad.
 
+## 🟢 ADR-48 — Varios profesores: compartir da alcance, y el admin administra profesores
+
+**Decisión.** (1) Un aula o un alumno se comparten con otro profesor mediante tablas de enlace
+(`classroom_teachers`, `student_teachers`); `created_by` sigue siendo el único dueño. Compartir da
+**alcance** (ver, editar, asignar), no propiedad (borrar, compartir a su vez). (2) Un alumno también
+lo alcanza el profesor de cualquier aula donde esté. (3) El admin deja de ser "un profesor que ve lo
+de todos": tiene su propio portal (`/admin`) para administrar profesores, aulas y alumnos, y para el
+contenido de un profesor entra a su **vista de profesor** con un token de ese profesor.
+
+**Motivo.** Con un solo profesor en la base, "el admin lo ve todo mezclado" era cómodo. Con varios es
+ilegible —las hojas, aulas y alumnos de todos en una sola lista sin saber de quién son— y no deja
+hacer lo que sí hace falta: ver qué tiene cada profesor y armarle un aula.
+
+**Alternativas descartadas.**
+
+- *Mover la propiedad en vez de compartir* (cambiar `created_by`). No sirve para dos profesores que
+  dan clase al mismo grupo. Existe aparte, solo para el admin (`PUT …/owner`).
+- *Un directorio de profesores para elegir con quién compartir.* El registro por Google es abierto:
+  cualquiera que se registre vería nombres, usuarios y correos de todos. Se comparte escribiendo el
+  usuario o correo exacto del colega.
+- *Que estar en un aula NO dé alcance al alumno.* Entonces el profesor al que el admin le asigna un
+  aula vería un aula con alumnos que no puede ni listar, o habría que compartir cada alumno a mano.
+  A cambio, antes de asignar un alumno a un aula se exige alcanzarlo.
+- *Vista de profesor con parámetros (`?teacher_id=` en cada endpoint, con el token del admin).* Son
+  ~30 endpoints que tocar y un portal que tendría que arrastrar el id en cada llamada; el primero que
+  se olvide muestra datos del admin en la vista del profesor. Un token del profesor hace que el
+  portal existente funcione sin cambios y sin caminos especiales.
+- *Quitarle al admin el portal docente.* El admin puede tener hojas propias (y hereda las de un
+  profesor borrado): quedarían inalcanzables. Conserva `/teacher`, pero ve solo lo suyo.
+
+**Consecuencias.** Lo que el admin hace en la vista de profesor queda como hecho por el profesor (el
+token lleva `imp`, pero no se audita). Las hojas no se comparten: en un aula compartida cada profesor
+asigna y revisa las suyas. Los lectores siguen sin dueño. `/vocabulary`, `/game-sets` y `/live/*`
+conservan el alcance global del admin: no se tocaron.
+
 ## Cómo añadir una decisión
 
 Cuando descartes una alternativa por un motivo que no se lea en el código, añade una entrada aquí:

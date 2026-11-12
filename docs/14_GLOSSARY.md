@@ -128,6 +128,19 @@ adivinable: es una **URL-capability**.
 **`created_by`** — En `users`, el profesor que dio de alta al alumno: la base del aislamiento entre
 profesores. En `worksheets` y `classrooms`, el dueño del recurso.
 
+**Dueño / profesor invitado** — El dueño (`created_by`) es quien puede borrar o compartir un aula o un
+alumno. El invitado es un profesor con quien se compartió (`classroom_teachers`, `student_teachers`):
+**alcanza** el recurso (lo ve y lo usa) pero no es suyo (ADR-48).
+
+**Alcance** — Lo que un profesor puede ver y usar: lo propio, lo compartido y los alumnos de sus
+aulas. Definido en `_classroom_access_sql` / `_student_access_sql`.
+
+**Vista de profesor** — El admin viendo el portal `/teacher` con un token de un profesor concreto
+(`/admin/teachers/{id}/impersonate`). También el admin abriendo `/teacher` como él mismo.
+
+**Panel de administración** — `/admin` (`AdminPortal.tsx`): profesores, aulas y estudiantes de toda
+la plataforma. No es el portal docente.
+
 ## Frontend
 
 **Renderer** — `WorksheetRenderer.tsx` (la hoja) + `activityRegistry.tsx` (un componente por tipo).

@@ -2,6 +2,8 @@ import type { ActivityBlock, ActivityType, GameQuestion, GameSet, GameSetDraft, 
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 const AUTH_STORAGE_KEY = 'worksheet_auth_session';
+/** Sesión del admin guardada aparte mientras mira el portal como un profesor ("vista de profesor"). */
+const ADMIN_STORAGE_KEY = 'worksheet_admin_session';
 
 export interface UsuarioSesion {
   id: string;
@@ -102,12 +104,47 @@ export interface RespuestaEstudiante {
   ai_pending?: boolean; // solo al enviar: la IA falló y se está recalificando en segundo plano
 }
 
+/** Lo mínimo de un profesor para mostrar con quién se comparte un aula o un alumno. */
+export interface TeacherRef {
+  id: string;
+  name: string;
+  username: string;
+}
+
 export interface Classroom {
   id: string;
   name: string;
   created_by: string;
   created_at: string;
   is_public: boolean;
+  /** Dueño y profesores invitados. Solo vienen en el listado de aulas y en el detalle. */
+  owner_name?: string | null;
+  teachers?: TeacherRef[];
+}
+
+/** Alumno del portal docente: con su dueño y los profesores con quienes está compartido. */
+export interface StudentSummary extends UsuarioSesion {
+  created_by?: string | null;
+  owner_name?: string | null;
+  shared_with?: TeacherRef[];
+}
+
+export interface TeacherOverview extends UsuarioSesion {
+  classrooms_owned: number;
+  classrooms_shared: number;
+  students: number;
+  worksheets: number;
+}
+
+export interface AdminClassroom extends Classroom {
+  student_ids: string[];
+  worksheet_count: number;
+}
+
+export interface AdminOverview {
+  teachers: TeacherOverview[];
+  classrooms: AdminClassroom[];
+  students: StudentSummary[];
 }
 
 export interface ClassroomDetail extends Classroom {
@@ -160,6 +197,28 @@ export function getCurrentSession(): UsuarioSesion | null {
 
 export function logout(): void {
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  window.localStorage.removeItem(ADMIN_STORAGE_KEY);
+}
+
+/** El admin que está detrás de la sesión actual, si esta es una "vista de profesor". */
+export function getImpersonator(): UsuarioSesion | null {
+  const raw = window.localStorage.getItem(ADMIN_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as UsuarioSesion;
+  } catch {
+    window.localStorage.removeItem(ADMIN_STORAGE_KEY);
+    return null;
+  }
+}
+
+/** Sale de la vista de profesor y devuelve la sesión al admin. */
+export function stopImpersonating(): UsuarioSesion | null {
+  const admin = getImpersonator();
+  if (!admin) return null;
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(admin));
+  window.localStorage.removeItem(ADMIN_STORAGE_KEY);
+  return admin;
 }
 
 export async function logoutSession(): Promise<void> {
@@ -224,6 +283,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       }
       // Para cualquier otro endpoint, el 401 significa token expirado o inválido
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      window.localStorage.removeItem(ADMIN_STORAGE_KEY);
       window.dispatchEvent(new CustomEvent('session-expired'));
       throw new Error('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
     }
@@ -409,16 +469,64 @@ export async function loginWithGoogle(credential: string): Promise<UsuarioSesion
   return storeSession(await request<AuthPayload>('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }));
 }
 
-export async function createStudent(name: string, username: string, password: string): Promise<UsuarioSesion> {
-  return request<UsuarioSesion>('/students', { method: 'POST', body: JSON.stringify({ name, username, password }) });
+/** `ownerId` solo lo acepta el backend si quien llama es admin: crea al alumno a nombre de ese profesor. */
+export async function createStudent(name: string, username: string, password: string, ownerId?: string): Promise<UsuarioSesion> {
+  return request<UsuarioSesion>('/students', { method: 'POST', body: JSON.stringify({ name, username, password, owner_id: ownerId || null }) });
 }
 
 export async function createTeacher(name: string, username: string, password: string, email?: string): Promise<UsuarioSesion> {
   return request<UsuarioSesion>('/teachers', { method: 'POST', body: JSON.stringify({ name, username, password, email: email || null }) });
 }
 
-export async function listStudents(): Promise<UsuarioSesion[]> {
-  return request<UsuarioSesion[]>('/students');
+export async function listStudents(): Promise<StudentSummary[]> {
+  return request<StudentSummary[]>('/students');
+}
+
+/** A quién compartir: el profesor escribe el usuario o correo de su colega; el admin manda el id. */
+type ShareTarget = { username: string } | { teacherId: string };
+const shareBody = (target: ShareTarget) =>
+  JSON.stringify('teacherId' in target ? { teacher_id: target.teacherId } : { username: target.username });
+
+export async function shareStudent(studentId: string, target: ShareTarget): Promise<void> {
+  await request<void>(`/students/${studentId}/teachers`, { method: 'POST', body: shareBody(target) });
+}
+
+export async function unshareStudent(studentId: string, teacherId: string): Promise<void> {
+  await request<void>(`/students/${studentId}/teachers/${teacherId}`, { method: 'DELETE' });
+}
+
+export async function shareClassroom(classroomId: string, target: ShareTarget): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/teachers`, { method: 'POST', body: shareBody(target) });
+}
+
+export async function unshareClassroom(classroomId: string, teacherId: string): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/teachers/${teacherId}`, { method: 'DELETE' });
+}
+
+export async function renameClassroom(classroomId: string, name: string): Promise<Classroom> {
+  return request<Classroom>(`/classrooms/${classroomId}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+}
+
+// ── Administración de profesores (solo admin) ────────────────────────────────
+
+export async function getAdminOverview(): Promise<AdminOverview> {
+  return request<AdminOverview>('/admin/overview');
+}
+
+export async function setClassroomOwner(classroomId: string, teacherId: string): Promise<void> {
+  await request<void>(`/classrooms/${classroomId}/owner`, { method: 'PUT', body: JSON.stringify({ teacher_id: teacherId }) });
+}
+
+export async function setStudentOwner(studentId: string, teacherId: string): Promise<void> {
+  await request<void>(`/students/${studentId}/owner`, { method: 'PUT', body: JSON.stringify({ teacher_id: teacherId }) });
+}
+
+/** Vista de profesor: cambia la sesión a la de ese profesor y guarda la del admin para volver. */
+export async function impersonateTeacher(teacherId: string): Promise<UsuarioSesion> {
+  const admin = getStoredSession();
+  const payload = await request<AuthPayload>(`/admin/teachers/${teacherId}/impersonate`, { method: 'POST' });
+  if (admin) window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(admin));
+  return storeSession(payload);
 }
 
 export async function listTeachers(): Promise<UsuarioSesion[]> {
@@ -429,8 +537,10 @@ export async function deleteStudent(studentId: string): Promise<void> {
   await request<void>(`/students/${studentId}`, { method: 'DELETE' });
 }
 
-export async function deleteTeacher(teacherId: string): Promise<void> {
-  await request<void>(`/teachers/${teacherId}`, { method: 'DELETE' });
+/** Sus hojas, aulas, alumnos y listas pasan a `transferTo`; sin él, al admin que lo borra. */
+export async function deleteTeacher(teacherId: string, transferTo?: string): Promise<void> {
+  const query = transferTo ? `?transfer_to=${encodeURIComponent(transferTo)}` : '';
+  await request<void>(`/teachers/${teacherId}${query}`, { method: 'DELETE' });
 }
 
 export async function createWorksheet(scriptContent: string, createdBy: string, maxAttempts: number | null, aiGrading = true, aiTolerance = 50): Promise<Worksheet> {
@@ -556,8 +666,9 @@ export async function listClassrooms(): Promise<Classroom[]> {
   return request<Classroom[]>('/classrooms');
 }
 
-export async function createClassroom(name: string): Promise<Classroom> {
-  return request<Classroom>('/classrooms', { method: 'POST', body: JSON.stringify({ name }) });
+/** `ownerId` solo lo acepta el backend si quien llama es admin: crea el aula a nombre de ese profesor. */
+export async function createClassroom(name: string, ownerId?: string): Promise<Classroom> {
+  return request<Classroom>('/classrooms', { method: 'POST', body: JSON.stringify({ name, owner_id: ownerId || null }) });
 }
 
 export async function getClassroom(classroomId: string): Promise<ClassroomDetail> {

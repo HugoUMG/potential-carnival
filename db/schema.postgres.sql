@@ -247,3 +247,27 @@ CREATE TABLE IF NOT EXISTS verb_bank (
   data       JSONB NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Aulas compartidas entre profesores. El dueño sigue siendo classrooms.created_by. Aquí van los
+-- demás profesores que también dan clase en el aula (ven el detalle, asignan alumnos y sus hojas)
+CREATE TABLE IF NOT EXISTS classroom_teachers (
+  classroom_id TEXT NOT NULL,
+  teacher_id   TEXT NOT NULL,
+  assigned_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (classroom_id, teacher_id),
+  FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacher_id)   REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_classroom_teachers_teacher ON classroom_teachers(teacher_id);
+
+-- Alumnos compartidos entre profesores. El dueño sigue siendo users.created_by. Aquí van los
+-- profesores con los que el dueño (o el admin) compartió al alumno
+CREATE TABLE IF NOT EXISTS student_teachers (
+  student_id  TEXT NOT NULL,
+  teacher_id  TEXT NOT NULL,
+  assigned_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (student_id, teacher_id),
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_student_teachers_teacher ON student_teachers(teacher_id);

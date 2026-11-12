@@ -48,13 +48,19 @@ ver [09_SECURITY](09_SECURITY.md) y [15_DECISIONS, ADR-05](15_DECISIONS.md).
 ## Usuarios
 
 ```
-POST   /students                              — Crear alumno (teacher/admin); queda con created_by = quien lo crea
-GET    /students                              — Listar SOLO los alumnos propios
-DELETE /students/{id}                         — Eliminar alumno propio
+POST   /students                              — Crear alumno; created_by = quien lo crea. Con `owner_id` (solo admin) queda a nombre de ese profesor
+GET    /students                              — Alumnos que el profesor ALCANZA (propios, compartidos y los de sus aulas), con `created_by`, `owner_name` y `shared_with[]`. El admin recibe solo los suyos
+DELETE /students/{id}                         — Eliminar alumno (solo el dueño o el admin)
+POST   /students/{id}/teachers                — Compartir el alumno: `{username}` (usuario o correo exacto) o `{teacher_id}` (solo admin). Dueño o admin
+DELETE /students/{id}/teachers/{tid}          — Dejar de compartir (dueño/admin), o el propio invitado retirándose
+PUT    /students/{id}/owner                   — Cambiar el dueño `{teacher_id}` (admin)
 
 POST   /teachers                              — Crear profesor (admin)
 GET    /teachers                              — Listar profesores (admin)
-DELETE /teachers/{id}                         — Eliminar profesor (admin)
+DELETE /teachers/{id}?transfer_to=            — Eliminar profesor (admin). Sus hojas, aulas, alumnos y listas pasan a `transfer_to`; sin él, al admin
+
+GET    /admin/overview                        — Panel de administración (admin): profesores con cifras, TODAS las aulas (con `teachers[]`, `student_ids[]`) y todos los alumnos
+POST   /admin/teachers/{id}/impersonate       — "Vista de profesor" (admin): devuelve un LoginResponse con un token de ESE profesor (claim `imp` = admin). Solo rol teacher
 
 POST   /readers                               — Crear lector
 GET    /readers                               — Listar lectores
@@ -109,13 +115,17 @@ no genera actividades de imagen — ver [06_AI](06_AI.md#banco-de-imágenes-imag
 ## Aulas
 
 ```
-POST   /classrooms                            — Crear aula
-GET    /classrooms                            — Aulas del profesor
-GET    /classrooms/{id}                       — Detalle (con estudiantes y hojas)
-DELETE /classrooms/{id}
-PATCH  /classrooms/{id}/visibility             — Pública / privada
+POST   /classrooms                            — Crear aula. Con `owner_id` (solo admin) queda a nombre de ese profesor
+GET    /classrooms                            — Aulas propias y compartidas, con `owner_name` y `teachers[]` (invitados)
+GET    /classrooms/{id}                       — Detalle (con estudiantes y hojas). Dueño, invitado o admin
+PATCH  /classrooms/{id}                       — Renombrar `{name}` (dueño/admin)
+DELETE /classrooms/{id}                       — (dueño/admin)
+PATCH  /classrooms/{id}/visibility             — Pública / privada (dueño/admin)
+POST   /classrooms/{id}/teachers              — Compartir el aula: `{username}` o `{teacher_id}` (solo admin). Dueño o admin
+DELETE /classrooms/{id}/teachers/{tid}        — Quitar a un invitado (dueño/admin), o el propio invitado saliéndose
+PUT    /classrooms/{id}/owner                 — Cambiar el dueño `{teacher_id}` (admin)
 
-POST   /classrooms/{id}/students              — Asignar alumno
+POST   /classrooms/{id}/students              — Asignar alumno (hay que alcanzar el aula Y al alumno)
 DELETE /classrooms/{id}/students/{sid}
 POST   /classrooms/{id}/worksheets            — Asignar hoja
 DELETE /classrooms/{id}/worksheets/{wid}
@@ -159,8 +169,8 @@ GET    /dashboard/teacher                     — Métricas del profesor
 GET    /teacher/notifications                 — Respuestas recientes (últimas 48 h)
 GET    /teacher/activity-feed?since=          — Historial completo (la campanita usa 7 días)
 GET    /teacher/worksheet-summary/{id}        — Resumen de desempeño redactado por la IA
-GET    /students/activity                     — Estado online/offline de los alumnos
-GET    /teacher/guest-logs                    — Accesos de invitados (solo de las aulas propias)
+GET    /students/activity                     — Estado online/offline de los alumnos que el profesor alcanza
+GET    /teacher/guest-logs                    — Accesos de invitados (aulas propias y compartidas)
 GET    /teacher/guest-detail?guest_token&classroom_id — Detalle de un invitado (403 si el aula es de otro)
 GET    /teacher/reader-logs                   — Accesos de lectores
 ```

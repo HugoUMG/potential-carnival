@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from .database import get_connection, get_database_backend
-from .models import GameQuestion, GameSet, GameSetPayload, PublicUser, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, TeacherImage, UserRole, UserSession, VocabWord, WordMeaning, Worksheet, WorksheetResponse
+from .models import AdminClassroom, Classroom, GameQuestion, GameSet, GameSetPayload, PublicUser, StudentSummary, TeacherOverview, TeacherRef, ReaderCreate, StudentActivity, StudentCreate, TeacherCreate, TeacherImage, UserRole, UserSession, VocabWord, WordMeaning, Worksheet, WorksheetResponse
 from .security import hash_password, needs_password_rehash, verify_password
 
 
@@ -134,22 +134,175 @@ class WorksheetRepository:
             ).fetchone()
         return self._user_from_row(row)
 
-    def list_students(self, owner_id: str | None = None) -> list[PublicUser]:
-        """owner_id=None → todos (admin). Con owner_id, solo los alumnos de ese profesor.
+    # ── Acceso compartido (aulas y alumnos entre profesores) ─────────────────────
+    # El dueño sigue siendo `created_by`. Estas dos condiciones son la ÚNICA definición de "qué
+    # alcanza un profesor": si cambia la regla, cambia aquí y la heredan listas, permisos y feeds.
 
-        Antes esto incluía también `created_by IS NULL` (alumnos previos a la columna) para no
-        esconderle a nadie los suyos al desplegar. Con el registro por Google abierto eso los
-        dejaba a la vista de cualquier desconocido que se registrara, así que la migración les
-        asigna dueño al arrancar y aquí ya no hace falta la excepción."""
-        placeholder = self._placeholder
-        where = "WHERE role = 'student'"
+    def _classroom_access_sql(self, alias: str = "classrooms") -> str:
+        """Aulas que un profesor alcanza: las suyas y las que le compartieron. 2 parámetros."""
+        p = self._placeholder
+        return f"({alias}.created_by = {p} OR {alias}.id IN (SELECT classroom_id FROM classroom_teachers WHERE teacher_id = {p}))"
+
+    def _student_access_sql(self, alias: str = "users") -> str:
+        """Alumnos que un profesor alcanza: los que creó, los que le compartieron y los que
+        están en un aula que él alcanza (si no, el profesor al que el admin le arma un aula no
+        vería a sus propios alumnos). 4 parámetros, todos el id del profesor."""
+        p = self._placeholder
+        return (
+            f"({alias}.created_by = {p}"
+            f" OR {alias}.id IN (SELECT student_id FROM student_teachers WHERE teacher_id = {p})"
+            f" OR {alias}.id IN (SELECT cs.student_id FROM classroom_students cs"
+            f" JOIN classrooms c ON c.id = cs.classroom_id WHERE {self._classroom_access_sql('c')}))"
+        )
+
+    def list_students(self, owner_id: str | None = None) -> list[StudentSummary]:
+        """owner_id=None → todos (panel de administración). Con owner_id, los alumnos que ese
+        profesor alcanza: propios, compartidos y los de sus aulas.
+
+        Sigue sin haber excepción para `created_by IS NULL`: un alumno sin dueño, sin compartir
+        y fuera de las aulas del profesor solo lo ve el admin."""
+        where = "WHERE users.role = 'student'"
         params: tuple = ()
         if owner_id is not None:
-            where += f" AND created_by = {placeholder}"
-            params = (owner_id,)
+            where += f" AND {self._student_access_sql()}"
+            params = (owner_id,) * 4
         with get_connection() as connection:
-            rows = connection.execute(f"SELECT id, name, email, username, role FROM users {where} ORDER BY name", params).fetchall()
-        return [self._user_from_row(row) for row in rows]
+            rows = connection.execute(
+                f"""
+                SELECT users.id, users.name, users.email, users.username, users.role,
+                       users.created_by, owner.name AS owner_name
+                FROM users LEFT JOIN users owner ON owner.id = users.created_by
+                {where} ORDER BY users.name
+                """,
+                params,
+            ).fetchall()
+            shares = connection.execute(
+                """
+                SELECT st.student_id, t.id, t.name, t.username
+                FROM student_teachers st JOIN users t ON t.id = st.teacher_id
+                ORDER BY t.name
+                """
+            ).fetchall()
+        shared: dict[str, list[TeacherRef]] = {}
+        for row in shares:
+            d = dict(row)
+            shared.setdefault(d["student_id"], []).append(TeacherRef(id=d["id"], name=d["name"], username=d["username"] or ""))
+        result = []
+        for row in rows:
+            d = dict(row)
+            result.append(StudentSummary(
+                id=d["id"], name=d["name"], email=d.get("email"), username=d["username"] or "", role=d["role"],
+                created_by=d.get("created_by"), owner_name=d.get("owner_name"), shared_with=shared.get(d["id"], []),
+            ))
+        return result
+
+    def can_access_student(self, student_id: str, teacher_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"SELECT 1 FROM users WHERE users.id = {placeholder} AND users.role = 'student' AND {self._student_access_sql()}",
+                (student_id,) + (teacher_id,) * 4,
+            ).fetchone()
+        return row is not None
+
+    def find_teacher(self, handle: str) -> PublicUser | None:
+        """Profesor (o admin) por usuario o correo EXACTO, sin distinguir mayúsculas. Es como
+        un profesor nombra al colega con quien comparte: no hay directorio que listar."""
+        handle = handle.strip().lstrip("@")
+        if not handle:
+            return None
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            row = connection.execute(
+                f"""
+                SELECT id, name, email, username, role FROM users
+                WHERE role IN ('teacher', 'admin')
+                  AND (LOWER(username) = LOWER({placeholder}) OR LOWER(email) = LOWER({placeholder}))
+                """,
+                (handle, handle),
+            ).fetchone()
+        return self._user_from_row(row) if row else None
+
+    def _insert_ignore(self, table: str, columns: tuple[str, str], values: tuple[str, str]) -> None:
+        cols = ", ".join(columns)
+        if get_database_backend() == "sqlite":
+            sql = f"INSERT OR IGNORE INTO {table} ({cols}) VALUES ({self._placeholders(2)})"
+        else:
+            sql = f"INSERT INTO {table} ({cols}) VALUES ({self._placeholders(2)}) ON CONFLICT DO NOTHING"
+        with get_connection() as connection:
+            connection.execute(sql, values)
+
+    def share_student(self, student_id: str, teacher_id: str) -> None:
+        self._insert_ignore("student_teachers", ("student_id", "teacher_id"), (student_id, teacher_id))
+
+    def unshare_student(self, student_id: str, teacher_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(f"DELETE FROM student_teachers WHERE student_id = {placeholder} AND teacher_id = {placeholder}", (student_id, teacher_id))
+            return bool(cursor.rowcount)
+
+    def set_student_owner(self, student_id: str, teacher_id: str) -> None:
+        """Cambia el dueño. Si el nuevo dueño lo tenía compartido, esa fila sobra."""
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(f"UPDATE users SET created_by = {placeholder} WHERE id = {placeholder} AND role = 'student'", (teacher_id, student_id))
+            connection.execute(f"DELETE FROM student_teachers WHERE student_id = {placeholder} AND teacher_id = {placeholder}", (student_id, teacher_id))
+
+    def add_classroom_teacher(self, classroom_id: str, teacher_id: str) -> None:
+        self._insert_ignore("classroom_teachers", ("classroom_id", "teacher_id"), (classroom_id, teacher_id))
+
+    def remove_classroom_teacher(self, classroom_id: str, teacher_id: str) -> bool:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            cursor = connection.execute(f"DELETE FROM classroom_teachers WHERE classroom_id = {placeholder} AND teacher_id = {placeholder}", (classroom_id, teacher_id))
+            return bool(cursor.rowcount)
+
+    def set_classroom_owner(self, classroom_id: str, teacher_id: str) -> None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(f"UPDATE classrooms SET created_by = {placeholder} WHERE id = {placeholder}", (teacher_id, classroom_id))
+            connection.execute(f"DELETE FROM classroom_teachers WHERE classroom_id = {placeholder} AND teacher_id = {placeholder}", (classroom_id, teacher_id))
+
+    def rename_classroom(self, classroom_id: str, name: str) -> None:
+        placeholder = self._placeholder
+        with get_connection() as connection:
+            connection.execute(f"UPDATE classrooms SET name = {placeholder} WHERE id = {placeholder}", (name, classroom_id))
+
+    def admin_overview(self) -> dict:
+        """Todo lo que pinta el panel de administración, en cuatro consultas."""
+        classrooms = self.list_classrooms()
+        students = self.list_students()
+        with get_connection() as connection:
+            teacher_rows = connection.execute("SELECT id, name, email, username, role FROM users WHERE role IN ('admin', 'teacher') ORDER BY role DESC, name").fetchall()
+            member_rows = connection.execute("SELECT classroom_id, student_id FROM classroom_students").fetchall()
+            sheet_rows = connection.execute("SELECT classroom_id, COUNT(*) AS total FROM classroom_worksheets GROUP BY classroom_id").fetchall()
+            owned_rows = connection.execute("SELECT created_by, COUNT(*) AS total FROM worksheets GROUP BY created_by").fetchall()
+        members: dict[str, list[str]] = {}
+        for row in member_rows:
+            d = dict(row)
+            members.setdefault(d["classroom_id"], []).append(d["student_id"])
+        sheets = {dict(r)["classroom_id"]: int(dict(r)["total"]) for r in sheet_rows}
+        worksheets = {dict(r)["created_by"]: int(dict(r)["total"]) for r in owned_rows}
+        teachers = []
+        for row in teacher_rows:
+            user = self._user_from_row(row)
+            reach = {c.id for c in classrooms if c.created_by == user.id or any(t.id == user.id for t in c.teachers)}
+            reached_students = {
+                s.id for s in students
+                if s.created_by == user.id or any(t.id == user.id for t in s.shared_with)
+            } | {sid for cid in reach for sid in members.get(cid, [])}
+            teachers.append(TeacherOverview(
+                **user.model_dump(),
+                classrooms_owned=sum(1 for c in classrooms if c.created_by == user.id),
+                classrooms_shared=sum(1 for c in classrooms if any(t.id == user.id for t in c.teachers)),
+                students=len(reached_students),
+                worksheets=worksheets.get(user.id, 0),
+            ))
+        return {
+            "teachers": teachers,
+            "classrooms": [AdminClassroom(**c.model_dump(), student_ids=members.get(c.id, []), worksheet_count=sheets.get(c.id, 0)) for c in classrooms],
+            "students": students,
+        }
 
     def get_user_owner(self, user_id: str) -> str | None:
         """created_by del usuario (None si es legacy o no existe)."""
@@ -218,6 +371,11 @@ class WorksheetRepository:
         return True
 
     def delete_teacher(self, teacher_id: str, replacement_owner_id: str) -> bool:
+        """Borra al profesor y le pasa lo suyo a `replacement_owner_id`.
+
+        Aulas y listas de vocabulario tienen FK a `users` sin CASCADE: sin reasignarlas, borrar a
+        un profesor con un aula revienta por la llave foránea. Los alumnos no tienen FK en
+        `created_by`, pero se quedarían apuntando a un id que ya no existe y no los vería nadie."""
         placeholder = self._placeholder
         with get_connection() as connection:
             row = connection.execute(
@@ -226,9 +384,23 @@ class WorksheetRepository:
             ).fetchone()
             if not row:
                 return False
+            for table in ("worksheets", "classrooms", "vocabulary_lists"):
+                connection.execute(
+                    f"UPDATE {table} SET created_by = {placeholder} WHERE created_by = {placeholder}",
+                    (replacement_owner_id, teacher_id),
+                )
             connection.execute(
-                f"UPDATE worksheets SET created_by = {placeholder} WHERE created_by = {placeholder}",
+                f"UPDATE users SET created_by = {placeholder} WHERE created_by = {placeholder} AND role = 'student'",
                 (replacement_owner_id, teacher_id),
+            )
+            # El heredero ya es dueño: si además lo tenía compartido, esa fila sobra.
+            connection.execute(
+                f"DELETE FROM classroom_teachers WHERE teacher_id = {placeholder} AND classroom_id IN (SELECT id FROM classrooms WHERE created_by = {placeholder})",
+                (replacement_owner_id, replacement_owner_id),
+            )
+            connection.execute(
+                f"DELETE FROM student_teachers WHERE teacher_id = {placeholder} AND student_id IN (SELECT id FROM users WHERE created_by = {placeholder})",
+                (replacement_owner_id, replacement_owner_id),
             )
             connection.execute(
                 f"DELETE FROM users WHERE id = {placeholder} AND role = 'teacher'",
@@ -413,8 +585,8 @@ class WorksheetRepository:
         que es lo correcto: `/public/guest-sessions` no lleva auth y acepta cualquier cadena.
         """
         placeholder = self._placeholder
-        condicion = "" if owner_id is None else f"WHERE classrooms.created_by = {placeholder}"
-        parametros = () if owner_id is None else (owner_id,)
+        condicion = "" if owner_id is None else f"WHERE {self._classroom_access_sql()}"
+        parametros = () if owner_id is None else (owner_id, owner_id)
         with get_connection() as connection:
             rows = connection.execute(
                 f"""
@@ -692,8 +864,7 @@ class WorksheetRepository:
             row = connection.execute(f"SELECT password_hash FROM users WHERE id = {placeholder}", (user_id,)).fetchone()
         return bool(row and verify_password(password, dict(row)["password_hash"]))
 
-    def create_classroom(self, name: str, created_by: str):
-        from .models import Classroom
+    def create_classroom(self, name: str, created_by: str) -> Classroom:
         classroom = Classroom(name=name, created_by=created_by)
         with get_connection() as connection:
             connection.execute(
@@ -702,27 +873,66 @@ class WorksheetRepository:
             )
         return classroom
 
-    def list_classrooms(self, created_by: str | None = None):
-        from .models import Classroom
-        placeholder = self._placeholder
-        params = []
+    def _classroom_from_row(self, row: object) -> Classroom:
+        d = dict(row)
+        return Classroom(id=d["id"], name=d["name"], created_by=d["created_by"], created_at=_parse_datetime(d["created_at"]), is_public=bool(d.get("is_public", False)), owner_name=d.get("owner_name"))
+
+    def _attach_teachers(self, classrooms: list[Classroom]) -> list[Classroom]:
+        """Rellena `teachers` (con quién se comparte cada aula) en una sola consulta."""
+        if not classrooms:
+            return classrooms
+        ids = [c.id for c in classrooms]
+        with get_connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT ct.classroom_id, t.id, t.name, t.username
+                FROM classroom_teachers ct JOIN users t ON t.id = ct.teacher_id
+                WHERE ct.classroom_id IN ({self._placeholders(len(ids))})
+                ORDER BY t.name
+                """,
+                ids,
+            ).fetchall()
+        by_classroom: dict[str, list[TeacherRef]] = {}
+        for row in rows:
+            d = dict(row)
+            by_classroom.setdefault(d["classroom_id"], []).append(TeacherRef(id=d["id"], name=d["name"], username=d["username"] or ""))
+        for classroom in classrooms:
+            classroom.teachers = by_classroom.get(classroom.id, [])
+        return classrooms
+
+    def list_classrooms(self, created_by: str | None = None) -> list[Classroom]:
+        """created_by=None → todas (panel de administración). Con un profesor, las aulas que
+        alcanza: las suyas y las que le compartieron."""
+        params: tuple = ()
         where = ""
         if created_by:
-            where = f"WHERE created_by = {placeholder}"
-            params.append(created_by)
+            where = f"WHERE {self._classroom_access_sql()}"
+            params = (created_by, created_by)
         with get_connection() as connection:
-            rows = connection.execute(f"SELECT * FROM classrooms {where} ORDER BY name", params).fetchall()
-        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"]), is_public=bool(dict(r).get("is_public", False))) for r in rows]
+            rows = connection.execute(
+                f"""
+                SELECT classrooms.*, owner.name AS owner_name
+                FROM classrooms LEFT JOIN users owner ON owner.id = classrooms.created_by
+                {where} ORDER BY classrooms.name
+                """,
+                params,
+            ).fetchall()
+        return self._attach_teachers([self._classroom_from_row(r) for r in rows])
 
-    def get_classroom(self, classroom_id: str):
-        from .models import Classroom
+    def get_classroom(self, classroom_id: str) -> Classroom | None:
         placeholder = self._placeholder
         with get_connection() as connection:
-            row = connection.execute(f"SELECT * FROM classrooms WHERE id = {placeholder}", (classroom_id,)).fetchone()
+            row = connection.execute(
+                f"""
+                SELECT classrooms.*, owner.name AS owner_name
+                FROM classrooms LEFT JOIN users owner ON owner.id = classrooms.created_by
+                WHERE classrooms.id = {placeholder}
+                """,
+                (classroom_id,),
+            ).fetchone()
         if not row:
             return None
-        data = dict(row)
-        return Classroom(id=data["id"], name=data["name"], created_by=data["created_by"], created_at=_parse_datetime(data["created_at"]), is_public=bool(data.get("is_public", False)))
+        return self._attach_teachers([self._classroom_from_row(row)])[0]
 
     def set_classroom_visibility(self, classroom_id: str, is_public: bool) -> None:
         placeholder = self._placeholder
@@ -739,12 +949,7 @@ class WorksheetRepository:
             return bool(cursor.rowcount)
 
     def assign_student_to_classroom(self, classroom_id: str, student_id: str) -> None:
-        placeholder = self._placeholder
-        with get_connection() as connection:
-            connection.execute(
-                f"INSERT {'OR IGNORE' if get_database_backend() == 'sqlite' else ''} INTO classroom_students (classroom_id, student_id) VALUES ({self._placeholders(2)})" if get_database_backend() == 'sqlite' else f"INSERT INTO classroom_students (classroom_id, student_id) VALUES ({self._placeholders(2)}) ON CONFLICT DO NOTHING",
-                (classroom_id, student_id),
-            )
+        self._insert_ignore("classroom_students", ("classroom_id", "student_id"), (classroom_id, student_id))
 
     def unassign_student_from_classroom(self, classroom_id: str, student_id: str) -> bool:
         placeholder = self._placeholder
@@ -823,7 +1028,6 @@ class WorksheetRepository:
         return [self._worksheet_from_row(row) for row in rows]
 
     def list_worksheet_classrooms(self, worksheet_id: str):
-        from .models import Classroom
         placeholder = self._placeholder
         with get_connection() as connection:
             rows = connection.execute(
@@ -835,11 +1039,10 @@ class WorksheetRepository:
                 """,
                 (worksheet_id,),
             ).fetchall()
-        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"]), is_public=bool(dict(r).get("is_public", False))) for r in rows]
+        return [self._classroom_from_row(r) for r in rows]
 
     def list_classrooms_per_worksheet(self, owner_id: str | None) -> dict[str, list]:
         """{worksheet_id: [Classroom...]} para todas las hojas (o las de un profesor) en una query."""
-        from .models import Classroom
         where = f"WHERE worksheets.created_by = {self._placeholder}" if owner_id is not None else ""
         params = (owner_id,) if owner_id is not None else ()
         with get_connection() as connection:
@@ -858,12 +1061,11 @@ class WorksheetRepository:
         for row in rows:
             d = dict(row)
             result.setdefault(d["wid"], []).append(
-                Classroom(id=d["id"], name=d["name"], created_by=d["created_by"], created_at=_parse_datetime(d["created_at"]), is_public=bool(d.get("is_public", False)))
+                self._classroom_from_row(d)
             )
         return result
 
     def list_student_classrooms(self, student_id: str):
-        from .models import Classroom
         placeholder = self._placeholder
         with get_connection() as connection:
             rows = connection.execute(
@@ -875,7 +1077,7 @@ class WorksheetRepository:
                 """,
                 (student_id,),
             ).fetchall()
-        return [Classroom(id=dict(r)["id"], name=dict(r)["name"], created_by=dict(r)["created_by"], created_at=_parse_datetime(dict(r)["created_at"]), is_public=bool(dict(r).get("is_public", False))) for r in rows]
+        return [self._classroom_from_row(r) for r in rows]
 
     def list_student_assigned_worksheets(self, student_id: str) -> list[Worksheet]:
         placeholder = self._placeholder
@@ -937,20 +1139,28 @@ class WorksheetRepository:
             for r in rows
         ]
 
-    def get_recent_ingresos(self, since_iso: str) -> list[dict]:
+    def get_recent_ingresos(self, since_iso: str, teacher_id: str | None = None) -> list[dict]:
         """Ingresos recientes (invitados, lectores, alumnos) posteriores a since_iso.
-        Filtra en Python normalizando a UTC para evitar problemas de formato entre SQLite y Postgres."""
+        Filtra en Python normalizando a UTC para evitar problemas de formato entre SQLite y Postgres.
+
+        Con `teacher_id`, solo los alumnos y las aulas que ese profesor alcanza: antes cada
+        profesor veía entrar a los alumnos e invitados de todos los demás. Los lectores no
+        tienen dueño (cuenta compartida) y se siguen viendo todos."""
         since = _to_naive_utc(since_iso)
+        guest_where = "" if teacher_id is None else f"WHERE g.classroom_id IN (SELECT classrooms.id FROM classrooms WHERE {self._classroom_access_sql()})"
+        student_where = "" if teacher_id is None else f"AND {self._student_access_sql('u')}"
         with get_connection() as connection:
             guests = [dict(r) for r in connection.execute(
-                "SELECT name, classroom_name, accessed_at FROM guest_access_logs ORDER BY accessed_at DESC LIMIT 200"
+                f"SELECT g.name, g.classroom_name, g.accessed_at FROM guest_access_logs g {guest_where} ORDER BY g.accessed_at DESC LIMIT 200",
+                () if teacher_id is None else (teacher_id,) * 2,
             ).fetchall()]
             readers = [dict(r) for r in connection.execute(
                 "SELECT reader_name, accessed_at FROM reader_access_logs ORDER BY accessed_at DESC LIMIT 200"
             ).fetchall()]
             students = [dict(r) for r in connection.execute(
                 "SELECT u.name AS name, s.logged_in_at AS ts FROM user_sessions s "
-                "JOIN users u ON u.id = s.user_id WHERE u.role = 'student' ORDER BY s.logged_in_at DESC LIMIT 200"
+                f"JOIN users u ON u.id = s.user_id WHERE u.role = 'student' {student_where} ORDER BY s.logged_in_at DESC LIMIT 200",
+                () if teacher_id is None else (teacher_id,) * 4,
             ).fetchall()]
 
         events: list[dict] = []
@@ -989,7 +1199,8 @@ class WorksheetRepository:
 
     def teacher_dashboard(self, teacher_id: str | None = None) -> dict:
         worksheets = self.list_worksheets(created_by=teacher_id, published=True, archived=False)
-        students = self.list_students()
+        # Antes contaba a TODOS los alumnos de la base, fueran de quien fueran.
+        students = self.list_students(teacher_id)
         worksheet_ids = [worksheet.id for worksheet in worksheets]
         # Solo las respuestas de las hojas del profesor (antes: se leía TODA la tabla y se filtraba en Python).
         scoped_responses = self.list_responses(worksheet_ids=worksheet_ids)
@@ -1128,13 +1339,15 @@ class WorksheetRepository:
             for r in rows
         ]
 
-    def get_students_activity(self, expire_minutes: int) -> list[StudentActivity]:
+    def get_students_activity(self, expire_minutes: int, teacher_id: str | None = None) -> list[StudentActivity]:
         """
-        Devuelve un resumen de actividad para todos los estudiantes.
+        Resumen de actividad de los estudiantes que `teacher_id` alcanza (None = todos).
         is_online = tiene sesión sin logout Y logged_in_at dentro del ventana del token.
         """
         from datetime import timezone
         placeholder = self._placeholder
+        access = "" if teacher_id is None else f"AND {self._student_access_sql('u')}"
+        access_params = () if teacher_id is None else (teacher_id,) * 4
 
         with get_connection() as connection:
             rows = connection.execute(
@@ -1159,11 +1372,11 @@ class WorksheetRepository:
                     ) AS latest_login
                 FROM users u
                 LEFT JOIN user_sessions s ON s.user_id = u.id
-                WHERE u.role = {placeholder}
+                WHERE u.role = {placeholder} {access}
                 GROUP BY u.id, u.name, u.username
                 ORDER BY u.name
                 """,
-                ("student",),
+                ("student", *access_params),
             ).fetchall()
 
         now = datetime.now(timezone.utc)

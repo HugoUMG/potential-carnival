@@ -32,6 +32,8 @@ TABLES = [
     "worksheet_responses",
     "classroom_students",
     "classroom_worksheets",
+    "classroom_teachers",
+    "student_teachers",
     "user_sessions",
     "vocabulary_lists",
     "vocabulary_assignments",

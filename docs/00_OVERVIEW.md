@@ -57,8 +57,8 @@ Ver [13_ROADMAP](13_ROADMAP.md) para el resto.
 
 | Rol | Permisos |
 |-----|---------|
-| `admin` | Gestiona profesores, estudiantes y todo el contenido |
-| `teacher` | Crea aulas, hojas y listas de vocabulario; asigna contenido; revisa respuestas |
+| `admin` | **Administra a los profesores**, no su contenido: ve qué aulas y alumnos tiene cada uno, crea aulas y les asigna profesores y alumnos, y entra a la **vista de profesor** de cualquiera (`/admin`, ADR-48). En `/teacher` es un profesor más con lo suyo |
+| `teacher` | Crea aulas, hojas y listas de vocabulario; asigna contenido; revisa respuestas. Cada uno ve solo lo suyo y lo que otro profesor le **compartió** (aulas o alumnos) |
 | `student` | Completa las hojas de su aula, ve resultados y notas |
 | `reader` | Solo el portal de vocabulario; no puede cambiar su contraseña |
 
@@ -75,7 +75,8 @@ Además, sin cuenta:
 ## Flujo principal
 
 1. El profesor se registra **solo con Google** (`/registro`), o el admin le crea la cuenta.
-2. Crea un aula → le asigna estudiantes y hojas.
+2. Crea un aula → le asigna estudiantes y hojas (o el admin le arma el aula y se la asigna). Un aula
+   o un alumno se pueden **compartir** con otro profesor.
 3. Crea una hoja (IA, constructor visual o DSL a mano) → la publica → la asigna o comparte su enlace.
 4. El alumno entra → ve solo las hojas de su aula (o abre el enlace) → resuelve → envía.
 5. El backend califica: exacto lo cerrado, IA lo abierto. El profesor puede corregir a mano.

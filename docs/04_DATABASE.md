@@ -63,6 +63,10 @@ classrooms (id, name, created_by → users, created_at, is_public BOOLEAN)
 classroom_students   (classroom_id, student_id, assigned_at)              -- PK compuesta
 classroom_worksheets (classroom_id, worksheet_id, assigned_at, due_date)  -- PK compuesta, due_date nullable
 
+-- Compartir entre profesores (ADR-48). El DUEÑO sigue siendo created_by; aquí van los invitados
+classroom_teachers (classroom_id, teacher_id, assigned_at)   -- PK compuesta; profesores invitados al aula
+student_teachers   (student_id, teacher_id, assigned_at)     -- PK compuesta; profesores con quienes se compartió el alumno
+
 -- Sesiones
 user_sessions (id, user_id → users, logged_in_at, logged_out_at)
 
@@ -134,6 +138,7 @@ verb_bank (base PK, data, created_at)
 -- Búsquedas por dueño y estado
 idx_worksheets_created_by · idx_worksheets_published · idx_worksheets_archived
 idx_classrooms_created_by · idx_users_created_by
+idx_classroom_teachers_teacher · idx_student_teachers_teacher
 idx_vocabulary_lists_created_by · idx_vocabulary_assignments_classroom_id · idx_vocab_reader_list_id
 
 -- Respuestas
@@ -163,11 +168,27 @@ idx_teacher_images_teacher_id
 
 ## Aislamiento de alumnos por profesor (`users.created_by`)
 
-`GET /students` filtra por dueño y `require_student_manager` bloquea con 403 editar, borrar o cambiar
-la contraseña de un alumno ajeno. Las aulas ya estaban aisladas por `created_by`.
+`created_by` es el **dueño** (del alumno en `users`, del aula en `classrooms`). Un profesor **alcanza**
+además lo que le compartieron:
+
+| Recurso | Lo alcanza… | Solo el dueño (o el admin) |
+|---------|-------------|----------------------------|
+| Aula | el dueño y los profesores de `classroom_teachers` | borrarla, renombrarla, compartirla, abrirla a invitados |
+| Alumno | el dueño, los profesores de `student_teachers` **y los de cualquier aula donde esté** | borrarlo, compartirlo |
+
+Lo tercero es lo que hace que el profesor al que el admin le arma un aula vea a sus alumnos sin
+haberlos creado. La regla vive en `_classroom_access_sql` / `_student_access_sql` (`repository.py`).
+
+`GET /students` y `GET /classrooms` devuelven lo que el profesor alcanza; `require_student_manager`
+bloquea con 403 borrar o compartir un alumno ajeno.
+
+Al **borrar a un profesor**, sus hojas, aulas, listas de vocabulario y alumnos pasan a un heredero
+(`classrooms.created_by` y `vocabulary_lists.created_by` son FK sin CASCADE: sin reasignar, el borrado
+reventaba). Sus filas en `classroom_teachers`/`student_teachers` caen por CASCADE.
 
 **Aislamiento total: no hay excepción para `created_by IS NULL`.** Un alumno sin dueño no lo ve ni lo
-administra ningún profesor — solo el admin (falla en cerrado).
+administra ningún profesor — solo el admin (falla en cerrado) — salvo que se lo compartan o esté en
+una de sus aulas.
 
 El backfill de los alumnos heredados corre **dentro de la propia migración de arranque**, en el mismo
 arranque que crea la columna: se les asigna el **profesor más antiguo**. Así no hay ventana entre

@@ -27,10 +27,37 @@ class LoginRequest(BaseModel):
     role: UserRole
 
 
+class TeacherRef(BaseModel):
+    """Lo mínimo de un profesor para mostrar con quién se comparte un aula o un alumno."""
+    id: str
+    name: str
+    username: str
+
+
+class StudentSummary(PublicUser):
+    """Alumno tal como lo lista el portal docente: con su dueño y con quién está compartido."""
+    created_by: str | None = None
+    owner_name: str | None = None
+    shared_with: list[TeacherRef] = Field(default_factory=list)
+
+
 class StudentCreate(BaseModel):
     name: str
     username: str
     password: str = Field(min_length=8)
+    # Solo el admin: da de alta al alumno a nombre de ese profesor.
+    owner_id: str | None = None
+
+
+class ShareRequest(BaseModel):
+    """Con quién compartir. El profesor escribe el usuario o el correo exacto de su colega
+    (no hay directorio de profesores: el registro por Google es abierto). El admin manda el id."""
+    teacher_id: str | None = None
+    username: str | None = None
+
+
+class OwnerUpdate(BaseModel):
+    teacher_id: str
 
 
 class TeacherCreate(BaseModel):
@@ -324,6 +351,12 @@ class RoomTurn(BaseModel):
 
 class ClassroomCreate(BaseModel):
     name: str
+    # Solo el admin: crea el aula a nombre de ese profesor.
+    owner_id: str | None = None
+
+
+class ClassroomRename(BaseModel):
+    name: str = Field(min_length=1)
 
 
 class ClassroomStudentAssignment(BaseModel):
@@ -345,6 +378,28 @@ class Classroom(BaseModel):
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_public: bool = False
+    # Solo los rellenan list_classrooms / get_classroom: dueño y profesores con los que se comparte.
+    owner_name: str | None = None
+    teachers: list[TeacherRef] = Field(default_factory=list)
+
+
+class TeacherOverview(PublicUser):
+    """Fila del panel de administración: un profesor y cuánto tiene a su cargo."""
+    classrooms_owned: int = 0
+    classrooms_shared: int = 0
+    students: int = 0
+    worksheets: int = 0
+
+
+class AdminClassroom(Classroom):
+    student_ids: list[str] = Field(default_factory=list)
+    worksheet_count: int = 0
+
+
+class AdminOverview(BaseModel):
+    teachers: list[TeacherOverview] = Field(default_factory=list)
+    classrooms: list[AdminClassroom] = Field(default_factory=list)
+    students: list[StudentSummary] = Field(default_factory=list)
 
 
 class ClassroomDetail(Classroom):

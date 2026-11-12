@@ -28,9 +28,14 @@ from .models import (
     AiReviewRequest,
     AnswerDetail,
     AnswerReview,
+    AdminOverview,
     Classroom,
     ClassroomCreate,
     ClassroomDetail,
+    ClassroomRename,
+    OwnerUpdate,
+    ShareRequest,
+    StudentSummary,
     ClassroomStudentAssignment,
     ClassroomVisibilityUpdate,
     ClassroomWorksheetAssignment,
@@ -211,6 +216,9 @@ def require_student_owner_or_staff(student_id: str, current_user: PublicUser) ->
         raise HTTPException(status_code=403, detail="No puedes consultar datos de otro usuario")
     if current_user.role not in {UserRole.student, UserRole.reader, UserRole.teacher, UserRole.admin}:
         raise HTTPException(status_code=403, detail="No autorizado")
+    # Antes cualquier profesor leía hojas, respuestas y aulas de cualquier alumno con su id.
+    if current_user.role == UserRole.teacher:
+        require_student_access(student_id, current_user)
 
 
 def require_worksheet_manager(worksheet_id: str, current_user: PublicUser) -> Worksheet:
@@ -287,7 +295,7 @@ def read_current_user(current_user: PublicUser = Depends(get_current_user)) -> P
 
 
 def require_student_manager(student_id: str, current_user: PublicUser) -> None:
-    """Un profesor solo administra los alumnos que él creó.
+    """Dueño del alumno (o admin): lo único que puede borrarlo o compartirlo.
 
     Falla en cerrado: un alumno sin dueño tampoco lo administra nadie salvo el admin. Antes
     se permitía (eran los alumnos anteriores a `created_by`), pero eso dejaba borrarlos por id
@@ -298,17 +306,86 @@ def require_student_manager(student_id: str, current_user: PublicUser) -> None:
         raise HTTPException(status_code=403, detail="Ese estudiante pertenece a otro profesor")
 
 
+def require_student_access(student_id: str, current_user: PublicUser) -> None:
+    """Dueño, profesor con quien se compartió, o profesor de un aula donde está el alumno.
+    Alcanza para verlo, editarlo, cambiarle la contraseña y meterlo en un aula; no para
+    borrarlo ni compartirlo (eso es `require_student_manager`)."""
+    if current_user.role == UserRole.admin:
+        return
+    if not repository.can_access_student(student_id, current_user.id):
+        raise HTTPException(status_code=403, detail="Ese estudiante pertenece a otro profesor")
+
+
+def _resolve_teacher(payload: ShareRequest, current_user: PublicUser) -> PublicUser:
+    """El profesor nombra a su colega por usuario o correo exacto; el id directo es del admin
+    (un profesor no tiene de dónde sacar ids ajenos y no hay directorio que se los dé)."""
+    teacher = None
+    if payload.teacher_id and current_user.role == UserRole.admin:
+        teacher = repository.get_user(payload.teacher_id)
+    elif payload.username:
+        teacher = repository.find_teacher(payload.username)
+    if not teacher or teacher.role not in {UserRole.teacher, UserRole.admin}:
+        raise HTTPException(status_code=404, detail="No hay ningún profesor con ese usuario o correo")
+    return teacher
+
+
+def _owner_for_create(owner_id: str | None, current_user: PublicUser) -> str:
+    """A nombre de quién se crea un aula o un alumno: solo el admin puede elegir a otro."""
+    if not owner_id or owner_id == current_user.id:
+        return current_user.id
+    if current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Solo el administrador puede crear a nombre de otro profesor")
+    owner = repository.get_user(owner_id)
+    if not owner or owner.role not in {UserRole.teacher, UserRole.admin}:
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+    return owner.id
+
+
 @app.post("/students", response_model=PublicUser)
 def create_student(payload: StudentCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> PublicUser:
+    owner_id = _owner_for_create(payload.owner_id, current_user)
     try:
-        return repository.create_student(payload, created_by=current_user.id)
+        return repository.create_student(payload, created_by=owner_id)
     except Exception as exc:
         raise HTTPException(status_code=409, detail="No se pudo crear el estudiante. Verifica que el usuario no exista.") from exc
 
 
-@app.get("/students", response_model=list[PublicUser])
-def list_students(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[PublicUser]:
-    return repository.list_students(None if current_user.role == UserRole.admin else current_user.id)
+@app.get("/students", response_model=list[StudentSummary])
+def list_students(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[StudentSummary]:
+    # También para el admin: en el portal docente es un profesor más y ve lo suyo. La vista de
+    # todos los alumnos es /admin/overview.
+    return repository.list_students(current_user.id)
+
+
+@app.post("/students/{student_id}/teachers", status_code=204)
+def share_student(student_id: str, payload: ShareRequest, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    student = repository.get_user(student_id)
+    if not student or student.role != UserRole.student:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    require_student_manager(student_id, current_user)
+    teacher = _resolve_teacher(payload, current_user)
+    if teacher.id == repository.get_user_owner(student_id):
+        raise HTTPException(status_code=409, detail="Ese profesor ya es el dueño del estudiante")
+    repository.share_student(student_id, teacher.id)
+
+
+@app.delete("/students/{student_id}/teachers/{teacher_id}", status_code=204)
+def unshare_student(student_id: str, teacher_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    # El dueño retira a quien quiera; el profesor invitado solo puede retirarse a sí mismo.
+    if teacher_id != current_user.id:
+        require_student_manager(student_id, current_user)
+    repository.unshare_student(student_id, teacher_id)
+
+
+@app.put("/students/{student_id}/owner", status_code=204)
+def set_student_owner(student_id: str, payload: OwnerUpdate, _: PublicUser = Depends(require_admin)) -> None:
+    student = repository.get_user(student_id)
+    owner = repository.get_user(payload.teacher_id)
+    if not student or student.role != UserRole.student:
+        raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    if not owner or owner.role not in {UserRole.teacher, UserRole.admin}:
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+    repository.set_student_owner(student_id, owner.id)
 
 
 
@@ -324,7 +401,7 @@ def update_user(user_id: str, payload: UserUpdate, current_user: PublicUser = De
         target = repository.get_user(user_id)
         if not target or target.role != UserRole.student:
             raise HTTPException(status_code=403, detail="Los profesores solo pueden editar estudiantes")
-        require_student_manager(user_id, current_user)
+        require_student_access(user_id, current_user)
     elif current_user.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="No autorizado")
     try:
@@ -355,7 +432,7 @@ def update_user_password(user_id: str, payload: PasswordUpdate, current_user: Pu
     elif current_user.role == UserRole.teacher:
         if target.role != UserRole.student:
             raise HTTPException(status_code=403, detail="Los profesores solo pueden cambiar contraseñas de estudiantes")
-        require_student_manager(user_id, current_user)
+        require_student_access(user_id, current_user)
     elif current_user.role != UserRole.admin:
         # `reader` cae aquí: su propia contraseña ya la bloquea el guard de `target` de arriba.
         raise HTTPException(status_code=403, detail="No autorizado")
@@ -364,15 +441,17 @@ def update_user_password(user_id: str, payload: PasswordUpdate, current_user: Pu
 
 @app.post("/classrooms", response_model=Classroom)
 def create_classroom(payload: ClassroomCreate, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Classroom:
-    return repository.create_classroom(payload.name, current_user.id)
+    return repository.create_classroom(payload.name, _owner_for_create(payload.owner_id, current_user))
 
 
 @app.get("/classrooms", response_model=list[Classroom])
 def list_classrooms(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[Classroom]:
-    return repository.list_classrooms(None if current_user.role == UserRole.admin else current_user.id)
+    # Propias + compartidas. El admin aquí es un profesor más; todas las aulas van en /admin/overview.
+    return repository.list_classrooms(current_user.id)
 
 
 def require_classroom_manager(classroom_id: str, current_user: PublicUser) -> Classroom:
+    """Dueño del aula (o admin): borrarla, renombrarla, compartirla o abrirla a invitados."""
     classroom = repository.get_classroom(classroom_id)
     if not classroom:
         raise HTTPException(status_code=404, detail="Aula no encontrada")
@@ -381,9 +460,62 @@ def require_classroom_manager(classroom_id: str, current_user: PublicUser) -> Cl
     return classroom
 
 
+def require_classroom_access(classroom_id: str, current_user: PublicUser) -> Classroom:
+    """Dueño, profesor con quien se compartió el aula, o admin: ver el detalle y asignar
+    alumnos y hojas propias."""
+    classroom = repository.get_classroom(classroom_id)
+    if not classroom:
+        raise HTTPException(status_code=404, detail="Aula no encontrada")
+    if (
+        current_user.role != UserRole.admin
+        and classroom.created_by != current_user.id
+        and all(teacher.id != current_user.id for teacher in classroom.teachers)
+    ):
+        raise HTTPException(status_code=403, detail="No puedes administrar esta aula")
+    return classroom
+
+
+@app.patch("/classrooms/{classroom_id}", response_model=Classroom)
+def rename_classroom(classroom_id: str, payload: ClassroomRename, current_user: PublicUser = Depends(require_teacher_or_admin)) -> Classroom:
+    classroom = require_classroom_manager(classroom_id, current_user)
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="El aula necesita un nombre")
+    repository.rename_classroom(classroom_id, name)
+    classroom.name = name
+    return classroom
+
+
+@app.post("/classrooms/{classroom_id}/teachers", status_code=204)
+def share_classroom(classroom_id: str, payload: ShareRequest, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    classroom = require_classroom_manager(classroom_id, current_user)
+    teacher = _resolve_teacher(payload, current_user)
+    if teacher.id == classroom.created_by:
+        raise HTTPException(status_code=409, detail="Ese profesor ya es el dueño del aula")
+    repository.add_classroom_teacher(classroom_id, teacher.id)
+
+
+@app.delete("/classrooms/{classroom_id}/teachers/{teacher_id}", status_code=204)
+def unshare_classroom(classroom_id: str, teacher_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
+    # El dueño retira a quien quiera; el profesor invitado solo puede salirse él.
+    if teacher_id != current_user.id:
+        require_classroom_manager(classroom_id, current_user)
+    repository.remove_classroom_teacher(classroom_id, teacher_id)
+
+
+@app.put("/classrooms/{classroom_id}/owner", status_code=204)
+def set_classroom_owner(classroom_id: str, payload: OwnerUpdate, _: PublicUser = Depends(require_admin)) -> None:
+    owner = repository.get_user(payload.teacher_id)
+    if not repository.get_classroom(classroom_id):
+        raise HTTPException(status_code=404, detail="Aula no encontrada")
+    if not owner or owner.role not in {UserRole.teacher, UserRole.admin}:
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+    repository.set_classroom_owner(classroom_id, owner.id)
+
+
 @app.get("/classrooms/{classroom_id}", response_model=ClassroomDetail)
 def get_classroom_detail(classroom_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> ClassroomDetail:
-    classroom = require_classroom_manager(classroom_id, current_user)
+    classroom = require_classroom_access(classroom_id, current_user)
     students = repository.list_classroom_students(classroom_id)
     worksheets = repository.list_classroom_worksheets(classroom_id)
     statuses = {}
@@ -399,22 +531,25 @@ def get_classroom_detail(classroom_id: str, current_user: PublicUser = Depends(r
 
 @app.post("/classrooms/{classroom_id}/students", status_code=204)
 def assign_student(classroom_id: str, payload: ClassroomStudentAssignment, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
-    require_classroom_manager(classroom_id, current_user)
+    require_classroom_access(classroom_id, current_user)
     student = repository.get_user(payload.student_id)
     if not student or student.role != UserRole.student:
         raise HTTPException(status_code=404, detail="Estudiante no encontrado")
+    # Sin esto, cualquier profesor metía en su aula a un alumno ajeno con solo su id — y estar
+    # en el aula es justo lo que da acceso al alumno.
+    require_student_access(payload.student_id, current_user)
     repository.assign_student_to_classroom(classroom_id, payload.student_id)
 
 
 @app.delete("/classrooms/{classroom_id}/students/{student_id}", status_code=204)
 def unassign_student(classroom_id: str, student_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
-    require_classroom_manager(classroom_id, current_user)
+    require_classroom_access(classroom_id, current_user)
     repository.unassign_student_from_classroom(classroom_id, student_id)
 
 
 @app.post("/classrooms/{classroom_id}/worksheets", status_code=204)
 def assign_worksheet(classroom_id: str, payload: ClassroomWorksheetAssignment, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
-    require_classroom_manager(classroom_id, current_user)
+    require_classroom_access(classroom_id, current_user)
     require_worksheet_manager(payload.worksheet_id, current_user)
     due_date_str = payload.due_date.isoformat() if payload.due_date else None
     repository.assign_worksheet_to_classroom(classroom_id, payload.worksheet_id, due_date_str)
@@ -422,7 +557,7 @@ def assign_worksheet(classroom_id: str, payload: ClassroomWorksheetAssignment, c
 
 @app.delete("/classrooms/{classroom_id}/worksheets/{worksheet_id}", status_code=204)
 def unassign_worksheet(classroom_id: str, worksheet_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
-    require_classroom_manager(classroom_id, current_user)
+    require_classroom_access(classroom_id, current_user)
     require_worksheet_manager(worksheet_id, current_user)
     repository.unassign_worksheet_from_classroom(classroom_id, worksheet_id)
 
@@ -441,7 +576,7 @@ def list_worksheet_classrooms(worksheet_id: str, current_user: PublicUser = Depe
 
 @app.get("/dashboard/teacher", response_model=TeacherDashboardStats)
 def teacher_dashboard(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, Any]:
-    return repository.teacher_dashboard(None if current_user.role == UserRole.admin else current_user.id)
+    return repository.teacher_dashboard(current_user.id)
 
 
 @app.post("/uploads/signature")
@@ -1088,6 +1223,24 @@ def list_teachers(_: PublicUser = Depends(require_admin)) -> list[PublicUser]:
     return repository.list_teachers()
 
 
+@app.get("/admin/overview", response_model=AdminOverview)
+def admin_overview(_: PublicUser = Depends(require_admin)) -> dict[str, Any]:
+    """Panel de administración: profesores con sus cifras, todas las aulas y todos los alumnos."""
+    return repository.admin_overview()
+
+
+@app.post("/admin/teachers/{teacher_id}/impersonate", response_model=LoginResponse)
+def impersonate_teacher(teacher_id: str, current_user: PublicUser = Depends(require_admin)) -> LoginResponse:
+    """"Vista de profesor": entrega al admin un token de ESE profesor para abrir su portal tal
+    como él lo ve. Solo profesores (nunca otro admin). No abre `user_sessions`: no es un ingreso
+    del profesor. El token lleva `imp` con el id del admin que lo pidió."""
+    teacher = repository.get_user(teacher_id)
+    if not teacher or teacher.role != UserRole.teacher:
+        raise HTTPException(status_code=404, detail="Profesor no encontrado")
+    token = create_access_token(teacher.id, teacher.role.value, impersonated_by=current_user.id)
+    return LoginResponse(user=teacher, access_token=token)
+
+
 @app.delete("/students/{student_id}", status_code=204)
 def delete_student(student_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> None:
     require_student_manager(student_id, current_user)
@@ -1096,10 +1249,18 @@ def delete_student(student_id: str, current_user: PublicUser = Depends(require_t
 
 
 @app.delete("/teachers/{teacher_id}", status_code=204)
-def delete_teacher(teacher_id: str, current_user: PublicUser = Depends(require_admin)) -> None:
+def delete_teacher(teacher_id: str, transfer_to: str | None = None, current_user: PublicUser = Depends(require_admin)) -> None:
+    """Borra al profesor. Sus hojas, aulas, alumnos y listas pasan a `transfer_to` (otro
+    profesor) o, si no se indica, al admin que lo borra."""
     if teacher_id == current_user.id:
         raise HTTPException(status_code=403, detail="No puedes eliminar tu propio usuario administrador")
-    if not repository.delete_teacher(teacher_id, current_user.id):
+    heir_id = current_user.id
+    if transfer_to and transfer_to != current_user.id:
+        heir = repository.get_user(transfer_to)
+        if not heir or heir.role not in {UserRole.teacher, UserRole.admin} or heir.id == teacher_id:
+            raise HTTPException(status_code=404, detail="El profesor que recibe el contenido no existe")
+        heir_id = heir.id
+    if not repository.delete_teacher(teacher_id, heir_id):
         raise HTTPException(status_code=404, detail="Profesor no encontrado")
 
 
@@ -1199,24 +1360,22 @@ def ai_review(payload: AiReviewRequest, current_user: PublicUser = Depends(requi
 
 @app.get("/worksheets", response_model=list[Worksheet])
 def list_worksheets(created_by: str | None = None, published: bool | None = None, archived: bool | None = None, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[Worksheet]:
-    owner_id = created_by
-    if current_user.role != UserRole.admin:
-        if created_by and created_by != current_user.id:
-            raise HTTPException(status_code=403, detail="No puedes consultar evaluaciones de otro profesor")
-        owner_id = current_user.id
+    # Sin `created_by` cada quien ve lo suyo, el admin incluido (antes veía las de todos
+    # mezcladas). El admin puede pedir las de un profesor concreto.
+    if created_by and created_by != current_user.id and current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="No puedes consultar evaluaciones de otro profesor")
+    owner_id = created_by or current_user.id
     return repository.list_worksheets(created_by=owner_id, published=published, archived=archived)
 
 
 @app.get("/worksheets/response-counts")
 def worksheet_response_counts(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, int]:
-    owner_id = None if current_user.role == UserRole.admin else current_user.id
-    return repository.count_responses_per_worksheet(owner_id)
+    return repository.count_responses_per_worksheet(current_user.id)
 
 
 @app.get("/worksheets/classroom-assignments", response_model=dict[str, list[Classroom]])
 def worksheet_classroom_assignments(current_user: PublicUser = Depends(require_teacher_or_admin)) -> dict[str, list[Classroom]]:
-    owner_id = None if current_user.role == UserRole.admin else current_user.id
-    return repository.list_classrooms_per_worksheet(owner_id)
+    return repository.list_classrooms_per_worksheet(current_user.id)
 
 
 @app.get("/students/{student_id}/worksheets", response_model=list[Worksheet])
@@ -1258,8 +1417,7 @@ def get_teacher_notifications(since: str | None = None, current_user: PublicUser
         since_iso = since
     else:
         since_iso = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
-    teacher_id = None if current_user.role == UserRole.admin else current_user.id
-    return repository.get_recent_responses_for_teacher(teacher_id, since_iso)
+    return repository.get_recent_responses_for_teacher(current_user.id, since_iso)
 
 
 @app.get("/teacher/worksheet-summary/{worksheet_id}")
@@ -1299,10 +1457,9 @@ def worksheet_summary(worksheet_id: str, current_user: PublicUser = Depends(requ
 def teacher_activity_feed(since: str | None = None, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict]:
     from datetime import datetime, timezone, timedelta
     since_iso = since or (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
-    teacher_id = None if current_user.role == UserRole.admin else current_user.id
-    notas = repository.get_recent_responses_for_teacher(teacher_id, since_iso)
+    notas = repository.get_recent_responses_for_teacher(current_user.id, since_iso)
     events = [{"tipo": "nota", "nombre": n["student_name"], "detalle": n["worksheet_title"], "ts": n["submitted_at"]} for n in notas]
-    events += repository.get_recent_ingresos(since_iso)
+    events += repository.get_recent_ingresos(since_iso, current_user.id)
     events.sort(key=lambda e: e["ts"], reverse=True)
     return events[:100]
 
@@ -1320,12 +1477,13 @@ def list_student_classrooms(student_id: str, current_user: PublicUser = Depends(
 
 
 @app.get("/students/activity", response_model=list[StudentActivity])
-def get_students_activity(_: PublicUser = Depends(require_teacher_or_admin)) -> list[StudentActivity]:
-    return repository.get_students_activity(get_access_token_expire_minutes())
+def get_students_activity(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[StudentActivity]:
+    return repository.get_students_activity(get_access_token_expire_minutes(), current_user.id)
 
 
 @app.get("/students/{student_id}/sessions", response_model=list[UserSession])
-def list_student_sessions(student_id: str, _: PublicUser = Depends(require_teacher_or_admin)) -> list[UserSession]:
+def list_student_sessions(student_id: str, current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[UserSession]:
+    require_student_access(student_id, current_user)
     return repository.list_student_sessions(student_id)
 
 
@@ -1994,12 +2152,12 @@ async def transcribe(request: Request, file: UploadFile = File(...), clarity: bo
 
 @app.get("/teacher/guest-logs")
 def list_guest_logs(current_user: PublicUser = Depends(require_teacher_or_admin)) -> list[dict]:
-    """Historial de accesos de invitados **de las aulas propias**. El admin los ve todos.
+    """Historial de accesos de invitados **de las aulas propias o compartidas**.
 
     Antes devolvía los invitados de todos los profesores a cualquiera que tuviera rol de
     profesor, sin necesidad de adivinar ningún id: era el agujero de aislamiento más ancho.
     """
-    return repository.list_guest_access_logs(None if current_user.role == UserRole.admin else current_user.id)
+    return repository.list_guest_access_logs(current_user.id)
 
 
 @app.get("/teacher/guest-detail")
@@ -2009,7 +2167,7 @@ def guest_detail(guest_token: str, classroom_id: str, current_user: PublicUser =
     El aula tiene que ser propia: con solo el rol de profesor, un `guest_token` sacado del
     listado abierto de antes daba las respuestas de un invitado de otro profesor.
     """
-    require_classroom_manager(classroom_id, current_user)
+    require_classroom_access(classroom_id, current_user)
     responses = repository.list_responses_by_guest_token(guest_token)
     classroom_worksheets = repository.list_classroom_worksheets(classroom_id)
     title_by_id = {w.id: w.title for w in classroom_worksheets}

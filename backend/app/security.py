@@ -66,9 +66,12 @@ def needs_password_rehash(stored_hash: str) -> bool:
     return int(iterations) < PASSWORD_ITERATIONS
 
 
-def create_access_token(subject: str, role: str, expires_delta: timedelta | None = None) -> str:
+def create_access_token(subject: str, role: str, expires_delta: timedelta | None = None, impersonated_by: str | None = None) -> str:
     expires_at = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=get_access_token_expire_minutes()))
     payload: dict[str, Any] = {"sub": subject, "role": role, "exp": expires_at}
+    if impersonated_by:
+        # "Vista de profesor" del admin: el token es del profesor, pero deja dicho quién lo pidió.
+        payload["imp"] = impersonated_by
     return jwt.encode(payload, get_jwt_secret(), algorithm=ALGORITHM)
 
 

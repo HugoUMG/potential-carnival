@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Archive, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, ClipboardList, Clock3, Copy, Download, Eye, GraduationCap, History, ImageIcon, Link2, LockKeyhole, LogOut, MessageSquareText, MoreVertical, PartyPopper, Pencil, Printer, RefreshCw, Search, Send, Sparkles, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { Archive, ArrowLeft, Bell, BookOpen, BookText, Check, ChevronLeft, ChevronRight, ClipboardList, Clock3, Copy, Download, Eye, GraduationCap, History, ImageIcon, Link2, LockKeyhole, LogOut, MessageSquareText, MoreVertical, PartyPopper, Pencil, Printer, RefreshCw, Search, Send, Sparkles, Trash2, UserCircle, Users, X } from 'lucide-react';
 import { ThemeToggle } from './components/ThemeToggle';
 import { WorksheetEditor } from './components/WorksheetEditor';
 import { WorksheetRenderer, WorksheetThumb } from './components/WorksheetRenderer';
@@ -30,11 +30,9 @@ import {
   createVocabularyList,
   createClassroom,
   createStudent,
-  createTeacher,
   createWorksheet,
   updateWorksheet,
   deleteStudent,
-  deleteTeacher,
   deleteWorksheet,
   deleteVocabularyList,
   deleteResponse,
@@ -48,7 +46,6 @@ import {
   listStudentVocabulary,
   listStudents,
   listStudentWorksheets,
-  listTeachers,
   listTeacherWorksheets,
   listVocabularyClassrooms,
   listVocabularyLists,
@@ -78,6 +75,13 @@ import {
   unassignWorksheetFromClassroom,
   deleteClassroom,
   setClassroomVisibility,
+  shareClassroom,
+  unshareClassroom,
+  shareStudent,
+  unshareStudent,
+  getImpersonator,
+  stopImpersonating,
+  type StudentSummary,
   type Classroom,
   type ClassroomDetail,
   type DetalleRespuesta,
@@ -168,7 +172,7 @@ function timeAgo(iso: string): string {
 }
 
 /** Secciones del portal docente que existen como URL propia (/teacher/revision, …). */
-const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas', 'envivo', 'aulas', 'estudiantes', 'profesores', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes', 'juegos'];
+const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas', 'envivo', 'aulas', 'estudiantes', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes', 'juegos'];
 type StudentTab = 'activas' | 'calificadas' | 'vocabulario' | 'perfil';
 const STUDENT_TABS: StudentTab[] = ['activas', 'calificadas', 'vocabulario', 'perfil'];
 
@@ -196,7 +200,8 @@ export default function App() {
   // del navegador funciona. El estado de la pestaña ES el parámetro de la ruta.
   const { section } = useParams<{ section?: string }>();
   const [user, setUser] = useState<UsuarioSesion | null>(() => getCurrentSession());
-  const portalBase = user?.role === 'admin' ? '/admin' : user?.role === 'student' ? '/student' : '/teacher';
+  // El admin también usa /teacher para SU contenido: /admin es el panel de administración.
+  const portalBase = user?.role === 'student' ? '/student' : '/teacher';
   const adminMenu: TeacherMenu = TEACHER_SECTIONS.includes(section as TeacherMenu) ? (section as TeacherMenu) : 'evaluaciones';
   const studentTab: StudentTab = STUDENT_TABS.includes(section as StudentTab) ? (section as StudentTab) : 'activas';
   const setAdminMenu = (menu: TeacherMenu) => navigate(`${portalBase}/${menu}`);
@@ -229,8 +234,13 @@ export default function App() {
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
   const [revisionSelectedId, setRevisionSelectedId] = useState<string | null>(null);
   const [selectedResponseId, setSelectedResponseId] = useState<string | null>(null);
-  const [students, setStudents] = useState<UsuarioSesion[]>([]);
-  const [teachers, setTeachers] = useState<UsuarioSesion[]>([]);
+  const [students, setStudents] = useState<StudentSummary[]>([]);
+  // Compartir con otro profesor: se nombra por su usuario o correo (no hay directorio).
+  const [classroomShareHandle, setClassroomShareHandle] = useState('');
+  const [sharingStudentId, setSharingStudentId] = useState<string | null>(null);
+  const [studentShareHandle, setStudentShareHandle] = useState('');
+  // Si existe, esta sesión es la "vista de profesor" de un admin.
+  const impersonator = useMemo(() => getImpersonator(), []);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [activeClassroomId, setActiveClassroomId] = useState('');
   const [classroomDetail, setClassroomDetail] = useState<ClassroomDetail | null>(null);
@@ -244,7 +254,6 @@ export default function App() {
   const [summaryLoading, setSummaryLoading] = useState<string | null>(null);
   const [worksheetClassrooms, setWorksheetClassrooms] = useState<Record<string, Classroom[]>>({});
   const [studentForm, setStudentForm] = useState({ name: '', username: '', password: '' });
-  const [teacherForm, setTeacherForm] = useState({ name: '', username: '', password: '', email: '' });
   const [reviewComments, setReviewComments] = useState<Record<string, string>>({});
   const [selectedActivityId, setSelectedActivityId] = useState<string>(sampleWorksheet.activities[0]?.id ?? '');
   const [message, setMessage] = useState('');
@@ -386,12 +395,11 @@ export default function App() {
     if (!currentUser) return;
     try {
       if (currentUser.role !== 'student') {
-        const [teacherWorksheets, allStudents, allTeachers, teacherClassrooms, dashboardStats, vocabLists, allReaders] = await Promise.all([listTeacherWorksheets(currentUser.role === 'admin' ? undefined : currentUser.id), listStudents(), currentUser.role === 'admin' ? listTeachers() : Promise.resolve([]), listClassrooms(), getTeacherDashboard(), listVocabularyLists(), listReaders()]);
+        const [teacherWorksheets, allStudents, teacherClassrooms, dashboardStats, vocabLists, allReaders] = await Promise.all([listTeacherWorksheets(currentUser.id), listStudents(), listClassrooms(), getTeacherDashboard(), listVocabularyLists(), listReaders()]);
         // Garantizar orden más reciente primero, independientemente del backend
         const sortedWorksheets = [...teacherWorksheets].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setWorksheets(sortedWorksheets.length ? sortedWorksheets : [sampleWorksheet]);
         setStudents(allStudents);
-        setTeachers(allTeachers);
         setClassrooms(teacherClassrooms);
         setTeacherStats(dashboardStats);
         setVocabularyLists(vocabLists);
@@ -581,18 +589,6 @@ export default function App() {
     }
   }
 
-  async function createNewTeacher() {
-    try {
-      const created = await createTeacher(teacherForm.name, teacherForm.username, teacherForm.password, teacherForm.email);
-      setTeachers((current) => [created, ...current]);
-      setTeacherForm({ name: '', username: '', password: '', email: '' });
-      setMessage('Profesor creado correctamente.');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'No se pudo crear el profesor.');
-    }
-  }
-
-
   async function removeStudent(student: UsuarioSesion) {
     if (!window.confirm(`¿Eliminar definitivamente al estudiante "${student.name}"? Sus respuestas históricas conservarán el nombre, pero se desvincularán de su usuario.`)) return;
     try {
@@ -604,14 +600,63 @@ export default function App() {
     }
   }
 
-  async function removeTeacher(teacher: UsuarioSesion) {
-    if (!window.confirm(`¿Eliminar definitivamente al profesor "${teacher.name}"? Sus evaluaciones se reasignarán al administrador actual.`)) return;
+  /** Vuelve al panel de administración; si era una vista de profesor, devuelve la sesión al admin. */
+  function backToAdmin() {
+    stopImpersonating();
+    // Recarga completa: nada del estado del profesor visto debe quedar en memoria.
+    window.location.assign('/admin');
+  }
+
+  async function shareActiveClassroom() {
+    const handle = classroomShareHandle.trim();
+    if (!classroomDetail || !handle) return;
     try {
-      await deleteTeacher(teacher.id);
-      setTeachers((current) => current.filter((item) => item.id !== teacher.id));
-      setMessage('Profesor eliminado correctamente.');
+      await shareClassroom(classroomDetail.id, { username: handle });
+      setClassroomShareHandle('');
+      setClassrooms(await listClassrooms());
+      await refreshClassroomDetail(classroomDetail.id);
+      setMessage('Aula compartida. El otro profesor ya la ve en sus aulas.');
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el profesor.');
+      setMessage(error instanceof Error ? error.message : 'No se pudo compartir el aula.');
+    }
+  }
+
+  /** Quita a un profesor invitado; con el propio id es "salir del aula". */
+  async function removeClassroomTeacher(classroomId: string, teacherId: string) {
+    try {
+      await unshareClassroom(classroomId, teacherId);
+      const next = await listClassrooms();
+      setClassrooms(next);
+      if (next.some((c) => c.id === classroomId)) await refreshClassroomDetail(classroomId);
+      else { setActiveClassroomId(next[0]?.id ?? ''); if (!next.length) setClassroomDetail(null); }
+      setStudents(await listStudents());
+      setMessage(teacherId === user?.id ? 'Saliste del aula.' : 'El profesor ya no tiene acceso al aula.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo actualizar el aula.');
+    }
+  }
+
+  async function shareStudentWith(studentId: string) {
+    const handle = studentShareHandle.trim();
+    if (!handle) return;
+    try {
+      await shareStudent(studentId, { username: handle });
+      setStudentShareHandle('');
+      setSharingStudentId(null);
+      setStudents(await listStudents());
+      setMessage('Estudiante compartido. El otro profesor ya puede asignarlo a sus aulas.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo compartir el estudiante.');
+    }
+  }
+
+  async function removeStudentTeacher(studentId: string, teacherId: string) {
+    try {
+      await unshareStudent(studentId, teacherId);
+      setStudents(await listStudents());
+      setMessage(teacherId === user?.id ? 'Dejaste de tener a este estudiante.' : 'El estudiante ya no está compartido con ese profesor.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo actualizar el estudiante.');
     }
   }
 
@@ -1285,6 +1330,14 @@ export default function App() {
           </div>
         </div>
       </nav>
+      {(impersonator || user.role === 'admin') && (
+        <div className="border-b border-amber-200 bg-amber-50">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm text-amber-800">
+            <span>{impersonator ? <>Vista de profesor: estás viendo el portal como <strong>{user.name}</strong> (@{user.username}). Lo que hagas aquí lo haces en su cuenta.</> : 'Esta es tu vista de profesor: tus propias evaluaciones, aulas y alumnos.'}</span>
+            <button type="button" className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-white px-3 py-1.5 font-semibold text-amber-800 hover:bg-amber-100" onClick={backToAdmin}><ArrowLeft size={15} /> Volver a administración</button>
+          </div>
+        </div>
+      )}
       <div className={`mx-auto grid max-w-7xl gap-6 px-4 py-8 ${isolatedEdit ? '' : 'lg:grid-cols-[320px_1fr]'}`}>
         {/* En el editor aislado el menú lateral desaparece: la pantalla es solo esa hoja. */}
         {!isolatedEdit && <TeacherDashboard user={user} totalWorksheets={savedWorksheets.length} publishedCount={publishedCount} selectedMenu={adminMenu} notificationCount={notificationCount} onSelectMenu={handleSelectMenu} onLogout={() => { void logoutSession().then(() => navigate('/login', { replace: true })); setUser(null); }} />}
@@ -1402,7 +1455,7 @@ export default function App() {
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-rex">Aulas</p>
                 <h2 className="text-2xl font-bold">Gestión de aulas</h2>
-                <p className="mt-1 max-w-2xl text-sm text-slate-500">Un aula agrupa a tus alumnos y las hojas que les toca resolver: el alumno solo ve lo asignado a su aula. Solo aparecen las aulas que tú creaste.</p>
+                <p className="mt-1 max-w-2xl text-sm text-slate-500">Un aula agrupa a tus alumnos y las hojas que les toca resolver: el alumno solo ve lo asignado a su aula. Aparecen las aulas que creaste y las que otro profesor compartió contigo.</p>
               </div>
               <div className="flex gap-2"><input className="rounded-2xl border p-3" placeholder="Nombre del aula" value={classroomName} onChange={(e) => setClassroomName(e.target.value)} /><button className="rounded-2xl bg-rex px-4 py-3 font-semibold text-white" onClick={createNewClassroom}>Crear aula</button></div>
             </div>
@@ -1411,8 +1464,12 @@ export default function App() {
               <aside className="grid content-start gap-2">
                 {classrooms.map((classroom) => (
                   <div key={classroom.id} className={`flex items-center justify-between rounded-2xl border ${activeClassroomId === classroom.id ? 'border-rex bg-rex-light' : 'border-slate-100'}`}>
-                    <button className={`flex-1 p-3 text-left font-semibold ${activeClassroomId === classroom.id ? 'text-rex-deep' : ''}`} onClick={() => setActiveClassroomId(classroom.id)}>{classroom.name}</button>
-                    <button className="mr-2 rounded-xl border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50" onClick={() => void deleteClassroomHandler(classroom.id, classroom.name)} title="Eliminar aula"><X size={14} /></button>
+                    <button className={`flex-1 p-3 text-left font-semibold ${activeClassroomId === classroom.id ? 'text-rex-deep' : ''}`} onClick={() => setActiveClassroomId(classroom.id)}>
+                      {classroom.name}
+                      {classroom.created_by !== user.id && <span className="block text-xs font-normal text-slate-500">Compartida por {classroom.owner_name ?? 'otro profesor'}</span>}
+                      {classroom.created_by === user.id && !!classroom.teachers?.length && <span className="block text-xs font-normal text-slate-500">Compartida con {classroom.teachers.map((t) => t.name).join(', ')}</span>}
+                    </button>
+                    {classroom.created_by === user.id && <button className="mr-2 rounded-xl border border-red-200 bg-white px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50" onClick={() => void deleteClassroomHandler(classroom.id, classroom.name)} title="Eliminar aula"><X size={14} /></button>}
                   </div>
                 ))}
                 {!classrooms.length && <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No hay aulas creadas.</p>}
@@ -1422,13 +1479,35 @@ export default function App() {
                   <div className="grid gap-6">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div><h3 className="text-xl font-bold">{classroomDetail.name}</h3><p className="text-sm text-slate-500">Estudiantes y hojas asignadas a esta aula.</p></div>
-                      <button
-                        onClick={() => void toggleClassroomVisibility()}
-                        className={`flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition ${classroomDetail.is_public ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                      >
-                        <span className={`h-3 w-3 rounded-full ${classroomDetail.is_public ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                        {classroomDetail.is_public ? 'Visible para invitados' : 'Solo acceso con login'}
-                      </button>
+                      {classroomDetail.created_by === user.id ? (
+                        <button
+                          onClick={() => void toggleClassroomVisibility()}
+                          className={`flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition ${classroomDetail.is_public ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
+                        >
+                          <span className={`h-3 w-3 rounded-full ${classroomDetail.is_public ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                          {classroomDetail.is_public ? 'Visible para invitados' : 'Solo acceso con login'}
+                        </button>
+                      ) : (
+                        <button className="rounded-2xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600" onClick={() => { if (window.confirm(`¿Salir del aula "${classroomDetail.name}"? Dejarás de verla; el aula y sus alumnos no se borran.`)) void removeClassroomTeacher(classroomDetail.id, user.id); }}>Salir del aula</button>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-bold">Profesores</h4>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                        <span className="rounded-full bg-slate-50 px-3 py-1 font-semibold text-slate-700">{classroomDetail.created_by === user.id ? 'Tú' : classroomDetail.owner_name ?? 'Otro profesor'} · dueño</span>
+                        {(classroomDetail.teachers ?? []).map((teacher) => (
+                          <span key={teacher.id} className="inline-flex items-center gap-1 rounded-full bg-rex-light px-3 py-1 font-semibold text-rex-deep">
+                            {teacher.id === user.id ? 'Tú' : teacher.name}
+                            {classroomDetail.created_by === user.id && <button type="button" title="Dejar de compartir con este profesor" aria-label="Dejar de compartir con este profesor" className="rounded-full p-0.5 hover:bg-white" onClick={() => void removeClassroomTeacher(classroomDetail.id, teacher.id)}><X size={13} /></button>}
+                          </span>
+                        ))}
+                      </div>
+                      {classroomDetail.created_by === user.id ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <input className="rounded-xl border px-3 py-2 text-sm" placeholder="Usuario o correo del profesor" value={classroomShareHandle} onChange={(e) => setClassroomShareHandle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void shareActiveClassroom(); }} />
+                          <button className="rounded-xl border border-rex/30 bg-white px-3 py-2 text-sm font-semibold text-rex-deep" type="button" onClick={() => void shareActiveClassroom()}>Compartir aula</button>
+                        </div>
+                      ) : <p className="mt-2 text-xs text-slate-500">Puedes asignar alumnos y tus propias hojas. Solo el dueño puede borrar o compartir el aula.</p>}
                     </div>
                     <div>
                       <h4 className="font-bold">Estudiantes asignados</h4>
@@ -1459,7 +1538,7 @@ export default function App() {
           <section className="rounded-3xl bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-wide text-rex">Estudiantes</p>
             <h2 className="text-2xl font-bold">Tus alumnos</h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">Da de alta a cada alumno con su usuario y contraseña, y asígnalo a un aula para que empiece a ver hojas. Solo ves y editas los alumnos que tú creaste.</p>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">Da de alta a cada alumno con su usuario y contraseña, y asígnalo a un aula para que empiece a ver hojas. Ves los que tú creaste, los que otro profesor compartió contigo y los de tus aulas compartidas.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <input className="rounded-2xl border p-3" placeholder="Nombre" value={studentForm.name} onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })} />
               <input className="rounded-2xl border p-3" placeholder="Usuario" value={studentForm.username} onChange={(e) => setStudentForm({ ...studentForm, username: e.target.value })} />
@@ -1471,15 +1550,32 @@ export default function App() {
             <div className="mt-3 grid gap-2">
               {students.map((student) => (
                 <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
-                  <span>{student.name} · @{student.username}</span>
+                  <span>
+                    {student.name} · @{student.username}
+                    {student.created_by !== user.id && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-700">De {student.owner_name ?? 'otro profesor'}</span>}
+                    {student.created_by === user.id && (student.shared_with ?? []).map((teacher) => (
+                      <span key={teacher.id} className="ml-2 inline-flex items-center gap-1 rounded-full bg-rex-light px-2 py-0.5 text-xs font-bold text-rex-deep">
+                        Con {teacher.name}
+                        <button type="button" title="Dejar de compartir" aria-label="Dejar de compartir" className="rounded-full p-0.5 hover:bg-white" onClick={() => void removeStudentTeacher(student.id, teacher.id)}><X size={12} /></button>
+                      </span>
+                    ))}
+                  </span>
                   <div className="flex flex-wrap gap-2">
                     <select className="rounded-xl border bg-white px-3 py-2 text-sm" value={studentClassroomSelection[student.id] ?? ''} onChange={(e) => setStudentClassroomSelection((current) => ({ ...current, [student.id]: e.target.value }))}>
                       <option value="">Asignar a aula...</option>
                       {classrooms.map((classroom) => <option key={classroom.id} value={classroom.id}>{classroom.name}</option>)}
                     </select>
                     <button className="rounded-xl border border-rex/30 bg-white px-3 py-2 text-sm font-semibold text-rex-deep" type="button" onClick={() => assignStudentFromClassroom(student.id, studentClassroomSelection[student.id])}>Asignar</button>
-                    <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeStudent(student)}><Trash2 className="mr-1 inline" size={15} /> Eliminar</button>
+                    {student.created_by === user.id && <button className="rounded-xl border border-rex/30 bg-white px-3 py-2 text-sm font-semibold text-rex-deep" type="button" onClick={() => { setStudentShareHandle(''); setSharingStudentId(sharingStudentId === student.id ? null : student.id); }}>Compartir</button>}
+                    {student.created_by === user.id && <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeStudent(student)}><Trash2 className="mr-1 inline" size={15} /> Eliminar</button>}
+                    {student.created_by !== user.id && student.shared_with?.some((teacher) => teacher.id === user.id) && <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" title="Dejar de tener a este alumno compartido" onClick={() => void removeStudentTeacher(student.id, user.id)}>Quitar de mi lista</button>}
                   </div>
+                  {sharingStudentId === student.id && (
+                    <div className="flex w-full flex-wrap gap-2">
+                      <input autoFocus className="rounded-xl border bg-white px-3 py-2 text-sm" placeholder="Usuario o correo del profesor" value={studentShareHandle} onChange={(e) => setStudentShareHandle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void shareStudentWith(student.id); }} />
+                      <button className="rounded-xl bg-rex px-3 py-2 text-sm font-semibold text-white" type="button" onClick={() => void shareStudentWith(student.id)}>Compartir con este profesor</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1626,30 +1722,6 @@ export default function App() {
                 </article>
               ))}
               {!archivedWorksheets.length && <p className="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">No hay evaluaciones archivadas.</p>}
-            </div>
-          </section>
-        )}
-        {user.role === 'admin' && adminMenu === 'profesores' && (
-          <section className="rounded-3xl bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold uppercase tracking-wide text-rex">Administración</p>
-            <h2 className="text-2xl font-bold">Profesores</h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-500">Alta de cuentas docentes. Cada profesor trabaja aislado: solo ve sus propias aulas, alumnos y evaluaciones. Los profesores también pueden registrarse ellos mismos desde la pantalla de acceso.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-4">
-              <input className="rounded-2xl border p-3" placeholder="Nombre" value={teacherForm.name} onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })} />
-              <input className="rounded-2xl border p-3" placeholder="Usuario" value={teacherForm.username} onChange={(e) => setTeacherForm({ ...teacherForm, username: e.target.value })} />
-              <input className="rounded-2xl border p-3" placeholder="Contraseña" value={teacherForm.password} onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })} />
-              <input className="rounded-2xl border p-3" placeholder="Correo opcional" value={teacherForm.email} onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })} />
-            </div>
-            <button className="mt-4 rounded-2xl bg-rex px-5 py-3 font-semibold text-white" onClick={createNewTeacher}>Guardar profesor</button>
-            {message && <p className="mt-3 rounded-2xl bg-rex-light p-3 text-rex-deep">{message}</p>}
-            <h3 className="mt-6 font-bold">Profesores y administradores</h3>
-            <div className="mt-3 grid gap-2">
-              {teachers.map((teacher) => (
-                <div key={teacher.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
-                  <span>{teacher.name} · @{teacher.username} · {teacher.role === 'admin' ? 'Admin' : 'Profesor'}</span>
-                  {teacher.role === 'teacher' && <button className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-600" type="button" onClick={() => removeTeacher(teacher)}><Trash2 className="mr-1 inline" size={15} /> Eliminar</button>}
-                </div>
-              ))}
             </div>
           </section>
         )}

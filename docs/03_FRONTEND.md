@@ -11,7 +11,7 @@ El render de actividades tiene su propio documento: [08_RENDERER](08_RENDERER.md
 | `/login` | `LoginPage` | público |
 | `/registro` | `RegisterPage` | público — **solo crea profesores, solo con Google** |
 | `/teacher/:section?` | `App` (modo teacher) | teacher, admin |
-| `/admin/:section?` | `App` (modo admin) | admin |
+| `/admin/:section?` | `AdminPortal` (`profesores` · `aulas` · `estudiantes`) | admin |
 | `/student/:section?` | `App` (modo student) | student |
 | `/reader` | `ReaderPortal` | reader |
 | `/vocab` | `VocabPublicPage` | público |
@@ -308,11 +308,32 @@ colgados de `.rp` en `roleplay.css` (modo oscuro solo con variables bajo `:root[
 - Accesos: banner en `/juegos`, pie del sitio y la sección Juegos del portal (`RoleplayShare`:
   abrir, copiar enlace, QR).
 
+## Portal del administrador (`AdminPortal.tsx`, ADR-48)
+
+`/admin` **no es el portal docente con más permisos**: es otra pantalla, para administrar profesores.
+Carga todo con una sola llamada (`getAdminOverview`) y recarga tras cada cambio.
+
+| Sección | Qué hace |
+|---------|----------|
+| `profesores` | Alta de profesores; por cada uno, sus cifras (aulas propias, compartidas, alumnos, evaluaciones), el desglose al desplegar, **Ver como profesor** y Eliminar (eligiendo a quién pasa su contenido) |
+| `aulas` | Crear un aula **a nombre de un profesor**, cambiar el dueño, añadir/quitar profesores invitados y alumnos, renombrar, borrar |
+| `estudiantes` | Todos los alumnos: alta a nombre de un profesor, cambiar dueño, compartir, contraseña, borrar |
+
+**Vista de profesor.** `impersonateTeacher()` guarda la sesión del admin en `worksheet_admin_session`
+y pone la del profesor en `worksheet_auth_session`; el portal `/teacher` funciona sin saber nada.
+`App.tsx` muestra una franja con **Volver a administración** (`stopImpersonating()` + recarga
+completa). `logout()` y un 401 borran las dos claves. El admin también puede abrir `/teacher` como
+él mismo ("Mi vista de profesor"): ahí solo ve su propio contenido.
+
+**Compartir en el portal docente.** En *Aulas* y *Estudiantes* el dueño comparte escribiendo el
+**usuario o correo** del colega (no hay directorio de profesores). Lo ajeno lleva su etiqueta
+("Compartida por…", "De…") y no muestra Eliminar: el invitado solo puede salirse.
+
 ## Las secciones son rutas, no estado
 
 ```tsx
 const TEACHER_SECTIONS: TeacherMenu[] = ['dashboard', 'crear', 'evaluaciones', 'archivadas', 'envivo',
-  'aulas', 'estudiantes', 'profesores', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes', 'juegos'];
+  'aulas', 'estudiantes', 'revision', 'invitados', 'actividad', 'vocabulario', 'imagenes', 'juegos'];
 const STUDENT_TABS: StudentTab[] = ['activas', 'calificadas', 'vocabulario', 'perfil'];
 
 const adminMenu = TEACHER_SECTIONS.includes(section as TeacherMenu) ? section : 'crear';
